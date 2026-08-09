@@ -1,0 +1,59 @@
+# Bahia Archery League
+
+## Descripcion
+Se trata de un sistema para la gestion de la nueva liga de arqueros de CBA de bahia blanca.
+
+La liga desarrollara una serie de torneos durante el año (uno al mes) donde competiran los miembros del club junto con invitados de otros club.
+
+Las categorias disponible seran escuela, longbow sr, tradicional sr, razo sr, compuesto cazador sr, compuesto libre sr, recurvo olimpico sr.
+
+Los torneos seran de modalidad multitarget, eso implica que sera un recorrido donde se incluyen blancos de FITA (aire libre), Juego de Campo, 3D, y sala (18 metros). Los diferentes blancos estaran repartidos por un circuito y en cada blanco se respetaran el reglamento para esa modalidad. (ejemplo: en los blancos 3d se tiran 2, flechas, en campo y sala 3 flechas, en los fita 6 flechas). Se usaran las estacas azul, amarilla y roja para determinar las distancias de cada categoria.
+
+## Plataforma
+La plataforma sera web y estara optimizada para su uso en dispositivos mobiles. Se aprovechara el wifi del club aunque estaran optimizadas para funcionar offline y sincronizar luego cuando consigan señal (PWA).
+
+Se contara con 3 aplicaciones. Una landing page, una webapp para los administradores, una web app para las patrullas de arqueros que compiten.
+
+### landing page
+Se trata de una landing page en la cual se muestra los resultados de la liga y los puntajes por categoria.
+Desde la landing page se pueden ver los resultados de cada arquero en la liga y su puesto. Tambien se pueden ver los resultados de cada torneo realizado por la liga.
+
+### WAFA (web app for admin)
+Se trata de una web app para el uso del administrador del torneo, desde esta app se crean los torneos de la liga Bahiense, se elijen la cantidad de blancos, el tipo de modalidad de cada uno, la cantidad de flechas de cada blanco (por defecto la que corresponda al reglamento) y se agregan a los arqueros que van a participar.
+- Ejemplo: Se crea un torneo para el dia 08/08/2026, se incriben 20 arqueros, se seleccionan 14 blancos, los blancos del 1 al 6 seran modalidad 3d a 2 flechas, los blancos del 6 al 12 seran modalidad campo a 3 flechas, el blanco 13 sera de aire libre a 6 flechas y el ultimo blanco sera modalidad sala a 3 flechas.
+Tambien una vez se tengan todos los puntajes del torneo cargados el admin puede publicarlos en la landing para que los participantes puedan verlos.
+
+La app se encarga de distribuir a los arqueros en patrullas, asignarles una estaca y definirles uno de los blancos como punto de partida del recorrido. La app se encargara de distribuir a los arqueros en las patrullas conciderando su categoria, para eso tendra en cuenta los siguientes criterios: 
+1. Cada patrulla debe contar con un maximo de 4 arqueros y un minimo de 2.
+2. Cada patrulla tiran de a dos arqueros a la vez.
+3. Se deben reunir la mayor cantidad de arqueros de una misma categoria en una misma patrulla para que puedan tirar juntos. 
+Ejemplos de patrullas correctas:
+- A:[razo, razo] - B:[razo, razo] 👉 OK
+- A:[razo, razo] - B:[escuela, escuela] 👉 OK
+- A:[compuesto, compuesto] - B:[escuela, escuela] 👉 OK
+- A:[compuesto, compuesto] - B:[cazador] 👉 OK
+- A:[compuesto, compuesto] - B:[escuela] 👉 OK
+Ejemplos de patrullas incorrectas:
+- A:[razo, tradicional] - B:[razo, cazador] 👉 MAL!
+- A:[longbow, compuesto] - B:[razo, compuesto] 👉 MAL!
+- A:[escuela, escuela] - B:[escuela, escuela] 👉 MAL!
+Siempre se debe tratar de acomodar las patrullas de la mejor manera, el administrador puede editar las patrullas de forma manual antes de iniciar el torneo.
+4. Se deben distribuir a los arqueros en las estacas correctas:
+- recurvo, compuestos y cazadores 👉 estaca roja
+- razo, tradicional y longbow 👉 estaca azul
+- escuela 👉 estaca amarilla
+5. Definir un usuario lider por cada patrulla creada, los usuarios lider son quienes podran ingresar a la "WAFL" (web app for leader) y sera el que se encargue de ir anotando los puntajes de la patrulla. Si el torneo genera 5 patrullas deben crear 5 usuarios (usuario + password) los cuales se usaran para ingresar en la WAFL.
+Ejemplo:
+- Patrulla 1: usuario patrulla1, password: 9934
+- Patrulla 2: usuario patrulla2, password: 2344
+- Patrulla 3: usuario patrulla3, password: 1234
+- Patrulla 4: usuario patrulla4, password: 7895
+- Patrulla 5: usuario patrulla5, password: 0156
+Los usuarios seran "patrulla" + el numero, el password sera un codigo de 4 digitos.
+
+### WAFL (web app for leader)
+Se trata de una web app para el uso del lider de la patrulla, desde la app se podra acceder al torneo en curso y completar los puntajes de cada arquero en cada blanco. 
+Para ingresar a la app es necesario un usuario y password, los cuales se generan desde la WAFA.
+En la app veran los blancos del torneo ordenados por su posicion inicial (ejemplo si al crear el torneo desde la WAFA se definio que la patrulla 5 inicia desde el blanco 10, en la app vera como primer blanco el 10, luego el 11, etc, hasta el 9 que seria el ultimo.)
+Para cada blanco se muestra la informacion necesaria, cuantas flechas se deben tirar, que par de arqueros inicia tirando, quien tira a la derecha y quien a la izquierda y en que estaca.
+Una vez se terminan de anotar todos los puntos cada arquero puede revisar su puntaje y debe firmar (usando la pantalla del celu) para validar el puntaje. Es necesario la firma de todos los miembros de la patrulla para poder cerrar el circuito y poder guardar los datos.
