@@ -1,0 +1,50 @@
+Debes desarrollar una sistema web para la organización y gestion de torneos de arquería de la liga Bahiense de arqueria.
+
+Debe estar pensada para verla desde un smartphone principalmente y se trata de una web app (pwa).
+
+👉 Importante! 
+Se trata de una aplicación que la van a utilizar para anotar los puntajes. Debe ser rápida y ágil para no entorpecer su uso durante los torneos que es lo fundamental. No puede dejar de funcionar!
+
+👉 Contexto:
+Leer el archivo "1.context.md"
+
+👉 Descripcion de la plataforma:
+Leer el archivo "2.development.md"
+
+👉 STACK tecnologico:
+Leer el archivo "3.stack.md"
+
+👉 Skills:
+Haz uso de Skills de la comunidad para optimizar el desarrollo y seguir las mejores prácticas. (hacer uso de las skills instaladas)
+
+👉 Seguridad: 
+Debe seguir las mejores prácticas de seguridad para evitar cualquier tipo de ataque.
+
+👉 Tests:
+Crea una batería de tests suficientes para validar las funcionalidades de la aplicación. Se debe aplicar TDD.
+
+👉 Importante!!! Pasos a seguir:
+- Crea un análisis completo de los requerimientos.
+- Crea una plan de acción bien detallado con los pasos a seguir para que otros modelos de IA puedan seguirlos correctamente. No debes arrancar a desarrollarla, tu tarea es desarrollar todo el plan funcional y técnico, la arquitectura y el plan de acción y las tareas para que otros modelos puedan desarrollar los siguiendo los consejos y definiciones que generes.
+- Separa el plan de desarrollo en Front y Back.
+- Cada plan debe estar organizado en pequeñas tareas organizadas por prioridad.
+- La performance y la seguridad no son negociables, deben respetarse.
+- Crea archivos de documentación que sirvan de contexto.
+
+👉 Documentos a generar:
+- archivo de documentación funcional
+- archivo de documentación técnica 
+- archivo de documentación de arquitectura 
+- archivo de documentación de configuraciones
+- archivo de plan de acción con las tareas y el paso a paso para su desarrollo
+- archivo de bitacora (se van marcando las tareas completadas)
+- puedes sumar más archivos de documentación si lo ves necesario.
+
+👉 Investigación:
+- Investiga en internet sobre otras apps similares y sobre los reglamentos de la World Archery para ayudarte en el análisis.
+
+👉 Preguntas
+Si tienes preguntas sobre los requerimientos, sobre la app, sobre las funcionalidades o sobre cualquier tema relacionado házmela 
+
+Puedes dar inicio al desarrollo del plan.
+
