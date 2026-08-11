@@ -23,6 +23,7 @@ import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
 import { health } from './routes/health.js';
+import { publico } from './routes/publico.js';
 import { wafl } from './routes/wafl.js';
 
 export interface AppOptions {
@@ -68,6 +69,7 @@ export function createApp(options: AppOptions = {}): Hono {
   app.route('/api/auth', auth);
   app.route('/api/admin', admin);
   app.route('/api/wafl', wafl);
+  app.route('/api/public', publico);
 
   app.notFound((c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'No se encontró lo que buscabas.' } }, 404),
