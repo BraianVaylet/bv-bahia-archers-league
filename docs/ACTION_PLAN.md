@@ -214,13 +214,15 @@ _(Hecho. **163 tests en `@bal/api`.** Un torneo sin publicar NUNCA expone puntaj
 
 # Fase 3 — WAFL · P0 · **la app crítica**
 
-### `[ ] FE-1` · Bootstrap de la PWA
+### `[x] FE-1` · Bootstrap de la PWA
+_(Hecho. Vite 8 + React 19 + Tailwind 4 con los tokens del design system, tema claro/oscuro con anti-FOUC, y VitePWA con **`registerType: prompt`** y `scope: /app/`. El endpoint de sync queda **excluido** del runtime caching: cachear una escritura podría enmascarar fallos. Build genera precache de 6 entradas.)_
 **Archivos:** `packages/app/{vite.config.ts,index.html}`, `src/{main,App,theme}.tsx`, `src/styles/index.css`, `public/*`
 **Referencia:** [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) · [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §8
 **Contenido:** Vite + React + Tailwind 4 + tokens CSS del design system + tema claro/oscuro con anti-FOUC (**hash en CSP**, no `unsafe-inline`) + VitePWA con **`registerType: 'prompt'`** y `scope: '/app/'` + fuentes autohospedadas.
 **DoD:** la app monta · conmutador de tema funciona sin parpadeo · manifest válido y app instalable · `registerType` es `prompt`, verificado en un test · versión visible en la UI.
 
-### `[ ] FE-2` · Capa offline ⭐⭐
+### `[x] FE-2` · Capa offline ⭐⭐
+_(Hecho. `db.ts` (IndexedDB con `idb`), `outbox.ts`, `syncWorker.ts` y `useSyncStatus.ts`. **24 tests.** El puntaje y su op se escriben en **una sola transacción de IndexedDB**. Validación en el cliente antes de encolar. Backoff con jitter; **un error de red o un 401 nunca descartan ops**. El total del servidor pisa al local. El cierre se bloquea con ops pendientes. Cinco mutaciones probadas: tres detectadas de entrada, dos revelaron tests débiles que se corrigieron.)_
 **La tarea más crítica del frontend.**
 **Archivos:** `src/offline/{db,outbox,syncWorker,useSyncStatus}.ts`
 **Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §3, §4, §5
