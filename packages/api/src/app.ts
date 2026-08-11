@@ -20,6 +20,7 @@ import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
+import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
 import { health } from './routes/health.js';
 
@@ -56,6 +57,7 @@ export function createApp(options: AppOptions = {}): Hono {
   app.use('/api/*', csrfProtection());
 
   app.route('/api/auth', auth);
+  app.route('/api/admin', admin);
 
   app.notFound((c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'No se encontró lo que buscabas.' } }, 404),

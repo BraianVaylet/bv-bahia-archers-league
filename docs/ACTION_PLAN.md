@@ -133,12 +133,14 @@ _(Hecho. `userRepo`, `sessionRepo`, `lib/session.ts`, `middleware/auth.ts`, `aut
 **Referencia:** [`SECURITY.md`](SECURITY.md) §3.1, §8 · [`TESTING.md`](TESTING.md) §4.1
 **DoD:** register no existe (el admin se siembra) · login timing-safe verificado con comparación estadística · `mustChangePassword` bloquea toda otra ruta · bloqueo tras 5 intentos · logout invalida en base · en base **no** existe el password en claro.
 
-### `[ ] BE-4` · Arqueros y temporadas
+### `[x] BE-4` · Arqueros y temporadas
+_(Hecho. CRUD de arqueros y temporadas, archivar y restaurar, búsqueda normalizada sin acentos. **Eliminar un arquero que participó devuelve `ARCHER_IN_USE`**, verificado. Los metacaracteres del término de búsqueda se escapan: sin eso una regex del usuario es un vector de ReDoS.)_
 **Archivos:** `src/routes/admin/{archers,seasons}.ts`, servicios y repositorios correspondientes
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4, §6.5 · [`TECHNICAL.md`](TECHNICAL.md) §3.2
 **DoD:** CRUD completo · archivar y restaurar · **eliminar un arquero que participó devuelve `ARCHER_IN_USE`** · búsqueda por `searchKey` normalizado · todas las rutas exigen sesión de admin.
 
-### `[ ] BE-5` · Crear torneo ⭐
+### `[x] BE-5` · Crear torneo ⭐
+_(Hecho. Transacción completa: torneo → participantes con snapshot → patrullas → credenciales → audit log. **106 tests en `@bal/api`.** `maxPossibleScore` = **330** en el caso de referencia del brief. **Rollback probado** inyectando un fallo: no queda ni torneo, ni patrullas, ni participantes. El PIN se guarda hasheado y cifrado, nunca en claro. Cuatro mutaciones probadas, las cuatro detectadas.)_
 **Archivos:** `src/routes/admin/tournaments.ts`, `src/services/tournamentService.ts`, `src/repositories/{tournamentRepo,patrolRepo,participantRepo}.ts`
 **Referencia:** [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.1 · [`TESTING.md`](TESTING.md) §4.4
 **Contenido:** transacción completa — insertar torneo → `buildPatrols` → insertar participantes con snapshot y estaca → generar PIN de 6 dígitos con `crypto.randomInt` → argon2id + AES-GCM → insertar patrullas con blanco de inicio → audit log.
