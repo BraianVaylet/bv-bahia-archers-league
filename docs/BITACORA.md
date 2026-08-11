@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `FE-4`, `FE-5`, `FE-7` y `FE-8` — WAFL completa
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+**La app crítica queda terminada**: entrar → recorrer → anotar sin señal → ver resultados → firmar → cerrar.
+
+`sesion.ts`, `CircuitPage`, `ResultsPage` y `SignaturePad`.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Entrar sin conexión | Sólo si el bundle guardado es **del mismo torneo** | Los datos de otro torneo no sirven, y usarlos sería peor que no entrar. |
+| Puntajes del servidor al entrar | Se siembran, pero **no pisan** lo local pendiente | Un puntaje pendiente es más nuevo que lo que el servidor conoce. Cubre el caso del líder que cambia de dispositivo. |
+| `logout` | Borra todo lo local **aunque falle la red** | Un celular prestado no puede quedarse con los datos sólo porque no había señal. |
+| Almacenamiento persistente | Se pide al entrar | Sin eso el navegador puede desalojar IndexedDB bajo presión de espacio — a mitad del torneo. Ver [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §11. |
+| Blanco completo | Sólo cuando **todos** los arqueros lo cargaron | Un blanco con la mitad de la patrulla no está listo. |
+| Firma | El puntaje va **arriba del canvas** | Nadie firma algo que no está viendo. |
+| Cierre sin señal | No cierra, y aclara *"tus puntajes ya están guardados en el celular"* | El líder no puede quedarse con la duda de si perdió el trabajo. |
+
+**Una mutación que reveló un test que pasaba antes de tiempo**
+
+De cinco mutaciones, cuatro se detectaron. La que sobrevivió —marcar un blanco como completo con un solo arquero— pasaba porque el `waitFor` que esperaba *"3 Pendiente"* **se cumplía con el estado inicial vacío**, antes de que los puntajes cargaran desde IndexedDB.
+
+Es un modo de falla sutil: `waitFor` tiene éxito en el primer chequeo si la condición ya se cumple por accidente. Corregido esperando al **contador** (`0 de 3 blancos`), que sólo llega a su valor real después de cargar y distingue los dos casos.
+
+**Tests**
+
+64 tests en `@bal/app` (18 nuevos).
+
+Cubren, entre otros: que el bundle de otro torneo no se reusa · que el logout limpia con la red caída · el orden de los blancos desde el de inicio · que Resultados finales se bloquea hasta completar el recorrido · que el cierre nombra a quienes faltan firmar · que con ops pendientes no cierra y lo explica · que no se puede confirmar una firma sin trazo.
+
+**Estado del proyecto:** backend completo y WAFL completa. Falta WAFA (`FE-9`..`FE-16`), la landing (`FE-17`..`FE-20`), el E2E con tramo offline (`TEST-1`) y el deploy (`INF-3`..`INF-5`).
+
+**Próximo:** `TEST-1` —el E2E que ata todo— o arrancar WAFA.
+
+---
+
 ## 2026-08-10 · `FE-3` y `FE-6` — Infraestructura y teclado de scoring
 
 **Autor:** Claude Opus 5 · **Estado:** completado
