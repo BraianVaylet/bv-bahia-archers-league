@@ -23,6 +23,7 @@
 
 import { CATEGORY_INFO, DEFAULT_STAKE_MAP, isEscuela, stakeForCategory } from './constants.js';
 import type { BowCategory, Position, Stake, StakeMap, Unit } from './domain.js';
+import { comparePersonName, compareText } from './text.js';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -88,24 +89,11 @@ export const MAX_PATROL_SIZE = 4;
 
 // ── Orden determinista ───────────────────────────────────────────────────────
 
-/**
- * Normaliza para comparar sin depender del locale: `localeCompare` puede variar
- * entre entornos y el armado tiene que ser reproducible en cualquier máquina.
- */
-function normalizar(texto: string): string {
-  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
-function compararTexto(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 function compararParticipantes(a: ParticipantInput, b: ParticipantInput): number {
   return (
     CATEGORY_INFO[a.category].sort - CATEGORY_INFO[b.category].sort ||
-    compararTexto(normalizar(a.lastName), normalizar(b.lastName)) ||
-    compararTexto(normalizar(a.firstName), normalizar(b.firstName)) ||
-    compararTexto(a.archerId, b.archerId)
+    comparePersonName(a, b) ||
+    compareText(a.archerId, b.archerId)
   );
 }
 
