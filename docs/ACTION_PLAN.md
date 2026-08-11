@@ -116,7 +116,8 @@ _(Hecho. `leaguePointsForPosition`, `normalizedPct`, `applyTournamentToStandings
 **Base:** portar de `bv-easy-archery-battle/packages/shared/src/stats.ts`, agregando el desglose por modalidad.
 **DoD:** la suma del desglose por modalidad es igual al total · mejor y peor blanco · evolución en orden.
 
-### `[ ] SH-7` · Schemas Zod compartidos
+### `[x] SH-7` · Schemas Zod compartidos
+_(Hecho. `schemas.ts` con auth, padrón, temporadas, torneo, patrullas y sincronización. **Todos `z.strictObject`**, con topes de largo y de cantidad. **272 tests en el paquete, cobertura 100%.** Los cuatro schemas que reciben identificadores rechazan `{ $ne: null }`, verificado con test. Los tokens de flecha **no** se validan acá contra una lista fija: dependen de la modalidad del blanco, que el servidor lee del torneo. Verificado que los tres paquetes (`api`, `app`, `landing`) los importan desde el build. Se movieron `MIN/MAX_PATROL_SIZE` a `constants.ts`, ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `packages/shared/src/schemas/*.ts`
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §4
 **Contenido:** `auth`, `archer`, `season`, `tournament`, `patrol`, `sync`. **Todos `.strict()`**, con longitudes y cantidades máximas.

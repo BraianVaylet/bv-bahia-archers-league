@@ -14,6 +14,45 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `SH-7` — Schemas Zod compartidos
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`schemas.ts` con los contratos de entrada de auth, padrón, temporadas, torneo, patrullas y sincronización. Todos `z.strictObject`. Con esto el dominio queda cerrado salvo `SH-6` (estadísticas).
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Tokens de flecha | **No** se validan contra una lista fija; sólo se acota la forma (1-2 caracteres) | El set válido depende de la modalidad **de ese blanco**, que el servidor lee del torneo en base. Validarlos acá obligaría a aceptar la unión de las cuatro modalidades, que es más laxo que lo correcto. Ver [`DOMAIN_WA.md`](DOMAIN_WA.md) §7. |
+| Tope en el password | 128 caracteres | argon2id sobre un input enorme cuesta caro: sin tope es un vector de DoS barato. |
+| Mínimo de arqueros al crear torneo | 2 | Con menos no se puede armar ni una patrulla (`H1`). |
+| Índices de blancos | Se exige que sean **contiguos desde 1**, sin huecos ni repetidos | `scores` referencia el blanco por su índice; un hueco rompería la correspondencia. |
+| `PatrolDistributionSchema` | Valida la **forma**, no las restricciones `H1`..`H4` | Esas las verifica `validatePatrols`, que informa sin bloquear porque el admin puede tener motivos para una excepción. Ver [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6. |
+| `stakeMap` y `distances` | Escritos explícitos, no generados desde `STAKES` | Las tres estacas son semántica fija del dominio; el schema se lee de un vistazo. Además, generarlos con `Object.fromEntries` y un cast fue justamente lo que rompió (ver abajo). |
+
+**Bug propio, y la lección de proceso**
+
+Al escribir `schemas.ts` importé `MIN_PATROL_SIZE` y `MAX_PATROL_SIZE` desde `constants.ts`, pero vivían en `patrolling.ts`. En runtime llegaban como `undefined`, así que `z.array(...).min(undefined)` producía un issue con `minimum` indefinido y **Zod explotaba al formatear el mensaje de error**: `TypeError: Cannot read properties of undefined (reading 'toString')`. Un error críptico, a tres capas de distancia de la causa.
+
+`tsc` lo habría marcado de inmediato. El problema fue de proceso: corrí los tests antes que el typecheck. **De acá en adelante, typecheck antes de tests** cuando se agregan imports nuevos.
+
+Aprovechando el arreglo, `MIN_PATROL_SIZE` y `MAX_PATROL_SIZE` se movieron a `constants.ts`, que es donde viven el resto de las constantes de dominio. `patrolling.ts` las importa de ahí.
+
+**Tests**
+
+272 tests en el paquete (68 nuevos). **Cobertura 100%** en las cuatro métricas.
+
+El bloque que más importa es el de **inyección NoSQL**: los cuatro schemas que reciben identificadores o nombres rechazan `{ $ne: null }`, y un `$where` no puede colarse como propiedad extra. Sin eso, un operador de Mongo llegaría a un filtro y devolvería el primer documento que encuentre.
+
+También se cubrió: `SyncBatchSchema` acepta 200 ops de golpe —una patrulla que vuelve de tres horas sin señal manda cientos— y rechaza `opId` repetidos dentro del mismo batch.
+
+**Verificación adicional del DoD:** se comprobó que los tres paquetes (`@bal/api`, `@bal/app`, `@bal/landing`) importan los schemas **desde el build**, no desde el fuente, ejecutando un script en cada uno.
+
+**Próximo:** `BE-3` — autenticación de admin.
+
+---
+
 ## 2026-08-10 · `SH-4` y `SH-5` — Ranking de torneo y liga
 
 **Autor:** Claude Opus 5 · **Estado:** completado
