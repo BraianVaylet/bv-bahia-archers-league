@@ -34,25 +34,28 @@ Tareas pequeñas, priorizadas y **autocontenidas**. Cada una se puede tomar de f
 **DoD:** `pnpm install` sin errores · `pnpm lint` corre · `.env.example` con todas las variables de [`CONFIG.md`](CONFIG.md) §2.
 _(Hecho. `pnpm install` ok; `pnpm lint` sale 0 sobre Biome 2.5.7 con config v2 (`files.includes` con negaciones, `assist.actions.source.organizeImports`, `linter.rules.preset`). `tsconfig.base.json` con `strict` + `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals/Parameters` y alias `@bal/shared`. Las 22 variables de `CONFIG.md` §2 verificadas contra `.env.example`. Versiones fijadas: TS 5.9.3, Biome 2.5.7, pnpm 9.15.0.)_
 
-### `[ ] INF-2` · Scaffolds de los paquetes
+### `[x] INF-2` · Scaffolds de los paquetes
 **Objetivo:** los cuatro paquetes existen y compilan vacíos.
 **Archivos:** `packages/{shared,api,app,landing}/package.json` + `tsconfig.json` + `src/index.ts`
 **DoD:** `pnpm -r build` pasa · `pnpm -r typecheck` pasa · los nombres son `@bal/shared`, `@bal/api`, `@bal/app`, `@bal/landing`.
+_(Hecho. `shared` emite a `dist` con `tsc`; `api` usa `module: NodeNext` para que `node dist/index.js` corra sin bundler (imports relativos con `.js`); `app` y `landing` con Vite 8 + React 19, `base: '/app/'` y `base: '/'` respectivamente, y proxy de `/api` en dev. `pnpm typecheck` 4/4 · `pnpm build` completo · `pnpm start` arranca · `pnpm lint` limpio sobre 25 archivos. Bundle inicial de ambos frontends: 60 KB gz (baseline de React), contra presupuestos de 150 KB y 120 KB.)_
 
-### `[ ] SH-1` · Catálogos de dominio
+### `[x] SH-1` · Catálogos de dominio
 **Objetivo:** modalidades, categorías y estacas como única fuente de verdad.
 **Archivos:** `packages/shared/src/{constants,domain,types}.ts`
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §1, §3, §4
 **Contenido:** las 4 modalidades con `defaultArrows`, `maxPerArrow`, `scoringSet`, `innerToken`, `tiebreakTokens`; las 7 categorías con su orden; el `stakeMap` por defecto.
 **DoD:** exports tipados, sin `any` · un test verifica que cada modalidad tiene el set y los defaults de la tabla de `DOMAIN_WA.md` §1.
+_(Hecho con TDD. `domain.ts`: tipos, tokens y catálogos (`MODALITIES`, `BOW_CATEGORIES`, `STAKES`, `UNITS`, `POSITIONS`, estados, `DomainError`). `constants.ts`: `SCORING` con las 4 modalidades escritas explícitas para poder cotejarlas contra el reglamento, `CATEGORY_INFO` con `senior` (sostiene `H3`), `DEFAULT_STAKE_MAP`, `stakeForCategory` con mapeo editable, `LEAGUE_POINTS_BY_POSITION`, `MIN_TOURNAMENTS_FOR_RANKING`. **56 tests, cobertura 100%** de líneas, ramas y funciones. Los tests se vieron fallar primero, y además se verificó que no son vacuos mutando `defaultArrows` del 3D y el `stakeMap` — ambas mutaciones detectadas.)_
 
-### `[ ] SH-2` · Scoring · **TDD**
+### `[x] SH-2` · Scoring · **TDD**
 **Objetivo:** validar y computar el puntaje de un blanco.
 **Archivos:** `packages/shared/src/scoring.ts` + `tests/scoring.test.ts`
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §1, §7 · casos en [`TESTING.md`](TESTING.md) §3.1
 **Base:** portar de `bv-easy-archery-battle/packages/shared/src/scoring.ts`, renombrando `end` → `target` y agregando el token `X6`.
 **API:** `tokenValue` · `isValidToken` · `validateTargetScore` · `maxTargetScore` · `maxPossibleScore` · `sortArrowsDescending`
 **DoD:** todos los casos de `TESTING.md` §3.1 verdes, incluidos los cruces de token entre modalidades (`11` en sala, `X` en 3D, `7` en campo) · cobertura de ramas ≥ 95%.
+_(Hecho con TDD. **107 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. Los 9 cruces de token entre modalidades cubiertos. `maxPossibleScore` verificado contra el caso de referencia del brief: 6×3D(2) + 6×campo(3) + aire libre(6) + sala(3) = **330**. Guarda de prototipo con `Object.hasOwn`: sin ella un token `"toString"` pasaba por válido. Se documentó en [`DOMAIN_WA.md`](DOMAIN_WA.md) §8 qué cuenta como "10" (la `X` entra porque vale 10), que estaba ambiguo. Tres mutaciones verificadas: `tenCount` sobre el token equivocado, `lookupValue` sin guarda de prototipo, y `sortArrowsDescending` ignorando el inner — las tres detectadas.)_
 
 ### `[ ] BE-1` · Conexión e índices de MongoDB
 **Objetivo:** conectar, crear índices, sembrar, resetear.

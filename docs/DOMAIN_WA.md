@@ -238,6 +238,12 @@ Orden de clasificación (mayor a menor):
 3. **Cantidad de 10** (desc).
 4. **Menor cantidad de `M`** (asc).
 
+> **Qué cuenta como "10".** `tenCount` cuenta las flechas **que valen 10**, así que la `X` entra (vale 10) y también el `10` del 3D. El juego de campo aporta 0, porque su máximo por flecha es 6 y no existe el token.
+>
+> Esto sigue la convención de World Archery, donde los 10 incluyen las X. Como el criterio 2 ya separó por inner, contar la X de nuevo en el criterio 3 no altera el orden entre dos arqueros con distinto conteo de X: solo desempata a los que empataron en inner.
+>
+> El criterio 2 usa el token inner **de cada modalidad**, así que en un recorrido multitarget se suman `X` (sala y aire libre), `X6` (campo) y `11` (3D). Los tres representan lo mismo: la zona central del blanco.
+
 Si persiste el empate → **puesto compartido**: ambos figuran en la misma posición y la siguiente posición se saltea (1, 2, 2, 4).
 
 > **Nota sobre multitarget.** Como todos los arqueros de un torneo recorren los **mismos blancos** (solo cambia el orden de inicio), los totales del torneo sí son directamente comparables entre sí. La normalización de §9 aplica solo al comparar **entre torneos distintos**.
