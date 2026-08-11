@@ -14,6 +14,50 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-1` — Conexión, índices, seed y reconcile
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Base de datos del backend: `env.ts`, `db/{client,types,indexes,seed,reset,reconcile,cli}.ts` y `lib/crypto.ts`.
+
+### 🐛 Bug latente encontrado y corregido
+
+**El build de `@bal/shared` era incargable por Node.**
+
+`tsc` con `moduleResolution: Bundler` emite los imports relativos **sin extensión**, y Node bajo ESM los rechaza. `import('@bal/shared')` fallaba con `ERR_MODULE_NOT_FOUND`. No se había notado porque hasta ahora nada importaba el dominio desde Node: los tests de `shared` corren sobre el código fuente con Vitest, y el scaffold del backend no lo usaba.
+
+Habría explotado en `BE-5`, la primera vez que un servicio importara el dominio — o peor, recién en producción.
+
+Corregido agregando `.js` explícito a los imports relativos de `shared/src`. Verificado con `node -e "import('@bal/shared')"` → 31 exports.
+
+**Decisión relacionada:** el `tsconfig.json` de `@bal/api` anula el alias `paths` de `tsconfig.base.json` con `"paths": {}`. El backend tiene que resolver `@bal/shared` **como lo va a resolver Node en producción**: por los `exports` del paquete hacia `dist`. Apuntar al código fuente ocultaría exactamente esta clase de error de empaquetado. Como contrapartida, `pnpm typecheck` ahora construye `shared` primero.
+
+### Otras decisiones
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| `env.ts` | Reúne **todos** los problemas de configuración y los reporta juntos | Quien está configurando un deploy no debería descubrirlos de a uno. |
+| Producción | Rechaza explícitamente los valores de desarrollo del `.env.example` (`CBA2026`, el secreto de ejemplo, la clave en ceros), exige `ADMIN_INITIAL_PASSWORD` de 12+ y que `SESSION_SECRET` y `PIN_ENC_KEY` sean distintas | Un servidor de producción que levanta con un secreto de desarrollo es peor que uno que no levanta. |
+| `db:reset` | Falla en producción y **no tiene flag para forzarlo** | Si alguna vez hay que vaciar producción, se hace a mano y con backup, no con un comando que se puede tipear por accidente. |
+| `seed` | Idempotente, y **nunca pisa** un password ya cambiado | El seed corre en cada arranque del deploy. Pisar el password devolvería la cuenta al valor del `.env`. |
+| Argon2 | `@node-rs/argon2`, no `argon2` | Binarios precompilados: `argon2` necesita toolchain de C y falla en Windows y en imágenes slim. |
+| Zod 4 | Se adoptó (la doc asumía 3.x) | Verificado antes de apoyarse en él: `.strict()` y `z.strictObject()` rechazan tanto propiedades extra como `{ $ne: null }`. Actualizado [`TECHNICAL.md`](TECHNICAL.md) §1. |
+| `syncOps._id` | Es el `opId` del cliente | Deduplicar pasa a ser un `insert` que falla con `E11000`, sin `findOne` previo. Verificado con test. |
+
+### Tests
+
+29 tests contra **MongoDB real en modo replica set** (`mongodb-memory-server`). Sin replica set no hay transacciones, y sin transacciones no se puede probar lo que más importa.
+
+Cubierto: que las transacciones efectivamente funcionan · los 26 índices de `TECHNICAL.md` §2 · idempotencia de `ensureIndexes` · que los índices únicos de patrullas y de `scores` realmente rechazan duplicados (es lo que sostiene la idempotencia de la sincronización) · que el password del admin se guarda hasheado con argon2id y nunca en claro · que `seed` no pisa un password cambiado · que `reset` falla en producción · que `reconcile` recomputa los rollups desde los puntajes crudos.
+
+Sin Docker en el entorno, así que no se pudo probar contra un Atlas real ni correr el CLI `db:indexes` contra una base viva. `mongodb-memory-server` descarga su propio `mongod` 8.2.6 y cubre el caso.
+
+**Deuda saldada:** `--passWithNoTests` sacado de `@bal/api`.
+
+**Próximo:** `BE-2` — base de Hono y middlewares de seguridad.
+
+---
+
 ## 2026-08-10 · `SH-3` — Armado de patrullas
 
 **Autor:** Claude Opus 5 · **Estado:** completado

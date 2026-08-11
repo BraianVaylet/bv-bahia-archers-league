@@ -18,7 +18,7 @@
     "start": "pnpm --filter @bal/api start",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "test:e2e": "pnpm --filter @bal/app test:e2e",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @bal/shared build && pnpm -r typecheck",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
