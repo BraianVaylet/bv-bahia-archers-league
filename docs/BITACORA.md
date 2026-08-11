@@ -14,6 +14,50 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-3` — Autenticación de admin
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`repositories/{userRepo,sessionRepo}.ts`, `lib/session.ts`, `middleware/auth.ts`, `services/authService.ts` y `routes/auth.ts`.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Login timing-safe | Si el usuario no existe, se compara igual contra un hash de referencia | Sin eso, un login contra una cuenta inexistente responde en microsegundos y uno contra una real tarda lo que tarda argon2id. Esa diferencia permite **enumerar cuentas midiendo el tiempo**. |
+| Mensaje de error | El **mismo** para usuario inexistente y para password incorrecto | Hay un test que compara los dos cuerpos de respuesta byte a byte. |
+| Bloqueo por intentos | 5 fallidos → 15 minutos, y el 6º falla **aun con el password correcto** | Si el bloqueo se levantara al acertar, no serviría de nada contra fuerza bruta. |
+| Contador de intentos | Se incrementa con `findOneAndUpdate` atómico | Dos intentos simultáneos no pueden pisarse el contador. |
+| `mustChangePassword` | Bloquea con **403** toda ruta protegida salvo el propio cambio de password | El password con el que se hizo el deploy no puede quedar como password permanente. El 403 lleva `details.mustChangePassword` para que el frontend sepa a dónde redirigir. |
+| Cambiar el password | Invalida **todas** las sesiones y abre una nueva para quien lo cambió | Si el motivo del cambio es que el password se filtró, dejar vivas las sesiones abiertas no arregla nada. Quien cambió acaba de demostrar que conoce el password, así que su sesión se renueva. |
+| Logout | Borra la sesión **en la base**, no sólo la cookie | Si el token se filtró, borrar la cookie del navegador no sirve. |
+| Filtro por `expiresAt` al leer la sesión | Explícito, además del índice TTL | Mongo barre los vencidos cada ~60 segundos: entre el vencimiento y el barrido la sesión todavía existe en la colección. Hay test. |
+
+**Tests**
+
+83 tests en `@bal/api` (27 nuevos).
+
+El que más valor tiene es el de **timing**: no verifica por inspección que exista el hash de referencia, sino que **mide** el tiempo de un login contra un usuario existente y contra uno inexistente y exige que sean del mismo orden. Descarta la primera medición, que incluye el cálculo del hash de referencia.
+
+También cubierto: que en la base se guarda `sha256(token)` y nunca el token, que la cookie es `HttpOnly` y `SameSite=Lax`, que una cookie inventada no autentica, y que una sesión vencida no autentica aunque siga en la colección.
+
+**Seis mutaciones probadas, las seis detectadas:**
+
+| Mutación | Tests que fallan |
+|---|---|
+| Sin hash de referencia (enumeración por tiempo) | 1 |
+| Logout no invalida en la base | 1 |
+| Se guarda el token en claro en vez del `sha256` | 12 |
+| No se filtra por `expiresAt` al leer la sesión | 1 |
+| `mustChangePassword` no bloquea | 2 |
+| Cambiar el password no invalida las otras sesiones | 2 |
+
+**Nota de proceso:** una de las mutaciones tocó un archivo **nuevo, todavía no trackeado por git**, así que `git checkout` no la revirtió y quedó aplicada. Se detectó al verificar. De acá en adelante, en las pruebas de mutación conviene revertir desde una copia propia, no confiar en git para archivos sin commitear.
+
+**Próximo:** `BE-5` — crear torneo, transaccional. Ya tiene todas sus dependencias listas.
+
+---
+
 ## 2026-08-10 · `SH-7` — Schemas Zod compartidos
 
 **Autor:** Claude Opus 5 · **Estado:** completado
