@@ -27,11 +27,12 @@ Tareas pequeñas, priorizadas y **autocontenidas**. Cada una se puede tomar de f
 
 # Fase 0 — Fundaciones · P0
 
-### `[ ] INF-1` · Monorepo
+### `[x] INF-1` · Monorepo
 **Objetivo:** dejar el repositorio listo para trabajar.
 **Archivos:** `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `biome.json`, `.gitignore`, `.env.example`
 **Cómo:** portar la configuración de `bv-easy-archery-battle` (raíz). Cuatro paquetes: `shared`, `api`, `app`, `landing`.
 **DoD:** `pnpm install` sin errores · `pnpm lint` corre · `.env.example` con todas las variables de [`CONFIG.md`](CONFIG.md) §2.
+_(Hecho. `pnpm install` ok; `pnpm lint` sale 0 sobre Biome 2.5.7 con config v2 (`files.includes` con negaciones, `assist.actions.source.organizeImports`, `linter.rules.preset`). `tsconfig.base.json` con `strict` + `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals/Parameters` y alias `@bal/shared`. Las 22 variables de `CONFIG.md` §2 verificadas contra `.env.example`. Versiones fijadas: TS 5.9.3, Biome 2.5.7, pnpm 9.15.0.)_
 
 ### `[ ] INF-2` · Scaffolds de los paquetes
 **Objetivo:** los cuatro paquetes existen y compilan vacíos.
@@ -352,6 +353,7 @@ Tareas pequeñas, priorizadas y **autocontenidas**. Cada una se puede tomar de f
 - `[ ] FE-25` Comparativas entre arqueros y contra el promedio de la categoría.
 - `[ ] BE-15` Exportación del torneo a CSV.
 - `[ ] FE-26` Modo pantalla grande para proyectar resultados en el club.
+- `[ ] INF-7` Migrar a **TypeScript 7** (reescritura nativa). Verificar antes que Vite, Vitest y Biome lo soporten. **DoD:** `pnpm typecheck` y `pnpm test` verdes en los cuatro paquetes; tiempo de compilación medido antes y después. Ver [`BITACORA.md`](BITACORA.md), entrada `INF-1`.
 
 ---
 

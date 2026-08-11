@@ -1,0 +1,30 @@
+{
+  "name": "bv-bahia-archers-league",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sistema de organización y gestión de torneos de la Liga Bahiense de Arquería",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "concurrently -n api,app,landing -c blue,magenta,green \"pnpm --filter @bal/api dev\" \"pnpm --filter @bal/app dev\" \"pnpm --filter @bal/landing dev\"",
+    "dev:api": "pnpm --filter @bal/api dev",
+    "dev:app": "pnpm --filter @bal/app dev",
+    "dev:landing": "pnpm --filter @bal/landing dev",
+    "build": "pnpm --filter @bal/shared build && pnpm --filter @bal/api build && pnpm --filter @bal/app build && pnpm --filter @bal/landing build",
+    "start": "pnpm --filter @bal/api start",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "test:e2e": "pnpm --filter @bal/app test:e2e",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.7",
+    "concurrently": "^9.1.2",
+    "typescript": "5.9.3"
+  }
+}

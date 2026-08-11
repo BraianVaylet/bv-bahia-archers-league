@@ -29,7 +29,7 @@
 | [`CONFIG.md`](CONFIG.md) | Cómo levantarlo de cero: variables de entorno, MongoDB Atlas, desarrollo local, Docker, Railway, CI, backups. |
 | [`TESTING.md`](TESTING.md) | Estrategia TDD, qué se testea en cada capa, **casos obligatorios**, umbrales de cobertura. |
 | [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | Dirección visual, paleta, tipografía, componentes, y las reglas de uso con guantes y al sol. |
-| [`ACTION_PLAN.md`](ACTION_PLAN.md) | **El backlog.** 56 tareas priorizadas, cada una con objetivo, archivos, criterio de terminado y tests exigidos. |
+| [`ACTION_PLAN.md`](ACTION_PLAN.md) | **El backlog.** 57 tareas priorizadas, cada una con objetivo, archivos, criterio de terminado y tests exigidos. |
 | [`BITACORA.md`](BITACORA.md) | Registro de avance. Se actualiza al terminar cada tarea. |
 
 ---
@@ -45,6 +45,6 @@
 
 ## Documentos de origen
 
-Los briefs originales del cliente están en la raíz del repositorio: `0.prompt`, `1.context.md`, `2.development.md`, `3.stack.md`.
+Los briefs originales del cliente están en [`pre/`](../pre): `0.prompt`, `1.context.md`, `2.development.md`, `3.stack.md`.
 
 Donde esta documentación **se desvía** del brief original, el desvío está explicitado y justificado: ver [`BITACORA.md`](BITACORA.md), entrada del 2026-08-10, sección "Desvíos respecto del brief original".
