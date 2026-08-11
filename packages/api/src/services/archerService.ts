@@ -16,18 +16,31 @@ export interface ArcherView {
   readonly lastName: string;
   readonly category: string;
   readonly archived: boolean;
+  /**
+   * `true` si participó de algún torneo, y por lo tanto **no se puede borrar**.
+   *
+   * Va en la lista para que la interfaz pueda explicarlo *antes* de que el admin
+   * intente borrarlo, en vez de después. Ver `docs/FUNCTIONAL.md` §6.4.
+   */
+  readonly participated: boolean;
 }
 
-export const toView = (doc: ArcherDoc): ArcherView => ({
+export const toView = (doc: ArcherDoc, participated = false): ArcherView => ({
   id: doc._id.toHexString(),
   firstName: doc.firstName,
   lastName: doc.lastName,
   category: doc.category,
   archived: doc.archivedAt !== null,
+  participated,
 });
 
 export async function list(options: archerRepo.ListOptions): Promise<ArcherView[]> {
-  return (await archerRepo.list(options)).map(toView);
+  const docs = await archerRepo.list(options);
+  const conHistorico = new Set(
+    (await archerRepo.participatedIds(docs.map((d) => d._id))).map((id) => id.toHexString()),
+  );
+
+  return docs.map((d) => toView(d, conHistorico.has(d._id.toHexString())));
 }
 
 export async function create(input: ArcherInput): Promise<ArcherView> {

@@ -243,11 +243,13 @@ _(Hecho. `apiClient` que adjunta el token CSRF automáticamente en toda mutació
 **Base:** portar de `bv-easy-archery-battle/packages/web/src/{lib,auth,components/ui}`.
 **DoD:** `apiClient` adjunta el token CSRF automáticamente · rutas protegidas por rol redirigen correctamente · componentes de UI con los tokens del design system.
 
-### `[ ] FE-4` · Login de WAFL
+### `[x] FE-4` · Login de WAFL
+_(Hecho. `LoginPage` + el shell de la app. **Sólo ofrece los torneos `en_proceso`**: mandar al líder a uno publicado sería mandarlo a un rechazo del servidor. El PIN filtra a seis dígitos al tipear. Si el recorrido ya está descargado, la pantalla ofrece **seguir sin conexión** diciendo de cuándo son los datos en palabras («hace 5 horas»), no con una fecha que haya que interpretar. Los errores del servidor se repiten tal cual. **11 tests.**)_
 **Archivos:** `src/wafl/pages/Login.tsx`
 **DoD:** entra con usuario y PIN, descarga el bundle y lo persiste en IndexedDB · con el bundle ya presente permite entrar **sin conexión**, avisando la fecha de los datos · errores claros: torneo no iniciado, credencial incorrecta, bloqueo temporal.
 
-### `[ ] FE-5` · Home de WAFL — el circuito
+### `[x] FE-5` · Home de WAFL — el circuito
+_(Hecho. `CircuitPage`. Los blancos salen en el orden que manda el backend, desde el de inicio de la patrulla. Un blanco se marca completo **sólo cuando todos** los arqueros lo cargaron: con media patrulla no está listo. Todo leído de IndexedDB.)_
 **Archivos:** `src/wafl/pages/Circuit.tsx`, `src/wafl/components/{CircuitRing,SyncBadge}.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §7.2 · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.4, §6.5
 **DoD:** los blancos aparecen **ordenados desde el de inicio** de la patrulla · cada uno con número, glifo de modalidad, flechas y estado · `SyncBadge` fijo con los cuatro estados · `CircuitRing` refleja el avance real · todo leído de IndexedDB.
@@ -266,11 +268,13 @@ _(Hecho. **46 tests en `@bal/app`.** El teclado ofrece los tokens de la modalida
 - Objetivos táctiles **≥ 56px verificados sobre estilos computados** en un test.
 - Feedback háptico donde esté disponible.
 
-### `[ ] FE-7` · Seguimiento y resultados finales
+### `[x] FE-7` · Seguimiento y resultados finales
+_(Hecho. `ResultsPage`. Total, inner, dieces y emes de cada arquero, con el desglose por blanco. Resultados finales se habilita sólo con el recorrido completo. Todo desde IndexedDB.)_
 **Archivos:** `src/wafl/pages/{Progress,FinalResults}.tsx`
 **DoD:** puntaje acumulado, `X`, `10`, `M` y desglose por blanco de cada arquero · resultados finales habilitados solo con el recorrido completo · todo desde IndexedDB.
 
-### `[ ] FE-8` · Firma y cierre
+### `[x] FE-8` · Firma y cierre
+_(Hecho. `SignaturePad`. El canvas muestra el puntaje que se está firmando **arriba del trazo**: nadie firma algo que no está viendo. No se puede confirmar sin trazo. El cierre exige todas las firmas y dice **quiénes** faltan; con ops pendientes no cierra y aclara que los puntajes ya están guardados. Cinco mutaciones probadas: cuatro detectadas, una reveló un test que pasaba antes de que cargaran los datos — ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `src/wafl/pages/Sign.tsx`, `src/wafl/components/SignaturePad.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §7.5 · [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §5.5
 **DoD:** canvas captura el trazo y genera PNG · el puntaje que se firma está visible sobre el canvas · Finalizar habilitado solo con todas las firmas · **el cierre se bloquea si hay ops pendientes**, mostrando el progreso de sincronización · sin señal, avisa que hace falta conexión aclarando que los puntajes ya están guardados.
@@ -279,11 +283,13 @@ _(Hecho. **46 tests en `@bal/app`.** El teclado ofrece los tokens de la modalida
 
 # Fase 4 — WAFA · P0 / P1
 
-### `[ ] FE-9` · Login y cambio de password · P0
+### `[x] FE-9` · Login y cambio de password · P0
+_(Hecho. La guarda de `mustChangePassword` vive **en un solo lugar**, `WafaApp`: con el cambio pendiente las demás rutas **ni se montan**, así que no hay ruta que se escape. Sin cancelar y sin salir: no hay a dónde ir. Los 12 caracteres se validan en cliente y servidor. Verificado entrando directo a `/wafa/arqueros`: igual aparece el cambio de password.)_
 **Archivos:** `src/wafa/pages/{Login,ChangePassword}.tsx`
 **DoD:** `mustChangePassword` redirige y **no deja navegar** a ninguna otra ruta hasta cambiarlo · mínimo 12 caracteres validado en cliente y servidor.
 
-### `[ ] FE-10` · Home de WAFA · P0
+### `[x] FE-10` · Home de WAFA · P0
+_(Hecho. Los torneos van agrupados por estado con **el que está en proceso arriba**: si hay uno corriendo, es lo único que le importa al admin en ese momento. Los grupos vacíos **dicen que están vacíos** en vez de desaparecer, para que nadie dude de si se perdió algo.)_
 **Archivos:** `src/wafa/pages/Home.tsx`
 **DoD:** torneos agrupados por estado · accesos a crear torneo, arqueros y temporadas.
 
@@ -292,7 +298,8 @@ _(Hecho. **46 tests en `@bal/app`.** El teclado ofrece los tokens de la modalida
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.3 · [`TESTING.md`](TESTING.md) §5.5
 **DoD:** los 4 pasos · las flechas se precargan con el default al elegir la modalidad de cada blanco · se pueden reordenar, agregar y eliminar blancos · **el máximo posible se actualiza en vivo** · se pueden crear arqueros sin salir del wizard · paso de revisión editable.
 
-### `[ ] FE-12` · Arqueros y temporadas · P0
+### `[x] FE-12` · Arqueros y temporadas · P0
+_(Hecho. CRUD, archivar, restaurar y búsqueda **contra el servidor**, no filtrando en el cliente: el padrón viene topeado a 500. Eliminar aparece deshabilitado **con el motivo escrito al lado** y ofreciendo archivar, que es lo que sí sirve — un botón gris sin explicación es una pared, no una respuesta. Hizo falta agregar `participated` a la API: sin eso la interfaz sólo podía fallar al apretar el botón. Una sola consulta para todo el padrón.)_
 **Archivos:** `src/wafa/pages/{Archers,ArcherForm,Seasons}.tsx`
 **DoD:** CRUD, archivar, restaurar, búsqueda · eliminar deshabilitado con explicación si el arquero participó.
 

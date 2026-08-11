@@ -222,6 +222,30 @@ describe('arqueros', () => {
     expect(await archers().countDocuments()).toBe(2);
   });
 
+  // La interfaz necesita saberlo ANTES de que el admin intente borrar, para
+  // explicar por qué no se puede en vez de fallar recién al apretar el botón.
+  it('la lista marca quién participó de un torneo y quién no', async () => {
+    const c = await adminListo();
+    const seasonId = await crearTemporada(c);
+    const ids = await crearArqueros(c, [['razo', 2]]);
+    const [suelto] = await crearArqueros(c, [['longbow', 1]]);
+
+    await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo de prueba',
+      date: '2026-08-08',
+      targets: [{ index: 1, modality: 'sala', arrows: 3, description: null }],
+      archerIds: ids,
+    });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { id: string; participated: boolean }[];
+    };
+
+    expect(lista.find((a) => a.id === ids[0])?.participated).toBe(true);
+    expect(lista.find((a) => a.id === suelto)?.participated).toBe(false);
+  });
+
   it('un id malformado devuelve 404, no 500', async () => {
     const c = await adminListo();
     expect((await c.del('/api/admin/archers/no-es-un-id')).status).toBe(404);

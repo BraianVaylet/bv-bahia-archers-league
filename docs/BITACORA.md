@@ -14,6 +14,62 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-11 · `FE-4`, `FE-9`, `FE-10`, `FE-12` — El shell, y WAFA empieza
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+**Hasta hoy la app no era alcanzable.** `App.tsx` seguía siendo el scaffold de `INF-2`: las pantallas de WAFL existían y estaban testeadas, pero nada las componía. Esta entrada arma el shell y con eso las dos aplicaciones se pueden abrir.
+
+**Un error de contabilidad que corregí**
+
+`FE-5`, `FE-7` y `FE-8` figuraban como pendientes en `ACTION_PLAN.md` **aunque el trabajo estaba hecho y mergeado** (PR #16). El script que las tenía que marcar en la sesión anterior no las tocó, y yo reporté que sí. Quedaron marcadas ahora, con su nota de lo entregado.
+
+En la misma revisión apareció que **`FE-4` estaba a medias**: se había hecho `sesion.ts` —login, descarga del bundle, entrada sin conexión— pero no la pantalla. Se completó acá.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Navegación de WAFL | **Estado local, no rutas** | El recorrido es lineal y el botón Atrás del navegador no debería poder sacar al líder del medio de una carga. |
+| Navegación de WAFA | Rutas, con `basename: '/app'` | El admin sí navega en cualquier orden, y quiere poder compartir un link. |
+| Guarda de `mustChangePassword` | **Un solo lugar**: con el cambio pendiente, las demás rutas ni se montan | Repartir el chequeo por pantalla garantiza que alguna se lo olvide. Verificado entrando directo a `/wafa/arqueros`. |
+| Torneos en el login de WAFL | Sólo los `en_proceso` | Ofrecer uno publicado sería mandar al líder a un rechazo del servidor. |
+| Antigüedad del bundle guardado | En palabras («hace 5 horas») | Una fecha obliga a calcular. Nadie hace esa cuenta con guantes y al sol. |
+| Grupos vacíos en la home | **Dicen que están vacíos** | Si el grupo desaparece, no se distingue «no hay» de «no cargó». |
+| Búsqueda de arqueros | Contra el servidor | Filtrar en el cliente sólo encontraría lo ya descargado, y el padrón viene topeado a 500. |
+
+**Un cambio de backend que pidió el frontend**
+
+El DoD de `FE-12` exige que Eliminar aparezca deshabilitado **con explicación** si el arquero participó de un torneo. La API no lo decía: sólo se podía descubrir fallando al apretar el botón.
+
+Se agregó `participated` a la vista de arquero, resuelto con **una sola consulta** (`distinct` sobre los ids del listado) en vez de una por arquero. Con eso la pantalla explica antes en vez de fallar después, y ofrece archivar, que es lo que sí sirve.
+
+**Un botón gris sin motivo es una pared, no una respuesta.** Vale como criterio general para el resto de WAFA.
+
+**Un test mío estaba mal armado**
+
+El primer intento montaba `WafaApp` en la raíz del `MemoryRouter`. En la app real va anidado bajo `/wafa/*`, así que las rutas internas no coincidían y el árbol renderizaba vacío. **El test estaba probando una estructura que en la app no existe**; corregido para montarlo anidado igual que `App.tsx`.
+
+Es distinto de los dos casos anteriores: acá no fallaba el test *y* tenía razón el código, fallaba el andamio del test. Pero el aprendizaje es el mismo — un test que no reproduce cómo se usa el componente no prueba lo que dice probar.
+
+**Y un test intermitente, que es peor que uno roto**
+
+La suite de `@bal/app` fallaba **una de cada tres corridas**, siempre en el login de WAFL. La causa: el helper esperaba al `<select>` con `findByLabelText('Torneo')`, y el select **existe desde la primera pintada**. Elegir un valor cuya `<option>` todavía no cargó **no hace nada** y el formulario queda vacío, así que el botón sigue deshabilitado y el click no hace nada. Según cuánto tardara el fetch, el test pasaba o no.
+
+Corregido esperando la **opción** en vez del select, y con un `expect` que verifica que el torneo quedó elegido antes de seguir. Seis corridas seguidas en verde.
+
+Es el mismo modo de falla que el `waitFor` de `FE-8`, con otra cara: **esperar algo que ya está no es esperar**. Conviene revisarlo en el resto de los tests de UI de WAFA cuando se sigan sumando pantallas.
+
+**Siete mutaciones, siete detectadas.** Entre ellas: que `mustChangePassword` deje pasar, que se pueda borrar a quien participó, que el torneo en proceso no vaya primero, que el PIN incompleto sea aceptado y que la API marque a todos como sin historial.
+
+**Y el script de mutaciones dejó basura, otra vez.** Un `cp` mal armado copió los respaldos a `src/wafa/` en vez de `src/wafa/pages/`, y quedaron tres archivos duplicados. **Los tests no lo notaron** —importan desde `./pages/`— pero el `typecheck` sí. Es el segundo incidente del mismo tipo (ver la entrada de `BE-13`) y confirma la regla ya anotada: **typecheck antes que tests**, y revisar `git status` después de mutar.
+
+**567 tests en el repo.**
+
+**Próximo:** `FE-11` (el wizard de crear torneo) y `FE-13` (patrullas con validador en vivo), las dos pantallas más pesadas de WAFA.
+
+---
+
 ## 2026-08-11 · `SH-6` — Estadísticas · y el lint que estaba roto en `main`
 
 **Autor:** Claude Opus 5 · **Estado:** completado
