@@ -14,6 +14,58 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `FE-3` y `FE-6` — Infraestructura y teclado de scoring
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`lib/apiClient.ts`, `components/ui.tsx`, y la pantalla donde de verdad se anota: `ScoreKeypad`, `ArrowRow`, `SyncBadge` y `TargetPage`.
+
+### 🐛 Bug encontrado: dos toques rápidos perdían una flecha
+
+El handler leía las flechas ya cargadas del **estado de React**. Dos toques seguidos —que es exactamente cómo se anota con guantes— se disparan antes de que React re-renderice, así que el segundo leía un valor obsoleto y **pisaba al primero**.
+
+Lo detectó el test que carga dos flechas seguidas: esperaba 19 y daba 8.
+
+Corregido con dos cambios: cada escritura **lee de IndexedDB**, que es la fuente de verdad, y las escrituras se **encadenan en una cola** para que dos toques simultáneos no se solapen.
+
+Es el tipo de bug que no aparece probando a mano en el escritorio y sí el día del torneo, con alguien apurado.
+
+### 🔧 Problema de diseño: la carga es incremental
+
+`validateTargetScore` valida un blanco **completo**, así que cargar la primera de dos flechas fallaba con `ARROW_COUNT`.
+
+Resuelto separando dos cosas que se habían mezclado:
+
+- **Un blanco a medias es un estado legítimo** y se guarda en IndexedDB igual, para que nada se pierda si se apaga el celular a mitad del blanco. Cada token se valida contra la modalidad; sólo no se valida la cantidad.
+- **La op se encola recién cuando el blanco está completo.** Un blanco a medias todavía no es un puntaje, y el servidor lo rechazaría con `ARROW_COUNT`.
+
+### Decisiones
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Teclas | 56px, con el número **literal** en el test | Comparar contra la constante haría que bajarla cambie los dos lados de la aserción. Ver abajo. |
+| Disposición | Arcos para 3D y campo, grilla para sala y aire libre | 3D y campo tienen 5 y 8 tokens, que mapean 1:1 con los anillos de la cara real. Sala y aire libre tienen 12: no caben en anillos legibles. |
+| Prop `disposicion` | Permite forzar cualquiera de las dos | La disposición en arcos es **una apuesta sin validar**. Si en la prueba de campo no le gana a la grilla, se cambia el default y listo. |
+| Teclas al completar | Se **deshabilitan**, no se ignoran | Un botón que parece activo y no hace nada es peor que uno apagado. |
+| Continuar | Dice **quién** falta, no sólo que falta alguien | `Falta cargar: Pérez, Gómez`. |
+| `StakeChip` | Color **y** nombre, siempre juntos | Un daltónico lee "Azul"; el resto ve el color. Ninguno depende del otro. |
+
+### Dos tests débiles más, encontrados por mutación
+
+De cuatro mutaciones, dos sobrevivieron. Otra vez, **el problema era el test**:
+
+1. **"Teclas de 44px en vez de 56"** sobrevivía porque la aserción comparaba contra `TAMAÑO_TECLA_PX` — la misma constante que la mutación cambiaba. **Un test tautológico.** Ahora el 56 va literal, más un test que verifica que la constante no bajó.
+
+2. **"El teclado no se deshabilita"** sobrevivía porque el botón ya tenía `disabled`, así que el click no llegaba igual. Ahora se afirma explícitamente que **todas** las teclas quedan deshabilitadas.
+
+**Tests**
+
+46 tests en `@bal/app` (22 nuevos). Cubren: que el teclado ofrece los tokens de la modalidad **de ese blanco**, los 56px sobre el estilo computado, el guardado instantáneo sin botón de guardar, que guarda con `onLine === false`, el paso automático al siguiente arquero, el orden descendente de las flechas, y que Continuar nombra a los que faltan.
+
+**Próximo:** `FE-4` (login de WAFL), `FE-5` (home del circuito), `FE-7`/`FE-8` (resultados y firma).
+
+---
+
 ## 2026-08-10 · `FE-1` y `FE-2` — PWA y capa offline
 
 **Autor:** Claude Opus 5 · **Estado:** completado
