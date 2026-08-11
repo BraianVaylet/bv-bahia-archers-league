@@ -160,6 +160,14 @@ Mismo input → mismo output, siempre. Sin aleatoriedad, sin dependencia del ord
 4. Separar las unidades en dos bolsas: ESCUELA y SENIOR.
 5. Combinar en patrullas, en este orden de preferencia:
    a. Cada unidad de ESCUELA se empareja con una unidad SENIOR   → garantiza H3.
+      Se prefieren las unidades senior SOLITARIAS: son las que no pueden
+      formar patrulla por su cuenta. Consumir primero las de a dos dejaría
+      solitarias sin compañero posible.
+   a-bis. Al combinar, una unidad SOLITARIA sólo puede llevarse una unidad
+      de a dos mientras queden suficientes: con S solitarias y P de a dos,
+      como máximo min(P, S) se llevan una, menos uno si la paridad no cierra
+      (las restantes tienen que poder emparejarse entre sí, o sea quedar en
+      número par). Ej.: S=3, P=2 → sólo 1 se lleva un par.
    b. Las unidades SENIOR restantes se combinan entre sí,
       priorizando misma categoría (S1), luego misma estaca.
    c. Una unidad que queda sola forma su propia patrulla
@@ -167,8 +175,9 @@ Mismo input → mismo output, siempre. Sin aleatoriedad, sin dependencia del ord
       unidad solitaria respetando H1..H3).
 6. Si quedan unidades de ESCUELA sin SENIOR disponible:
       NO se arma una patrulla 100% escuela.
-      Se marca `requiereRevisionManual = true` y se devuelve un
-      warning tipado al admin.
+      Esos arqueros quedan en `unassigned`, se emite el warning
+      `ESCUELA_SIN_SENIOR` y se marca `requiresManualReview = true`.
+      El admin los ubica a mano. Nunca se pierde un arquero en silencio.
 7. Ordenar las patrullas y numerarlas 1..N.
 8. Asignar blanco de inicio:  startTarget = floor(k × T / N) + 1   (k 0-based, T = cantidad de blancos)
 9. Dentro de cada unidad, asignar posición izquierda/derecha por el mismo orden determinista.

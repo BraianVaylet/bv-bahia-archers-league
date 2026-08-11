@@ -7,7 +7,12 @@
     "moduleResolution": "NodeNext",
     "types": ["node"],
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // Se anula el alias de tsconfig.base.json a propósito: el backend tiene que
+    // resolver @bal/shared como lo va a resolver Node en producción, o sea por
+    // los `exports` del paquete hacia `dist`. Apuntar al código fuente ocultaría
+    // errores de empaquetado. Por eso `typecheck` construye shared primero.
+    "paths": {}
   },
   "include": ["src"]
 }

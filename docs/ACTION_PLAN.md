@@ -57,7 +57,8 @@ _(Hecho con TDD. `domain.ts`: tipos, tokens y catálogos (`MODALITIES`, `BOW_CAT
 **DoD:** todos los casos de `TESTING.md` §3.1 verdes, incluidos los cruces de token entre modalidades (`11` en sala, `X` en 3D, `7` en campo) · cobertura de ramas ≥ 95%.
 _(Hecho con TDD. **107 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. Los 9 cruces de token entre modalidades cubiertos. `maxPossibleScore` verificado contra el caso de referencia del brief: 6×3D(2) + 6×campo(3) + aire libre(6) + sala(3) = **330**. Guarda de prototipo con `Object.hasOwn`: sin ella un token `"toString"` pasaba por válido. Se documentó en [`DOMAIN_WA.md`](DOMAIN_WA.md) §8 qué cuenta como "10" (la `X` entra porque vale 10), que estaba ambiguo. Tres mutaciones verificadas: `tenCount` sobre el token equivocado, `lookupValue` sin guarda de prototipo, y `sortArrowsDescending` ignorando el inner — las tres detectadas.)_
 
-### `[ ] BE-1` · Conexión e índices de MongoDB
+### `[x] BE-1` · Conexión e índices de MongoDB
+_(Hecho. `env.ts` valida con Zod y reúne **todos** los problemas juntos; en producción rechaza los valores de desarrollo del `.env.example`. `client.ts` con pool a nivel de módulo y accesores tipados por colección. `indexes.ts` con los 26 índices de [`TECHNICAL.md`](TECHNICAL.md) §2, idempotente. `seed.ts` idempotente que **no pisa** un password ya cambiado. `reset.ts` que falla en producción sin flag para forzarlo. `reconcile.ts` que recomputa los rollups desde `scores`. `lib/crypto.ts` con argon2id, AES-256-GCM para el PIN, `sha256` y generación de tokens. **29 tests contra un MongoDB real en modo replica set**, con transacciones verificadas. Se encontró y corrigió un bug latente: el build de `@bal/shared` era incargable por Node — ver [`BITACORA.md`](BITACORA.md).)_
 **Objetivo:** conectar, crear índices, sembrar, resetear.
 **Archivos:** `packages/api/src/db/{client,indexes,seed,reset,reconcile}.ts`, `packages/api/src/env.ts`
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §2 · [`CONFIG.md`](CONFIG.md) §2
@@ -78,7 +79,9 @@ _(Hecho con TDD. **107 tests en el paquete, cobertura 100%** de líneas, ramas y
 
 > Toda esta fase es **TDD estricto**. El dominio es la columna vertebral del sistema y el lugar más barato de encontrar un bug.
 
-### `[ ] SH-3` · Armado de patrullas · **TDD** ⭐
+### `[x] SH-3` · Armado de patrullas · **TDD** ⭐
+_(Hecho. **152 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. Los 12 casos normativos verdes, determinismo probado con el input barajado, y los casos extremos cubiertos. Dos reglas que el documento no explicitaba y que el código descubrió: escuela toma primero las unidades senior **solitarias** (consumir las de a dos deja solitarias huérfanas), y una unidad solitaria sólo puede llevarse una de a dos si la paridad del resto cierra. Ambas documentadas en [`DOMAIN_WA.md`](DOMAIN_WA.md) §5. Los arqueros que no se pueden ubicar quedan en `unassigned` con warning, en vez de perderse. Cinco mutaciones probadas: tres detectadas, una era un hueco real que se cubrió, y una resultó equivalente — ver [`BITACORA.md`](BITACORA.md).)_
+
 **Objetivo:** la tarea más crítica del dominio.
 **Archivos:** `packages/shared/src/patrolling.ts` + `tests/patrolling.test.ts`
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §5 · casos en [`TESTING.md`](TESTING.md) §3.2

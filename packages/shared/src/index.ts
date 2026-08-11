@@ -9,12 +9,12 @@
  * Ver `docs/DOMAIN_WA.md`.
  */
 
-export * from './constants';
-export * from './domain';
-export * from './scoring';
+export * from './constants.js';
+export * from './domain.js';
+export * from './patrolling.js';
+export * from './scoring.js';
 
 // Los módulos restantes se agregan a medida que se implementan:
-//   SH-3  patrolling
 //   SH-4  ranking
 //   SH-5  league
 //   SH-6  stats

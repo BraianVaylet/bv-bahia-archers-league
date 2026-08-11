@@ -10,14 +10,24 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:indexes": "tsx src/db/cli.ts indexes",
+    "db:seed": "tsx src/db/cli.ts seed",
+    "db:reset": "tsx src/db/cli.ts reset",
+    "db:reconcile": "tsx src/db/cli.ts reconcile"
   },
   "dependencies": {
     "@bal/shared": "workspace:*",
-    "hono": "^4.13.1"
+    "@node-rs/argon2": "^2.0.2",
+    "hono": "^4.13.1",
+    "mongodb": "^7.5.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "mongodb-memory-server": "^11.2.0",
     "tsx": "^4.23.12",
     "typescript": "5.9.3",
     "vitest": "^4.1.10"
