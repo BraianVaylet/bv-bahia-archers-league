@@ -11,8 +11,8 @@
  * Ver `docs/DOMAIN_WA.md` §1, §2 y §7.
  */
 
-import { type ModalityConfig, SCORING } from './constants';
-import { DomainError, MISS_TOKEN, type Modality, X_TOKEN } from './domain';
+import { type ModalityConfig, SCORING } from './constants.js';
+import { DomainError, MISS_TOKEN, type Modality, X_TOKEN } from './domain.js';
 
 /** Resultado del cómputo de un blanco válido. */
 export interface TargetComputation {

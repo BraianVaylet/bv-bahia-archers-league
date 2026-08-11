@@ -21,8 +21,8 @@
  * Ver `docs/DOMAIN_WA.md` §5.
  */
 
-import { CATEGORY_INFO, DEFAULT_STAKE_MAP, isEscuela, stakeForCategory } from './constants';
-import type { BowCategory, Position, Stake, StakeMap, Unit } from './domain';
+import { CATEGORY_INFO, DEFAULT_STAKE_MAP, isEscuela, stakeForCategory } from './constants.js';
+import type { BowCategory, Position, Stake, StakeMap, Unit } from './domain.js';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 

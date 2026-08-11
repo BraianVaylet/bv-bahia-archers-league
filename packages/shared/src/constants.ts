@@ -17,7 +17,7 @@ import {
   type StakeMap,
   X_TOKEN,
   X6_TOKEN,
-} from './domain';
+} from './domain.js';
 
 // ── Modalidades ──────────────────────────────────────────────────────────────
 
