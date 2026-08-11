@@ -14,7 +14,7 @@ Esquemas, contratos y convenciones. Para el porqué de las decisiones ver [`ARCH
 | Backend | Hono | 4.x |
 | Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver 6.x |
 | Validación | Zod `.strict()` | 3.x |
-| Frontend | React 18, **Vite 8**, Tailwind CSS 4, TanStack Query 5, React Router 6 | — |
+| Frontend | **React 19**, **Vite 8**, Tailwind CSS 4, TanStack Query 5, React Router 6 | — |
 | PWA | `vite-plugin-pwa` (Workbox) | 0.21+ |
 | Offline | `idb` (wrapper de IndexedDB) | 8.x |
 | Hash | `argon2` (argon2id) | 0.41+ |
