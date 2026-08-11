@@ -99,13 +99,20 @@
     outline-offset: 2px;
   }
 
+  /**
+   * El `!important` es el punto de este bloque, no un descuido: tiene que ganarle
+   * a cualquier animación declarada después, incluidas las utilidades de Tailwind.
+   * Sin él, quien pidió movimiento reducido lo sigue viendo.
+   */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
+      /* biome-ignore-start lint/complexity/noImportantStyles: ver el comentario de arriba */
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      /* biome-ignore-end lint/complexity/noImportantStyles: ver el comentario de arriba */
     }
   }
 }
