@@ -14,6 +14,59 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-6`, `BE-7`, `BE-11`, `BE-12` y `BE-13` — Ciclo completo del torneo
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Con esto **el backend queda terminado**: crear → iniciar → anotar sin señal → sincronizar → firmar → cerrar → publicar → ver en la landing.
+
+`tournamentEditService`, `patrolAdminService`, `publishService`, `standingRepo` y `routes/publico.ts`.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Publicar | **Recalcula la temporada desde cero**, no suma el delta | Hace que publicar sea idempotente y que despublicar sea exacto: no hay forma de que un doble click aplique los puntos dos veces ni de que revertir deje residuos. El costo es recorrer los torneos de la temporada, que son doce por año. |
+| Orden del recálculo | Cronológico | `bestNormalizedPct` se queda con el mejor, pero `bestTournamentId` tiene que apuntar al **primero** que lo logró. |
+| Transiciones de estado | El `updateOne` filtra **también por el estado actual** | Si otra request lo cambió entre la lectura y la escritura, no se pisa. Es lo que evita que dos clicks simultáneos en "publicar" apliquen los puntos dos veces. |
+| Blanco bloqueado | Tiene que seguir existiendo **y ser idéntico** | No alcanza con que exista: cambiarle la modalidad o las flechas invalidaría puntajes ya firmados. |
+| PIN tras publicar | Deja de exponerse | Una vez publicado el torneo la credencial no sirve para nada; no hay motivo para seguir mostrándola. |
+| Torneo `completado` sin publicar | **No visible** desde la landing | Todavía no es oficial. Sólo se ven `en_proceso` (sin puntajes) y `publicado` (completo). |
+
+**Un bug propio que encontraron los tests**
+
+El desbloqueo de firma guardaba `scorecardHash: ''`. El cierre compara ese hash contra el actual para detectar que el puntaje haya cambiado después de firmarse, así que el desbloqueo **hacía imposible cerrar**: siempre daba `SIGNATURE_MISMATCH`.
+
+Corregido calculando el mismo hash que en una firma real. El desbloqueo autoriza cerrar sin el trazo, pero **no renuncia** a detectar que el puntaje cambie después.
+
+Aprovechando el arreglo, la función que calcula el hash se movió a `scoreRepo`: la usan **dos** caminos —firmar desde WAFL y desbloquear desde WAFA— y dos implementaciones que tienen que dar el mismo resultado son un bug esperando a pasar.
+
+**Un error mío en un test, que resultó ser comportamiento correcto**
+
+El test de publicación esperaba `[5, 4]` y salía `[5, 5]`. Los dos arqueros del escenario tiraban exactamente lo mismo, así que **empatan**, y el puesto compartido reparte los puntos de esa posición a los dos. El código estaba bien; el test estaba mal.
+
+Se corrigió el escenario para que tiren distinto **y** se agregó un test explícito del empate, que es la regla que más fácil se rompe.
+
+**Tests**
+
+163 tests en `@bal/api` (27 nuevos).
+
+Los que más importan: **un torneo sin publicar nunca expone puntajes**, verificado en los tres estados previos (`sin_iniciar` → 404, `en_proceso` → sin `results`, `completado` → 404) · **publicar dos veces no duplica** · **despublicar revierte del todo** · `TARGET_LOCKED` con el índice del blanco en el error · regenerar el PIN invalida la sesión activa.
+
+**Cinco mutaciones probadas, las cinco detectadas:**
+
+| Mutación | Tests que fallan |
+|---|---|
+| No bloquea blancos con puntajes | 1 |
+| Despublicar no excluye el torneo (quedarían residuos) | 1 |
+| La landing expone resultados de torneos sin publicar | 1 |
+| Regenerar PIN no invalida sesiones | 1 |
+| El PIN se muestra aun con el torneo publicado | 1 |
+
+**Backend terminado.** Lo próximo es el frontend: `FE-1` (bootstrap PWA) y sobre todo **`FE-2`** (capa offline con IndexedDB y outbox), que es el equivalente de `BE-10` del lado del cliente.
+
+---
+
 ## 2026-08-10 · `BE-8`, `BE-9` y `BE-10` — WAFL: login, bundle y sincronización
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -5,6 +5,7 @@
 import type { ClientSession, ObjectId } from 'mongodb';
 import { participants, scores, syncOps } from '../db/client.js';
 import type { ParticipantDoc, ScoreDoc, SyncOpDoc, SyncOpResult, SyncOpType } from '../db/types.js';
+import { sha256 } from '../lib/crypto.js';
 
 // ── Puntajes ─────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,29 @@ export async function applyRollupDelta(
       { session },
     );
   }
+}
+
+/**
+ * Hash del scorecard de un participante al momento de llamarlo.
+ *
+ * Vive acá, y no en el servicio, porque lo usan **dos** caminos: firmar desde
+ * WAFL y desbloquear desde WAFA. Dos implementaciones que tuvieran que dar el
+ * mismo resultado serían un bug esperando a pasar.
+ *
+ * Ver `docs/SECURITY.md` §7.
+ */
+export async function scorecardHashOf(participante: ParticipantDoc): Promise<string> {
+  const propios = (await scores().find({ participantId: participante._id }).toArray())
+    .sort((a, b) => a.targetIndex - b.targetIndex)
+    .map((s) => ({ t: s.targetIndex, a: s.arrows, total: s.total }));
+
+  return sha256(
+    JSON.stringify({
+      participantId: participante._id.toHexString(),
+      scores: propios,
+      total: participante.total,
+    }),
+  );
 }
 
 export async function setSignature(

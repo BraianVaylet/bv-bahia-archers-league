@@ -151,12 +151,14 @@ _(Hecho. Transacción completa: torneo → participantes con snapshot → patrul
 - Descifrar `pinEnc` devuelve el PIN original.
 - Los warnings del armado llegan en la respuesta.
 
-### `[ ] BE-6` · Estados y edición del torneo
+### `[x] BE-6` · Estados y edición del torneo
+_(Hecho. Matriz de transiciones completa; toda transición fuera de la tabla devuelve `INVALID_STATE_TRANSITION`. **`TARGET_LOCKED`** verificado: un blanco con puntajes no se puede editar ni eliminar. El `updateOne` filtra también por el estado actual, así dos clicks simultáneos no se pisan.)_
 **Archivos:** `src/services/tournamentService.ts`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §8
 **DoD:** matriz completa de transiciones; toda inválida devuelve `INVALID_STATE_TRANSITION` · editar un blanco con puntajes devuelve `TARGET_LOCKED` · editar un blanco virgen en `en_proceso` recalcula `maxPossibleScore` · eliminar solo permitido en `sin_iniciar`.
 
-### `[ ] BE-7` · Patrullas y credenciales
+### `[x] BE-7` · Patrullas y credenciales
+_(Hecho. Listado con composición, validación `H1..H4` en vivo y PIN descifrado. **El PIN deja de exponerse una vez publicado el torneo** y cada visualización queda en el audit log. Regenerar el PIN invalida las sesiones de esa patrulla, verificado.)_
 **Archivos:** `src/routes/admin/patrols.ts`, `src/services/patrolService.ts`
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §3.4 · [`SECURITY.md`](SECURITY.md) §9
 **DoD:** listar patrullas con el PIN descifrado, **solo** bajo sesión de admin y con el torneo no publicado, **registrando en el audit log** · `PUT` de la distribución solo en `sin_iniciar`, devolviendo violaciones sin bloquear · regenerar PIN invalida las sesiones de esa patrulla.
@@ -190,17 +192,20 @@ _(Hecho. Los 6 pasos de [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §6. **136 tests en
 - Batch de 200 ops procesado sin caer en rate limit.
 - Todos los casos de `TESTING.md` §4.5 verdes.
 
-### `[ ] BE-11` · Firmas y cierre de circuito
+### `[x] BE-11` · Firmas y cierre de circuito
+_(Hecho en `BE-10` (firmas y cierre desde WAFL) y acá el desbloqueo del admin. **El desbloqueo calcula el mismo hash que una firma real**, así que sigue detectando si el puntaje cambia después. Exige motivo, queda en `unlockedBy`/`unlockReason` y en el audit log.)_
 **Archivos:** `src/services/signatureService.ts`
 **Referencia:** [`SECURITY.md`](SECURITY.md) §7 · [`TESTING.md`](TESTING.md) §4.6
 **DoD:** `scorecardHash` calculado **server-side** · modificar un score post-firma → `SIGNATURE_MISMATCH` al cerrar · cerrar sin todas las firmas → `SIGNATURES_MISSING` · cerrar sin todos los blancos → rechazado · la última patrulla cerrada pasa el torneo a `completado` · desbloqueo del admin registra `unlockedBy`, `unlockReason` y audit log · un PNG falso es rechazado (magic bytes).
 
-### `[ ] BE-12` · Publicar y despublicar
+### `[x] BE-12` · Publicar y despublicar
+_(Hecho. Transacción que materializa `standings`. **Recalcula la temporada desde cero**, no por delta: eso hace que publicar sea idempotente y que despublicar sea exacto. Verificado que publicar dos veces no duplica puntos y que despublicar revierte del todo.)_
 **Archivos:** `src/services/publishService.ts`, `src/repositories/standingRepo.ts`
 **Referencia:** [`ARCHITECTURE.md`](ARCHITECTURE.md) §6.5 · [`TESTING.md`](TESTING.md) §4.7
 **DoD:** transacción que materializa `standings` · publicar dos veces **nunca** duplica puntos · **despublicar revierte exactamente** al estado previo (verificado comparando snapshots) · invalida la caché pública · audit log en ambas.
 
-### `[ ] BE-13` · Endpoints públicos
+### `[x] BE-13` · Endpoints públicos
+_(Hecho. **163 tests en `@bal/api`.** Un torneo sin publicar NUNCA expone puntajes, verificado en los tres estados previos. El ranking separa a los que no llegan al mínimo de torneos en `notYetEligible`. `Cache-Control` + `ETag` en todas las respuestas.)_
 **Archivos:** `src/routes/public/*.ts`, `src/services/{rankingService,statsService}.ts`
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §3.6
 **DoD:** un torneo no publicado **no** expone puntajes · el ranking excluye a quienes tienen < 2 torneos y los devuelve en una lista aparte · `Cache-Control` + `ETag` · caché en memoria invalidada al publicar · p95 < 200 ms · `explain()` sin `COLLSCAN`.

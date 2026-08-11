@@ -24,8 +24,7 @@ import {
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
 import { getClient } from '../db/client.js';
-import type { ParticipantDoc, ScoreDoc, TournamentDoc } from '../db/types.js';
-import { sha256 } from '../lib/crypto.js';
+import type { ScoreDoc, TournamentDoc } from '../db/types.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
@@ -349,7 +348,7 @@ async function aplicarFirma(
       signedAt: new Date(),
       // Hash del puntaje al momento de firmar: si después cambia, el cierre lo
       // detecta. Ver docs/SECURITY.md §7.
-      scorecardHash: await hashDelScorecard(participante),
+      scorecardHash: await scoreRepo.scorecardHashOf(participante),
       unlockedBy: null,
       unlockReason: null,
     },
@@ -381,21 +380,6 @@ function decodificarPng(dataUrl: string): Buffer | null {
   }
 
   return bytes;
-}
-
-async function hashDelScorecard(participante: ParticipantDoc): Promise<string> {
-  const puntajes = (await scoreRepo.listScoresOfPatrol(participante.patrolId))
-    .filter((s) => s.participantId.equals(participante._id))
-    .sort((a, b) => a.targetIndex - b.targetIndex)
-    .map((s) => ({ t: s.targetIndex, a: s.arrows, total: s.total }));
-
-  return sha256(
-    JSON.stringify({
-      participantId: participante._id.toHexString(),
-      scores: puntajes,
-      total: participante.total,
-    }),
-  );
 }
 
 // ── Cierre del circuito ──────────────────────────────────────────────────────
@@ -432,7 +416,7 @@ async function aplicarCierre(
 
   // El puntaje no puede haber cambiado después de firmarse.
   for (const miembro of activos) {
-    const actual = await hashDelScorecard(miembro);
+    const actual = await scoreRepo.scorecardHashOf(miembro);
     if (miembro.signature && miembro.signature.scorecardHash !== actual) {
       return rechazo(
         op.opId,

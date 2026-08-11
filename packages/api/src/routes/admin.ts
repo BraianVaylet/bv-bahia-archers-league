@@ -10,16 +10,21 @@ import {
   CreateTournamentSchema,
   ObjectIdSchema,
   SeasonInputSchema,
+  UpdateTournamentSchema,
 } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
+import { clientIp } from '../middleware/rateLimit.js';
 import { parseJsonBody, parseQuery } from '../middleware/validate.js';
 import * as seasonRepo from '../repositories/seasonRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 import * as archerService from '../services/archerService.js';
+import * as patrolAdminService from '../services/patrolAdminService.js';
+import * as publishService from '../services/publishService.js';
+import * as tournamentEditService from '../services/tournamentEditService.js';
 import * as tournamentService from '../services/tournamentService.js';
 import * as tournamentStateService from '../services/tournamentStateService.js';
 
@@ -130,6 +135,72 @@ export const admin = new Hono()
   .post('/tournaments/:id/start', async (c) => {
     const doc = await tournamentStateService.start(toObjectId(c.req.param('id')));
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
+  })
+
+  .patch('/tournaments/:id', async (c) => {
+    const input = await parseJsonBody(c, UpdateTournamentSchema);
+    const doc = await tournamentEditService.updateTournament(
+      toObjectId(c.req.param('id')),
+      input,
+      currentAdminId(c),
+    );
+    return c.json({
+      tournament: { id: doc._id.toHexString(), maxPossibleScore: doc.maxPossibleScore },
+    });
+  })
+
+  .delete('/tournaments/:id', async (c) => {
+    await tournamentEditService.removeTournament(toObjectId(c.req.param('id')));
+    return c.json({ ok: true });
+  })
+
+  .post('/tournaments/:id/publish', async (c) => {
+    return c.json(await publishService.publish(toObjectId(c.req.param('id')), currentAdminId(c)));
+  })
+
+  .post('/tournaments/:id/unpublish', async (c) => {
+    const { reason } = await parseJsonBody(
+      c,
+      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
+    );
+    return c.json(
+      await publishService.unpublish(toObjectId(c.req.param('id')), currentAdminId(c), reason),
+    );
+  })
+
+  .get('/tournaments/:id/patrols', async (c) => {
+    const id = toObjectId(c.req.param('id'));
+    const [patrols, violations] = await Promise.all([
+      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.validateCurrentDistribution(id),
+    ]);
+    return c.json({ patrols, violations });
+  })
+
+  .get('/tournaments/:id/locked-targets', async (c) => {
+    const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
+    if (!doc) throw notFound();
+    return c.json({ lockedTargets: await tournamentEditService.blancosBloqueados(doc) });
+  })
+
+  .post('/patrols/:id/pin/regenerate', async (c) => {
+    return c.json(
+      await patrolAdminService.regeneratePin(toObjectId(c.req.param('id')), currentAdminId(c)),
+    );
+  })
+
+  .post('/participants/:id/signature/unlock', async (c) => {
+    const { reason } = await parseJsonBody(
+      c,
+      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
+    );
+    await patrolAdminService.unlockSignature(
+      toObjectId(c.req.param('id')),
+      reason,
+      currentAdminId(c),
+      clientIp(c),
+    );
+    return c.json({ ok: true });
   })
 
   .get('/tournaments/:id', async (c) => {
