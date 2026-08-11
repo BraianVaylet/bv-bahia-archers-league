@@ -14,6 +14,53 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `SH-4` y `SH-5` — Ranking de torneo y liga
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`ranking.ts`, `league.ts` y `text.ts`. TDD. Van juntas porque `BE-12` (publicar) necesita las dos, y la liga se apoya en el ranking por categoría.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| `text.ts` extraído | Comparación determinista sin `localeCompare`, compartida | `patrolling.ts` ya la tenía, y `ranking.ts` y `league.ts` la necesitaban igual. Tres copias de la misma regla es una de más. |
+| Puesto compartido | Una función `asignarPosiciones` que usan ranking y liga | La regla es idéntica en los dos, y es sutil: quien empata hereda la posición del anterior, y el siguiente salta. Tenerla en un solo lugar evita que se implemente distinto en cada uno. |
+| Detección de empate | Comparando con los **vecinos**, no contando por posición | La lista está ordenada, así que los que comparten puesto son contiguos. Elimina un `Map` y dos ramas muertas que `noUncheckedIndexedAccess` obligaba a escribir. |
+| Participantes `ausente` | Quedan afuera del podio | No puntúan ni entran al ranking. Ver [`FUNCTIONAL.md`](FUNCTIONAL.md) §10. |
+| Clave del acumulado | `archerId + categoría`, no sólo `archerId` | Un arquero podría cambiar de categoría entre temporadas, y cada categoría tiene su propio ranking. |
+| `notYetEligible` | A los que les faltan torneos se los devuelve **aparte**, no se los descarta | Ocultarlos haría creer que se perdió su resultado. Ver [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.2. |
+| `normalizedPct` | Redondeado a dos decimales | Sin redondear, dos porcentajes que deberían empatar difieren por error de punto flotante y el desempate se decide por ruido. |
+
+**Lo que más importa que esté bien**
+
+El **puesto compartido** atraviesa las dos tareas y es la regla que más fácil se implementa mal:
+
+- En el torneo: dos segundos, y el siguiente es **cuarto** — no tercero.
+- En la liga: los dos empatados en el primer puesto se llevan **5 puntos cada uno**, y el siguiente queda tercero con **3** — no con 4.
+
+Ambos casos tienen test explícito.
+
+El **mejor puntaje de la temporada se compara por porcentaje, no por bruto**. Hay un test que lo fija con un caso donde el orden se invierte: 200/250 (80%) supera a 240/400 (60%) aunque el bruto sea menor. Es exactamente el escenario que motivó la decisión D7.
+
+**Tests**
+
+204 tests en el paquete (52 nuevos). **Cobertura 100%** en líneas, ramas, funciones y sentencias.
+
+Cinco mutaciones probadas, **las cinco detectadas**:
+
+| Mutación | Tests que fallan |
+|---|---|
+| Desempate por menos `M` invertido | 2 |
+| El puesto compartido no hereda posición (1,2,3,4 en vez de 1,2,2,4) | 16 |
+| Mínimo de torneos bajado a 1 | 4 |
+| El mejor puntaje se pisa siempre | 1 |
+| `normalizedPct` sin redondeo | 1 |
+
+**Próximo:** `BE-5` — crear torneo, transaccional.
+
+---
+
 ## 2026-08-10 · `BE-2` — Base de Hono y middlewares de seguridad
 
 **Autor:** Claude Opus 5 · **Estado:** completado

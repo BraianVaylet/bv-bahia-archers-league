@@ -11,11 +11,12 @@
 
 export * from './constants.js';
 export * from './domain.js';
+export * from './league.js';
 export * from './patrolling.js';
+export * from './ranking.js';
 export * from './scoring.js';
+export * from './text.js';
 
 // Los módulos restantes se agregan a medida que se implementan:
-//   SH-4  ranking
-//   SH-5  league
 //   SH-6  stats
 //   SH-7  schemas

@@ -96,13 +96,15 @@ _(Hecho. **152 tests en el paquete, cobertura 100%** de líneas, ramas y funcion
 - Casos extremos cubiertos: todos escuela, 2 participantes, impares en cada categoría.
 - Cobertura de ramas **≥ 95%**.
 
-### `[ ] SH-4` · Ranking de torneo · **TDD**
+### `[x] SH-4` · Ranking de torneo · **TDD**
+_(Hecho. `compareForRanking`, `rankParticipants`, `rankByCategory`, `rankByStake`, `rankAllByCategory`. Puesto compartido verificado: 1, 2, 2, **4**. Los participantes `ausente` quedan afuera del podio. Se extrajo `text.ts` con la comparación determinista sin `localeCompare`, que `patrolling.ts` tenía duplicada.)_
 **Archivos:** `packages/shared/src/ranking.ts` + tests
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §8 · [`TESTING.md`](TESTING.md) §3.3
 **Base:** portar de `bv-easy-archery-battle/packages/shared/src/ranking.ts`.
 **DoD:** orden y desempate (inner → 10 → menos M) correctos · **puesto compartido** verificado: dos primeros, el siguiente es 3º · ranking por categoría y por estaca.
 
-### `[ ] SH-5` · Liga y temporada · **TDD**
+### `[x] SH-5` · Liga y temporada · **TDD**
+_(Hecho. `leaguePointsForPosition`, `normalizedPct`, `applyTournamentToStandings`, `eligibleForRanking`, `sortStandings`. **204 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. El puesto compartido reparte los puntos de esa posición a todos los empatados y el siguiente salta: dos primeros con 5 cada uno, el tercero con 3. El mejor puntaje se compara por **porcentaje**, no por bruto. Los que no llegan al mínimo de 2 torneos van en `notYetEligible`, no se ocultan. Cinco mutaciones probadas, las cinco detectadas.)_
 **Archivos:** `packages/shared/src/league.ts` + tests
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §9 · [`TESTING.md`](TESTING.md) §3.4
 **API:** `leaguePointsForPosition` · `normalizedPct` · `buildStandings` · `sortStandings(mode)`
