@@ -14,6 +14,7 @@ export * from './domain.js';
 export * from './league.js';
 export * from './patrolling.js';
 export * from './ranking.js';
+export * from './schemas.js';
 export * from './scoring.js';
 export * from './text.js';
 

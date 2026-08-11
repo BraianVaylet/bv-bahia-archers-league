@@ -140,6 +140,10 @@ export const SCORING: Readonly<Record<Modality, ModalityConfig>> = {
 export const MIN_ARROWS_PER_TARGET = 1;
 export const MAX_ARROWS_PER_TARGET = 12;
 
+/** Restricción `H1`: tamaño de patrulla. Ver `docs/DOMAIN_WA.md` §5. */
+export const MIN_PATROL_SIZE = 2;
+export const MAX_PATROL_SIZE = 4;
+
 // ── Categorías ───────────────────────────────────────────────────────────────
 
 export interface CategoryInfo {

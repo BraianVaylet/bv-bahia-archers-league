@@ -21,7 +21,14 @@
  * Ver `docs/DOMAIN_WA.md` §5.
  */
 
-import { CATEGORY_INFO, DEFAULT_STAKE_MAP, isEscuela, stakeForCategory } from './constants.js';
+import {
+  CATEGORY_INFO,
+  DEFAULT_STAKE_MAP,
+  isEscuela,
+  MAX_PATROL_SIZE,
+  MIN_PATROL_SIZE,
+  stakeForCategory,
+} from './constants.js';
 import type { BowCategory, Position, Stake, StakeMap, Unit } from './domain.js';
 import { comparePersonName, compareText } from './text.js';
 
@@ -83,9 +90,6 @@ export type PatrolViolation =
       readonly expected: Stake;
       readonly got: Stake;
     };
-
-export const MIN_PATROL_SIZE = 2;
-export const MAX_PATROL_SIZE = 4;
 
 // ── Orden determinista ───────────────────────────────────────────────────────
 
