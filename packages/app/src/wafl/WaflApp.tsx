@@ -1,0 +1,73 @@
+/**
+ * WAFL — la app del líder de patrulla.
+ *
+ * La navegación es **estado local, no rutas**: el recorrido es lineal (circuito →
+ * blanco → circuito → resultados → firma) y el botón Atrás del navegador no
+ * debería poder sacar al líder del medio de una carga.
+ *
+ * Ver `docs/FUNCTIONAL.md` §7.
+ */
+
+import { useState } from 'react';
+import type { BundleTarget, StoredBundle } from '../offline/db.js';
+import { CircuitPage } from './CircuitPage.js';
+import { LoginPage } from './LoginPage.js';
+import { ResultsPage } from './ResultsPage.js';
+import { TargetPage } from './TargetPage.js';
+
+type Vista =
+  | { readonly nombre: 'circuito' }
+  | { readonly nombre: 'blanco'; readonly target: BundleTarget }
+  | { readonly nombre: 'resultados' }
+  | { readonly nombre: 'cerrado' };
+
+export function WaflApp() {
+  const [bundle, setBundle] = useState<StoredBundle>();
+  const [vista, setVista] = useState<Vista>({ nombre: 'circuito' });
+
+  if (!bundle) return <LoginPage onEntro={setBundle} />;
+
+  const alCircuito = () => setVista({ nombre: 'circuito' });
+
+  switch (vista.nombre) {
+    case 'blanco':
+      return (
+        <TargetPage
+          target={vista.target}
+          participants={bundle.participants}
+          onContinuar={alCircuito}
+          onVolver={alCircuito}
+        />
+      );
+
+    case 'resultados':
+      return (
+        <ResultsPage
+          bundle={bundle}
+          onVolver={alCircuito}
+          onCerrado={() => setVista({ nombre: 'cerrado' })}
+        />
+      );
+
+    case 'cerrado':
+      return (
+        <div className="mx-auto w-full max-w-lg px-4 pt-16 text-center flex flex-col gap-3">
+          <p className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
+            Circuito cerrado
+          </p>
+          <p className="text-[var(--ink-muted)]">
+            Ya está. Los puntajes de tu patrulla quedaron firmados y enviados.
+          </p>
+        </div>
+      );
+
+    default:
+      return (
+        <CircuitPage
+          bundle={bundle}
+          onAbrirBlanco={(target) => setVista({ nombre: 'blanco', target })}
+          onResultados={() => setVista({ nombre: 'resultados' })}
+        />
+      );
+  }
+}

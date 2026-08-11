@@ -95,3 +95,14 @@ export async function remove(id: ObjectId): Promise<boolean> {
 export async function hasParticipated(id: ObjectId): Promise<boolean> {
   return (await participants().countDocuments({ archerId: id }, { limit: 1 })) > 0;
 }
+
+/**
+ * De los ids dados, cuáles participaron de algún torneo.
+ *
+ * Una sola consulta para todo el padrón: preguntar uno por uno sería una
+ * consulta por arquero cada vez que se abre la pantalla.
+ */
+export async function participatedIds(ids: readonly ObjectId[]): Promise<ObjectId[]> {
+  if (ids.length === 0) return [];
+  return participants().distinct('archerId', { archerId: { $in: [...ids] } });
+}
