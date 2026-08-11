@@ -1,0 +1,21 @@
+# Line endings normalizados a LF en el repositorio Y en la copia de trabajo.
+#
+# Sin esto, `core.autocrlf=true` (el default de Git para Windows) hace checkout
+# con CRLF, y Biome —que espera LF— falla el lint sobre archivos que nunca se
+# tocaron. Una clonada limpia en Windows quedaba con `pnpm lint` en rojo.
+#
+# `eol=lf` fuerza LF también al hacer checkout, así que el comportamiento es el
+# mismo en Windows, macOS, Linux y CI.
+
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
