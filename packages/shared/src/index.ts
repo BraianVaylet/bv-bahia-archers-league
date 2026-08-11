@@ -16,8 +16,5 @@ export * from './patrolling.js';
 export * from './ranking.js';
 export * from './schemas.js';
 export * from './scoring.js';
+export * from './stats.js';
 export * from './text.js';
-
-// Los módulos restantes se agregan a medida que se implementan:
-//   SH-6  stats
-//   SH-7  schemas

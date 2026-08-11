@@ -110,7 +110,8 @@ _(Hecho. `leaguePointsForPosition`, `normalizedPct`, `applyTournamentToStandings
 **API:** `leaguePointsForPosition` · `normalizedPct` · `buildStandings` · `sortStandings(mode)`
 **DoD:** reparto 5-4-3-2-1 · puesto compartido reparte los puntos de esa posición a ambos · mínimo de 2 torneos aplicado · el mejor `%` no se pisa con uno peor · escuela rankea igual.
 
-### `[ ] SH-6` · Estadísticas · **TDD**
+### `[x] SH-6` · Estadísticas · **TDD**
+_(Hecho. `participantStats`, `tournamentStats`, `patrolProgress`, `archerCareerStats`. **301 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. **Mejor y peor se miden en porcentaje, nunca en bruto**: un blanco 3D tiene techo 22 y uno de sala 30, así que comparar brutos entre modalidades es el mismo error que comparar torneos entre sí. La evolución respeta el orden en que se tiró, no el número de blanco: la patrulla que arranca en el 7 tiró el 7 primero. El avance de una patrulla es el del arquero **más atrasado**. Los ausentes no entran en los promedios. Un token que no pertenece a la modalidad **revienta** en vez de valer 0: el dato ya pasó por la validación del servidor, así que sólo puede ser corrupción, y un total equivocado con cara de correcto es peor que un error. Nueve mutaciones probadas, las nueve detectadas.)_
 **Archivos:** `packages/shared/src/stats.ts` + tests
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §10 · [`TESTING.md`](TESTING.md) §3.5
 **Base:** portar de `bv-easy-archery-battle/packages/shared/src/stats.ts`, agregando el desglose por modalidad.
@@ -362,6 +363,7 @@ _(Hecho. **46 tests en `@bal/app`.** El teclado ofrece los tokens de la modalida
 
 ### `[ ] INF-5` · CI · P0
 **Referencia:** [`CONFIG.md`](CONFIG.md) §8
+**Urgencia comprobada:** en `SH-6` se descubrió que `pnpm lint` venía **fallando en `main`** desde `FE-3` sin que nada lo bloqueara. Ver [`BITACORA.md`](BITACORA.md), entrada del 2026-08-11.
 **DoD:** los 4 jobs (`quality`, `e2e`, `audit`, `budget`) · bloquean el merge según `TESTING.md` §8 · umbrales de cobertura aplicados.
 
 ### `[ ] INF-6` · Backups · P1

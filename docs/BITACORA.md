@@ -14,6 +14,60 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-11 · `SH-6` — Estadísticas · y el lint que estaba roto en `main`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Última tarea de dominio. `participantStats`, `tournamentStats`, `patrolProgress` y `archerCareerStats`. Con esto `@bal/shared` queda cerrado: **301 tests, 100 % de líneas, ramas y funciones**.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Mejor y peor blanco | Se comparan por **porcentaje** del techo de cada blanco | Un blanco 3D tiene techo 22 y uno de sala 30. Comparar brutos entre modalidades es el mismo error que comparar torneos entre sí, un nivel más abajo. |
+| Mejor y peor torneo del arquero | Ídem, por `normalizedPct` | El bruto premia al recorrido más largo, no al mejor tiro. |
+| Empates de porcentaje | Mejor = menor número de blanco; peor = mayor | Sin criterio, cuál gana dependería de por dónde arrancó la patrulla. |
+| Evolución | En el orden en que se **tiró**, no por número de blanco | La patrulla que arranca en el 7 tiró el 7 primero. Ordenar por número contaría una historia que no pasó. |
+| Distribución por anillo | **Por modalidad**, no agregada | Un `6` de campo es el máximo y un `6` de sala es mediocre. Sumarlos no significa nada. |
+| Avance de una patrulla | El del arquero **más atrasado** | Un blanco no está listo hasta que lo cargaron todos. Es lo mismo que muestra WAFL en el circuito. |
+| Ausentes | Fuera de todos los promedios | Su cero hundiría el promedio del torneo sin que nadie haya tirado mal. |
+| Token inválido | **Revienta**, no vale 0 | El dato ya pasó por la validación del servidor: si acá aparece un token ajeno a la modalidad, es corrupción. Un total equivocado con cara de correcto es peor que un error. |
+
+**Blanco parcial:** el máximo se calcula sobre las flechas **tiradas**, no sobre las que faltan. Si no, un recorrido a medias mostraría un porcentaje hundido que no dice nada del arquero.
+
+**Un test mío estaba mal, otra vez**
+
+El caso que probaba «mejor blanco por porcentaje» usaba `['11', '9']` para un blanco 3D. El 3D no tiene `9` —su set es `11 10 8 5 M`—, así que reventó por token inválido. **El código tenía razón y el test estaba mal**, igual que en `BE-13`. Vale como recordatorio de que un test que falla no siempre acusa al código.
+
+**Nueve mutaciones, nueve detectadas.** Entre ellas: que la `X` deje de contar como diez, que mejor y peor se midan en bruto, que la distribución liste sólo lo que salió, que el acumulado no acumule, y que un token corrupto valga 0 en silencio.
+
+Una fue inválida en el primer intento: usaba un identificador sin importar, así que rompía por `ReferenceError` en 13 tests en vez de por la mutación. Se rehizo con una expresión que compila. **Una mutación que no compila no prueba nada.**
+
+---
+
+**Hallazgo aparte: `pnpm lint` estaba fallando en `main`.**
+
+No lo introdujo esta tarea; se verificó guardando los cambios y corriendo el lint sobre `main` limpio. Eran **dos errores de parseo**, no de estilo: Biome no entiende la sintaxis de Tailwind 4 (`@theme`, `@import 'tailwindcss'`) salvo que se la habilite. Faltaba configuración desde `FE-3`.
+
+Se agregó `css.parser.tailwindDirectives` y, para que el CSS no se reformatee a comillas dobles, `css.formatter.quoteStyle: 'single'`.
+
+Se pasó por alto porque **`INF-5` (CI) todavía no está hecho**: nada bloquea un merge con el lint roto. Es el argumento más concreto a favor de subirle la prioridad.
+
+Al habilitarse el parseo aparecieron avisos nuevos. El del `!important` en el bloque de `prefers-reduced-motion` **es un falso positivo**: ese `!important` es justamente el punto —tiene que ganarle a cualquier animación declarada después, incluidas las utilidades de Tailwind—. Se suprimió con el motivo escrito al lado.
+
+**Deuda técnica abierta**
+
+| Qué | Dónde | Nota |
+|---|---|---|
+| 5 avisos de `useOptionalChain` | guardas de `auth.ts`, `syncService.ts`, `waflService.ts` | La forma explícita (`!sesion \|\| sesion.subject.type !== 'admin'`) dice la intención mejor que la cadena opcional, y son guardas de autorización. Decidir en `BE-14`: aplicar el cambio o apagar la regla para las guardas. |
+| 1 aviso de complejidad | `syncWorker.ts` `flush()` | Refactorizar el camino crítico de sincronización por un aviso de lint no se justifica ahora. Revisar en `TEST-1`, con el E2E offline andando de red. |
+
+**Estado del proyecto:** `@bal/shared` y el backend completos, WAFL completa. **528 tests en el repo.** Falta WAFA, la landing, el E2E offline y el deploy.
+
+**Próximo:** WAFA (`FE-9`..`FE-16`).
+
+---
+
 ## 2026-08-10 · `FE-4`, `FE-5`, `FE-7` y `FE-8` — WAFL completa
 
 **Autor:** Claude Opus 5 · **Estado:** completado
