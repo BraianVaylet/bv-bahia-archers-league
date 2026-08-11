@@ -34,17 +34,19 @@ Tareas pequeñas, priorizadas y **autocontenidas**. Cada una se puede tomar de f
 **DoD:** `pnpm install` sin errores · `pnpm lint` corre · `.env.example` con todas las variables de [`CONFIG.md`](CONFIG.md) §2.
 _(Hecho. `pnpm install` ok; `pnpm lint` sale 0 sobre Biome 2.5.7 con config v2 (`files.includes` con negaciones, `assist.actions.source.organizeImports`, `linter.rules.preset`). `tsconfig.base.json` con `strict` + `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noUnusedLocals/Parameters` y alias `@bal/shared`. Las 22 variables de `CONFIG.md` §2 verificadas contra `.env.example`. Versiones fijadas: TS 5.9.3, Biome 2.5.7, pnpm 9.15.0.)_
 
-### `[ ] INF-2` · Scaffolds de los paquetes
+### `[x] INF-2` · Scaffolds de los paquetes
 **Objetivo:** los cuatro paquetes existen y compilan vacíos.
 **Archivos:** `packages/{shared,api,app,landing}/package.json` + `tsconfig.json` + `src/index.ts`
 **DoD:** `pnpm -r build` pasa · `pnpm -r typecheck` pasa · los nombres son `@bal/shared`, `@bal/api`, `@bal/app`, `@bal/landing`.
+_(Hecho. `shared` emite a `dist` con `tsc`; `api` usa `module: NodeNext` para que `node dist/index.js` corra sin bundler (imports relativos con `.js`); `app` y `landing` con Vite 8 + React 19, `base: '/app/'` y `base: '/'` respectivamente, y proxy de `/api` en dev. `pnpm typecheck` 4/4 · `pnpm build` completo · `pnpm start` arranca · `pnpm lint` limpio sobre 25 archivos. Bundle inicial de ambos frontends: 60 KB gz (baseline de React), contra presupuestos de 150 KB y 120 KB.)_
 
-### `[ ] SH-1` · Catálogos de dominio
+### `[x] SH-1` · Catálogos de dominio
 **Objetivo:** modalidades, categorías y estacas como única fuente de verdad.
 **Archivos:** `packages/shared/src/{constants,domain,types}.ts`
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §1, §3, §4
 **Contenido:** las 4 modalidades con `defaultArrows`, `maxPerArrow`, `scoringSet`, `innerToken`, `tiebreakTokens`; las 7 categorías con su orden; el `stakeMap` por defecto.
 **DoD:** exports tipados, sin `any` · un test verifica que cada modalidad tiene el set y los defaults de la tabla de `DOMAIN_WA.md` §1.
+_(Hecho con TDD. `domain.ts`: tipos, tokens y catálogos (`MODALITIES`, `BOW_CATEGORIES`, `STAKES`, `UNITS`, `POSITIONS`, estados, `DomainError`). `constants.ts`: `SCORING` con las 4 modalidades escritas explícitas para poder cotejarlas contra el reglamento, `CATEGORY_INFO` con `senior` (sostiene `H3`), `DEFAULT_STAKE_MAP`, `stakeForCategory` con mapeo editable, `LEAGUE_POINTS_BY_POSITION`, `MIN_TOURNAMENTS_FOR_RANKING`. **56 tests, cobertura 100%** de líneas, ramas y funciones. Los tests se vieron fallar primero, y además se verificó que no son vacuos mutando `defaultArrows` del 3D y el `stakeMap` — ambas mutaciones detectadas.)_
 
 ### `[ ] SH-2` · Scoring · **TDD**
 **Objetivo:** validar y computar el puntaje de un blanco.

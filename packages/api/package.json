@@ -1,0 +1,25 @@
+{
+  "name": "@bal/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend de la Liga Bahiense de Arquería. Hono + MongoDB.",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@bal/shared": "workspace:*",
+    "hono": "^4.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
