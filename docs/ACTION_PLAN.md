@@ -236,7 +236,8 @@ _(Hecho. `db.ts` (IndexedDB con `idb`), `outbox.ts`, `syncWorker.ts` y `useSyncS
 - Todos los casos de `TESTING.md` §5.3 verdes.
 - Cobertura ≥ 90%.
 
-### `[ ] FE-3` · Infraestructura de frontend
+### `[x] FE-3` · Infraestructura de frontend
+_(Hecho. `apiClient` que adjunta el token CSRF automáticamente en toda mutación, y componentes base con los objetivos táctiles del design system. `StakeChip` lleva **siempre** el nombre de la estaca escrito junto al color.)_
 **Archivos:** `src/lib/{apiClient,queryClient,cn,errorMessage}.ts`, `src/auth/{useSession,AdminRoute,PatrolRoute}.tsx`, `src/components/{AppShell,ui/*}.tsx`
 **Base:** portar de `bv-easy-archery-battle/packages/web/src/{lib,auth,components/ui}`.
 **DoD:** `apiClient` adjunta el token CSRF automáticamente · rutas protegidas por rol redirigen correctamente · componentes de UI con los tokens del design system.
@@ -250,7 +251,8 @@ _(Hecho. `db.ts` (IndexedDB con `idb`), `outbox.ts`, `syncWorker.ts` y `useSyncS
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §7.2 · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.4, §6.5
 **DoD:** los blancos aparecen **ordenados desde el de inicio** de la patrulla · cada uno con número, glifo de modalidad, flechas y estado · `SyncBadge` fijo con los cuatro estados · `CircuitRing` refleja el avance real · todo leído de IndexedDB.
 
-### `[ ] FE-6` · Página de blanco y teclado ⭐
+### `[x] FE-6` · Página de blanco y teclado ⭐
+_(Hecho. **46 tests en `@bal/app`.** El teclado ofrece los tokens de la modalidad **de ese blanco**; arcos para 3D y campo, grilla para sala y aire libre, conmutable por prop. Teclas de **56px verificadas sobre el estilo computado**. Cada toque escribe en IndexedDB, sin `await fetch` y sin spinner. Continuar dice **quién** falta. Se encontró y corrigió un bug de doble toque — ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `src/wafl/pages/Target.tsx`, `src/wafl/components/{ScoreKeypad,ArrowRow,UnitCard,TargetHeader}.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §7.3 · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.1, §7 · [`TESTING.md`](TESTING.md) §5.1, §5.2
 **DoD:**

@@ -141,8 +141,25 @@ describe('writeScore', () => {
     expect(await readScore(P1, 1)).toBeUndefined();
   });
 
-  it('rechaza la cantidad de flechas equivocada', async () => {
-    const r = await writeScore(P1, 2, ['X', '10']);
+  // Un blanco a medias es un estado legítimo: la carga es incremental.
+  it('acepta un blanco a medio cargar, sin encolar la op todavía', async () => {
+    expect(await writeScore(P1, 2, ['X', '10'])).toEqual({ ok: true });
+
+    expect((await readScore(P1, 2))?.total).toBe(20);
+    // Todavía no es un puntaje: el servidor lo rechazaría con ARROW_COUNT.
+    expect(await countOutbox()).toBe(0);
+  });
+
+  it('encola la op recién cuando el blanco está completo', async () => {
+    await writeScore(P1, 2, ['X', '10']);
+    expect(await countOutbox()).toBe(0);
+
+    await writeScore(P1, 2, ['X', '10', '9']);
+    expect(await countOutbox()).toBe(1);
+  });
+
+  it('rechaza más flechas de las que pide el blanco', async () => {
+    const r = await writeScore(P1, 1, ['11', '10', '8']);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe('ARROW_COUNT');
   });

@@ -8,7 +8,15 @@
  * Ver `docs/OFFLINE_SYNC.md` §1 y §5.2.
  */
 
-import { type Modality, validateTargetScore } from '@bal/shared';
+import {
+  isValidToken,
+  MISS_TOKEN,
+  type Modality,
+  SCORING,
+  tokenValue,
+  validateTargetScore,
+  X_TOKEN,
+} from '@bal/shared';
 import { getDb, type OutboxOp, type OutboxOpType, readBundle, type StoredScore } from './db.js';
 
 /**
@@ -68,13 +76,17 @@ function opBase(
 }
 
 /**
- * Registra el puntaje de un arquero en un blanco.
+ * Registra las flechas de un arquero en un blanco.
  *
- * Escribe el puntaje **y** encola la op en **una sola transacción de
- * IndexedDB**: nunca queda un puntaje guardado sin su op, ni al revés.
+ * **La carga es incremental**: el líder toca una flecha por vez, así que un
+ * blanco a medio cargar es un estado legítimo. Se guarda en IndexedDB siempre,
+ * para que nada se pierda si se apaga el celular a mitad del blanco.
  *
- * Valida en el cliente antes de encolar: un token inválido no tiene por qué
- * viajar al servidor para que lo rechace.
+ * **La op se encola sólo cuando el blanco está completo.** Un blanco a medias
+ * todavía no es un puntaje, y el servidor lo rechazaría con `ARROW_COUNT`.
+ *
+ * Cuando está completo, el puntaje y la op se escriben en **una sola
+ * transacción de IndexedDB**: nunca queda un puntaje sin su op, ni al revés.
  */
 export async function writeScore(
   participantId: string,
@@ -91,51 +103,104 @@ export async function writeScore(
     return { ok: false, code: 'TARGET_NOT_FOUND', message: 'Ese blanco no es de este torneo.' };
   }
 
-  const validacion = validateTargetScore(blanco.modality as Modality, blanco.arrows, arrows);
-  if (!validacion.ok) {
-    const { error } = validacion;
+  const modality = blanco.modality as Modality;
+
+  if (arrows.length > blanco.arrows) {
     return {
       ok: false,
-      code: error.code,
-      message:
-        error.code === 'ARROW_COUNT'
-          ? `Este blanco es de ${error.expected} flechas.`
-          : `"${error.token}" no es un puntaje válido acá.`,
+      code: 'ARROW_COUNT',
+      message: `Este blanco es de ${blanco.arrows} ${blanco.arrows === 1 ? 'flecha' : 'flechas'}.`,
     };
   }
 
+  // Cada token se valida contra la modalidad DE ESTE BLANCO, aunque el blanco
+  // todavía esté a medias.
+  const invalido = arrows.find((token) => !isValidToken(modality, token));
+  if (invalido !== undefined) {
+    return {
+      ok: false,
+      code: 'INVALID_TOKEN',
+      message: `"${invalido}" no es un puntaje válido acá.`,
+    };
+  }
+
+  const completo = arrows.length === blanco.arrows;
   const clientUpdatedAt = Date.now() + bundle.clockSkewMs;
-  const computo = validacion.value;
+
+  // Con el blanco completo, el cómputo sale de la función del dominio —la misma
+  // que usa el servidor—. A medias se suman los tokens cargados, sólo para
+  // mostrar el parcial en pantalla.
+  const computo = completo
+    ? computoCompleto(modality, blanco.arrows, arrows)
+    : computoParcial(modality, arrows);
 
   const score: StoredScore = {
     participantId,
     targetIndex,
     arrows: [...arrows],
-    total: computo.total,
-    innerCount: computo.innerCount,
-    xCount: computo.xCount,
-    tenCount: computo.tenCount,
-    mCount: computo.mCount,
+    ...computo,
     clientUpdatedAt,
-    syncState: 'pending',
+    syncState: completo ? 'pending' : 'synced',
   };
 
   const db = await getDb();
   const tx = db.transaction(['scores', 'outbox'], 'readwrite');
 
-  await Promise.all([
-    tx.objectStore('scores').put(score),
-    tx.objectStore('outbox').put(
-      opBase('score', clientUpdatedAt, {
-        participantId,
-        targetIndex,
-        arrows: [...arrows],
-      }),
-    ),
-    tx.done,
-  ]);
+  const escrituras: Promise<unknown>[] = [tx.objectStore('scores').put(score)];
+
+  if (completo) {
+    escrituras.push(
+      tx.objectStore('outbox').put(
+        opBase('score', clientUpdatedAt, {
+          participantId,
+          targetIndex,
+          arrows: [...arrows],
+        }),
+      ),
+    );
+  }
+
+  await Promise.all([...escrituras, tx.done]);
 
   return { ok: true };
+}
+
+type Computo = Pick<StoredScore, 'total' | 'innerCount' | 'xCount' | 'tenCount' | 'mCount'>;
+
+function computoCompleto(
+  modality: Modality,
+  arrowsPerTarget: number,
+  arrows: readonly string[],
+): Computo {
+  const r = validateTargetScore(modality, arrowsPerTarget, arrows);
+  if (!r.ok) {
+    // Inalcanzable: la cantidad y los tokens ya se validaron arriba.
+    return computoParcial(modality, arrows);
+  }
+
+  const { total, innerCount, xCount, tenCount, mCount } = r.value;
+  return { total, innerCount, xCount, tenCount, mCount };
+}
+
+/** Parcial: sólo para mostrar el acumulado mientras se carga. */
+function computoParcial(modality: Modality, arrows: readonly string[]): Computo {
+  const cfg = SCORING[modality];
+  let total = 0;
+  let innerCount = 0;
+  let xCount = 0;
+  let tenCount = 0;
+  let mCount = 0;
+
+  for (const token of arrows) {
+    const valor = tokenValue(modality, token);
+    total += valor;
+    if (token === cfg.innerToken) innerCount++;
+    if (cfg.hasX && token === X_TOKEN) xCount++;
+    if (valor === 10) tenCount++;
+    if (token === MISS_TOKEN) mCount++;
+  }
+
+  return { total, innerCount, xCount, tenCount, mCount };
 }
 
 /** Guarda la firma de un arquero y la encola. */
