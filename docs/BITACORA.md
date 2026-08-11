@@ -14,6 +14,51 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-4` y `BE-5` — Padrón, temporadas y creación de torneos
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Van juntas porque `BE-5` no se puede probar sin un padrón: crear un torneo necesita arqueros y una temporada que existan.
+
+`repositories/{archerRepo,seasonRepo,tournamentRepo,auditRepo}.ts`, `services/{archerService,tournamentService}.ts`, `lib/ids.ts` y `routes/admin.ts`.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| `lib/ids.ts` | Un único `toObjectId` que valida con Zod antes de construir | Nunca se construye un `ObjectId` con un valor del request sin validarlo: un objeto en lugar de un string se convierte en un operador de Mongo. |
+| Id malformado | Responde **404**, no 400 | Un id malformado y uno inexistente no se distinguen, así no se puede sondear qué existe probando. |
+| Búsqueda de arqueros | Se **escapan los metacaracteres** del término antes de armar el `$regex` | El término viene del usuario. Sin escapar, `.*` hace match con todo y un patrón como `(a+)+$` es un ReDoS. Hay test. |
+| Hashear los PIN | **Fuera** de la transacción | Hashear seis PIN con argon2id tarda cientos de milisegundos; mantener la transacción abierta ese tiempo sostiene locks sin necesidad. Los documentos se arman antes y la transacción sólo inserta. |
+| `buildPatrols` | También fuera de la transacción | Es puro y determinista. Si la transacción se reintenta, no tiene sentido recalcularlo. |
+| Arqueros archivados | No se pueden inscribir | Archivar significa "no incluir en torneos futuros". Ver [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4. |
+| `unassigned` en la respuesta | Los arqueros que el armado no pudo ubicar vuelven **con nombre y apellido** | El admin tiene que poder actuar sobre ellos sin ir a buscarlos. |
+
+**La `ClientSession` es el detalle que decide si hay transacción o no**
+
+Las funciones de `tournamentRepo` reciben la sesión de forma explícita. **Si no se la pasa, la escritura queda fuera de la transacción** y el rollback no la alcanza — el driver no avisa. Es el error más fácil de cometer con Mongo, así que está documentado en el encabezado del repositorio y cubierto por la mutación M1.
+
+**Tests**
+
+106 tests en `@bal/api` (23 nuevos).
+
+El de más valor es el de **rollback**: inyecta un fallo en `insertParticipants` y verifica que no quede **ni torneo, ni patrullas, ni participantes**. Sin transacción quedaría un torneo con patrullas y sin participantes, que es exactamente el estado imposible de diagnosticar después.
+
+También cubierto: `maxPossibleScore` = **330** en el caso de referencia del brief · que el snapshot congela el nombre y la categoría (editar el arquero después no toca el histórico) · que el PIN descifrado coincide con el que verifica el hash · que el PIN no aparece en claro en ningún campo del documento · que con todos los participantes de escuela no se arma ninguna patrulla y los cuatro vuelven en `unassigned` · que el audit log no contiene nada sensible.
+
+**Cuatro mutaciones probadas, las cuatro detectadas:**
+
+| Mutación | Tests que fallan |
+|---|---|
+| Sin transacción (las escrituras no se revierten) | 1 |
+| El PIN se guarda en claro | 3 |
+| No se chequea si el arquero participó | 1 |
+| Se permite inscribir arqueros archivados | 1 |
+
+**Próximo:** `BE-6` (estados del torneo) y `BE-7` (patrullas y credenciales), o directo a `BE-8`/`BE-9`/`BE-10` para habilitar la WAFL.
+
+---
+
 ## 2026-08-10 · `BE-3` — Autenticación de admin
 
 **Autor:** Claude Opus 5 · **Estado:** completado
