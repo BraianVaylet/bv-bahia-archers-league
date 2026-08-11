@@ -293,7 +293,8 @@ _(Hecho. Los torneos van agrupados por estado con **el que está en proceso arri
 **Archivos:** `src/wafa/pages/Home.tsx`
 **DoD:** torneos agrupados por estado · accesos a crear torneo, arqueros y temporadas.
 
-### `[ ] FE-11` · Crear torneo (wizard) · P0
+### `[x] FE-11` · Crear torneo (wizard) · P0
+_(Hecho. Los cuatro pasos, con la lógica en `wizard.ts` —puro, sin React— y la pantalla sólo pintando. Al elegir la modalidad de un blanco **se reponen las flechas del reglamento**, incluso pisando las que el admin había tocado: quien pasa un blanco a 3D espera 2 flechas, no las 3 que traía de sala. Agregar, eliminar y reordenar **renumeran de 1 a N**, porque el backend exige índices contiguos y un hueco se rechazaría recién al confirmar. El **máximo posible se recalcula en vivo**. Se pueden crear arqueros sin salir del wizard. Desde la revisión se vuelve a cualquier paso sin perder nada. El aviso de la regla de escuela **corre `buildPatrols`, el mismo algoritmo que el servidor**, así que no adivina: si quedarían arqueros sin patrulla dice **quiénes** y qué hacer. Un error frena; un aviso no. **46 tests** (29 de lógica + 17 de pantalla). Seis mutaciones probadas, las seis detectadas.)_
 **Archivos:** `src/wafa/pages/TournamentCreate.tsx` + componentes de paso
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.3 · [`TESTING.md`](TESTING.md) §5.5
 **DoD:** los 4 pasos · las flechas se precargan con el default al elegir la modalidad de cada blanco · se pueden reordenar, agregar y eliminar blancos · **el máximo posible se actualiza en vivo** · se pueden crear arqueros sin salir del wizard · paso de revisión editable.
@@ -304,6 +305,7 @@ _(Hecho. CRUD, archivar, restaurar y búsqueda **contra el servidor**, no filtra
 **DoD:** CRUD, archivar, restaurar, búsqueda · eliminar deshabilitado con explicación si el arquero participó.
 
 ### `[ ] FE-13` · Patrullas y credenciales · P0
+**Falta backend:** no existe endpoint para **guardar** una distribución manual. `PatrolDistributionSchema` está escrito en `@bal/shared` pero ninguna ruta lo consume. Hace falta un `PUT /admin/tournaments/:id/patrols` transaccional, permitido sólo en `sin_iniciar`, que reasigne `patrolId`, `unit` y `position` de los participantes y registre la excepción en el audit log. Detectado al hacer `FE-11`.
 **Archivos:** `src/wafa/pages/Patrols.tsx`, `src/wafa/components/PatrolEditor.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6
 **DoD:** composición completa con unidades, posiciones, estacas y blanco de inicio · edición manual solo en `sin_iniciar` · **validador en vivo que muestra las violaciones sin bloquear el guardado** · credenciales visibles con botón de regenerar · vista imprimible para repartir en el club.
