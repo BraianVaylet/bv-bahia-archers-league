@@ -14,6 +14,37 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `SH-2` — Scoring
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`scoring.ts` con `tokenValue`, `isValidToken`, `validateTargetScore`, `maxTargetScore`, `maxPossibleScore` y `sortArrowsDescending`. TDD.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Guarda de prototipo | `lookupValue` usa **`Object.hasOwn`**, no acceso directo al objeto de valores | Los `values` son literales y heredan de `Object.prototype`. Con acceso directo, un token `"toString"` o `"constructor"` devuelve una función, no `undefined`, y **pasa por válido**. Es un agujero real: el token viene del cliente. Hay un test explícito. |
+| Qué cuenta como "10" | `tenCount` cuenta las flechas **que valen 10**, así que la `X` entra | El reglamento del club no lo definía. Se siguió la convención de World Archery, donde los 10 incluyen las X. Documentado en [`DOMAIN_WA.md`](DOMAIN_WA.md) §8 para que sea una decisión declarada y no un accidente. |
+| Firma de las funciones | Todas reciben la modalidad de forma explícita | Refuerza en el tipo que la modalidad es **del blanco**, no del torneo. Es el error más fácil de cometer en este dominio. |
+| `sortArrowsDescending` | Manda los tokens desconocidos al final en vez de fallar | Ordenar no es validar. La validación tiene su propia función y sus propios errores tipados. |
+| Bucle de validación | `arrows.entries()` en vez de índice numérico | Con `noUncheckedIndexedAccess`, `arrows[i]` obliga a un `?? ''` que nunca se ejecuta y queda como rama muerta. Se eliminó la rama en vez de escribir un test artificial para cubrirla. |
+
+**Tests**
+
+107 tests en el paquete (56 de `SH-1` + 51 nuevos). **Cobertura 100%** en líneas, ramas y funciones.
+
+Cubierto: los 9 cruces de token entre modalidades (`11` en sala, `X` en 3D, `7` en campo, `X6` en sala, etc.), la precedencia de `ARROW_COUNT` sobre `INVALID_TOKEN`, el índice exacto del primer token inválido, la irrelevancia del orden de entrada, y `maxPossibleScore` contra el caso de referencia del brief (**330**).
+
+Mutaciones verificadas, las tres detectadas:
+- `tenCount` contando el token equivocado → 2 tests fallan.
+- `lookupValue` sin guarda de prototipo → 2 tests fallan.
+- `sortArrowsDescending` ignorando el inner → 1 test falla.
+
+**Próximo:** `SH-3` — armado de patrullas. Es la tarea más delicada del dominio.
+
+---
+
 ## 2026-08-10 · `SH-1` — Catálogos de dominio
 
 **Autor:** Claude Opus 5 · **Estado:** completado

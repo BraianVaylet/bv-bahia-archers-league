@@ -11,9 +11,9 @@
 
 export * from './constants';
 export * from './domain';
+export * from './scoring';
 
 // Los módulos restantes se agregan a medida que se implementan:
-//   SH-2  scoring
 //   SH-3  patrolling
 //   SH-4  ranking
 //   SH-5  league
