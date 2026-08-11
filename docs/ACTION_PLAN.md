@@ -65,7 +65,8 @@ _(Hecho. `env.ts` valida con Zod y reúne **todos** los problemas juntos; en pro
 **Contenido:** pool a nivel de módulo (nunca por request); `createIndexes` idempotente con **todos** los índices de `TECHNICAL.md` §2; `env.ts` valida las variables con Zod y **falla el arranque** si falta una requerida en producción.
 **DoD:** `db:indexes` crea todos los índices · `db:seed` crea el admin con `mustChangePassword: true` · `db:reset` **falla** si `NODE_ENV=production` · test de que arrancar sin `ADMIN_INITIAL_PASSWORD` en producción tira error.
 
-### `[ ] BE-2` · Base de Hono y middlewares de seguridad
+### `[x] BE-2` · Base de Hono y middlewares de seguridad
+_(Hecho. `app.ts` con el orden de middlewares documentado, `index.ts` con arranque y apagado ordenado, `lib/{errors,csrf}.ts`, `middleware/{error,security,csrf,rateLimit,validate,cache}.ts` y `routes/health.ts`. **56 tests**, que cubren la parte de esta capa del checklist de [`SECURITY.md`](SECURITY.md) §13. Hallazgo: en Hono los errores del handler **no se propagan** a un `try/catch` en middleware — se enganchan con `app.onError`. El healthcheck queda **fuera** del rate limit a propósito. Ver [`BITACORA.md`](BITACORA.md).)_
 **Objetivo:** el servidor arranca seguro desde el primer commit.
 **Archivos:** `packages/api/src/{app,index}.ts`, `src/lib/{crypto,session,csrf,tokens,errors,time}.ts`, `src/middleware/{error,security,validate,rateLimit,cache}.ts`, `src/routes/health.ts`
 **Referencia:** [`SECURITY.md`](SECURITY.md) §3, §5, §10 · [`TECHNICAL.md`](TECHNICAL.md) §7
