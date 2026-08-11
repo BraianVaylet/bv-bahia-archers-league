@@ -14,6 +14,52 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `SH-3` — Armado de patrullas
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`patrolling.ts` con `buildPatrols` y `validatePatrols`. La tarea más delicada del dominio. TDD.
+
+**Dos reglas que la documentación no explicitaba, y que aparecieron al implementar**
+
+El documento describía el procedimiento a grandes rasgos; escribirlo reveló dos condiciones que, si se ignoran, dejan arqueros sin patrulla. Ambas se agregaron a [`DOMAIN_WA.md`](DOMAIN_WA.md) §5.
+
+1. **Escuela toma primero las unidades senior solitarias.** Una unidad de 1 arquero no puede formar patrulla sola (violaría `H1`); una de 2 sí. Si las unidades de escuela se llevan las senior de a dos, las senior solitarias quedan sin compañero posible. Caso concreto: 2 escuela + 3 razo. Tomando la de a dos quedan 4 arqueros en una patrulla y el razo solitario huérfano; tomando la solitaria salen 3 + 2 y no sobra nadie.
+
+2. **Una unidad solitaria sólo puede llevarse una de a dos si la paridad del resto cierra.** Con `S` solitarias y `P` de a dos, como máximo `min(P, S)` se llevan una, menos uno si `(S - x)` queda impar — porque las solitarias que no se llevan una de a dos tienen que poder emparejarse **entre sí**. Caso concreto: 3 solitarias y 2 pares. Si las tres se llevan un par, falta uno y queda una huérfana. La cuenta da 1: una se lleva un par, las otras dos se emparejan entre sí, y el par restante forma su propia patrulla. Total 3 + 2 + 2, nadie afuera.
+
+**Otras decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Arqueros no ubicables | Van a `unassigned` con warning `ESCUELA_SIN_SENIOR`, **no** se arma la patrulla que violaría `H3` | El documento decía "no se arma una patrulla 100% escuela" pero no decía dónde quedaban esos arqueros. Dejarlos afuera del plan los perdería en silencio. Explícitos, el admin los ubica a mano. |
+| Orden determinista | Comparación por `(orden de categoría, apellido, nombre, id)` con normalización NFD propia, **sin `localeCompare`** | `localeCompare` puede variar entre entornos. El armado tiene que ser reproducible en cualquier máquina. |
+| `validatePatrols` | Informa, no bloquea. Devuelve la lista de violaciones con el número de patrulla | El admin conoce el terreno y puede tener motivos para una excepción; la decisión queda en el audit log. Ver [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6. |
+| `A` tira primero | Es la unidad de la categoría con menor orden de catálogo | En una patrulla con escuela eso deja siempre al senior tirando primero, que es lo natural. |
+| Helper `sacar` | Un único punto con aserción no nula, comentado | `noUncheckedIndexedAccess` obliga a guardas de `undefined` que nunca se ejecutan. Son ramas muertas que ensucian el código y la cobertura. Se concentran en un helper en vez de repartirlas. |
+
+**Tests**
+
+152 tests en el paquete (45 nuevos). **Cobertura 100%** en líneas, ramas y funciones.
+
+Los 12 casos normativos del reglamento del club están traducidos literalmente: 5 patrullas correctas y 7 incorrectas, más los derivados de `H3` (patrulla de 2 y de 3, todas escuela) y de `H1` (patrullas de 1 y de 5).
+
+Determinismo probado con el input barajado y con dos corridas seguidas. Se cubrió el desempate por nombre y por id, que hacen falta con hermanos u homónimos — [`FUNCTIONAL.md`](FUNCTIONAL.md) §10 lo lista como caso borde.
+
+**Mutaciones probadas**
+
+| Mutación | Resultado |
+|---|---|
+| Sin ajuste de paridad en el cupo de pares | 1 test falla ✔ |
+| `validatePatrols` no chequea `H3` | 4 tests fallan ✔ |
+| `MAX_PATROL_SIZE` de 4 a 6 | 1 test falla ✔ |
+| Escuela toma las unidades senior grandes primero | **Sobrevivió** — era un hueco real. Se agregó el test de 2 escuela + 3 razo y ahora la detecta. |
+| `mejorCompañero` ignora la categoría | **Sobrevivió, y es un mutante equivalente.** El pool está ordenado por categoría, así que las unidades de la misma categoría quedan adyacentes y la preferencia por estaca elige exactamente la misma. No se escribió un test artificial: la preferencia por categoría se mantiene porque documenta la intención (`S1`) y porque el invariante de orden podría cambiar. Queda anotado acá para que nadie la borre creyendo que no hace nada. |
+
+**Próximo:** `SH-4` — ranking de torneo.
+
+---
+
 ## 2026-08-10 · `SH-2` — Scoring
 
 **Autor:** Claude Opus 5 · **Estado:** completado

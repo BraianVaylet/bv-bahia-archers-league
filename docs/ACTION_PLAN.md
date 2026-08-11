@@ -78,7 +78,9 @@ _(Hecho con TDD. **107 tests en el paquete, cobertura 100%** de líneas, ramas y
 
 > Toda esta fase es **TDD estricto**. El dominio es la columna vertebral del sistema y el lugar más barato de encontrar un bug.
 
-### `[ ] SH-3` · Armado de patrullas · **TDD** ⭐
+### `[x] SH-3` · Armado de patrullas · **TDD** ⭐
+_(Hecho. **152 tests en el paquete, cobertura 100%** de líneas, ramas y funciones. Los 12 casos normativos verdes, determinismo probado con el input barajado, y los casos extremos cubiertos. Dos reglas que el documento no explicitaba y que el código descubrió: escuela toma primero las unidades senior **solitarias** (consumir las de a dos deja solitarias huérfanas), y una unidad solitaria sólo puede llevarse una de a dos si la paridad del resto cierra. Ambas documentadas en [`DOMAIN_WA.md`](DOMAIN_WA.md) §5. Los arqueros que no se pueden ubicar quedan en `unassigned` con warning, en vez de perderse. Cinco mutaciones probadas: tres detectadas, una era un hueco real que se cubrió, y una resultó equivalente — ver [`BITACORA.md`](BITACORA.md).)_
+
 **Objetivo:** la tarea más crítica del dominio.
 **Archivos:** `packages/shared/src/patrolling.ts` + `tests/patrolling.test.ts`
 **Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §5 · casos en [`TESTING.md`](TESTING.md) §3.2
