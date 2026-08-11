@@ -14,6 +14,49 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `FE-1` y `FE-2` — PWA y capa offline
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`FE-2` es el equivalente de `BE-10` del lado del cliente: donde vive la regla de que **la red nunca esté en el camino crítico de anotar un puntaje**.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| `registerType` | **`prompt`**, nunca `autoUpdate` | `autoUpdate` recarga la app sola al detectar una versión nueva. A mitad de recorrido el líder pierde el contexto de lo que estaba anotando. |
+| Runtime caching | `/api/wafl/sync` **excluido** | Cachear una escritura no tiene sentido y podría enmascarar fallos. |
+| Escritura | Puntaje **y** op en **una sola transacción de IndexedDB** | Nunca queda un puntaje guardado sin su op, ni al revés. |
+| Validación | En el cliente **antes** de encolar | Un token inválido no tiene por qué viajar al servidor para que lo rechace. El servidor valida igual: es la autoridad. |
+| Total mostrado | Se calcula local, y el del servidor **lo pisa** al sincronizar | Ambos usan la misma función de `@bal/shared`, así que coinciden. Si alguna vez difieren, gana el servidor. |
+| Error de red o 401 | **Nunca** descartan ops | Es el antipatrón número uno de [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §12: se pierde trabajo del usuario por un problema de sesión. |
+| Cierre del circuito | Bloqueado si hay ops pendientes | Cerrar con puntajes sin enviar dejaría al servidor rechazando por datos incompletos. |
+| `nudge()` | No se llama con `await` desde la UI | El puntaje ya está guardado; sincronizar es de fondo. |
+
+**Un problema de infraestructura de tests que vale anotar**
+
+Los primeros 23 tests daban timeout a los 10 segundos, todos. La causa: `indexedDB.deleteDatabase()` **se queda bloqueado indefinidamente** mientras haya una conexión abierta — sin error, sin timeout, sin nada.
+
+Se agregó `closeDb()` y un `deleteDb()` que cierra antes de borrar. Y el test que simula "se cierra la app a mitad" ahora usa `closeDb()` en vez de sólo olvidar la referencia cacheada, que además es la simulación honesta de lo que pasa de verdad.
+
+**Dos tests débiles que las mutaciones revelaron**
+
+De cinco mutaciones probadas, tres se detectaron de entrada. Las otras dos **sobrevivieron, y en ambos casos el problema era el test, no el código**:
+
+1. **"No aplica el total del servidor"** sobrevivía porque el mock devolvía **el mismo** total que el cliente había calculado. No probaba nada. Corregido: ahora el mock responde `777` y el test exige que ese valor gane sobre el `19` local.
+
+2. **"El uuid no lleva timestamp"** sobrevivía porque la aserción sólo comparaba dos uuid consecutivos, y con un byte alterado el orden se mantenía igual. Corregido: se agregó un test que **decodifica los primeros 48 bits** y verifica que sean el momento de creación.
+
+Es exactamente para lo que sirve la prueba de mutación: un test verde que no detecta el bug es peor que no tener test, porque da confianza falsa.
+
+**Tests**
+
+24 tests en `@bal/app`. Cubren los escenarios obligatorios de [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §10: recorrido completo con `onLine === false`, cerrar y reabrir la app sin perder nada, error de red que no descarta ops, 401 que tampoco, op rechazada que marca el puntaje en conflicto, y cierre bloqueado con pendientes.
+
+**Próximo:** `FE-3` (infraestructura de frontend), `FE-4`/`FE-5` (login y home de WAFL) y `FE-6` — el teclado de scoring.
+
+---
+
 ## 2026-08-10 · `BE-6`, `BE-7`, `BE-11`, `BE-12` y `BE-13` — Ciclo completo del torneo
 
 **Autor:** Claude Opus 5 · **Estado:** completado
