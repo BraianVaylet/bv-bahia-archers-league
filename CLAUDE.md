@@ -132,7 +132,7 @@ Usar estas palabras, en el código y en la interfaz. **No** traducirlas ni inven
 
 ## Qué no tocar
 
-- **`0.prompt`, `1.context.md`, `2.development.md`, `3.stack.md`** — son los briefs originales del cliente. Son un registro histórico. No se editan.
+- **`pre/`** (`0.prompt`, `1.context.md`, `2.development.md`, `3.stack.md`) — son los briefs originales del cliente. Son un registro histórico. No se editan.
 - **`LICENSE`**.
 - **La documentación de `docs/`** solo se modifica cuando cambia una decisión de diseño, y el cambio se registra en [`docs/BITACORA.md`](docs/BITACORA.md).
 

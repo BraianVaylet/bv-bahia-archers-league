@@ -6,21 +6,23 @@ Esquemas, contratos y convenciones. Para el porqué de las decisiones ver [`ARCH
 
 ## 1. Stack
 
-| Capa | Tecnología | Versión objetivo |
+| Capa | Tecnología | Versión |
 |---|---|---|
-| Lenguaje | TypeScript `strict` en todo el monorepo | 5.6+ |
-| Runtime | Node | 20 LTS |
-| Monorepo | pnpm workspaces | pnpm 9 |
+| Lenguaje | TypeScript `strict` en todo el monorepo | **5.9.3** |
+| Runtime | Node | ≥ 20 LTS |
+| Monorepo | pnpm workspaces | **9.15.0** |
 | Backend | Hono | 4.x |
 | Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver 6.x |
 | Validación | Zod `.strict()` | 3.x |
-| Frontend | React 18, Vite 6, Tailwind CSS 4, TanStack Query 5, React Router 6 | — |
+| Frontend | React 18, **Vite 8**, Tailwind CSS 4, TanStack Query 5, React Router 6 | — |
 | PWA | `vite-plugin-pwa` (Workbox) | 0.21+ |
 | Offline | `idb` (wrapper de IndexedDB) | 8.x |
 | Hash | `argon2` (argon2id) | 0.41+ |
-| Lint y format | Biome | 1.9+ |
-| Tests | Vitest · Testing Library · `mongodb-memory-server` · `fake-indexeddb` · Playwright | — |
+| Lint y format | Biome | **2.5.7** |
+| Tests | **Vitest 4** · Testing Library · `mongodb-memory-server` · `fake-indexeddb` · Playwright | — |
 | Deploy | Docker multi-stage sobre Railway | — |
+
+> **Sobre TypeScript 7.** Existe y está publicado como `latest`, pero la compatibilidad del resto del toolchain (Vite, Vitest, Biome) con la reescritura nativa no está verificada. El proyecto arranca en **5.9.3** y la migración a 7 queda como tarea `P2`. Ver [`BITACORA.md`](BITACORA.md), entrada `INF-1`.
 
 ---
 
