@@ -21,6 +21,7 @@ import * as seasonRepo from '../repositories/seasonRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 import * as archerService from '../services/archerService.js';
 import * as tournamentService from '../services/tournamentService.js';
+import * as tournamentStateService from '../services/tournamentStateService.js';
 
 const ListArchersQuery = z
   .strictObject({
@@ -124,6 +125,11 @@ export const admin = new Hono()
         maxPossibleScore: t.maxPossibleScore,
       })),
     });
+  })
+
+  .post('/tournaments/:id/start', async (c) => {
+    const doc = await tournamentStateService.start(toObjectId(c.req.param('id')));
+    return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
   .get('/tournaments/:id', async (c) => {

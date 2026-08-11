@@ -161,17 +161,20 @@ _(Hecho. Transacción completa: torneo → participantes con snapshot → patrul
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §3.4 · [`SECURITY.md`](SECURITY.md) §9
 **DoD:** listar patrullas con el PIN descifrado, **solo** bajo sesión de admin y con el torneo no publicado, **registrando en el audit log** · `PUT` de la distribución solo en `sin_iniciar`, devolviendo violaciones sin bloquear · regenerar PIN invalida las sesiones de esa patrulla.
 
-### `[ ] BE-8` · Login de patrulla
+### `[x] BE-8` · Login de patrulla
+_(Hecho. PIN de 6 dígitos, timing-safe con hash de referencia, bloqueo tras 5 intentos por patrulla e IP. **La credencial sólo vale con el torneo `en_proceso`**: antes no hay nada que anotar, después los puntajes están cerrados.)_
 **Archivos:** `src/routes/auth.ts`, `src/services/authService.ts`, `src/middleware/auth.ts`
 **Referencia:** [`SECURITY.md`](SECURITY.md) §3.2, §3.3
 **DoD:** solo autentica con el torneo `en_proceso` · bloqueo por patrulla **y** por IP, independientes · la sesión lleva `patrolId` y `tournamentId` · una sesión de patrulla en `/api/admin/*` devuelve 403.
 
-### `[ ] BE-9` · Bundle de WAFL
+### `[x] BE-9` · Bundle de WAFL
+_(Hecho. Todo el recorrido en una descarga, con los blancos **rotados desde el blanco de inicio** de la patrulla. Incluye `serverTime` para que el cliente corrija el desfase de su reloj.)_
 **Archivos:** `src/routes/wafl/bundle.ts`
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §3.5
 **DoD:** devuelve todo lo del contrato, con los blancos **ordenados desde `startTargetIndex`** · incluye `serverTime` · responde en < 300 ms con 20 participantes · nunca expone datos de otra patrulla.
 
-### `[ ] BE-10` · Sincronización ⭐⭐
+### `[x] BE-10` · Sincronización ⭐⭐
+_(Hecho. Los 6 pasos de [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §6. **136 tests en `@bal/api`.** Dedup por `opId` con índice único, autorización **por op** dentro del loop, validación contra la modalidad del blanco leída de la base, LWW con desempate determinista, rollups por delta en la misma transacción. **El batch nunca falla entero.** Seis mutaciones probadas, las seis detectadas. Hallazgo: en Mongo un `E11000` dentro de una transacción la aborta, así que el dedup vive fuera — ver [`BITACORA.md`](BITACORA.md).)_
 **La tarea más crítica del backend.**
 **Archivos:** `src/routes/wafl/sync.ts`, `src/services/syncService.ts`, `src/repositories/{scoreRepo,syncOpRepo}.ts`
 **Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §6 · [`TESTING.md`](TESTING.md) §4.5
