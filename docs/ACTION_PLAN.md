@@ -127,7 +127,8 @@ _(Hecho. `schemas.ts` con auth, padrón, temporadas, torneo, patrullas y sincron
 
 # Fase 2 — Backend núcleo · P0
 
-### `[ ] BE-3` · Autenticación de admin
+### `[x] BE-3` · Autenticación de admin
+_(Hecho. `userRepo`, `sessionRepo`, `lib/session.ts`, `middleware/auth.ts`, `authService`, `routes/auth.ts`. **83 tests en `@bal/api`.** Login timing-safe verificado **midiendo tiempos**, no sólo por inspección. Bloqueo tras 5 intentos que rechaza incluso el password correcto. `mustChangePassword` bloquea toda ruta protegida con 403 salvo el propio cambio. Cambiar el password **invalida las demás sesiones**. Logout invalida en la base, no sólo la cookie. Seis mutaciones probadas, las seis detectadas.)_
 **Archivos:** `src/routes/auth.ts`, `src/services/authService.ts`, `src/repositories/userRepo.ts`, `src/middleware/auth.ts`
 **Referencia:** [`SECURITY.md`](SECURITY.md) §3.1, §8 · [`TESTING.md`](TESTING.md) §4.1
 **DoD:** register no existe (el admin se siembra) · login timing-safe verificado con comparación estadística · `mustChangePassword` bloquea toda otra ruta · bloqueo tras 5 intentos · logout invalida en base · en base **no** existe el password en claro.
