@@ -14,6 +14,52 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-2` — Base de Hono y middlewares de seguridad
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`app.ts`, `index.ts`, `lib/{errors,csrf}.ts`, `middleware/{error,security,csrf,rateLimit,validate,cache}.ts` y `routes/health.ts`.
+
+### Hallazgo: en Hono los errores no se propagan hacia arriba
+
+Se implementó el manejo de errores como middleware con `try { await next() } catch`. **No funciona.** Hono captura los errores del handler dentro de su `compose` y los convierte en respuesta sin propagarlos, así que el `catch` del middleware nunca los ve: todos los errores tipados salían como 500 genérico.
+
+Se detectó porque 15 tests fallaron con `500` donde esperaban `403`, `409` o `400`. Se diagnosticó con un test aislado que confirmó que la variable capturada quedaba en `undefined`.
+
+La forma correcta es `app.onError(handleError)`. Corregido y documentado en el encabezado de `app.ts` y de `middleware/error.ts`, para que no se vuelva a intentar.
+
+### Decisiones
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Healthcheck sin rate limit | `/api/health` queda fuera del limitador | Railway lo consulta seguido. Bloquearlo daría de baja el servicio por su propio monitoreo. Hay un test que hace 200 llamadas seguidas y exige 200 en todas. |
+| Rate limit de sync | Generoso a propósito (300/min por sesión) | Una patrulla que vuelve de tres horas sin señal manda cientos de operaciones de golpe y **nunca** debe ser rechazada. Ese endpoint está protegido por autenticación y autorización, no por el rate limit. Ver [`SECURITY.md`](SECURITY.md) §3.3. |
+| Rate limit en memoria | Estado en el proceso, no en la base | Alcanza para el despliegue de un solo contenedor de [`ARCHITECTURE.md`](ARCHITECTURE.md) §3. **Queda anotado en el código**: si alguna vez se escala a varias instancias, hay que moverlo a Mongo o a Redis. |
+| Cookie CSRF legible por JS | `httpOnly: false` a propósito | El frontend tiene que poder copiarla al header. Lo que protege no es el secreto de la cookie sino que un sitio de terceros no puede leerla. |
+| Comparación de tokens CSRF | `timingSafeEqual`, con la diferencia de longitud resuelta antes | `timingSafeEqual` exige buffers del mismo tamaño. |
+| `NOT_FOUND` para recursos ajenos | Un recurso que existe pero no es tuyo responde 404, no 403 | No se puede enumerar qué existe probando ids. Ver [`SECURITY.md`](SECURITY.md) §4. |
+| Errores en producción | Sin stack, sin mensaje original; se loguea con `requestId` correlacionable | Un stack trace en una respuesta le regala al atacante el mapa del sistema. |
+
+### Tests
+
+56 tests en `@bal/api` (27 nuevos). Cubren la parte de esta capa del checklist de [`SECURITY.md`](SECURITY.md) §13:
+
+- Mutación **sin** `x-csrf-token` → 403, en los cuatro verbos.
+- Mutación con header que no coincide → 403.
+- Todas las cabeceras de seguridad presentes, **también en las respuestas de error**.
+- La CSP no permite `unsafe-inline` ni `unsafe-eval` en `script-src`, y sí permite `data:` y `blob:` en `img-src`, que hacen falta para las firmas.
+- Sin HSTS fuera de producción.
+- Un error inesperado devuelve 500 **sin stack** y con `requestId`.
+- Rate limit corta con `Retry-After` y cuenta por IP.
+- Zod `.strict()` rechaza propiedades extra **y** `{ $ne: null }` donde se espera un string.
+- Body declarado más grande que 1 MB → 413.
+
+**Total del repo: 208 tests verdes.**
+
+**Próximo:** `BE-3` — autenticación de admin.
+
+---
+
 ## 2026-08-10 · `BE-1` — Conexión, índices, seed y reconcile
 
 **Autor:** Claude Opus 5 · **Estado:** completado

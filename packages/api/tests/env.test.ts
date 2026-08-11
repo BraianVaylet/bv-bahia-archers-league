@@ -50,7 +50,7 @@ describe('loadEnv', () => {
     });
 
     it('acepta una PIN_ENC_KEY de 64 caracteres hexadecimales', () => {
-      expect(() => loadEnv(testEnvRaw({ PIN_ENC_KEY: 'aF0'.repeat(21) + 'b' }))).not.toThrow();
+      expect(() => loadEnv(testEnvRaw({ PIN_ENC_KEY: `${'aF0'.repeat(21)}b` }))).not.toThrow();
     });
   });
 
