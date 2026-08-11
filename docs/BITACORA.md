@@ -14,6 +14,67 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-10 · `BE-8`, `BE-9` y `BE-10` — WAFL: login, bundle y sincronización
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+El tramo que habilita la app crítica. `patrolRepo`, `scoreRepo`, `patrolAuthService`, `waflService`, `syncService`, `tournamentStateService` y `routes/wafl.ts`.
+
+### 🔎 Hallazgo: en Mongo, un `E11000` dentro de una transacción la aborta
+
+El diseño original ponía el dedup **dentro** de la transacción: insertar en `syncOps` con `_id = opId` y capturar el error de clave duplicada. **No funciona.** En MongoDB, un error de escritura dentro de una transacción la aborta, y capturarlo en JavaScript no la revive: las operaciones siguientes fallan.
+
+Reestructurado así:
+
+1. **Dedup fuera de la transacción** — un `insert` suelto contra el índice único. Atómico, sin ventana entre comprobar y escribir.
+2. **Escrituras dentro de la transacción.**
+3. **Si algo falla, se borra la marca** para que el reintento del cliente vuelva a entrar.
+
+**Riesgo residual, asumido y documentado:** si el proceso muere entre la marca y el commit, la op queda marcada sin haberse aplicado y el reintento la ve como duplicada. La ventana es de milisegundos y el costo es un puntaje: el líder lo ve faltante en la pantalla de resultados y lo vuelve a cargar, lo que genera un `opId` nuevo. Está explicado en el encabezado de `procesarOp`.
+
+### Decisiones
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Autorización | **Dentro del loop, por op** | Un batch puede traer 200 y cualquiera podría apuntar a un participante ajeno. Verificar sólo al abrir la sesión no alcanza. Es lo que impide el IDOR entre patrullas. |
+| Validación de tokens | Contra la modalidad **del blanco, leída del torneo en base** | Nunca contra lo que diga el cliente. Un `11` es válido en 3D e inválido en sala del mismo torneo. |
+| LWW | Gana el `clientUpdatedAt` mayor; a igualdad, el `opId` mayor | El desempate por `opId` hace el resultado determinista ante relojes idénticos. |
+| Rollups | Delta que **descuenta lo que había** | Editar un blanco no puede sumar dos veces. Hay test. |
+| Una transacción **por op** | No una por batch | Una op inválida no puede revertir las que ya se aplicaron correctamente en el mismo batch. |
+| Op rechazada | Queda registrada como `rejected` | Un reenvío con el mismo `opId` responde `duplicate`, no se reprocesa. |
+| Firmas | Se verifican los **magic bytes** del PNG | El prefijo `data:image/png;base64,` es texto que el cliente elige. Hay test con un `<script>` disfrazado. |
+| Credencial de patrulla | Sólo vale con el torneo `en_proceso` | Antes no hay nada que anotar; después los puntajes están cerrados. |
+
+### Tests
+
+136 tests en `@bal/api` (30 nuevos).
+
+Los que más importan:
+
+- **Idempotencia**: el mismo batch enviado dos veces deja **un** puntaje, no dos, y el total del participante no se duplica.
+- **IDOR**: una op de un participante de otra patrulla se rechaza; y en un **batch mixto** se aplican las propias y se rechazan las ajenas.
+- **LWW**: una op más vieja no pisa a una más nueva, y devuelve el valor vigente.
+- **Editar**: cargar dos veces el mismo blanco deja `targetsCompleted: 1`, no 2.
+- **El batch nunca falla entero**: un batch con una op válida, una inválida y un `close` rechazado responde 200 y **aplica la válida**.
+- **200 ops de golpe** no caen en rate limit.
+
+### Seis mutaciones probadas, las seis detectadas
+
+| Mutación | Tests que fallan |
+|---|---|
+| Sin dedup (el reenvío duplica) | 2 |
+| Sin autorización por op (IDOR entre patrullas) | 2 |
+| LWW invertido (lo viejo pisa lo nuevo) | 3 |
+| El delta no descuenta lo anterior (editar suma dos veces) | 1 |
+| La firma no verifica magic bytes | 1 |
+| La credencial de patrulla vale en cualquier estado | 2 |
+
+**Nota:** `BE-6` (estados del torneo) quedó **parcial**: se implementó `tournamentStateService` con la matriz de transiciones y el `start`, porque el login de patrulla lo necesitaba. Falta el bloqueo de edición de blancos con puntajes (`TARGET_LOCKED`).
+
+**Próximo:** `BE-11` (firmas y cierre desde WAFA), `BE-12` (publicar) o arrancar el frontend con `FE-1`/`FE-2`.
+
+---
+
 ## 2026-08-10 · `BE-4` y `BE-5` — Padrón, temporadas y creación de torneos
 
 **Autor:** Claude Opus 5 · **Estado:** completado

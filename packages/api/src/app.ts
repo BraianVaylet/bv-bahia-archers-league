@@ -23,6 +23,7 @@ import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
 import { health } from './routes/health.js';
+import { wafl } from './routes/wafl.js';
 
 export interface AppOptions {
   /** Hashes SHA-256 de los scripts inline permitidos por la CSP. */
@@ -54,10 +55,19 @@ export function createApp(options: AppOptions = {}): Hono {
     }),
   );
 
+  // Generoso a propósito: una patrulla que vuelve de tres horas sin señal manda
+  // cientos de operaciones de golpe y NUNCA debe ser rechazada. Ese endpoint lo
+  // protegen la autenticación y la autorización, no el rate limit.
+  app.use(
+    '/api/wafl/sync',
+    rateLimit({ limit: cfg.RATE_LIMIT_SYNC, windowMs: 60_000, scope: 'sync' }),
+  );
+
   app.use('/api/*', csrfProtection());
 
   app.route('/api/auth', auth);
   app.route('/api/admin', admin);
+  app.route('/api/wafl', wafl);
 
   app.notFound((c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'No se encontró lo que buscabas.' } }, 404),
