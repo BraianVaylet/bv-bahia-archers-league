@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-11 · `FE-11` — Wizard de creación de torneo
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Los cuatro pasos: datos, recorrido, participantes, revisión.
+
+**La lógica vive en `wizard.ts`, puro y sin React.** La pantalla sólo pinta. Es lo que permite probar las decisiones —renumerar, reponer flechas, avisar de la composición— sin pasar por clicks, y hace que los tests se lean.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Cambiar la modalidad de un blanco | **Repone las flechas del reglamento**, incluso pisando las que el admin tocó a mano | Quien pasa un blanco a 3D espera 2 flechas, no las 3 que traía de sala. Conservarlas dejaría un 3D de 6 flechas sin que nadie lo pidiera. |
+| Agregar, eliminar y mover | **Renumeran de 1 a N** | El backend exige índices contiguos: un hueco se rechazaría recién al confirmar, después de cargar todo. |
+| Mover en los extremos | No hace nada, **no envuelve** | Envolver sorprende: el admin está mirando una lista, no un anillo. |
+| Aviso de la regla de escuela | Corre **`buildPatrols`**, el mismo algoritmo del servidor | Una heurística adivinaría. Esto es el resultado real, y puede decir **quiénes** quedarían sin patrulla. |
+| Error vs aviso | El error frena, el aviso no | Un error lo rechazaría el servidor igual, y es mejor decirlo antes. Un aviso es información: el admin puede saber algo que el algoritmo no. |
+| Arquero nuevo | Se crea **dentro** del wizard | Mandarlo al padrón y de vuelta le haría perder todo lo cargado. |
+| Revisión | Se vuelve a cualquier paso sin perder nada | El admin arma el recorrido en el club, con gente alrededor, y se equivoca. Rehacer todo por un blanco mal cargado no es una opción. |
+
+**Una regla del dominio que es más sutil de lo que parece**
+
+Un test mío daba por sentado que **3 de escuela y 2 seniors** alcanzaba. No alcanza: se cuentan **unidades**, no cabezas. Tres de escuela forman **dos** unidades —una de a dos y un solitario— mientras que dos razo forman **una sola**. Una unidad de escuela queda sin senior aunque «haya seniors».
+
+El código tenía razón; el test estaba mal. Quedó como caso explícito, porque es exactamente el tipo de cuenta que un admin va a hacer mal parado en el club.
+
+**Seis mutaciones, seis detectadas.** Entre ellas: que cambiar la modalidad no reponga las flechas, que no se renumere, que mover en el extremo envuelva y que el paso 3 nunca frene.
+
+**Se dejó afuera `FE-13`, a propósito**
+
+La edición manual de patrullas **necesita un endpoint que no existe**: `PatrolDistributionSchema` está escrito en `@bal/shared` pero ninguna ruta lo consume. Hace falta un `PUT /admin/tournaments/:id/patrols` transaccional, permitido sólo en `sin_iniciar`. Hacer la pantalla sin eso sería un validador en vivo que no puede guardar nada.
+
+Quedó anotado en la tarea. Al crear un torneo, por ahora se vuelve al inicio, donde aparece en «Sin iniciar».
+
+**614 tests en el repo.**
+
+---
+
 ## 2026-08-11 · `FE-4`, `FE-9`, `FE-10`, `FE-12` — El shell, y WAFA empieza
 
 **Autor:** Claude Opus 5 · **Estado:** completado
