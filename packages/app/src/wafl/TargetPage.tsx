@@ -135,7 +135,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         <SyncBadge />
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         <div className="flex items-baseline gap-3 pt-2">
           <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
             Blanco {target.index}

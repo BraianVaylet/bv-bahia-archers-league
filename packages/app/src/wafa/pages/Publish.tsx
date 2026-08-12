@@ -150,7 +150,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
         <span className="font-semibold">{publicado ? 'Resultados' : 'Publicar'}</span>
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         {error && (
           <p role="alert" className="text-sm text-[var(--danger)]">
             {error}

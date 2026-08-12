@@ -18,6 +18,7 @@ import { Hono } from 'hono';
 import { env } from './env.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
+import { hayBuild, montarEstaticos } from './middleware/estaticos.js';
 import { rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
@@ -29,6 +30,11 @@ import { wafl } from './routes/wafl.js';
 export interface AppOptions {
   /** Hashes SHA-256 de los scripts inline permitidos por la CSP. */
   readonly scriptHashes?: readonly string[];
+  /**
+   * Servir los frontends construidos. Por defecto se detecta: si los `dist`
+   * existen, se sirven. Los tests lo apagan para no depender de un build.
+   */
+  readonly servirFrontends?: boolean;
 }
 
 export function createApp(options: AppOptions = {}): Hono {
@@ -70,6 +76,13 @@ export function createApp(options: AppOptions = {}): Hono {
   app.route('/api/admin', admin);
   app.route('/api/wafl', wafl);
   app.route('/api/public', publico);
+
+  // En desarrollo cada frontend corre en su Vite y esto no se monta. En tests
+  // tampoco: que una suite pase o falle según si alguien corrió `pnpm build`
+  // antes es exactamente el tipo de intermitencia que no se puede tener.
+  if (options.servirFrontends ?? (cfg.NODE_ENV !== 'test' && hayBuild())) {
+    montarEstaticos(app);
+  }
 
   app.notFound((c) =>
     c.json({ error: { code: 'NOT_FOUND', message: 'No se encontró lo que buscabas.' } }, 404),

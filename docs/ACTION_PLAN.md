@@ -362,7 +362,12 @@ _(Hecho. Estadísticas por temporada desde los acumulados. El **porcentaje va pr
 
 # Fase 6 — Calidad, seguridad y deploy
 
-### `[ ] TEST-1` · E2E con tramo offline · **P0** ⭐
+### `[x] BE-17` · La API sirve los frontends · P0
+_(Hecho. `/` la landing, `/app/` la PWA, con fallback de SPA en las dos: recargar en `/app/wafl` tenía que devolver el index, no un 404. Un `/api/...` inexistente sigue respondiendo JSON. **Faltaba desde el principio** —`ARCHITECTURE.md` §3 lo pedía— y sin eso no hay stack real que testear ni contenedor que desplegar. 9 tests.)_
+**Archivos:** `src/middleware/estaticos.ts`, `src/app.ts`
+
+### `[x] TEST-1` · E2E con tramo offline · **P0** ⭐
+_(Hecho. Los 23 pasos, contra el stack real: MongoDB efímero en replica set más la API sirviendo los dos frontends construidos, en un solo origen. **47 s.** Encontró tres bugs que ninguna otra prueba podía encontrar: la sincronización no estaba enchufada, la barra fija tapaba el botón de firmar del último arquero, y `setOffline` no bloquea `localhost`. Ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `packages/app/tests/e2e/flujo-completo.spec.ts`, `playwright.config.ts`
 **Referencia:** [`TESTING.md`](TESTING.md) §6
 **DoD:** los 23 pasos del flujo, **incluyendo `context.setOffline(true)` para cargar el recorrido completo sin conexión** y la verificación de que todo sincroniza al reconectar · verde en CI.

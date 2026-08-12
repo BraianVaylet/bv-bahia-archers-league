@@ -8,8 +8,9 @@
  * Ver `docs/FUNCTIONAL.md` §7.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { BundleTarget, StoredBundle } from '../offline/db.js';
+import { startSyncWorker } from '../offline/syncWorker.js';
 import { CircuitPage } from './CircuitPage.js';
 import { LoginPage } from './LoginPage.js';
 import { ResultsPage } from './ResultsPage.js';
@@ -24,6 +25,15 @@ type Vista =
 export function WaflApp() {
   const [bundle, setBundle] = useState<StoredBundle>();
   const [vista, setVista] = useState<Vista>({ nombre: 'circuito' });
+
+  /**
+   * Los disparadores de sincronización arrancan con la app.
+   *
+   * Sin esto no hay evento `online`, ni intervalo, ni conteo inicial de
+   * pendientes: el outbox se llena y no sale nunca, y el indicador se queda
+   * diciendo «Sincronizado». Lo encontró el E2E; ver `BITACORA.md`.
+   */
+  useEffect(() => startSyncWorker(), []);
 
   if (!bundle) return <LoginPage onEntro={setBundle} />;
 

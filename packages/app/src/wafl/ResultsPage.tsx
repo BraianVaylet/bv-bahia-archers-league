@@ -102,7 +102,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
         <SyncBadge />
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         <h1 className="pt-2 font-[var(--font-display)] text-[var(--text-display)] font-bold">
           Resultados
         </h1>
