@@ -195,6 +195,50 @@ export const admin = new Hono()
     return c.json({ patrols, violations });
   })
 
+  /**
+   * Resultados con los rollups de cada participante.
+   *
+   * Es lo que le falta a WAFA para seguir un torneo en curso y para previsualizar
+   * los podios **antes** de publicar. A diferencia del endpoint público, acá sí se
+   * ven los puntajes de un torneo `completado`: el admin tiene que poder revisar
+   * lo que está por aplicar a la liga.
+   */
+  .get('/tournaments/:id/results', async (c) => {
+    const id = toObjectId(c.req.param('id'));
+    const doc = await tournamentRepo.findById(id);
+    if (!doc) throw notFound();
+
+    const [miembros, patrullas] = await Promise.all([
+      tournamentRepo.listParticipants(id),
+      tournamentRepo.listPatrols(id),
+    ]);
+    const numeroDePatrulla = new Map(patrullas.map((p) => [p._id.toHexString(), p.number]));
+
+    return c.json({
+      maxPossibleScore: doc.maxPossibleScore,
+      participants: miembros.map((m) => ({
+        id: m._id.toHexString(),
+        archerId: m.archerId.toHexString(),
+        firstName: m.firstName,
+        lastName: m.lastName,
+        category: m.category,
+        stake: m.stake,
+        patrolNumber: numeroDePatrulla.get(m.patrolId.toHexString()) ?? 0,
+        total: m.total,
+        normalizedPct: m.normalizedPct,
+        innerCount: m.innerCount,
+        tenCount: m.tenCount,
+        mCount: m.mCount,
+        targetsCompleted: m.targetsCompleted,
+        status: m.status,
+        signed: m.signature !== null,
+        // Que la firma haya sido desbloqueada no se oculta: el podio se mira
+        // distinto si alguien no firmó de puño y letra.
+        signatureUnlocked: m.signature?.unlockedBy != null,
+      })),
+    });
+  })
+
   .get('/tournaments/:id/locked-targets', async (c) => {
     const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
     if (!doc) throw notFound();

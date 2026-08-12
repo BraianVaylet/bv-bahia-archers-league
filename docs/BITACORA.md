@@ -14,6 +14,43 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `BE-16`, `FE-14` y `FE-15` — Seguimiento y publicación
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Con esto **WAFA queda usable de punta a punta**: crear el torneo, armar las patrullas, seguirlo mientras se corre, y publicarlo.
+
+**Otro endpoint que faltaba**
+
+Igual que en `FE-13`: la vista previa de podios necesitaba los resultados de un torneo `completado`, y el endpoint público los oculta a propósito —un torneo completado todavía no es oficial—. Se agregó `GET /admin/tournaments/:id/results`. **El admin sí tiene que poder mirar lo que está por aplicar a la liga.**
+
+Aprovechando, expone si una firma fue **desbloqueada**: el podio se mira distinto si alguien no firmó de puño y letra.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Podios y puntos | Se calculan con **`rankByCategory` y `leaguePointsForPosition`**, las mismas del servidor | La vista previa no es una estimación: es lo que va a quedar aplicado. |
+| Empates | Se dicen: «empatado», y los dos con los mismos puntos | Dos primeros no es un error de carga, es el reglamento. |
+| Publicar | **Confirmación aparte** | Aplica los resultados a la liga. No puede pasar de un toque. |
+| Despublicar | Dice **exactamente qué revierte** | Un «¿estás seguro?» genérico no informa. Se aclara que los puntajes no se borran y que se puede volver a publicar. |
+| Blanco bloqueado | Muestra **el motivo** | Un blanco gris sin explicación parece un error de la app. |
+| Torneo terminado | Ningún blanco se toca, tenga o no puntajes | Una patrulla puede no haber llegado a un blanco; eso no lo vuelve editable. |
+| Desbloquear firma | Motivo obligatorio | Es saltarse el control que valida el puntaje, y queda en el audit log. |
+| Avance de patrulla | Se **lee** del servidor, no se deriva | Lo actualiza la sincronización. WAFA lee, no calcula el estado del torneo. |
+
+**Siete mutaciones, siete detectadas.** Entre ellas: que todos sumen 5 puntos, que ningún blanco figure bloqueado, que nunca falte nadie por firmar y que publicar no pida confirmación.
+
+Esta vez **no hubo sorpresas de dominio ni tests mal armados** — las tres tandas anteriores dejaron bastante aprendido sobre unidades, empates y esperas asincrónicas.
+
+**698 tests en el repo.**
+
+**Estado:** dominio, backend, WAFL y WAFA completos. `FE-16` (ranking en WAFA) queda pendiente: es `P1` y duplica lo que va a mostrar la landing, así que conviene hacerlo después de `FE-18`.
+
+**Próximo:** la landing (`FE-17`..`FE-20`), o `TEST-1` —el E2E con tramo offline— que es `P0` y ata todo lo construido.
+
+---
+
 ## 2026-08-12 · `BE-15` y `FE-13` — Patrullas: el endpoint que faltaba, y el editor
 
 **Autor:** Claude Opus 5 · **Estado:** completado

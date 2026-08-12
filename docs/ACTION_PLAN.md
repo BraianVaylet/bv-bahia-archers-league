@@ -315,15 +315,22 @@ _(Hecho. Composición completa con unidades, posiciones, estacas y blanco de ini
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6
 **DoD:** composición completa con unidades, posiciones, estacas y blanco de inicio · edición manual solo en `sin_iniciar` · **validador en vivo que muestra las violaciones sin bloquear el guardado** · credenciales visibles con botón de regenerar · vista imprimible para repartir en el club.
 
-### `[ ] FE-14` · Detalle y seguimiento del torneo · P0
+### `[x] BE-16` · Resultados para WAFA · P0
+_(Hecho. `GET /admin/tournaments/:id/results` con los rollups de cada participante y su número de patrulla. A diferencia del endpoint público, acá **sí** se ven los puntajes de un torneo `completado`: el admin tiene que poder revisar lo que está por aplicar a la liga. Marca las firmas **desbloqueadas** como tales, porque el podio se mira distinto si alguien no firmó de puño y letra. Detectado al hacer `FE-15`.)_
+**Archivos:** `src/routes/admin.ts`
+
+### `[x] FE-14` · Detalle y seguimiento del torneo · P0
+_(Hecho. La pantalla cambia según el estado. En proceso es una **pantalla de mirar**: avance por patrulla con barra, quiénes faltan firmar, y el recorrido con los blancos bloqueados **explicando el motivo** — un blanco gris sin explicación parece un error de la app. El desbloqueo de firma exige un motivo de al menos 5 caracteres, que queda en el audit log. Terminado el torneo no se toca ningún blanco, aunque no tenga puntajes.)_
 **Archivos:** `src/wafa/pages/Tournament.tsx`
 **DoD:** vista por estado según `FUNCTIONAL.md` §6.7 · avance por patrulla · un blanco con puntajes aparece bloqueado con explicación · desbloqueo de firma pidiendo motivo.
 
-### `[ ] FE-15` · Publicar · P0
+### `[x] FE-15` · Publicar · P0
+_(Hecho. Los podios y los puntos de liga se calculan con **las mismas funciones que usa el servidor al publicar** (`rankByCategory`, `leaguePointsForPosition`), así que la vista previa no es una estimación. El empate se muestra como tal: dos primeros con 5 puntos cada uno no es un error de carga. Publicar pide **una confirmación aparte** — aplica los resultados a la liga, no puede pasar de un toque. Despublicar dice **exactamente qué revierte**, no un «¿estás seguro?» genérico, y exige un motivo.)_
 **Archivos:** `src/wafa/pages/Publish.tsx`
 **DoD:** vista previa de podios y de los puntos de liga que se aplicarían · confirmación explícita · despublicar disponible con advertencia clara de lo que revierte.
 
 ### `[ ] FE-16` · Ranking en WAFA · P1
+**Nota:** duplica lo que va a mostrar la landing. Conviene hacerlo **después de `FE-18`** y reutilizar sus componentes en vez de escribirlo dos veces.
 **Archivos:** `src/wafa/pages/Ranking.tsx`
 **DoD:** mismos datos y modos que la landing.
 
