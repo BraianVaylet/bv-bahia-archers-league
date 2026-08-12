@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `BE-15` y `FE-13` — Patrullas: el endpoint que faltaba, y el editor
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`FE-11` había dejado anotado que la edición manual de patrullas **no tenía dónde guardarse**: `PatrolDistributionSchema` existía en `@bal/shared` desde `SH-7` pero ninguna ruta lo consumía. Se hizo el endpoint (con TDD, porque es transaccional y toca datos) y después la pantalla.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Distribución incompleta | **Se rechaza**, diciendo a quién falta | Un arquero sin patrulla no aparece en ninguna planilla, y nadie se entera hasta que ya se está tirando. Es el error que rompe el torneo en silencio. |
+| Violaciones de `H1`..`H4` | **Se guardan**, y quedan en el audit log con su cantidad | El admin conoce el terreno. Avisar no es impedir. |
+| Posición dentro de la unidad | La deriva el servidor del **orden** | Es un dato derivado, no una opinión del cliente. |
+| Patrullas | **No se crean ni se borran** | Sus credenciales pueden estar repartidas en papel. Una que queda sin nadie queda vacía. |
+| Torneo ya iniciado | No se puede redistribuir | Los líderes ya tienen el recorrido descargado: moverles la patrulla abajo de los pies rompería la sincronización. |
+| Elegir destino al mover | Una lista de botones, **no arrastrar** | Arrastrar con guantes en un celular no es una interacción confiable. |
+| Validador de la pantalla | Corre **`validatePatrols`**, el mismo del servidor | Lo que se ve en vivo es lo que va a quedar registrado, no una aproximación. |
+
+**Un bug real que encontró una mutación**
+
+El borrador ordena los miembros por unidad y posición. Lo escribí con `localeCompare`, y **`derecha` va antes que `izquierda` en el abecedario** — al revés de la línea de tiro. La patrulla se mostraba con las posiciones invertidas.
+
+Corregido usando el índice de `POSITIONS`, que es además la convención del proyecto: `text.ts` existe justamente para no depender de `localeCompare`. La regla ya estaba escrita y yo la rompí igual.
+
+**Tres supuestos míos sobre el dominio, equivocados**
+
+1. **Una unidad son 1 o 2 arqueros**, nunca 3. Varios tests míos armaban unidades de tres y el schema los rechazaba con otro error del que yo esperaba.
+2. **`buildPatrols` empaqueta ajustado**, así que *vaciar* una patrulla que el algoritmo armó es inalcanzable con el tope de 4. Saqué ese test: probar un caso imposible no prueba nada. En su lugar se verifica que la cantidad de patrullas y sus credenciales no cambian.
+3. Mover un arquero a otra patrulla **lo deja solo en la unidad `B`**, así que no ensucia la `A`. Para producir una unidad mixta hay que vaciarle un lugar primero. El test quedó documentando eso.
+
+**Trece mutaciones, trece detectadas** — siete en el servicio, seis en el frontend.
+
+**658 tests en el repo.**
+
+**Próximo:** `FE-14` (detalle y seguimiento del torneo) y `FE-15` (publicar), que cierran WAFA.
+
+---
+
 ## 2026-08-11 · `FE-11` — Wizard de creación de torneo
 
 **Autor:** Claude Opus 5 · **Estado:** completado

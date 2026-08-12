@@ -304,8 +304,13 @@ _(Hecho. CRUD, archivar, restaurar y búsqueda **contra el servidor**, no filtra
 **Archivos:** `src/wafa/pages/{Archers,ArcherForm,Seasons}.tsx`
 **DoD:** CRUD, archivar, restaurar, búsqueda · eliminar deshabilitado con explicación si el arquero participó.
 
-### `[ ] FE-13` · Patrullas y credenciales · P0
-**Falta backend:** no existe endpoint para **guardar** una distribución manual. `PatrolDistributionSchema` está escrito en `@bal/shared` pero ninguna ruta lo consume. Hace falta un `PUT /admin/tournaments/:id/patrols` transaccional, permitido sólo en `sin_iniciar`, que reasigne `patrolId`, `unit` y `position` de los participantes y registre la excepción en el audit log. Detectado al hacer `FE-11`.
+### `[x] BE-15` · Redistribución manual de patrullas · P0
+_(Hecho con TDD. `PUT /admin/tournaments/:id/patrols`, transaccional, sólo en `sin_iniciar`. **Avisa pero no bloquea**: la respuesta trae las violaciones que el admin acaba de aceptar y quedan en el audit log. Lo que sí bloquea es **perder un arquero**: exige la lista completa y, si falta alguno, dice **quién**. La posición sale del **orden dentro de la unidad**, no de lo que mande el cliente. No crea ni borra patrullas: sus credenciales pueden estar repartidas en papel. **13 tests de integración**, siete mutaciones probadas y detectadas.)_
+**Archivos:** `src/routes/admin.ts`, `src/services/patrolAdminService.ts`, `src/repositories/{patrolRepo,tournamentRepo}.ts`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6 · [`DOMAIN_WA.md`](DOMAIN_WA.md) §5
+
+### `[x] FE-13` · Patrullas y credenciales · P0
+_(Hecho. Composición completa con unidades, posiciones, estacas y blanco de inicio. La lógica va en `patrullas.ts`, pura. El **validador en vivo corre `validatePatrols`, el mismo del servidor**, así que lo que se ve es lo que va a quedar registrado. Avisa sin bloquear; lo único que frena es lo que el servidor rechazaría. El destino de un arquero se elige de una lista y no arrastrando: arrastrar con guantes en un celular no es confiable. Credenciales visibles con regenerar, y vista imprimible. **32 tests** (20 de lógica + 12 de pantalla). Seis mutaciones probadas y detectadas; una encontró un bug real de orden — ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `src/wafa/pages/Patrols.tsx`, `src/wafa/components/PatrolEditor.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.6
 **DoD:** composición completa con unidades, posiciones, estacas y blanco de inicio · edición manual solo en `sin_iniciar` · **validador en vivo que muestra las violaciones sin bloquear el guardado** · credenciales visibles con botón de regenerar · vista imprimible para repartir en el club.
