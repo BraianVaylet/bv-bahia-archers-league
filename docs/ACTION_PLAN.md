@@ -375,7 +375,8 @@ _(Hecho. Los 23 pasos, contra el stack real: MongoDB efímero en replica set má
 ### `[ ] TEST-2` · E2E de escenarios adicionales · P1
 **DoD:** los 5 escenarios de `TESTING.md` §6 (recarga offline, dos dispositivos, sesión vencida, blanco bloqueado, PWA instalable).
 
-### `[ ] BE-14` · Auditoría de seguridad · **P0**
+### `[~] BE-14` · Auditoría de seguridad · **P0**
+_(**36 de 38 ítems del checklist verdes, cada uno con su test señalado en [`SECURITY.md`](SECURITY.md) §13.** La mayoría ya estaba cubierta y se mapeó; faltaban cinco, que se escribieron en `tests/seguridad.test.ts`: el rastro en el audit log de una op de otra patrulla, el 404 —no 403— de un recurso ajeno, `SIGNATURE_MISMATCH` al cambiar un puntaje ya firmado, la clave con `$` en un objeto anidado, y HSTS presente en producción. Cuatro mutaciones probadas, las cuatro detectadas. **Los 2 pendientes no dependen del código:** `aikido:scan` exige iniciar sesión desde el navegador, y «contenedor no root» necesita construir la imagen (ver `INF-3`). `/security-review` corrió sobre el diff sin hallazgos, pero **el diff sólo tiene docs y tests**: el código con superficie de seguridad de esta sesión ya está en `main`, así que esa parte del DoD queda sin cumplir de verdad.)_
 **Referencia:** [`SECURITY.md`](SECURITY.md) §13
 **DoD:** **el checklist completo de `SECURITY.md` §13 verde**, cada ítem con su test · `/security-review` sobre el diff sin HIGH ni MEDIUM · `aikido:scan` limpio.
 
