@@ -614,6 +614,63 @@ describe('endpoints públicos', () => {
     expect((await cliente().get(`/api/public/tournaments/${tournamentId}`)).status).toBe(404);
   });
 
+  // El admin sí tiene que poder mirar los puntajes de un torneo completado: es
+  // lo que está por aplicar a la liga.
+  it('el admin ve los resultados con sus rollups y el número de patrulla', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const body = (await (await c.get(`/api/admin/tournaments/${tournamentId}/results`)).json()) as {
+      maxPossibleScore: number;
+      participants: {
+        lastName: string;
+        patrolNumber: number;
+        total: number;
+        signed: boolean;
+        signatureUnlocked: boolean;
+      }[];
+    };
+
+    expect(body.maxPossibleScore).toBeGreaterThan(0);
+    expect(body.participants.length).toBeGreaterThan(0);
+    expect(body.participants[0]?.patrolNumber).toBe(1);
+    expect(body.participants[0]?.signed).toBe(false);
+    expect(body.participants[0]?.signatureUnlocked).toBe(false);
+  });
+
+  it('una firma desbloqueada se marca como tal: el podio se mira distinto', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const antes = (await (
+      await c.get(`/api/admin/tournaments/${tournamentId}/results`)
+    ).json()) as { participants: { id: string }[] };
+    const participantId = antes.participants[0]?.id as string;
+
+    await c.post(`/api/admin/participants/${participantId}/signature/unlock`, {
+      reason: 'Se fue antes de firmar.',
+    });
+
+    const despues = (await (
+      await c.get(`/api/admin/tournaments/${tournamentId}/results`)
+    ).json()) as { participants: { id: string; signed: boolean; signatureUnlocked: boolean }[] };
+
+    const quien = despues.participants.find((p) => p.id === participantId);
+    expect(quien?.signed).toBe(true);
+    expect(quien?.signatureUnlocked).toBe(true);
+  });
+
+  it('sin sesión de admin no se ven los resultados', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+
+    expect((await cliente().get(`/api/admin/tournaments/${tournamentId}/results`)).status).toBe(
+      401,
+    );
+  });
+
   it('un torneo completado pero SIN publicar tampoco expone resultados', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
