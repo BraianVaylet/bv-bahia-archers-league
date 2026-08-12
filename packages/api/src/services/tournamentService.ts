@@ -98,6 +98,7 @@ export async function createTournament(
         date: input.date,
         description: input.description,
         status: 'sin_iniciar',
+        payment: { ...input.payment },
         targets,
         maxPossibleScore: maximo,
         stakeMap: {
@@ -230,6 +231,7 @@ async function materializar(
           normalizedPct: 0,
           byModality: { ...MODALIDADES_EN_CERO },
           status: 'activo',
+          paid: false,
           signature: null,
           createdAt: ahora,
           updatedAt: ahora,

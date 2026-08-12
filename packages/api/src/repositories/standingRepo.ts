@@ -31,6 +31,9 @@ export const toDomain = (doc: StandingDoc): ArcherStanding => ({
   bestNormalizedPct: doc.bestNormalizedPct,
   bestRawScore: doc.bestRawScore,
   bestTournamentId: doc.bestTournamentId?.toHexString() ?? null,
+  // Los acumulados escritos antes de «mejor de 2» no tienen el campo. Se leen
+  // como vacío en vez de romper; `db:reconcile` los recalcula.
+  topTwoPcts: doc.topTwoPcts ?? [],
   totalX: doc.totalX,
   totalTens: doc.totalTens,
   totalM: doc.totalM,
@@ -59,6 +62,7 @@ export async function replaceSeason(
       bestNormalizedPct: s.bestNormalizedPct,
       bestRawScore: s.bestRawScore,
       bestTournamentId: s.bestTournamentId ? new ObjectId(s.bestTournamentId) : null,
+      topTwoPcts: [...s.topTwoPcts],
       totalX: s.totalX,
       totalTens: s.totalTens,
       totalM: s.totalM,

@@ -28,6 +28,13 @@ const texto = (min: number, max: number) => z.string().trim().min(min).max(max);
 
 export const MAX_TARGETS = 60;
 export const MAX_PARTICIPANTS = 200;
+/**
+ * Tope de la inscripción, en pesos.
+ *
+ * No es una regla del deporte: es un freno a que un cero de más convierta la
+ * recaudación en un número que nadie puede leer. Se sube cuando haga falta.
+ */
+export const MAX_PAYMENT_AMOUNT = 10_000_000;
 export const MAX_SYNC_OPS = 200;
 /** Tope del data URL de una firma. Un trazo comprimido entra muy por debajo. */
 export const MAX_SIGNATURE_BYTES = 60_000;
@@ -115,12 +122,42 @@ function indicesContiguos(targets: readonly { index: number }[]): boolean {
   return ordenados.every((valor, i) => valor === i + 1);
 }
 
+/**
+ * Inscripción del torneo: **un monto único para todos**.
+ *
+ * La recaudación se deriva —cantidad de pagos × monto— en vez de acumularse,
+ * así no hay un total que pueda quedar desfasado de los pagos que lo componen.
+ *
+ * El monto vive en el torneo, no en cada pago: al marcar un arquero como pagado
+ * el servidor lo lee de la base. Ver `docs/SECURITY.md` §2.
+ */
+export const PaymentConfigSchema = z
+  .strictObject({
+    required: z.boolean(),
+    /** En pesos, entero: la inscripción no tiene centavos. */
+    amount: z.number().int().min(0).max(MAX_PAYMENT_AMOUNT),
+  })
+  .refine((v) => !v.required || v.amount > 0, {
+    message: 'Si el torneo cobra inscripción, el monto tiene que ser mayor a cero.',
+    path: ['amount'],
+  });
+
+/**
+ * Marcar el pago de un arquero.
+ *
+ * **Sólo el booleano.** El monto no se acepta del cliente: es el del torneo.
+ */
+export const MarkPaymentSchema = z.strictObject({ paid: z.boolean() });
+
+const SIN_PAGO = { required: false, amount: 0 } as const;
+
 export const CreateTournamentSchema = z
   .strictObject({
     seasonId: ObjectIdSchema,
     name: texto(3, 120),
     date: z.coerce.date(),
     description: z.string().max(1000).default(''),
+    payment: PaymentConfigSchema.default(SIN_PAGO),
     targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS),
     // Mínimo 2: con menos no se puede armar ni una patrulla (H1).
     archerIds: z.array(ObjectIdSchema).min(MIN_PATROL_SIZE).max(MAX_PARTICIPANTS),
@@ -140,6 +177,7 @@ export const UpdateTournamentSchema = z.strictObject({
   name: texto(3, 120).optional(),
   date: z.coerce.date().optional(),
   description: z.string().max(1000).optional(),
+  payment: PaymentConfigSchema.optional(),
   targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS).optional(),
 });
 

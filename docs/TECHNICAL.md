@@ -115,6 +115,8 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   description: String,
   status: "sin_iniciar" | "en_proceso" | "completado" | "publicado",
 
+  payment: { required: true, amount: 15000 },   // monto ÚNICO para todos
+
   targets: [                            // EMBEBIDO — 14 a 28 elementos
     { index: 1,  modality: "3d",         arrows: 2, description: "Jabalí" },
     { index: 7,  modality: "campo",      arrows: 3, description: null },
@@ -198,6 +200,7 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   byModality: { sala: 0, aire_libre: 0, campo: 0, "3d": 0 },
 
   status: "activo" | "ausente",
+  paid: false,                          // sólo el booleano; el monto es del torneo
 
   signature: {
     pngDataUrl: "data:image/png;base64,...",   // ≤ 40 KB, comprimido
@@ -273,17 +276,21 @@ Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert`
   tournamentsPlayed: 3,
   podiums: { first: 1, second: 1, third: 0 },
 
-  bestNormalizedPct: 78.4,
+  bestNormalizedPct: 78.4,              // el mejor SUELTO de la temporada
   bestRawScore: 259,
   bestTournamentId: ObjectId,
+
+  topTwoPcts: [82.1, 78.4],             // los dos mejores, de mayor a menor
 
   totalX: 14, totalTens: 22, totalM: 3,
   updatedAt: Date
 }
 ```
-Índices: `{ seasonId: 1, category: 1, leaguePoints: -1 }` · `{ seasonId: 1, category: 1, bestNormalizedPct: -1 }` · `{ seasonId: 1, archerId: 1, category: 1 }` **unique** · `{ archerId: 1 }`.
+Índices: `{ seasonId: 1, category: 1, leaguePoints: -1 }` · `{ seasonId: 1, archerId: 1, category: 1 }` **unique** · `{ archerId: 1 }`.
 
-Los dos primeros índices sirven directamente a los dos modos de ranking de la landing.
+`topTwoPcts` guarda los dos mejores porcentajes y **no** su promedio: el acumulado se construye de forma incremental, torneo por torneo, y para saber si el que llega desplaza a alguno hay que conocer a los dos que están. El promedio lo deriva `bestTwoAvgPct` al serializar, así que no hay dos copias del mismo número que puedan separarse.
+
+> **Baja de `ix_ranking_puntaje`.** Existía un índice sobre `bestNormalizedPct` para «el otro modo de ranking». Nunca lo usó ninguna consulta: la landing trae la temporada entera con `find({ seasonId })` y la ordena en memoria con `sortStandings` —son cientos de documentos, no millones— así que el índice que sirve es el del prefijo `seasonId`. Con «mejor de 2» el campo además dejó de ordenar ningún ranking.
 
 ### 2.11 `auditLog`
 
@@ -365,6 +372,15 @@ Base `/api`. JSON. Errores con forma uniforme:
 | `POST` | `/api/admin/patrols/:id/pin/regenerate` | Nuevo PIN; invalida sesiones de esa patrulla |
 | `POST` | `/api/admin/participants/:id/signature/unlock` | `{ reason }` — desbloqueo auditado |
 
+### 3.4.1 Admin — pagos
+
+| Método | Ruta | Notas |
+|---|---|---|
+| `GET` | `/api/admin/tournaments/:id/payments` | Quién pagó, y la recaudación **derivada** (pagos × monto) |
+| `POST` | `/api/admin/participants/:id/payment` | `{ paid }` — **sólo el booleano**. El monto es el del torneo y lo lee el servidor |
+
+Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es información del club, no del ranking.
+
 ### 3.5 WAFL
 
 | Método | Ruta | Notas |
@@ -395,7 +411,7 @@ Base `/api`. JSON. Errores con forma uniforme:
 | Método | Ruta | Notas |
 |---|---|---|
 | `GET` | `/api/public/seasons` | Temporadas disponibles |
-| `GET` | `/api/public/rankings?seasonId=&mode=position\|score` | Ranking por categoría |
+| `GET` | `/api/public/rankings?seasonId=&mode=position\|best_two` | Ranking por categoría. `best_two` es el promedio de los dos mejores porcentajes |
 | `GET` | `/api/public/tournaments` | Publicados y en proceso |
 | `GET` | `/api/public/tournaments/:id` | Detalle. Sin puntajes si no está publicado |
 | `GET` | `/api/public/archers/:id` | Ficha histórica |

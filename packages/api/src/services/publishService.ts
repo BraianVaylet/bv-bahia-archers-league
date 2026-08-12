@@ -14,7 +14,7 @@ import {
   type Rankable,
   type TournamentContribution,
 } from '@bal/shared';
-import type { ClientSession, ObjectId } from 'mongodb';
+import { type ClientSession, ObjectId } from 'mongodb';
 import { getClient } from '../db/client.js';
 import type { ParticipantDoc, TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -54,7 +54,7 @@ const aContribucion = (
  * que despublicar sea exacto: no hay forma de que un doble click aplique los
  * puntos dos veces, ni de que revertir deje residuos.
  */
-async function recalcularTemporada(
+export async function recalcularTemporada(
   publicados: readonly TournamentDoc[],
 ): Promise<ArcherStanding[]> {
   // En orden cronológico: `bestNormalizedPct` se queda con el mejor, pero
@@ -87,6 +87,45 @@ export interface PublishResult {
   readonly tournamentId: string;
   readonly status: string;
   readonly standingsUpdated: number;
+}
+
+export interface ReconcileStandingsResult {
+  readonly seasons: number;
+  readonly standings: number;
+}
+
+/**
+ * Recalcula el acumulado de **todas** las temporadas con torneos publicados.
+ *
+ * Es la red de seguridad de `standings`, equivalente a lo que `db:reconcile`
+ * hace con los rollups de `participants`. Hace falta cada vez que cambia **el
+ * significado** de un campo del acumulado y no sólo su valor: los documentos
+ * escritos antes del cambio siguen ahí, con la forma vieja, y ninguna
+ * publicación futura los toca si nadie vuelve a publicar esa temporada.
+ *
+ * Fue lo que pasó con «mejor de 2»: `topTwoPcts` no existía.
+ */
+export async function reconcileStandings(): Promise<ReconcileStandingsResult> {
+  const publicados = await tournamentRepo.list({ status: 'publicado' });
+
+  const porTemporada = new Map<string, TournamentDoc[]>();
+  for (const t of publicados) {
+    const clave = t.seasonId.toHexString();
+    const grupo = porTemporada.get(clave);
+    if (grupo) grupo.push(t);
+    else porTemporada.set(clave, [t]);
+  }
+
+  let total = 0;
+  for (const [seasonId, torneos] of porTemporada) {
+    const acumulado = await recalcularTemporada(torneos);
+    await conTransaccion((session) =>
+      standingRepo.replaceSeason(new ObjectId(seasonId), acumulado, session),
+    );
+    total += acumulado.length;
+  }
+
+  return { seasons: porTemporada.size, standings: total };
 }
 
 /**

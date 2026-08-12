@@ -93,21 +93,27 @@ Lo que impide correr un torneo. Va solo y primero.
 **Tests:** integración que carga el último blanco dentro de una transacción y verifica `targetsCompleted` (hoy falla) · componente con `participants: []` · `unidadesDe` con 5 miembros.
 **Mutaciones:** quitar la `session` · quitar el guard · volver a recortar en 4.
 
-### `[ ] REF-2` · Dominio: «mejor de 2» y pagos · **P0** · **TDD**
+### `[x] REF-2` · Dominio: «mejor de 2» y pagos · **P0** · **TDD**
 
 Toca `@bal/shared` y el modelo de datos. Antes que cualquier interfaz que los consuma.
 
 **Archivos:** `shared/src/league.ts`, `shared/src/schemas.ts`, `api/src/db/types.ts`, `api/src/services/publishService.ts`, `api/src/routes/admin.ts`
 
-- `bestNormalizedPct` pasa a **promedio de los dos mejores porcentajes**. Reemplaza el modo `score`
-- `standings`: el campo cambia de significado. Recalcular al publicar y cubrir los ya publicados con `db:reconcile`
-- `TournamentDoc.payment: { required: boolean; amount: number }`
-- `ParticipantDoc.paid: boolean`
-- Schemas Zod, endpoint para marcar pagos, recaudación derivada
+- [x] `bestNormalizedPct` pasa a **promedio de los dos mejores porcentajes**. Reemplaza el modo `score`
+- [x] `standings`: el campo cambia de significado. Recalcular al publicar y cubrir los ya publicados con `db:reconcile`
+- [x] `TournamentDoc.payment: { required: boolean; amount: number }`
+- [x] `ParticipantDoc.paid: boolean`
+- [x] Schemas Zod, endpoint para marcar pagos, recaudación derivada
 
 **Referencia:** [`DOMAIN_WA.md`](../../DOMAIN_WA.md) §9 · [`SECURITY.md`](../../SECURITY.md) §2 — **el monto lo valida el servidor, nunca se acepta del cliente**.
 **DoD:** con dos torneos al 80 % y 90 %, el ranking muestra 85 % · con uno solo el arquero sigue sin clasificar · la recaudación coincide con pagos × monto.
 **Actualizar:** `DOMAIN_WA.md` §9, `TECHNICAL.md` §2 y §3.
+
+> **Cerrada el 2026-08-12.** Un desvío deliberado: `bestNormalizedPct` **no** cambió de significado. Se agregó `topTwoPcts` y el promedio se deriva; el mejor resultado suelto se sigue guardando porque es el récord personal que la landing muestra, aunque ya no ordene ningún ranking. Reinterpretar un campo en vez de agregar otro habría dejado un nombre que miente.
+>
+> Además: **la landing seguía pidiendo `mode=score`**, que la API ahora rechaza con 400. Sus tests pasaban porque mockean el endpoint. Corregida acá, no en `REF-7`: dejarla rota una tanda no era una opción.
+>
+> Se dio de baja el índice `ix_ranking_puntaje`. Nunca lo usó ninguna consulta —la landing ordena en memoria— y el campo que indexaba ya no ordena nada.
 
 ### `[ ] REF-3` · Reglas y flujo de patrullas · **P0**
 

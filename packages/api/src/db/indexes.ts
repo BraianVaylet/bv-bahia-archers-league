@@ -67,9 +67,12 @@ export async function ensureIndexes(db: Db): Promise<void> {
     ]),
 
     db.collection(COLLECTIONS.standings).createIndexes([
-      // Los dos modos de ranking de la landing, cada uno con su índice.
+      // La landing trae TODA la temporada y la ordena en memoria con
+      // `sortStandings` —son cientos de documentos, no millones— así que el
+      // índice que sirve es el del prefijo `seasonId`. El que había sobre
+      // `bestNormalizedPct` no lo usaba ninguna consulta, y encima ese campo ya
+      // no ordena ningún ranking desde «mejor de 2».
       { key: { seasonId: 1, category: 1, leaguePoints: -1 }, name: 'ix_ranking_posicion' },
-      { key: { seasonId: 1, category: 1, bestNormalizedPct: -1 }, name: 'ix_ranking_puntaje' },
       { key: { seasonId: 1, archerId: 1, category: 1 }, unique: true, name: 'uk_temporada_archer' },
       { key: { archerId: 1 }, name: 'ix_archer' },
     ]),

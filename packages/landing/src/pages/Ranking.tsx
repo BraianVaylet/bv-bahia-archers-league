@@ -1,9 +1,10 @@
 /**
  * Ranking de la liga, por categoría.
  *
- * Dos modos: por **puntos** acumulados en los podios, y por **mejor
- * porcentaje** de la temporada. El porcentaje es lo comparable entre torneos:
- * cada recorrido multitarget tiene un máximo distinto.
+ * Dos modos: por **puntos** acumulados en los podios, y **mejor de 2** — el
+ * promedio de los dos mejores porcentajes de la temporada. El porcentaje es lo
+ * comparable entre torneos: cada recorrido multitarget tiene un máximo distinto.
+ * Y el promedio de dos premia la regularidad, no un día bueno.
  *
  * Ver `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
  */
@@ -28,6 +29,8 @@ interface Entrada {
   readonly tournamentsPlayed: number;
   readonly bestNormalizedPct: number;
   readonly bestRawScore: number;
+  /** Promedio de los dos mejores porcentajes. Lo deriva el servidor. */
+  readonly bestTwoAvgPct: number;
   readonly position?: number;
   readonly tied?: boolean;
 }
@@ -38,7 +41,12 @@ interface CategoriaRankeada {
   readonly notYetEligible: readonly Entrada[];
 }
 
-type Modo = 'position' | 'score';
+type Modo = 'position' | 'best_two';
+
+const ETIQUETA_DE_MODO: Record<Modo, string> = {
+  position: 'Por puntos',
+  best_two: 'Mejor de 2',
+};
 
 function FilaDeArquero({ entrada, modo }: { readonly entrada: Entrada; readonly modo: Modo }) {
   return (
@@ -57,9 +65,11 @@ function FilaDeArquero({ entrada, modo }: { readonly entrada: Entrada; readonly 
       >
         {entrada.leaguePoints}
       </td>
-      <td className={cn('py-2 text-right tabular-nums', modo === 'score' && 'font-semibold')}>
-        {entrada.bestNormalizedPct}%
-        <span className="text-[var(--ink-muted)]"> ({entrada.bestRawScore})</span>
+      <td className={cn('py-2 text-right tabular-nums', modo === 'best_two' && 'font-semibold')}>
+        {entrada.bestTwoAvgPct}%
+        {/* El mejor suelto se sigue mostrando, entre paréntesis: es el récord
+            personal de la temporada, aunque ya no ordene el ranking. */}
+        <span className="text-[var(--ink-muted)]"> (mejor {entrada.bestNormalizedPct}%)</span>
       </td>
     </tr>
   );
@@ -104,7 +114,7 @@ export function RankingPage() {
 
           <fieldset className="flex items-center gap-2 text-sm">
             <legend className="sr-only">Modo del ranking</legend>
-            {(['position', 'score'] as const).map((m) => (
+            {(['position', 'best_two'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -117,7 +127,7 @@ export function RankingPage() {
                     : 'bg-[var(--surface)]',
                 )}
               >
-                {m === 'position' ? 'Por puntos' : 'Por mejor puntaje'}
+                {ETIQUETA_DE_MODO[m]}
               </button>
             ))}
           </fieldset>
@@ -151,7 +161,7 @@ export function RankingPage() {
                     <th className="py-1 pr-2 font-medium">#</th>
                     <th className="py-1 pr-2 font-medium">Arquero</th>
                     <th className="py-1 pr-2 font-medium text-right">Puntos</th>
-                    <th className="py-1 font-medium text-right">Mejor</th>
+                    <th className="py-1 font-medium text-right">Mejor de 2</th>
                   </tr>
                 </thead>
                 <tbody>
