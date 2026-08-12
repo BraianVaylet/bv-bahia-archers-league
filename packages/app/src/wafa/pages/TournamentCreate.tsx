@@ -551,7 +551,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
         <span className="font-semibold">Crear torneo</span>
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         <ol className="pt-4 flex gap-1.5" aria-label="Pasos">
           {PASOS.map((nombre, i) => (
             <li

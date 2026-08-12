@@ -123,6 +123,28 @@ export function StakeChip({ stake }: { readonly stake: string }) {
 
 // ── Contenedor ───────────────────────────────────────────────────────────────
 
-export function Screen({ children }: { readonly children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-lg px-4 pb-8 flex flex-col gap-4">{children}</div>;
+export interface ScreenProps {
+  readonly children: ReactNode;
+  /**
+   * La pantalla termina en una barra fija abajo.
+   *
+   * Deja aire suficiente para que la barra **no tape el último elemento**. Sin
+   * esto, el botón de la última tarjeta queda debajo de la barra y no se puede
+   * tocar: pasaba en Resultados con el último arquero de la patrulla, y lo
+   * encontró el E2E. Ver `docs/BITACORA.md`.
+   */
+  readonly conBarraFija?: boolean;
+}
+
+export function Screen({ children, conBarraFija }: ScreenProps) {
+  return (
+    <div
+      className={cn(
+        'mx-auto w-full max-w-lg px-4 flex flex-col gap-4',
+        conBarraFija ? 'pb-28' : 'pb-8',
+      )}
+    >
+      {children}
+    </div>
+  );
 }

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteDb, readScore, type StoredBundle, saveBundle } from '../offline/db.js';
-import { resetSyncWorker } from '../offline/syncWorker.js';
+import { configureSync, resetSyncWorker } from '../offline/syncWorker.js';
 import { disposicionPara, ScoreKeypad, TAMAÑO_TECLA_PX } from './ScoreKeypad.js';
 import { TargetPage } from './TargetPage.js';
 
@@ -56,6 +56,15 @@ const bundle: StoredBundle = {
 
 beforeEach(async () => {
   resetSyncWorker();
+  /**
+   * Esta suite es del teclado, no de la red.
+   *
+   * El transporte **nunca resuelve**: así el vaciado del outbox queda parado y
+   * no escribe intentos ni programa reintentos mientras el test toca botones.
+   * Con uno que rechaza, esas escrituras corren contra la cola del componente y
+   * dos tests se vuelven intermitentes.
+   */
+  configureSync({ post: () => new Promise(() => {}) });
   await deleteDb();
   await saveBundle(bundle);
 });
@@ -237,8 +246,16 @@ describe('TargetPage', () => {
       expect((await readScore(P1, 1))?.arrows).toHaveLength(2);
     });
 
+    // El cambio de arquero ocurre dentro de la cola de escrituras, así que hay
+    // que esperar a que el teclado vuelva a aceptar: tocarlo antes sería tocar
+    // un botón deshabilitado y el test dependería del tiempo.
+    const tecla = () => screen.getByRole('button', { name: 'Puntaje 10' }) as HTMLButtonElement;
+    await waitFor(() => {
+      expect(tecla().disabled).toBe(false);
+    });
+
     // Ahora las flechas van al segundo arquero.
-    fireEvent.click(screen.getByRole('button', { name: 'Puntaje 10' }));
+    fireEvent.click(tecla());
 
     await waitFor(async () => {
       expect((await readScore(P2, 1))?.arrows).toEqual(['10']);

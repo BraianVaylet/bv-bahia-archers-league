@@ -17,14 +17,19 @@
     "build": "pnpm --filter @bal/shared build && pnpm --filter @bal/api build && pnpm --filter @bal/app build && pnpm --filter @bal/landing build",
     "start": "pnpm --filter @bal/api start",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "test:e2e": "pnpm --filter @bal/app test:e2e",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm --filter @bal/shared build && pnpm -r typecheck",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
+    "@hono/node-server": "^2.1.0",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0",
     "concurrently": "^9.1.2",
+    "mongodb-memory-server": "^11.2.0",
+    "tsx": "^4.23.12",
     "typescript": "5.9.3"
   }
 }

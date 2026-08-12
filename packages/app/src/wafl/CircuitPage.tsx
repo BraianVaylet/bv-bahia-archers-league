@@ -58,7 +58,7 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
         <SyncBadge />
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         <div className="pt-2">
           <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
             {bundle.tournament.name}

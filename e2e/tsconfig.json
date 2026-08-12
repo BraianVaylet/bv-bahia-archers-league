@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    // Los E2E importan el build de `@bal/api`, no su código fuente: se prueba
+    // lo que se despliega, no lo que compilaría.
+    "paths": {}
+  },
+  "include": ["**/*.ts"]
+}

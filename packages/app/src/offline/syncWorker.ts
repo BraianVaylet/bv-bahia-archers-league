@@ -5,6 +5,7 @@
  * desde un handler. Ver `docs/OFFLINE_SYNC.md` §5.3 y §12.
  */
 
+import { api } from '../lib/apiClient.js';
 import {
   countOutbox,
   getDb,
@@ -104,12 +105,24 @@ function aPayload(op: OutboxOp): Record<string, unknown> {
 }
 
 export interface SyncDeps {
-  /** Inyectable para poder testear sin red. */
   readonly post: (ops: Record<string, unknown>[]) => Promise<SyncResponse>;
 }
 
-let deps: SyncDeps | undefined;
+/**
+ * Lo que hace de verdad: mandar el lote a `/wafl/sync`.
+ *
+ * Es el **valor por defecto**, no algo que haya que configurar. Cuando había que
+ * llamar a `configureSync` para que el worker funcionara, los tests lo hacían y
+ * la aplicación no: el outbox se llenaba y no salía nunca. Ver `BITACORA.md`,
+ * entrada de `TEST-1`.
+ */
+const DEPS_REALES: SyncDeps = {
+  post: (ops) => api.post<SyncResponse>('/wafl/sync', { ops }),
+};
 
+let deps: SyncDeps = DEPS_REALES;
+
+/** Reemplaza el transporte. Sólo para tests. */
 export function configureSync(nuevas: SyncDeps): void {
   deps = nuevas;
 }
@@ -120,7 +133,7 @@ export function configureSync(nuevas: SyncDeps): void {
  * @returns `true` si quedó vacío.
  */
 export async function flush(): Promise<boolean> {
-  if (corriendo || !deps) return false;
+  if (corriendo) return false;
   corriendo = true;
 
   try {
@@ -287,7 +300,7 @@ export function resetSyncWorker(): void {
   corriendo = false;
   clearTimeout(reintentoEn);
   clearInterval(intervalo);
-  deps = undefined;
+  deps = DEPS_REALES;
 }
 
 export { refrescarPendientes as refreshPending };

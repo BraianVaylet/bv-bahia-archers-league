@@ -140,7 +140,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
         <span className="font-semibold">Patrullas</span>
       </header>
 
-      <Screen>
+      <Screen conBarraFija>
         <h1 className="pt-2 font-[var(--font-display)] text-[var(--text-display)] font-bold">
           {torneo?.name ?? 'Patrullas'}
         </h1>

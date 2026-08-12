@@ -14,6 +14,66 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `BE-17` y `TEST-1` — El E2E offline · y los tres bugs que encontró
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Los 23 pasos de [`TESTING.md`](TESTING.md) §6 contra el stack real, con el recorrido completo cargado **sin conexión**. Corre en **47 s**.
+
+Es el test que valida el requisito duro del proyecto. **Encontró tres bugs que ningún test unitario podía encontrar**, y uno de ellos habría arruinado un torneo.
+
+---
+
+### 🔴 1. La sincronización no estaba enchufada
+
+`configureSync` y `startSyncWorker` **no los llamaba nadie fuera de los tests**.
+
+- `deps` quedaba `undefined`, así que `flush()` cortaba en su primera línea: **nunca se mandaba nada al servidor**.
+- Sin `startSyncWorker()` no había evento `online`, ni intervalo, ni conteo inicial de pendientes.
+- El indicador se quedaba en su valor inicial: **«Sincronizado»**.
+
+El líder cargaba los 14 blancos, la app le decía *«Sincronizado»* y **no había salido una sola operación**. Los datos estaban a salvo en IndexedDB —eso funcionaba— pero no llegaban nunca, y el circuito no se podía cerrar.
+
+**Por qué los tests no lo vieron:** `FE-2` está bien cubierto, pero **inyecta el transporte** con `configureSync`. Probaban el worker, no que la aplicación lo usara.
+
+**La corrección va más allá del arreglo:** el transporte real pasó a ser el **valor por defecto** de `deps`, no algo que haya que acordarse de configurar. Un componente que necesita una llamada de inicialización para funcionar va a fallar de esta misma forma tarde o temprano.
+
+### 🔴 2. La barra fija tapaba el botón de firmar del último arquero
+
+En Resultados, la barra de «Cerrar circuito» quedaba **encima de la última tarjeta**. En un celular, el último arquero de la patrulla **no podía firmar**, y sin su firma no se cierra el circuito.
+
+`Screen` tenía `pb-8` (32 px) contra una barra de ~84 px. Se agregó `conBarraFija` al componente —una sola vez, no seis parches— y se aplicó a las seis pantallas que la usan.
+
+Es el tipo de bug que sólo aparece con un navegador de verdad: en jsdom no hay layout, así que **ningún test de componente podía verlo**.
+
+### 🟡 3. `setOffline(true)` no bloquea `localhost`
+
+Playwright emula las condiciones de red por CDP, y el tráfico a loopback no pasa por ahí. Un E2E que confiara sólo en `setOffline` **daría verde sin haber probado nada**.
+
+Se agregó un interceptor que aborta todo lo que vaya a la API y **se cuenta**: la prueba de que estuvo offline es que hubo intentos bloqueados y que **ninguna petición llegó al servidor**. Sin esa aserción, todo el tramo offline sería decorado.
+
+---
+
+**Y algo que faltaba desde el principio:** la API **no servía los frontends**. `ARCHITECTURE.md` §3 lo pedía —un contenedor, un origen— pero nadie lo había implementado. Sin eso no hay stack real que testear ni contenedor que desplegar. Se agregó con fallback de SPA en las dos apps: recargar en `/app/wafl` tiene que devolver el index, no un 404, que es exactamente lo que hace un líder al que se le cierra el navegador.
+
+**Decisiones del E2E**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Base de datos | `mongodb-memory-server`, no Docker | Corre igual en la máquina de cualquiera y en el runner. |
+| Preparación del torneo | Por **API**, no por interfaz | El wizard ya tiene sus tests; 20 altas a mano acá serían minutos sin verificar nada nuevo. |
+| Carga del recorrido | Por **interfaz**, con la primera patrulla | Es lo que se está probando. Las demás van por API. |
+| Recarga offline | Vuelve al login y hay que tocar «Seguir sin conexión» | Un toque de más a propósito: el celular puede ser prestado, y entrar solo a la planilla de otro sería peor. |
+| Condiciones de corte | Estado del dominio, no del DOM | Preguntarle a un botón si hay que seguir es frágil; contar puntajes completos, no. |
+
+**Un test de componente se volvió intermitente** al enchufar el transporte real: `keypad.test.tsx` empezó a competir con las escrituras de reintento del worker. Se le puso un transporte que **nunca resuelve** —el vaciado queda parado, sin escribir ni programar nada— y quedó estable en seis corridas.
+
+**724 tests unitarios + el E2E.**
+
+**Próximo:** `BE-14` (auditoría de seguridad, `P0`) y el deploy (`INF-3`..`INF-5`). `INF-5` ya acumula tres hallazgos que habría atajado.
+
+---
+
 ## 2026-08-12 · `FE-17`..`FE-20` — La landing · y la PWA que se estaba sirviendo sin estilos
 
 **Autor:** Claude Opus 5 · **Estado:** completado
