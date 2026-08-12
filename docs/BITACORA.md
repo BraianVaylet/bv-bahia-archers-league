@@ -14,6 +14,32 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · Nadie cargaba el `.env`
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Al intentar correr el circuito contra un MongoDB local, la API murió con:
+
+```
+Configuración inválida:
+  - MONGODB_URI: Invalid input: expected string, received undefined
+  - SESSION_SECRET: Invalid input: expected string, received undefined
+```
+
+**El `.env` no lo leía nadie.** `env.ts` mira `process.env`, y ningún script inyectaba el archivo: no había `dotenv` ni `--env-file`. [`CONFIG.md`](CONFIG.md) §4.1 decía «copiar `.env.example` a `.env` y editarlo», dando por sentado que algo lo cargaba.
+
+Es **el mismo patrón** que la PWA sin hoja de estilos y la sincronización sin enchufar: algo documentado, con su archivo escrito, que nadie conectaba.
+
+**Por qué ningún test lo vio:** los de integración siembran el entorno a mano con `testEnvRaw`, y el servidor del E2E lo arma en código. Ninguno pasa por el `.env`, que es justamente el camino que usa una persona.
+
+**La corrección:** `--env-file-if-exists=../../.env` en `dev`, `start` y los cuatro comandos de `db:*`. Se usa la variante `-if-exists` y no `--env-file` a propósito: en producción no hay archivo —las variables las inyecta la plataforma— y el arranque no debe fallar por eso.
+
+**Tercera vez el mismo tipo de bug.** Vale como criterio para lo que queda: *que un archivo de configuración exista no prueba que algo lo lea.*
+
+También se documentó en `CONFIG.md` §4.2 cómo convertir una instalación de MongoDB en Windows a replica set de un nodo, que es lo que exigen las transacciones. Un MongoDB standalone acepta la conexión y falla recién al crear un torneo, con `Transaction numbers are only allowed on a replica set member or mongos` — un error que aparece lejos de su causa.
+
+---
+
 ## 2026-08-12 · `BE-14` — Auditoría de seguridad · y un `$` que duplicó un documento
 
 **Autor:** Claude Opus 5 · **Estado:** parcial, y se dice cuál parte
