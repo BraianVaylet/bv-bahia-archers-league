@@ -64,6 +64,7 @@ const arquero = (o: Record<string, unknown> = {}) => ({
   tournamentsPlayed: 3,
   bestNormalizedPct: 84.5,
   bestRawScore: 279,
+  bestTwoAvgPct: 81.2,
   position: 1,
   tied: false,
   ...o,
@@ -139,12 +140,35 @@ describe('RankingPage', () => {
     renderEn(<RankingPage />, '/ranking', '/ranking');
 
     await screen.findByTestId('cat-razo');
-    fireEvent.click(screen.getByRole('button', { name: 'Por mejor puntaje' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mejor de 2' }));
 
     // El orden lo decide el servidor: la landing no reordena por su cuenta.
     await waitFor(() => {
-      expect(llamadas.some((u) => u.includes('mode=score'))).toBe(true);
+      expect(llamadas.some((u) => u.includes('mode=best_two'))).toBe(true);
     });
+  });
+
+  /**
+   * El modo `score` ya no existe en la API: pedirlo devuelve 400.
+   *
+   * El mock acepta cualquier ruta que se le declare, así que un test que sólo
+   * mire lo que se pinta no habría notado que la landing pedía un modo muerto.
+   */
+  it('NO le pide al servidor ningún modo que la API ya no acepta', async () => {
+    conTemporada([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    renderEn(<RankingPage />, '/ranking', '/ranking');
+
+    await screen.findByTestId('cat-razo');
+    for (const boton of screen.getAllByRole('button')) fireEvent.click(boton);
+
+    await waitFor(() => expect(llamadas.length).toBeGreaterThan(1));
+
+    const modos = llamadas
+      .filter((u) => u.includes('/rankings?'))
+      .map((u) => new URL(u, 'http://x').searchParams.get('mode'));
+
+    expect(modos.length).toBeGreaterThan(0);
+    expect([...new Set(modos)].sort()).toEqual(['best_two', 'position']);
   });
 
   // Esconderlos haría creer que se perdió su resultado.

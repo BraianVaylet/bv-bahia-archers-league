@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ArcherStanding,
   applyTournamentToStandings,
+  bestTwoAvgPct,
   eligibleForRanking,
   leaguePointsForPosition,
   normalizedPct,
@@ -14,8 +15,8 @@ import {
  * Liga y temporada (SH-5).
  *
  * Dos rankings por categoría:
- *   - por posición:      5-4-3-2-1 según el podio de cada torneo
- *   - por mejor puntaje: mejor normalizedPct de la temporada
+ *   - por posición: 5-4-3-2-1 según el podio de cada torneo
+ *   - mejor de 2:   promedio de los DOS mejores normalizedPct de la temporada
  * Mínimo 2 torneos publicados para figurar. Ver docs/DOMAIN_WA.md §9.
  */
 
@@ -50,12 +51,17 @@ function standing(overrides: Partial<ArcherStanding> = {}): ArcherStanding {
     bestNormalizedPct: 0,
     bestRawScore: 0,
     bestTournamentId: null,
+    topTwoPcts: [],
     totalX: 0,
     totalTens: 0,
     totalM: 0,
     ...overrides,
   };
 }
+
+/** Standing con los dos mejores porcentajes ya cargados. */
+const conPcts = (pcts: number[], o: Partial<ArcherStanding> = {}) =>
+  standing({ topTwoPcts: pcts, tournamentsPlayed: pcts.length, ...o });
 
 describe('leaguePointsForPosition', () => {
   it('reparte 5-4-3-2-1 del primero al quinto', () => {
@@ -94,6 +100,36 @@ describe('normalizedPct', () => {
     const enTorneoLargo = normalizedPct(240, 400);
     expect(enTorneoCorto).toBeGreaterThan(enTorneoLargo);
     expect(200).toBeLessThan(240); // en bruto, el orden es el inverso
+  });
+});
+
+/**
+ * «Mejor de 2»: el ranking de la liga promedia los DOS mejores porcentajes de
+ * la temporada, no el mejor suelto. Premia la regularidad y no un día bueno.
+ *
+ * Ver docs/DOMAIN_WA.md §9.
+ */
+describe('bestTwoAvgPct', () => {
+  it('con dos torneos al 80 % y al 90 % da 85 %', () => {
+    expect(bestTwoAvgPct(conPcts([90, 80]))).toBe(85);
+  });
+
+  it('con tres torneos toma los DOS mejores, no todos', () => {
+    // El 40 no entra: el promedio de los tres sería 70.
+    expect(bestTwoAvgPct(conPcts([90, 80]))).toBe(85);
+    expect(bestTwoAvgPct(conPcts([90, 80], { tournamentsPlayed: 3 }))).toBe(85);
+  });
+
+  it('con un solo torneo es ese porcentaje', () => {
+    expect(bestTwoAvgPct(conPcts([70]))).toBe(70);
+  });
+
+  it('sin torneos es 0, no NaN', () => {
+    expect(bestTwoAvgPct(conPcts([]))).toBe(0);
+  });
+
+  it('redondea a dos decimales', () => {
+    expect(bestTwoAvgPct(conPcts([78.48, 91.21]))).toBe(84.85);
   });
 });
 
@@ -264,6 +300,50 @@ describe('applyTournamentToStandings', () => {
       expect(r[0]?.bestRawScore).toBe(200);
     });
 
+    describe('los dos mejores porcentajes', () => {
+      const conTotal = (id: string, total: number, max = 330): TournamentContribution => ({
+        tournamentId: id,
+        maxPossibleScore: max,
+        participants: [arquero({ archerId: 'a1', total })],
+      });
+
+      it('el primer torneo deja un solo porcentaje', () => {
+        const r = applyTournamentToStandings([], conTotal('t1', 264));
+        expect(r[0]?.topTwoPcts).toEqual([80]);
+      });
+
+      it('el segundo se suma y quedan ordenados de mayor a menor', () => {
+        const previo = applyTournamentToStandings([], conTotal('t1', 264)); // 80 %
+        const r = applyTournamentToStandings(previo, conTotal('t2', 297)); // 90 %
+
+        expect(r[0]?.topTwoPcts).toEqual([90, 80]);
+        expect(bestTwoAvgPct(r[0] as ArcherStanding)).toBe(85);
+      });
+
+      it('un tercer torneo peor NO desplaza a ninguno de los dos', () => {
+        const previo = [conPcts([90, 80], { archerId: 'a1' })];
+        const r = applyTournamentToStandings(previo, conTotal('t3', 33)); // 10 %
+
+        expect(r[0]?.topTwoPcts).toEqual([90, 80]);
+      });
+
+      it('un tercer torneo mejor desplaza al PEOR de los dos', () => {
+        const previo = [conPcts([90, 80], { archerId: 'a1' })];
+        const r = applyTournamentToStandings(previo, conTotal('t3', 313.5)); // 95 %
+
+        expect(r[0]?.topTwoPcts).toEqual([95, 90]);
+      });
+
+      // Es la misma razón por la que existe `normalizedPct`: el bruto premia al
+      // recorrido más largo, no al mejor tiro.
+      it('compara por porcentaje, no por bruto', () => {
+        const previo = [conPcts([60, 50], { archerId: 'a1' })];
+        const r = applyTournamentToStandings(previo, conTotal('t3', 200, 250)); // 80 %
+
+        expect(r[0]?.topTwoPcts).toEqual([80, 60]);
+      });
+    });
+
     it('no toca a los arqueros que no participaron de este torneo', () => {
       const previo = [
         standing({ archerId: 'presente', leaguePoints: 4, tournamentsPlayed: 1 }),
@@ -339,25 +419,36 @@ describe('sortStandings', () => {
     });
   });
 
-  describe('modo mejor puntaje', () => {
-    it('ordena por mejor porcentaje descendente', () => {
+  describe('modo mejor de 2', () => {
+    it('ordena por el promedio de los dos mejores, descendente', () => {
       const r = sortStandings(
-        [
-          conDosTorneos({ archerId: 'b', bestNormalizedPct: 70 }),
-          conDosTorneos({ archerId: 'a', bestNormalizedPct: 85 }),
-        ],
-        'score',
+        [conPcts([70, 70], { archerId: 'b' }), conPcts([90, 80], { archerId: 'a' })],
+        'best_two',
       );
       expect(r.ranked.map((s) => s.archerId)).toEqual(['a', 'b']);
     });
 
-    it('a igual porcentaje, desempata por inner y después por menos M', () => {
+    /**
+     * La diferencia con el modo anterior, en un caso concreto: `regular`
+     * promedia 85 y `irregular` promedia 75, aunque `irregular` tenga el mejor
+     * porcentaje suelto de los dos. La regularidad gana.
+     */
+    it('NO ordena por el mejor porcentaje suelto', () => {
+      const r = sortStandings(
+        [conPcts([95, 55], { archerId: 'irregular' }), conPcts([86, 84], { archerId: 'regular' })],
+        'best_two',
+      );
+
+      expect(r.ranked.map((s) => s.archerId)).toEqual(['regular', 'irregular']);
+    });
+
+    it('a igual promedio, desempata por inner y después por menos M', () => {
       const r = sortStandings(
         [
-          conDosTorneos({ archerId: 'masM', bestNormalizedPct: 80, totalX: 5, totalM: 4 }),
-          conDosTorneos({ archerId: 'menosM', bestNormalizedPct: 80, totalX: 5, totalM: 1 }),
+          conPcts([80, 80], { archerId: 'masM', totalX: 5, totalM: 4 }),
+          conPcts([80, 80], { archerId: 'menosM', totalX: 5, totalM: 1 }),
         ],
-        'score',
+        'best_two',
       );
       expect(r.ranked.map((s) => s.archerId)).toEqual(['menosM', 'masM']);
     });

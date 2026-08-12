@@ -8,6 +8,7 @@
 import {
   ArcherInputSchema,
   CreateTournamentSchema,
+  MarkPaymentSchema,
   ObjectIdSchema,
   PatrolDistributionSchema,
   SeasonInputSchema,
@@ -24,6 +25,7 @@ import * as seasonRepo from '../repositories/seasonRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 import * as archerService from '../services/archerService.js';
 import * as patrolAdminService from '../services/patrolAdminService.js';
+import * as paymentService from '../services/paymentService.js';
 import * as publishService from '../services/publishService.js';
 import * as tournamentEditService from '../services/tournamentEditService.js';
 import * as tournamentService from '../services/tournamentService.js';
@@ -239,6 +241,21 @@ export const admin = new Hono()
     });
   })
 
+  /**
+   * Estado de los pagos, con la recaudación derivada.
+   *
+   * Va bajo `/admin` y no en el endpoint público: quién pagó y quién no es
+   * información del club, no del ranking.
+   */
+  .get('/tournaments/:id/payments', async (c) => {
+    return c.json(await paymentService.summary(toObjectId(c.req.param('id'))));
+  })
+
+  .post('/participants/:id/payment', async (c) => {
+    const { paid } = await parseJsonBody(c, MarkPaymentSchema);
+    return c.json(await paymentService.setPaid(toObjectId(c.req.param('id')), paid));
+  })
+
   .get('/tournaments/:id/locked-targets', async (c) => {
     const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
     if (!doc) throw notFound();
@@ -277,6 +294,7 @@ export const admin = new Hono()
         date: doc.date,
         description: doc.description,
         status: doc.status,
+        payment: doc.payment,
         targets: doc.targets,
         maxPossibleScore: doc.maxPossibleScore,
         stakeMap: doc.stakeMap,

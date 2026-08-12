@@ -78,9 +78,13 @@ describe('índices', () => {
     );
     expect(indices[COLLECTIONS.scores]).toContain('uk_participante_blanco');
     expect(indices[COLLECTIONS.syncOps]).toContain('ttl_expiresAt');
+    // `ix_ranking_puntaje` se dio de baja con «mejor de 2»: la landing trae la
+    // temporada entera y la ordena en memoria, así que ninguna consulta lo
+    // usaba, y el campo que indexaba ya no ordena ningún ranking.
     expect(indices[COLLECTIONS.standings]).toEqual(
-      expect.arrayContaining(['ix_ranking_posicion', 'ix_ranking_puntaje', 'uk_temporada_archer']),
+      expect.arrayContaining(['ix_ranking_posicion', 'uk_temporada_archer']),
     );
+    expect(indices[COLLECTIONS.standings]).not.toContain('ix_ranking_puntaje');
     expect(indices[COLLECTIONS.auditLog]).toEqual(expect.arrayContaining(['ix_at', 'ix_entidad']));
   });
 

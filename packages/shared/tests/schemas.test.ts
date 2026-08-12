@@ -5,9 +5,11 @@ import {
   ChangePasswordSchema,
   CreateTournamentSchema,
   MAX_SIGNATURE_BYTES,
+  MarkPaymentSchema,
   ObjectIdSchema,
   PatrolDistributionSchema,
   PatrolLoginSchema,
+  PaymentConfigSchema,
   SeasonInputSchema,
   SyncBatchSchema,
   SyncOpSchema,
@@ -544,5 +546,71 @@ describe('SeasonInputSchema', () => {
         endsAt: '2026-01-01',
       }).success,
     ).toBe(false);
+  });
+});
+
+// ── Pago de inscripción ──────────────────────────────────────────────────────
+
+/**
+ * Monto **único por torneo**: la recaudación es cantidad de pagos × monto.
+ *
+ * El schema valida la forma; lo que importa para la seguridad es que el monto
+ * se lea del torneo en base y **nunca del cliente** al marcar un pago. Ver
+ * docs/SECURITY.md §2.
+ */
+describe('PaymentConfigSchema', () => {
+  it('acepta un torneo que cobra inscripción', () => {
+    expect(PaymentConfigSchema.safeParse({ required: true, amount: 15000 }).success).toBe(true);
+  });
+
+  it('acepta un torneo gratuito', () => {
+    expect(PaymentConfigSchema.safeParse({ required: false, amount: 0 }).success).toBe(true);
+  });
+
+  it('rechaza cobrar inscripción con monto cero', () => {
+    expect(PaymentConfigSchema.safeParse({ required: true, amount: 0 }).success).toBe(false);
+  });
+
+  it('rechaza un monto negativo', () => {
+    expect(PaymentConfigSchema.safeParse({ required: true, amount: -1 }).success).toBe(false);
+  });
+
+  // La inscripción no tiene centavos, y un decimal acá se arrastra a la
+  // recaudación multiplicado por la cantidad de arqueros.
+  it('rechaza un monto con decimales', () => {
+    expect(PaymentConfigSchema.safeParse({ required: true, amount: 1500.5 }).success).toBe(false);
+  });
+
+  it('rechaza una propiedad extra', () => {
+    expect(
+      PaymentConfigSchema.safeParse({ required: true, amount: 15000, moneda: 'ARS' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('MarkPaymentSchema', () => {
+  it('acepta marcar como pagado', () => {
+    expect(MarkPaymentSchema.safeParse({ paid: true }).success).toBe(true);
+  });
+
+  // El monto lo pone el servidor leyendo el torneo. Aceptarlo del cliente sería
+  // dejar que cada quien decida cuánto pagó.
+  it('RECHAZA un monto mandado por el cliente', () => {
+    expect(MarkPaymentSchema.safeParse({ paid: true, amount: 1 }).success).toBe(false);
+  });
+});
+
+describe('CreateTournamentSchema · pago', () => {
+  it('sin `payment` el torneo queda gratuito', () => {
+    const r = CreateTournamentSchema.safeParse(torneoValido);
+    expect(r.success && r.data.payment).toEqual({ required: false, amount: 0 });
+  });
+
+  it('acepta el pago declarado', () => {
+    const r = CreateTournamentSchema.safeParse({
+      ...torneoValido,
+      payment: { required: true, amount: 15000 },
+    });
+    expect(r.success && r.data.payment.amount).toBe(15000);
   });
 });

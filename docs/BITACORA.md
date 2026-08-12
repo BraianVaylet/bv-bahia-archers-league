@@ -14,6 +14,39 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `REF-2` — «Mejor de 2» y pago de inscripción
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Segunda tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md). Toca dominio y modelo de datos, así que con TDD.
+
+**El ranking de la liga pasa a «mejor de 2»**: el promedio de los dos mejores porcentajes de la temporada, en lugar del mejor suelto. Un porcentaje único premia el día bueno; el promedio de dos mide la regularidad, que es lo que la liga quiere medir. Reemplaza al modo `score`.
+
+**El pago de inscripción es un monto único por torneo.** `TournamentDoc.payment` y `ParticipantDoc.paid`. La recaudación **se deriva** —pagos × monto— y no se acumula: un total guardado puede quedar desfasado de los pagos que lo componen.
+
+**Decisiones**
+
+- **`bestNormalizedPct` NO cambió de significado**, contra lo que decía el plan. Se agregó `topTwoPcts` y el promedio lo deriva `bestTwoAvgPct`. Reinterpretar el campo habría dejado un nombre que miente, y el mejor resultado suelto sigue siendo un dato que la landing muestra: es el récord personal que el arquero reconoce, aunque ya no ordene ningún ranking.
+- **Se guardan los dos porcentajes, no su promedio.** El acumulado se construye incrementalmente, torneo por torneo: para saber si el que llega desplaza a alguno hay que conocer a los dos que están. Y el promedio derivado no puede separarse del par que lo produce.
+- **El monto nunca se acepta del cliente.** `MarkPaymentSchema` es `{ paid: boolean }` y nada más; el monto lo lee el servidor del torneo. Ver [`SECURITY.md`](SECURITY.md) §2.
+- **El pago se puede desmarcar.** Cobrar de más también es un error que hay que poder corregir sin tocar la base a mano.
+- **Los pagos van bajo `/admin`**, no en el endpoint público: quién pagó y quién no es información del club, no del ranking.
+
+**Hallazgos**
+
+- **La landing seguía pidiendo `mode=score`**, que la API ahora rechaza con 400. Sus 18 tests pasaban porque el mock acepta cualquier ruta que se le declare: nada verificaba que el modo pedido fuera uno que el servidor conozca. Se corrigió la landing en esta tanda —aunque el trabajo de landing sea `REF-7`— porque dejarla rota una tanda entera no era una opción. El test nuevo recorre los botones y afirma que el conjunto de modos pedidos es exactamente `{position, best_two}`.
+- **`ix_ranking_puntaje` no lo usaba ninguna consulta.** Existía «para el otro modo de ranking», pero la landing trae la temporada entera con `find({ seasonId })` y la ordena en memoria con `sortStandings`: el índice que sirve es el del prefijo `seasonId`. Con «mejor de 2» el campo indexado además dejó de ordenar nada. Se dio de baja, y el test de índices ahora afirma que **no** está.
+- **`db:reconcile` no alcanzaba a `standings`.** Recalculaba los rollups de `participants` desde `scores`, pero el acumulado de la liga sólo se rehace al publicar: los documentos escritos antes de un cambio de forma se quedan como están si nadie vuelve a publicar esa temporada. Ahora el comando recalcula las dos cosas.
+
+**Desvíos:** el plan decía reinterpretar `bestNormalizedPct`; se agregó un campo en su lugar, por lo dicho arriba. Y se tocó la landing, que estaba asignada a `REF-7`.
+
+**Deuda:** el formulario de creación de torneo de WAFA todavía no tiene el checkbox de pago ni el monto — está en `REF-5`. Hasta entonces todo torneo nuevo se crea gratuito, que es el default del schema. El E2E tampoco ejercita «mejor de 2»: haría falta publicar dos torneos y duplicaría su duración; queda cubierto por integración contra un Mongo real.
+
+**Tests:** 21 nuevos en `@bal/shared`, 12 de integración, 2 de landing. 771 en verde. **Controles de mutación: 7, murieron 7.**
+
+Uno de ellos no concluía al principio: mutar `packages/shared/src` no afecta a los tests de la API, que consumen `@bal/shared` desde `dist/`. La mutación se repitió contra el test de `shared`, que sí corre sobre el fuente. Anotado por si vuelve a aparecer: **una mutación en `shared` sólo la ven los tests de `shared`, salvo que se reconstruya el paquete.**
+---
+
 ## 2026-08-12 · `REF-1` — Los tres bugs del primer refactor
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -8,6 +8,7 @@ import { seed } from '../src/db/seed.js';
 import { resetEnvCache } from '../src/env.js';
 import { decryptPin } from '../src/lib/crypto.js';
 import { resetRateLimits } from '../src/middleware/rateLimit.js';
+import * as publishService from '../src/services/publishService.js';
 import { clearDb, startDb, stopDb, testEnv, testEnvRaw } from './helpers.js';
 
 /**
@@ -112,8 +113,27 @@ async function torneoNuevo(
   });
   return {
     seasonId,
+    archerIds,
     tournamentId: ((await t.json()) as { tournament: { id: string } }).tournament.id,
   };
+}
+
+/** Otro torneo en la MISMA temporada, con los mismos arqueros. */
+async function otroTorneoEn(
+  c: ReturnType<typeof cliente>,
+  seasonId: string,
+  archerIds: string[],
+  extra: Record<string, unknown> = {},
+) {
+  const t = await c.post('/api/admin/tournaments', {
+    seasonId,
+    name: 'Segunda fecha',
+    date: '2026-09-08',
+    targets: TARGETS,
+    archerIds,
+    ...extra,
+  });
+  return ((await t.json()) as { tournament: { id: string } }).tournament.id;
 }
 
 /** Recorre el torneo completo con la patrulla y lo deja cerrado. */
@@ -719,5 +739,231 @@ describe('endpoints públicos', () => {
     const res = await cliente().get('/api/public/tournaments');
     expect(res.headers.get('cache-control')).toContain('max-age');
     expect(res.headers.get('etag')).toBeTruthy();
+  });
+});
+
+// ── REF-2 · Ranking «mejor de 2» ─────────────────────────────────────────────
+
+/**
+ * El ranking de la liga promedia los DOS mejores porcentajes de la temporada.
+ *
+ * Reemplaza al modo «por mejor puntaje»: un porcentaje suelto premia el día
+ * bueno; el promedio de los dos mejores premia la regularidad.
+ */
+describe('ranking mejor de 2', () => {
+  /** Deja dos torneos publicados en la misma temporada. */
+  async function dosTorneosPublicados(c: ReturnType<typeof cliente>) {
+    const { seasonId, archerIds, tournamentId } = await torneoNuevo(c);
+
+    for (const id of [tournamentId, await otroTorneoEn(c, seasonId, archerIds)]) {
+      await c.post(`/api/admin/tournaments/${id}/start`);
+      await completarTorneo(id);
+      await c.post(`/api/admin/tournaments/${id}/publish`);
+    }
+
+    return seasonId;
+  }
+
+  it('rechaza el modo `score`, que ya no existe', async () => {
+    const c = await admin();
+    const { seasonId } = await torneoNuevo(c);
+
+    const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=score`);
+    expect(res.status).toBe(400);
+  });
+
+  it('acepta el modo `best_two`', async () => {
+    const c = await admin();
+    const { seasonId } = await torneoNuevo(c);
+
+    const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`);
+    expect(res.status).toBe(200);
+  });
+
+  it('guarda los dos mejores porcentajes al publicar', async () => {
+    const seasonId = await dosTorneosPublicados(await admin());
+
+    const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
+    expect(doc?.topTwoPcts).toHaveLength(2);
+    expect(doc?.tournamentsPlayed).toBe(2);
+  });
+
+  /**
+   * Los acumulados escritos ANTES de «mejor de 2» no tienen `topTwoPcts`, y
+   * ninguna publicación futura los toca si nadie vuelve a publicar esa
+   * temporada. `db:reconcile` es lo que los alcanza.
+   */
+  it('`reconcile` recalcula los acumulados que quedaron con la forma vieja', async () => {
+    const seasonId = await dosTorneosPublicados(await admin());
+
+    // Se simula el documento viejo: sin el campo.
+    await standings().updateMany({}, { $unset: { topTwoPcts: '' } });
+    expect((await standings().findOne({}))?.topTwoPcts).toBeUndefined();
+
+    const resultado = await publishService.reconcileStandings();
+
+    expect(resultado.seasons).toBe(1);
+    expect(resultado.standings).toBeGreaterThan(0);
+
+    const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
+    expect(doc?.topTwoPcts).toHaveLength(2);
+  });
+
+  it('el ranking público expone el promedio de los dos mejores', async () => {
+    const seasonId = await dosTorneosPublicados(await admin());
+
+    const res = (await (
+      await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`)
+    ).json()) as {
+      categories: { ranked: { bestTwoAvgPct: number; topTwoPcts: number[] }[] }[];
+    };
+
+    const primero = res.categories[0]?.ranked[0];
+    if (!primero) throw new Error('el ranking vino vacío');
+
+    // Los dos torneos son idénticos, así que los dos porcentajes coinciden. Lo
+    // que se verifica es que el valor sea el promedio de los dos que están
+    // guardados, no un número suelto.
+    const [a, b] = primero.topTwoPcts as [number, number];
+    expect(primero.bestTwoAvgPct).toBe(Math.round(((a + b) / 2) * 100) / 100);
+  });
+});
+
+// ── REF-2 · Pago de inscripción ──────────────────────────────────────────────
+
+/**
+ * Monto único por torneo. La recaudación se DERIVA de los pagos, y el monto lo
+ * lee el servidor del torneo: nunca se acepta del cliente. Ver SECURITY.md §2.
+ */
+describe('pago de inscripción', () => {
+  const conPago = { payment: { required: true, amount: 15_000 } };
+
+  /** Torneo iniciado que cobra inscripción, con sus participantes. */
+  async function torneoConPago(c: ReturnType<typeof cliente>) {
+    const { seasonId, archerIds } = await torneoNuevo(c);
+    const id = await otroTorneoEn(c, seasonId, archerIds, conPago);
+    await c.post(`/api/admin/tournaments/${id}/start`);
+
+    const miembros = await participants()
+      .find({ tournamentId: new ObjectId(id) })
+      .toArray();
+
+    return { id, miembros, seasonId, archerIds };
+  }
+
+  it('un torneo nuevo es gratuito si no se declara el pago', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+
+    const res = (await (await c.get(`/api/admin/tournaments/${tournamentId}`)).json()) as {
+      tournament: { payment: { required: boolean; amount: number } };
+    };
+    expect(res.tournament.payment).toEqual({ required: false, amount: 0 });
+  });
+
+  it('guarda el monto declarado al crear el torneo', async () => {
+    const c = await admin();
+    const { id } = await torneoConPago(c);
+
+    const res = (await (await c.get(`/api/admin/tournaments/${id}`)).json()) as {
+      tournament: { payment: { amount: number } };
+    };
+    expect(res.tournament.payment.amount).toBe(15_000);
+  });
+
+  it('rechaza cobrar inscripción con monto cero', async () => {
+    const c = await admin();
+    const { seasonId, archerIds } = await torneoNuevo(c);
+
+    const t = await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Sin monto',
+      date: '2026-10-08',
+      targets: TARGETS,
+      archerIds,
+      payment: { required: true, amount: 0 },
+    });
+    expect(t.status).toBe(400);
+  });
+
+  it('marca a un arquero como pagado y lo deja registrado', async () => {
+    const c = await admin();
+    const { miembros } = await torneoConPago(c);
+    const uno = miembros[0]?._id;
+
+    const res = await c.post(`/api/admin/participants/${uno?.toHexString()}/payment`, {
+      paid: true,
+    });
+
+    expect(res.status).toBe(200);
+    expect((await participants().findOne({ _id: uno }))?.paid).toBe(true);
+  });
+
+  it('se puede desmarcar: cobrar de más también se corrige', async () => {
+    const c = await admin();
+    const { miembros } = await torneoConPago(c);
+    const ruta = `/api/admin/participants/${miembros[0]?._id.toHexString()}/payment`;
+
+    await c.post(ruta, { paid: true });
+    await c.post(ruta, { paid: false });
+
+    expect((await participants().findOne({ _id: miembros[0]?._id }))?.paid).toBe(false);
+  });
+
+  // El monto es del torneo. Aceptarlo del cliente sería dejar que cada quien
+  // decida cuánto pagó.
+  it('RECHAZA un monto mandado por el cliente', async () => {
+    const c = await admin();
+    const { miembros } = await torneoConPago(c);
+
+    const res = await c.post(`/api/admin/participants/${miembros[0]?._id.toHexString()}/payment`, {
+      paid: true,
+      amount: 1,
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('la recaudación es cantidad de pagos × monto', async () => {
+    const c = await admin();
+    const { id, miembros } = await torneoConPago(c);
+
+    await c.post(`/api/admin/participants/${miembros[0]?._id.toHexString()}/payment`, {
+      paid: true,
+    });
+
+    const res = (await (await c.get(`/api/admin/tournaments/${id}/payments`)).json()) as {
+      payment: { required: boolean; amount: number };
+      paidCount: number;
+      collected: number;
+      participants: { id: string; paid: boolean }[];
+    };
+
+    expect(res.paidCount).toBe(1);
+    expect(res.collected).toBe(15_000);
+    expect(res.participants).toHaveLength(miembros.length);
+    expect(res.participants.filter((p) => p.paid)).toHaveLength(1);
+  });
+
+  it('un torneo gratuito recauda cero aunque se marquen pagos', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const miembro = await participants().findOne({ tournamentId: new ObjectId(tournamentId) });
+    await c.post(`/api/admin/participants/${miembro?._id.toHexString()}/payment`, { paid: true });
+
+    const res = (await (await c.get(`/api/admin/tournaments/${tournamentId}/payments`)).json()) as {
+      collected: number;
+    };
+
+    expect(res.collected).toBe(0);
+  });
+
+  it('los pagos NO son públicos', async () => {
+    const c = await admin();
+    const { id } = await torneoConPago(c);
+
+    expect((await cliente().get(`/api/admin/tournaments/${id}/payments`)).status).toBe(401);
   });
 });

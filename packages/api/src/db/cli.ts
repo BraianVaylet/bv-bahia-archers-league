@@ -4,6 +4,7 @@
  * Uso: `pnpm --filter @bal/api db:<comando>`. Ver `docs/CONFIG.md` §4.
  */
 
+import * as publishService from '../services/publishService.js';
 import { connect, disconnect } from './client.js';
 import { ensureIndexes } from './indexes.js';
 import { reconcile } from './reconcile.js';
@@ -58,6 +59,14 @@ async function main(): Promise<void> {
         for (const d of resultado.details) {
           console.info(`  ${d.participantId} ${d.campo}: ${d.antes} → ${d.despues}`);
         }
+
+        // Los rollups se recalculan desde `scores`; el acumulado de la liga,
+        // desde los torneos publicados. Van juntos: corregir un puntaje sin
+        // rehacer el ranking deja la landing mostrando el número viejo.
+        const liga = await publishService.reconcileStandings();
+        console.info(
+          `Temporadas recalculadas: ${liga.seasons}. Acumulados escritos: ${liga.standings}.`,
+        );
         break;
       }
     }

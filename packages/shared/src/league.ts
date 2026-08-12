@@ -3,7 +3,13 @@
  *
  * Dos modos, por categoría:
  *   - **por posición**: 5-4-3-2-1 según el podio de cada torneo, acumulado
- *   - **por mejor puntaje**: el mejor `normalizedPct` de la temporada
+ *   - **mejor de 2**: el promedio de los DOS mejores porcentajes de la temporada
+ *
+ * «Mejor de 2» reemplazó a «por mejor puntaje». Un solo porcentaje premia el
+ * día bueno; el promedio de los dos mejores premia la regularidad, que es lo
+ * que la liga quiere medir. El mejor resultado suelto se sigue guardando
+ * —`bestNormalizedPct`— porque es un dato que la landing muestra, pero ya no
+ * ordena ningún ranking.
  *
  * Sólo los torneos **publicados** impactan la liga, y hacen falta al menos dos
  * torneos disputados para figurar.
@@ -32,6 +38,16 @@ export interface ArcherStanding {
   readonly bestRawScore: number;
   readonly bestTournamentId: string | null;
 
+  /**
+   * Los dos mejores porcentajes de la temporada, **de mayor a menor**.
+   *
+   * Se guardan los dos y no sólo su promedio porque el acumulado es
+   * incremental: para saber si el torneo que llega desplaza a alguno hay que
+   * conocer a los dos que están. El promedio se deriva con `bestTwoAvgPct`, así
+   * que no hay dos fuentes de verdad que puedan separarse.
+   */
+  readonly topTwoPcts: readonly number[];
+
   readonly totalX: number;
   readonly totalTens: number;
   readonly totalM: number;
@@ -44,7 +60,7 @@ export interface TournamentContribution {
   readonly participants: readonly Rankable[];
 }
 
-export type StandingsMode = 'position' | 'score';
+export type StandingsMode = 'position' | 'best_two';
 
 export interface RankedStanding extends ArcherStanding {
   /** 1-based. Compartida ante empate. */
@@ -75,6 +91,28 @@ export function normalizedPct(total: number, maxPossibleScore: number): number {
   return Math.round((total / maxPossibleScore) * 10_000) / 100;
 }
 
+/** Cuántos porcentajes entran en el promedio de «mejor de 2». */
+const CUANTOS_MEJORES = 2;
+
+/**
+ * Promedio de los dos mejores porcentajes de la temporada.
+ *
+ * Con un solo torneo devuelve ese porcentaje —el arquero no clasifica igual,
+ * porque el mínimo son dos— y sin ninguno devuelve 0, no `NaN`.
+ */
+export function bestTwoAvgPct(standing: ArcherStanding): number {
+  const pcts = standing.topTwoPcts;
+  if (pcts.length === 0) return 0;
+
+  const suma = pcts.reduce((a, b) => a + b, 0);
+  return Math.round((suma / pcts.length) * 100) / 100;
+}
+
+/** Mete un porcentaje entre los mejores, descartando el peor si sobra. */
+function mejoresCon(pcts: readonly number[], nuevo: number): number[] {
+  return [...pcts, nuevo].sort((a, b) => b - a).slice(0, CUANTOS_MEJORES);
+}
+
 /** `true` si el arquero tiene los torneos mínimos para figurar en los rankings. */
 export function eligibleForRanking(standing: ArcherStanding): boolean {
   return standing.tournamentsPlayed >= MIN_TOURNAMENTS_FOR_RANKING;
@@ -92,6 +130,7 @@ function nuevoStanding(p: Rankable): ArcherStanding {
     bestNormalizedPct: 0,
     bestRawScore: 0,
     bestTournamentId: null,
+    topTwoPcts: [],
     totalX: 0,
     totalTens: 0,
     totalM: 0,
@@ -149,6 +188,7 @@ export function applyTournamentToStandings(
       bestNormalizedPct: mejora ? pct : actual.bestNormalizedPct,
       bestRawScore: mejora ? entry.total : actual.bestRawScore,
       bestTournamentId: mejora ? tournament.tournamentId : actual.bestTournamentId,
+      topTwoPcts: mejoresCon(actual.topTwoPcts, pct),
       totalX: actual.totalX + entry.innerCount,
       totalTens: actual.totalTens + entry.tenCount,
       totalM: actual.totalM + entry.mCount,
@@ -167,8 +207,8 @@ function compararPorPosicion(a: ArcherStanding, b: ArcherStanding): number {
   );
 }
 
-function compararPorPuntaje(a: ArcherStanding, b: ArcherStanding): number {
-  return b.bestNormalizedPct - a.bestNormalizedPct || b.totalX - a.totalX || a.totalM - b.totalM;
+function compararPorMejorDeDos(a: ArcherStanding, b: ArcherStanding): number {
+  return bestTwoAvgPct(b) - bestTwoAvgPct(a) || b.totalX - a.totalX || a.totalM - b.totalM;
 }
 
 /**
@@ -181,7 +221,7 @@ export function sortStandings(
   standings: readonly ArcherStanding[],
   mode: StandingsMode,
 ): SortedStandings {
-  const comparar = mode === 'position' ? compararPorPosicion : compararPorPuntaje;
+  const comparar = mode === 'position' ? compararPorPosicion : compararPorMejorDeDos;
 
   const elegibles = standings.filter(eligibleForRanking);
   const restantes = standings.filter((s) => !eligibleForRanking(s));
