@@ -14,6 +14,64 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `BE-14` — Auditoría de seguridad · y un `$` que duplicó un documento
+
+**Autor:** Claude Opus 5 · **Estado:** parcial, y se dice cuál parte
+
+**36 de los 38 ítems del checklist de [`SECURITY.md`](SECURITY.md) §13 quedaron verdes**, cada uno con el archivo de test que lo verifica escrito al lado. El checklist dejó de ser una lista de intenciones y pasa a ser un mapa.
+
+La mayoría ya estaba cubierta y sólo hacía falta mapearla. **Faltaban cinco**, y se escribieron en `tests/seguridad.test.ts`:
+
+| Ítem | Por qué importaba |
+|---|---|
+| Op de otra patrulla **queda en el audit log** | Que se rechace ya estaba probado. El rastro es lo único que distingue un error de sincronización de alguien probando. |
+| Recurso de otro torneo → **404, no 403** | Un 403 confirma que el recurso existe. |
+| Cambiar un puntaje después de firmar → `SIGNATURE_MISMATCH` | Es lo que hace que la firma signifique algo. **No lo probaba nadie.** |
+| Clave con `$` en un objeto anidado | No hace falta sanitizar claves porque nada llega sin pasar por Zod `.strict()`. Faltaba demostrarlo. |
+| HSTS **presente** en producción | Sólo estaba probado que no aparece fuera de producción. |
+
+**Cuatro mutaciones probadas, las cuatro detectadas.**
+
+**Un test que pasaba por el motivo equivocado**
+
+El de la clave con `$` usaba arqueros inventados, así que el request fallaba igual y el test pasaba **sin que la clave tuviera nada que ver**. Un 400 no prueba nada si el cuerpo ya era inválido por otro motivo.
+
+Corregido comprobando que el error **apunte al campo inyectado** (`targets.0` · `Unrecognized key: "$where"`), que es algo que ninguna otra falla puede producir.
+
+**Y un control que tampoco probaba nada:** al intentar verificar lo anterior, los scripts de mutación usaban `node -e` con `replace()` **sin guarda**. El patrón no coincidía, el archivo quedaba intacto, y yo leía «sigue pasando» como si la mutación se hubiera aplicado. Tres veces seguidas. **Una mutación que no se aplica no prueba nada** — el guard `if (!s.includes(a)) exit(9)` que ya usaba en otros scripts no estaba en éstos.
+
+---
+
+### El `$` que duplicó `SECURITY.md`
+
+Al marcar el checklist, el documento pasó de **319 a 610 líneas**: las secciones §1 a §13 quedaron duplicadas enteras.
+
+La causa es una trampa de JavaScript que vale anotar: **`String.replace` interpreta `` $` `` dentro del texto de reemplazo** como «insertá todo lo que está antes del match». Uno de los ítems del checklist es literalmente:
+
+> Clave con `` `$` `` o `` `.` `` en un objeto anidado → rechazada.
+
+Al usarlo como reemplazo, ese `` $` `` expandió el documento entero dentro de sí mismo.
+
+**La corrección:** pasar una **función** de reemplazo (`s.replace(viejo, () => nuevo)`), que desactiva por completo la interpretación de `$`. Verificado: 320 → 320 líneas, 38 cambiadas por 38.
+
+Es irónico y merece quedar escrito: el ítem del checklist sobre inyección de `$` produjo una inyección de `$`.
+
+---
+
+**Lo que NO está hecho**
+
+| Ítem | Motivo |
+|---|---|
+| `aikido:scan` limpio | Exige iniciar sesión en Aikido desde el navegador, que es del dueño del proyecto |
+| Contenedor no root | El `Dockerfile` declara `USER node`, pero **la imagen nunca se construyó**. Ver `INF-3` |
+| `/security-review` sin HIGH ni MEDIUM | Corrió **sin hallazgos**, pero el diff de la rama sólo tiene docs y tests: el código con superficie de seguridad de esta sesión ya está en `main`. Para cumplir el DoD de verdad hay que correrlo sobre el rango de los PR #20 a #24 |
+
+Por eso `BE-14` queda en `[~]` y no en `[x]`.
+
+**735 tests en el repo.**
+
+---
+
 ## 2026-08-12 · `INF-5` completo, `INF-3` e `INF-4` a medias — CI y deploy
 
 **Autor:** Claude Opus 5 · **Estado:** parcial, y se dice cuál parte

@@ -258,56 +258,56 @@ Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en p
 Debe estar **completamente verde** antes de cada release. Cada ítem es un test automatizado o una verificación manual documentada.
 
 ### Autenticación y sesión
-- [ ] Request mutante **sin `x-csrf-token`** → 403.
-- [ ] Request **sin sesión** a un recurso protegido → 401.
-- [ ] Sesión de patrulla intentando acceder a `/api/admin/*` → 403.
-- [ ] Login de admin con usuario inexistente tarda **lo mismo** que con uno existente.
-- [ ] Password de admin almacenado con argon2id; en base **no existe** el password en claro.
-- [ ] Token de sesión en base es `sha256`, no el token de la cookie.
-- [ ] Cookies con `HttpOnly`, `Secure` (prod) y `SameSite=Lax`.
-- [ ] Logout invalida la sesión **en base**.
-- [ ] Bloqueo tras 5 intentos fallidos, en admin y en patrulla.
-- [ ] Credencial de patrulla **no funciona** si el torneo no está `en_proceso`.
-- [ ] Regenerar el PIN invalida las sesiones activas de esa patrulla.
-- [ ] En producción, arrancar sin `ADMIN_INITIAL_PASSWORD` **falla el arranque**.
-- [ ] El primer login de admin obliga a cambiar el password.
+- [x] Request mutante **sin `x-csrf-token`** → 403. — app.test.ts
+- [x] Request **sin sesión** a un recurso protegido → 401. — auth.test.ts
+- [x] Sesión de patrulla intentando acceder a `/api/admin/*` → 403. — auth.test.ts
+- [x] Login de admin con usuario inexistente tarda **lo mismo** que con uno existente. — auth.test.ts
+- [x] Password de admin almacenado con argon2id; en base **no existe** el password en claro. — auth.test.ts
+- [x] Token de sesión en base es `sha256`, no el token de la cookie. — auth.test.ts
+- [x] Cookies con `HttpOnly`, `Secure` (prod) y `SameSite=Lax`. — auth.test.ts · env.test.ts
+- [x] Logout invalida la sesión **en base**. — auth.test.ts
+- [x] Bloqueo tras 5 intentos fallidos, en admin y en patrulla. — auth.test.ts · wafl.test.ts
+- [x] Credencial de patrulla **no funciona** si el torneo no está `en_proceso`. — wafl.test.ts
+- [x] Regenerar el PIN invalida las sesiones activas de esa patrulla. — ciclo.test.ts
+- [x] En producción, arrancar sin `ADMIN_INITIAL_PASSWORD` **falla el arranque**. — env.test.ts
+- [x] El primer login de admin obliga a cambiar el password. — auth.test.ts
 
 ### Autorización
-- [ ] La patrulla 3 enviando una op de un participante de la patrulla 5 → op `rejected`, registrada en el audit log.
-- [ ] Un batch mixto (ops propias + ajenas) aplica **solo** las propias.
-- [ ] Un recurso de otro torneo → 404, no 403.
+- [x] La patrulla 3 enviando una op de un participante de la patrulla 5 → op `rejected`, registrada en el audit log. — wafl.test.ts · **seguridad.test.ts**
+- [x] Un batch mixto (ops propias + ajenas) aplica **solo** las propias. — wafl.test.ts
+- [x] Un recurso de otro torneo → 404, no 403. — **seguridad.test.ts**
 
 ### Integridad del puntaje
-- [ ] `total` falseado por el cliente → **ignorado**, recalculado en el servidor.
-- [ ] Token `11` en un blanco de sala → rechazado con `INVALID_TOKEN`.
-- [ ] Token `X` en un blanco 3D → rechazado.
-- [ ] Cantidad de flechas distinta a la del blanco → `ARROW_COUNT`.
-- [ ] Cambiar un puntaje después de firmar → `SIGNATURE_MISMATCH` al cerrar.
-- [ ] Cerrar el circuito sin todas las firmas → `SIGNATURES_MISSING`.
-- [ ] Publicar un torneo que no está `completado` → `INVALID_STATE_TRANSITION`.
+- [x] `total` falseado por el cliente → **ignorado**, recalculado en el servidor. — wafl.test.ts
+- [x] Token `11` en un blanco de sala → rechazado con `INVALID_TOKEN`. — wafl.test.ts
+- [x] Token `X` en un blanco 3D → rechazado. — wafl.test.ts
+- [x] Cantidad de flechas distinta a la del blanco → `ARROW_COUNT`. — wafl.test.ts
+- [x] Cambiar un puntaje después de firmar → `SIGNATURE_MISMATCH` al cerrar. — **seguridad.test.ts**
+- [x] Cerrar el circuito sin todas las firmas → `SIGNATURES_MISSING`. — wafl.test.ts
+- [x] Publicar un torneo que no está `completado` → `INVALID_STATE_TRANSITION`. — ciclo.test.ts
 
 ### Validación e inyección
-- [ ] Payload con una propiedad extra → rechazado por `.strict()`.
-- [ ] `{ "username": { "$ne": null } }` en el login → rechazado por Zod, **sin** llegar a la base.
-- [ ] Clave con `$` o `.` en un objeto anidado → rechazada.
-- [ ] `ObjectId` malformado → 400, sin excepción del driver.
-- [ ] Firma que no es un PNG real → rechazada.
-- [ ] Body > 1 MB → 413.
+- [x] Payload con una propiedad extra → rechazado por `.strict()`. — app.test.ts
+- [x] `{ "username": { "$ne": null } }` en el login → rechazado por Zod, **sin** llegar a la base. — auth.test.ts
+- [x] Clave con `$` o `.` en un objeto anidado → rechazada. — **seguridad.test.ts**
+- [x] `ObjectId` malformado → 400, sin excepción del driver. — tournaments.test.ts
+- [x] Firma que no es un PNG real → rechazada. — wafl.test.ts
+- [x] Body > 1 MB → 413. — app.test.ts
 
 ### Cabeceras y transporte
-- [ ] CSP presente y sin `'unsafe-inline'` en `script-src`.
-- [ ] `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` presentes.
-- [ ] HSTS presente en producción.
-- [ ] Sin stack traces en respuestas de producción.
+- [x] CSP presente y sin `'unsafe-inline'` en `script-src`. — app.test.ts
+- [x] `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` presentes. — app.test.ts
+- [x] HSTS presente en producción. — **seguridad.test.ts**
+- [x] Sin stack traces en respuestas de producción. — app.test.ts
 
 ### Disponibilidad
-- [ ] `POST /api/wafl/sync` con 200 ops de golpe → **no** cae en rate limit.
-- [ ] Una patrulla que vuelve de 3 h sin señal sincroniza sin ser bloqueada.
+- [x] `POST /api/wafl/sync` con 200 ops de golpe → **no** cae en rate limit. — wafl.test.ts
+- [x] Una patrulla que vuelve de 3 h sin señal sincroniza sin ser bloqueada. — wafl.test.ts
 
 ### Dependencias
-- [ ] `pnpm audit` sin vulnerabilidades críticas ni altas.
-- [ ] Sin secretos en el repositorio (`aikido:scan` limpio).
-- [ ] El contenedor corre como usuario no root.
+- [x] `pnpm audit` sin vulnerabilidades críticas ni altas. — job `audit` del CI, bloqueante
+- [ ] Sin secretos en el repositorio (`aikido:scan` limpio). — **pendiente**: el escaneo exige iniciar sesión en Aikido desde el navegador, que es del dueño del proyecto
+- [ ] El contenedor corre como usuario no root. — el `Dockerfile` declara `USER node`, pero **la imagen nunca se construyó**: no hay Docker en la máquina de desarrollo. Ver `INF-3`
 
 ---
 
