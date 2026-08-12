@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+
+/* Los mismos tokens que la PWA, desde `@bal/shared`: dos builds separados con
+   una sola fuente de color. Ver docs/DESIGN_SYSTEM.md §2. */
+@import '@bal/shared/tokens.css';

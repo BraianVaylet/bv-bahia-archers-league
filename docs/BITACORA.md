@@ -14,6 +14,62 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `FE-17`..`FE-20` — La landing · y la PWA que se estaba sirviendo sin estilos
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+El sitio público: introducción, ranking, torneos y ficha de arquero. **97 KB gz** contra el presupuesto de 120.
+
+---
+
+### 🔴 Hallazgo grave: la PWA nunca importó su CSS
+
+Al comparar los builds apareció que **la PWA no generaba hoja de estilos**. `main.tsx` nunca importó `styles/index.css`: quedó así desde el scaffold de `INF-2` y `FE-3` no lo conectó.
+
+**Todo el design system estuvo sin aplicar desde entonces** — tokens, colores de estaca, tema, contenedores. La app funcionaba, pero se veía como HTML sin estilos.
+
+**Por qué ningún test lo vio:** jsdom no procesa hojas de estilo, así que ningún test de componente podía notarlo. El único que mide tamaños —el de las teclas de 56px— usa **estilos inline**, no clases de Tailwind, así que seguía siendo válido y siguió pasando.
+
+Lo que lo delató fue mirar la **salida del build**: dos frontends, y sólo uno emitía `.css`.
+
+> **La lección:** los tests de componente no verifican que la aplicación esté armada. Un `pnpm build` cuya salida nadie mira puede estar diciendo que falta algo desde hace semanas. `INF-5` (CI) debería incluir un chequeo del presupuesto de bundle, que además habría hecho evidente el `.css` faltante.
+
+Es el **segundo** problema que `INF-5` habría atajado, después del lint roto en `main`.
+
+---
+
+**Tokens en un solo lugar**
+
+La landing necesitaba los mismos tokens. En vez de copiarlos se movieron a `@bal/shared/tokens.css`, exportado desde el package. Dos builds separados, una sola fuente de color: con una copia cada uno, se habrían ido separando sin que nadie lo note hasta ver las dos pantallas juntas.
+
+**El tema oscuro tampoco estaba conectado.** `:root[data-theme='dark']` existía en los tokens y **nada lo activaba**. Se agregó el script anti-FOUC en el `<head>` de las dos apps, como pide [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §9.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Acceso principal de la home | **Anotar puntajes**, primero y grande | Es lo que hace falta el día del torneo. Todo lo demás puede esperar. |
+| Orden del ranking | Lo decide **el servidor**; cambiar de modo vuelve a pedirlo | La landing no reordena por su cuenta ni inventa un desempate. |
+| Los que no llegan al mínimo | Lista aparte **con la explicación** | Esconderlos haría creer que se perdió su resultado. |
+| Torneo en curso | Patrullas y avance, **ningún puntaje**, y lo dice | Lo garantiza el backend; la pantalla lo explica para que nadie crea que está rota. |
+| Ficha de arquero | El **porcentaje primero**, el bruto entre paréntesis | Uno es lo comparable entre torneos; el otro es lo que el arquero recuerda. |
+| Componentes | La landing tiene los suyos, no importa los de la PWA | Duplicar tres primitivas pesa menos que arrastrar la biblioteca de administración a una página de lectura. |
+
+**Dos tests míos que no probaban lo que decían**
+
+De seis mutaciones, **dos sobrevivieron**:
+
+1. *«la landing ordena por su cuenta»* — el test de podio recibía los resultados **ya ordenados**, así que la aserción de orden se cumplía sola. Corregido mandándolos al revés.
+2. *«no vuelve a `cargando` al cambiar de recurso»* — el primer intento de test usaba una ruta que devolvía **error**, y el error también limpia la pantalla. Hizo falta una ruta que **nunca responde** para poder mirar el estado intermedio.
+
+Las dos son la misma trampa de siempre con otra cara: **una aserción que se cumple por accidente no prueba nada**. Tras corregirlas, seis de seis detectadas.
+
+**714 tests en el repo.**
+
+**Próximo:** `TEST-1`, el E2E con tramo offline. Ya no está bloqueado: la landing existe y el paso 22 se puede escribir.
+
+---
+
 ## 2026-08-12 · `BE-16`, `FE-14` y `FE-15` — Seguimiento y publicación
 
 **Autor:** Claude Opus 5 · **Estado:** completado
