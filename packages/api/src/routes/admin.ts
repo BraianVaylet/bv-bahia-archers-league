@@ -9,6 +9,7 @@ import {
   ArcherInputSchema,
   CreateTournamentSchema,
   ObjectIdSchema,
+  PatrolDistributionSchema,
   SeasonInputSchema,
   UpdateTournamentSchema,
 } from '@bal/shared';
@@ -170,6 +171,23 @@ export const admin = new Hono()
 
   .get('/tournaments/:id/patrols', async (c) => {
     const id = toObjectId(c.req.param('id'));
+    const [patrols, violations] = await Promise.all([
+      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.validateCurrentDistribution(id),
+    ]);
+    return c.json({ patrols, violations });
+  })
+
+  /**
+   * Redistribución manual. **Avisa pero no bloquea**: la respuesta trae las
+   * violaciones que el admin acaba de aceptar. Ver `FUNCTIONAL.md` §6.6.
+   */
+  .put('/tournaments/:id/patrols', async (c) => {
+    const id = toObjectId(c.req.param('id'));
+    const input = await parseJsonBody(c, PatrolDistributionSchema);
+
+    await patrolAdminService.redistribute(id, input, currentAdminId(c), clientIp(c));
+
     const [patrols, violations] = await Promise.all([
       patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
       patrolAdminService.validateCurrentDistribution(id),

@@ -6,7 +6,7 @@
  * la alcanza. Es el error más fácil de cometer con el driver de Mongo.
  */
 
-import type { TournamentStatus } from '@bal/shared';
+import type { Position, TournamentStatus, Unit } from '@bal/shared';
 import type { ClientSession, ObjectId } from 'mongodb';
 import { participants, patrols, tournaments } from '../db/client.js';
 import type { ParticipantDoc, PatrolDoc, TournamentDoc } from '../db/types.js';
@@ -79,4 +79,29 @@ export function listParticipants(tournamentId: ObjectId): Promise<ParticipantDoc
 
 export function listParticipantsOfPatrol(patrolId: ObjectId): Promise<ParticipantDoc[]> {
   return participants().find({ patrolId }).toArray();
+}
+
+/**
+ * Reubica a un participante en otra patrulla, unidad y posición.
+ *
+ * **No toca su snapshot ni sus rollups**: es la misma persona con el mismo
+ * puntaje, sentada en otro lado. Ver `docs/FUNCTIONAL.md` §6.6.
+ */
+export async function reassignParticipant(
+  participantId: ObjectId,
+  destino: { patrolId: ObjectId; unit: Unit; position: Position },
+  session?: ClientSession,
+): Promise<void> {
+  await participants().updateOne(
+    { _id: participantId },
+    {
+      $set: {
+        patrolId: destino.patrolId,
+        unit: destino.unit,
+        position: destino.position,
+        updatedAt: new Date(),
+      },
+    },
+    session ? { session } : {},
+  );
 }

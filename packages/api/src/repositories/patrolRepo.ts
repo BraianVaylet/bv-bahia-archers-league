@@ -22,6 +22,19 @@ export function listByTournament(tournamentId: ObjectId): Promise<PatrolDoc[]> {
   return patrols().find({ tournamentId }).sort({ number: 1 }).toArray();
 }
 
+/** Cambia el blanco desde el que arranca la patrulla. */
+export async function setStartTargetIndex(
+  id: ObjectId,
+  startTargetIndex: number,
+  session?: ClientSession,
+): Promise<void> {
+  await patrols().updateOne(
+    { _id: id },
+    { $set: { startTargetIndex, updatedAt: new Date() } },
+    session ? { session } : {},
+  );
+}
+
 export async function registerSuccessfulLogin(id: ObjectId): Promise<void> {
   await patrols().updateOne(
     { _id: id },

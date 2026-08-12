@@ -6,7 +6,7 @@
  * pueda volver a mostrarlo, y **cada visualización queda en el audit log**.
  */
 
-import { validatePatrols } from '@bal/shared';
+import { type PatrolDistributionInput, validatePatrols } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { env } from '../env.js';
 import { decryptPin, encryptPin, generatePin, hashSecret } from '../lib/crypto.js';
@@ -16,6 +16,7 @@ import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { conTransaccion } from './tournamentService.js';
 
 export interface PatrolView {
   readonly id: string;
@@ -193,6 +194,117 @@ export async function unlockSignature(
   } finally {
     await session.endSession();
   }
+}
+
+/**
+ * Reubica manualmente a los arqueros entre las patrullas del torneo.
+ *
+ * **Avisa pero no bloquea.** El admin conoce el terreno y puede tener motivos
+ * para una excepción a `H1`..`H4`; la decisión queda en el audit log junto con
+ * las violaciones que aceptó. Ver `docs/FUNCTIONAL.md` §6.6.
+ *
+ * Lo que sí bloquea es **perder un arquero**: la operación exige la lista
+ * completa de participantes del torneo. Uno que quede sin patrulla no aparece en
+ * ninguna planilla, y nadie se entera hasta que ya se está tirando.
+ *
+ * No crea ni borra patrullas: las credenciales pueden estar repartidas en papel.
+ * Una patrulla que queda sin nadie queda **vacía**, y el validador lo informa.
+ */
+export async function redistribute(
+  tournamentId: ObjectId,
+  input: PatrolDistributionInput,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<void> {
+  const torneo = await tournamentRepo.findById(tournamentId);
+  if (!torneo) throw notFound();
+
+  if (torneo.status !== 'sin_iniciar') {
+    // Los líderes ya tienen el recorrido descargado: moverles la patrulla abajo
+    // de los pies rompería la sincronización.
+    throw new AppError('INVALID_STATE_TRANSITION', {
+      message: 'Las patrullas sólo se pueden reacomodar mientras el torneo no arrancó.',
+    });
+  }
+
+  const [patrullas, miembros] = await Promise.all([
+    patrolRepo.listByTournament(tournamentId),
+    tournamentRepo.listParticipants(tournamentId),
+  ]);
+
+  const porNumero = new Map(patrullas.map((p) => [p.number, p]));
+  const porId = new Map(miembros.map((m) => [m._id.toHexString(), m]));
+
+  for (const p of input.patrols) {
+    if (!porNumero.has(p.number)) {
+      throw new AppError('VALIDATION_ERROR', {
+        message: `La patrulla ${p.number} no existe en este torneo.`,
+      });
+    }
+    if (p.startTargetIndex > torneo.targets.length) {
+      throw new AppError('VALIDATION_ERROR', {
+        message: `El blanco de inicio ${p.startTargetIndex} no existe: el recorrido tiene ${torneo.targets.length}.`,
+      });
+    }
+  }
+
+  const asignados = input.patrols.flatMap((p) => p.units.flatMap((u) => u.members));
+
+  // Un id que no es de este torneo se trata como "no pertenece", sin decir si
+  // existe en otro lado: desde acá, sencillamente no está.
+  const ajenos = asignados.filter((id) => !porId.has(id));
+  if (ajenos.length > 0) {
+    throw new AppError('VALIDATION_ERROR', {
+      message: 'Hay arqueros que no participan de este torneo.',
+    });
+  }
+
+  const enLaDistribucion = new Set(asignados);
+  const faltantes = miembros.filter((m) => !enLaDistribucion.has(m._id.toHexString()));
+  if (faltantes.length > 0) {
+    const nombres = faltantes.map((m) => `${m.lastName}, ${m.firstName}`).join(' · ');
+    throw new AppError('VALIDATION_ERROR', {
+      message: `Faltan arqueros en la distribución: ${nombres}. Ninguno puede quedar sin patrulla.`,
+    });
+  }
+
+  await conTransaccion(async (session) => {
+    for (const planeada of input.patrols) {
+      // biome-ignore lint/style/noNonNullAssertion: verificado arriba
+      const patrulla = porNumero.get(planeada.number)!;
+      await patrolRepo.setStartTargetIndex(patrulla._id, planeada.startTargetIndex, session);
+
+      for (const unidad of planeada.units) {
+        for (const [i, participantId] of unidad.members.entries()) {
+          // biome-ignore lint/style/noNonNullAssertion: verificado arriba
+          const miembro = porId.get(participantId)!;
+          await tournamentRepo.reassignParticipant(
+            miembro._id,
+            {
+              patrolId: patrulla._id,
+              unit: unidad.label,
+              // La posición sale del ORDEN dentro de la unidad, no de lo que
+              // mande el cliente: es un dato derivado, no una opinión.
+              position: i === 0 ? 'izquierda' : 'derecha',
+            },
+            session,
+          );
+        }
+      }
+    }
+  });
+
+  const violations = await validateCurrentDistribution(tournamentId);
+
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action: 'patrol.manual_edit',
+    entity: 'tournament',
+    entityId: tournamentId,
+    meta: { patrols: input.patrols.length, violations: violations.length },
+    ip,
+  });
 }
 
 /** Verifica las restricciones `H1`..`H4` sobre la distribución actual. */

@@ -14,6 +14,7 @@ import { ArchersPage } from './pages/Archers.js';
 import { ChangePasswordPage } from './pages/ChangePassword.js';
 import { HomePage } from './pages/Home.js';
 import { LoginPage } from './pages/Login.js';
+import { PatrolsPage } from './pages/Patrols.js';
 import { SeasonsPage } from './pages/Seasons.js';
 import { TournamentCreatePage } from './pages/TournamentCreate.js';
 import { useSesionAdmin } from './sesion.js';
@@ -50,12 +51,18 @@ export function WafaApp() {
       <Route path="/" element={<HomePage onSalir={() => void salir()} />} />
       <Route path="/arqueros" element={<ArchersPage onVolver={alInicio} />} />
       <Route path="/temporadas" element={<SeasonsPage onVolver={alInicio} />} />
-      {/* Al crear se vuelve al inicio, donde el torneo nuevo aparece en «Sin
-          iniciar». La pantalla de patrullas llega en FE-13. */}
+      {/* Recién creado el torneo se va derecho a las patrullas: es lo primero
+          que el admin quiere revisar, y lo único editable antes de arrancar. */}
       <Route
         path="/torneos/nuevo"
-        element={<TournamentCreatePage onVolver={alInicio} onCreado={alInicio} />}
+        element={
+          <TournamentCreatePage
+            onVolver={alInicio}
+            onCreado={(idTorneo) => navigate(`/wafa/torneos/${idTorneo}/patrullas`)}
+          />
+        }
       />
+      <Route path="/torneos/:id/patrullas" element={<PatrolsPage onVolver={alInicio} />} />
       <Route
         path="/password"
         element={
