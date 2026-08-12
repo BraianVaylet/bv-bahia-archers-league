@@ -1,9 +1,10 @@
 import type { Db } from 'mongodb';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { sessions, users } from '../src/db/client.js';
 import { seed } from '../src/db/seed.js';
 import { resetEnvCache } from '../src/env.js';
+import * as crypto from '../src/lib/crypto.js';
 import { sha256 } from '../src/lib/crypto.js';
 import { requireAdmin } from '../src/middleware/auth.js';
 import { resetRateLimits } from '../src/middleware/rateLimit.js';
@@ -35,6 +36,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   resetRateLimits();
+  // Sin esto un espía sobrevive al test que lo puso y contamina los siguientes.
+  vi.restoreAllMocks();
 });
 
 // ── Cliente de prueba ────────────────────────────────────────────────────────
@@ -170,15 +173,60 @@ describe('login de admin', () => {
       return performance.now() - inicio;
     };
 
-    // Descarta la primera medición: incluye el cálculo del hash de referencia.
+    /**
+     * Se calientan **los dos** caminos antes de medir.
+     *
+     * La primera llamada a argon2id reserva su memoria y tarda bastante más que
+     * las siguientes. Calentar sólo uno hacía que el otro se midiera frío, y en
+     * un runner compartido la diferencia llegó a ser de 3,7× sin que hubiera
+     * ninguna fuga. Ver `docs/BITACORA.md`, entrada de `INF-5`.
+     */
     await medir('admin');
+    await medir('noexiste');
 
-    const existente = await medir('admin');
-    const inexistente = await medir('noexiste');
+    const mediana = async (username: string): Promise<number> => {
+      const muestras: number[] = [];
+      for (let i = 0; i < 5; i++) muestras.push(await medir(username));
+      muestras.sort((a, b) => a - b);
+      return muestras[2] as number;
+    };
 
-    // argon2id tarda decenas de milisegundos; sin la guarda, el inexistente
-    // sería órdenes de magnitud más rápido.
-    expect(inexistente).toBeGreaterThan(existente * 0.4);
+    const existente = await mediana('admin');
+    const inexistente = await mediana('noexiste');
+
+    /**
+     * argon2id tarda decenas de milisegundos; sin la guarda, el inexistente
+     * respondería en microsegundos —órdenes de magnitud más rápido— y se podrían
+     * enumerar cuentas.
+     *
+     * El margen es amplio a propósito. El camino del usuario que **sí** existe
+     * hace además una escritura en la base para contar el intento fallido, así
+     * que es legítimamente más lento; lo que se busca acá es que el otro no sea
+     * de otra escala, no que sean idénticos.
+     */
+    expect(inexistente).toBeGreaterThan(existente * 0.25);
+  });
+
+  /**
+   * La misma propiedad, sin depender del reloj.
+   *
+   * Un test de tiempo en un runner compartido siempre va a tener ruido. Esto
+   * verifica la **mitigación** en sí: con un usuario que no existe igual se
+   * verifica un hash de referencia. Si alguien saca esa línea, el login
+   * responde sin llamar a argon2 y este test lo dice, corra donde corra.
+   */
+  it('con un usuario inexistente TAMBIÉN se verifica un hash', async () => {
+    const espia = vi.spyOn(crypto, 'verifySecret');
+    const c = cliente();
+
+    await c.post('/api/auth/admin/login', {
+      username: 'no-existe-nadie-asi',
+      password: 'password-incorrecto-x',
+    });
+
+    expect(espia).toHaveBeenCalledTimes(1);
+    // Contra un hash de argon2id de verdad, no contra un string cualquiera.
+    expect(espia.mock.calls[0]?.[0]).toMatch(/^\$argon2id\$/);
   });
 
   it('rechaza un body sin los campos requeridos', async () => {
