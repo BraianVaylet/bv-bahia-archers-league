@@ -322,6 +322,21 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
     expect(p.total).toBeGreaterThan(0);
   }
 
+  /**
+   * 16.b El avance **de la patrulla**, que es lo que WAFA muestra.
+   *
+   * Es un contador distinto del de cada participante: se recalcula dentro de la
+   * transacción del puntaje, y por leer fuera de ella se quedaba en 13 de 14
+   * con el recorrido entero cargado. Esta aserción faltaba, y por eso el E2E
+   * pasaba con el bug adentro.
+   */
+  const { patrols: avance } = await api.get<{
+    patrols: { number: number; targetsCompleted: number }[];
+  }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+
+  const laPrimera = avance.find((p) => p.number === primera.number);
+  expect(laPrimera?.targetsCompleted).toBe(RECORRIDO.length);
+
   // 17-18. Firmas y cierre.
   await firmarYCerrar(page);
   await contexto.close();

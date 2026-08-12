@@ -79,19 +79,26 @@ No es que la app no deje mover: **mueve y pierde**. La causa real es distinta de
 
 # Las siete tandas
 
-### `[ ] REF-1` · Los tres bugs · **P0**
+### `[x] REF-1` · Los tres bugs · **P0**
 
 Lo que impide correr un torneo. Va solo y primero.
 
 **Archivos:** `api/src/services/syncService.ts`, `api/src/repositories/{tournamentRepo,scoreRepo}.ts`, `app/src/wafl/CircuitPage.tsx`, `app/src/wafa/patrullas.ts`
 
-- Pasar la `session` a las dos lecturas del avance; agregar el parámetro en las dos funciones de repositorio
-- Guard de `total > 0` en `CircuitPage`, y reproducir por qué `participants` llega vacío
-- `unidadesDe` deja de recortar: el exceso **se muestra y bloquea el guardado**, no se descarta
+- [x] Pasar la `session` a las dos lecturas del avance; agregar el parámetro en las dos funciones de repositorio
+- [x] Guard de `total > 0` en `CircuitPage`, y reproducir por qué `participants` llega vacío
+- [x] `unidadesDe` deja de recortar: el exceso **se muestra y bloquea el guardado**, no se descarta
 
 **DoD:** el avance muestra 8 de 8 al completar el octavo blanco · un blanco sin cargar no figura completo · mover un 5º arquero lo deja visible y bloquea Guardar.
 **Tests:** integración que carga el último blanco dentro de una transacción y verifica `targetsCompleted` (hoy falla) · componente con `participants: []` · `unidadesDe` con 5 miembros.
 **Mutaciones:** quitar la `session` · quitar el guard · volver a recortar en 4.
+
+> **Cerrada el 2026-08-12.** Salieron cinco correcciones, no tres. Las dos extra son la misma causa raíz:
+>
+> - **Una patrulla vacía cerraba el circuito sin un solo puntaje.** Con cero activos, `esperados` da cero y todas las comprobaciones de `aplicarCierre` pasan por vacuidad.
+> - **El E2E pasaba con el bug del avance adentro**: verificaba el `targetsCompleted` del *participante*, nunca el de la *patrulla*. Con el bug reintroducido ahora da `Expected: 14 · Received: 13`.
+>
+> 745 tests en verde. 8 controles de mutación, murieron 7; el sobreviviente y su razón están en la [bitácora](../../BITACORA.md).
 
 ### `[x] REF-2` · Dominio: «mejor de 2» y pagos · **P0** · **TDD**
 
