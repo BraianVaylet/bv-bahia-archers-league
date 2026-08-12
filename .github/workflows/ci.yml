@@ -39,6 +39,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Caché del binario de MongoDB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
+
+      # Una sola descarga, antes de los tests. Vitest corre los archivos en
+      # paralelo y todos los workers levantan su propio replica set: en una
+      # máquina limpia se pisan bajando el mismo binario.
+      - name: Precargar MongoDB
+        run: node scripts/precargar-mongo.mjs
+
       # `biome check` incluye formato y lint. Falla si algo no está formateado.
       - name: Lint
         run: pnpm lint
@@ -83,6 +95,12 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Caché del binario de MongoDB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
 
       - name: Instalar Chromium
         run: pnpm exec playwright install --with-deps chromium
