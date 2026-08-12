@@ -44,6 +44,36 @@ Marcarlas `[x]` sería mentir. Quedan en `[~]` con lo que falta escrito al lado.
 | Reporte de Playwright | Se sube **sólo si falla** | Un artefacto por corrida verde es basura que nadie mira. |
 | `.dockerignore` | Excluye `docs/`, `pre/` y los `dist` locales | Los `dist` del host traerían binarios de otra plataforma; la documentación no se ejecuta. |
 
+---
+
+### El CI encontró tres cosas en su primera corrida
+
+Ninguna era un bug del producto. Las tres eran **tests o infraestructura que sólo funcionaban en esta máquina** — que es exactamente lo que un CI existe para descubrir.
+
+**1. Un locator que no reintenta** · `locator.scrollIntoViewIfNeeded: Element is not attached to the DOM`
+
+En el E2E, `botones.first()` resolvía y el nodo se reemplazaba cuando la sincronización de fondo re-renderizaba la lista. `click()` reintenta **re-resolviendo el locator**; `scrollIntoViewIfNeeded` no. Lo había agregado por un motivo que resultó ser otro —la barra fija que tapaba el botón— y que ya estaba arreglado.
+
+Se revisó el resto del flujo por el mismo patrón y quedaban dos `count()`, que tampoco reintenta y devuelve **0** si la lista todavía no renderizó: con 0 el bucle no corre y el fallo aparece varios pasos después, lejos de su causa. Ahora se espera a que exista el primer elemento antes de contar, y el orden de los blancos se lee una sola vez, antes de cargar nada.
+
+**2. Una carrera bajando el binario de MongoDB** · `Cannot unlock file ".../7.0.14.lock"`
+
+Vitest corre los archivos de `@bal/api` en paralelo y cada worker levanta su propio replica set. En una máquina limpia todos intentan descargar **el mismo binario a la vez**. Acá nunca se vio porque ya estaba en caché. Se agregó un paso que lo baja una vez antes de los tests, más caché entre corridas.
+
+**3. Un test de timing frágil** · `expected 14.84 to be greater than 22.15`
+
+El test que verifica que un usuario inexistente no responda más rápido que uno real. **Se revisó el código antes de tocar el test: la mitigación está bien**, los dos caminos corren argon2id.
+
+El test tomaba **una sola medición de cada camino**, en orden, y calentaba sólo uno. La primera llamada a argon2id reserva su memoria y tarda bastante más, así que el otro se medía frío: en el runner la diferencia llegó a 3,7× sin que hubiera ninguna fuga.
+
+Ahora calienta los dos, toma cinco muestras y compara **medianas**, con un margen amplio a propósito —el camino del usuario que sí existe hace además una escritura para contar el intento fallido, así que es legítimamente más lento—.
+
+Y se agregó la misma propiedad **sin depender del reloj**: con un usuario que no existe, igual se verifica un hash de argon2id de verdad. Un test de tiempo en un runner compartido siempre va a tener ruido; éste no. Mutación probada: quitar el hash de referencia lo detectan los dos.
+
+**Los cuatro jobs en verde.**
+
+---
+
 **Próximo:** `BE-14`, la auditoría de seguridad. Es `P0` y es lo último bloqueante antes del deploy.
 
 ---
