@@ -338,19 +338,23 @@ _(Hecho. Los podios y los puntos de liga se calculan con **las mismas funciones 
 
 # Fase 5 — Landing · P1
 
-### `[ ] FE-17` · Bootstrap de la landing
+### `[x] FE-17` · Bootstrap de la landing
+_(Hecho. Vite + React + Tailwind, **sin service worker**. Los tokens del design system se movieron a `@bal/shared/tokens.css`: la PWA y la landing son builds separados y con una copia cada una los colores se irían separando sin que nadie lo note. **97 KB gz** contra el presupuesto de 120. Se conectó el tema claro/oscuro anti-FOUC, que estaba escrito en los tokens pero **nada lo activaba**. Y se encontró que la PWA **nunca importó su CSS** — ver [`BITACORA.md`](BITACORA.md).)_
 **Archivos:** `packages/landing/*`
 **DoD:** Vite + React + tokens compartidos · **sin service worker** · JS inicial < 120 KB gz · LCP < 2.5 s.
 
-### `[ ] FE-18` · Introducción y ranking
+### `[x] FE-18` · Introducción y ranking
+_(Hecho. El acceso a **anotar puntajes va primero y grande**: es lo que hace falta el día del torneo. Ranking por categoría con los dos modos y selector de temporada, **pidiéndoselos al servidor** — la landing no reordena por su cuenta. Los que no llegan al mínimo van en una lista aparte **con la explicación del requisito**: esconderlos haría creer que se perdió su resultado.)_
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.1, §5.2
 **DoD:** accesos a WAFA y WAFL · ranking por categoría con los dos modos y selector de temporada · los de < 2 torneos en una lista aparte con la explicación del requisito.
 
-### `[ ] FE-19` · Torneos
+### `[x] FE-19` · Torneos
+_(Hecho. Listado y detalle. Un torneo **en proceso muestra patrullas y avance, ningún puntaje** — lo garantiza el backend, y la pantalla lo explica para que nadie crea que está rota. Los podios se ordenan con `rankByCategory`, el mismo del servidor.)_
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3
 **DoD:** listado y detalle · un torneo en proceso muestra patrullas y avance, **nunca puntajes**.
 
-### `[ ] FE-20` · Ficha de arquero
+### `[x] FE-20` · Ficha de arquero
+_(Hecho. Estadísticas por temporada desde los acumulados. El **porcentaje va primero** y el bruto entre paréntesis: uno es lo comparable, el otro es lo que el arquero recuerda. Un arquero sin torneos publicados **no tiene ficha**: el padrón del club no se filtra hacia afuera.)_
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.4
 **DoD:** estadísticas históricas y evolución torneo a torneo.
 
@@ -384,7 +388,8 @@ _(Hecho. Los podios y los puntos de liga se calculan con **las mismas funciones 
 
 ### `[ ] INF-5` · CI · P0
 **Referencia:** [`CONFIG.md`](CONFIG.md) §8
-**Urgencia comprobada:** en `SH-6` se descubrió que `pnpm lint` venía **fallando en `main`** desde `FE-3` sin que nada lo bloqueara. Ver [`BITACORA.md`](BITACORA.md), entrada del 2026-08-11.
+**Urgencia comprobada, dos veces:** en `SH-6` se descubrió que `pnpm lint` venía **fallando en `main`** desde `FE-3`, y en `FE-17` que la PWA **se estaba construyendo sin hoja de estilos** desde el mismo momento. Nada lo bloqueaba. Ver [`BITACORA.md`](BITACORA.md).
+**Sumar al job `budget`:** verificar que **cada frontend emita su `.css`**. Es lo que habría delatado el segundo problema el día que apareció.
 **DoD:** los 4 jobs (`quality`, `e2e`, `audit`, `budget`) · bloquean el merge según `TESTING.md` §8 · umbrales de cobertura aplicados.
 
 ### `[ ] INF-6` · Backups · P1

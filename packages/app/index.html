@@ -3,6 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fbfaf5" />
+    <script>
+      /**
+       * Anti-FOUC: el tema se aplica ANTES del primer pintado.
+       *
+       * Si esperara a React, la pantalla arrancaría en claro y saltaría a oscuro
+       * en la primera pintada. Ver docs/DESIGN_SYSTEM.md §9.
+       */
+      (() => {
+        let oscuro = false;
+
+        try {
+          const guardado = localStorage.getItem('bal_tema');
+          oscuro =
+            guardado === 'dark' ||
+            (guardado === null && matchMedia('(prefers-color-scheme: dark)').matches);
+        } catch {
+          /* Sin localStorage se queda en claro, que es el default. */
+        }
+
+        if (oscuro) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.querySelector('meta[name=theme-color]').setAttribute('content', '#16170f');
+        }
+      })();
+    </script>
     <title>Liga Bahiense de Arquería</title>
   </head>
   <body>
