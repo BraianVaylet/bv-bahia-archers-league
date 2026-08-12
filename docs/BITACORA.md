@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `INF-5` completo, `INF-3` e `INF-4` a medias — CI y deploy
+
+**Autor:** Claude Opus 5 · **Estado:** parcial, y se dice cuál parte
+
+**El CI existe.** Los cuatro jobs de [`CONFIG.md`](CONFIG.md) §8: `quality`, `budget`, `e2e` y `audit`.
+
+Llega tarde: **tres bugs llegaron a `main` sin que nada los frenara** —el lint roto desde `FE-3`, la PWA construyéndose sin hoja de estilos, y la sincronización sin enchufar—. Los tres estaban en el rango de lo que estos jobs habrían visto.
+
+**El chequeo del `.css` no es genérico.** Verifica que cada frontend **emita una hoja de estilos**, que es exactamente el bug de `FE-17`. Se comprobó que funciona **borrando el `.css` del build**: falla con exit 1 y dice el motivo probable —«suele significar que el punto de entrada no importa su CSS»—. Un chequeo que nunca se vio fallar no protege nada.
+
+**Lo que NO está hecho, y por qué**
+
+| Tarea | Estado | Motivo |
+|---|---|---|
+| `INF-3` Dockerfile | **Escrito, sin construir** | No hay Docker en esta máquina. `docker build` no se corrió ni una vez. |
+| `INF-4` Deploy | **`railway.json` listo, sin desplegar** | Necesita la cuenta de Railway y el cluster de Atlas, que son del dueño del proyecto. |
+
+Marcarlas `[x]` sería mentir. Quedan en `[~]` con lo que falta escrito al lado.
+
+**Lo que sí se pudo verificar del Dockerfile:** la imagen deja los frontends en `packages/api/public/{app,landing}` y `estaticos.ts` los busca ahí. Esa detección se extrajo a `elegirRutas`, una función pura, y **está probada**: prefiere la primera ubicación con builds, y sin ninguna devuelve la del monorepo y no sirve nada. Es la única parte del deploy que se puede probar sin desplegar.
+
+**Decisiones**
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Ubicación de los frontends | **Se detecta**, no se configura | Una variable de entorno más es una cosa más que puede quedar mal seteada el día del deploy. |
+| Base del E2E en CI | El mismo MongoDB en memoria que en local | Sin servicios externos: si corre en la máquina de cualquiera, corre en el runner. |
+| Reporte de Playwright | Se sube **sólo si falla** | Un artefacto por corrida verde es basura que nadie mira. |
+| `.dockerignore` | Excluye `docs/`, `pre/` y los `dist` locales | Los `dist` del host traerían binarios de otra plataforma; la documentación no se ejecuta. |
+
+**Próximo:** `BE-14`, la auditoría de seguridad. Es `P0` y es lo último bloqueante antes del deploy.
+
+---
+
 ## 2026-08-12 · `BE-17` y `TEST-1` — El E2E offline · y los tres bugs que encontró
 
 **Autor:** Claude Opus 5 · **Estado:** completado
