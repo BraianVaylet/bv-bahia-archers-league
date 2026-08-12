@@ -109,7 +109,33 @@ docker exec bal-mongo mongosh --eval "rs.initiate()"
 
 Connection string: `mongodb://localhost:27017/bal?replicaSet=rs0&directConnection=true`
 
-**Sin Docker:** instalar MongoDB 7 y arrancar con `mongod --replSet rs0`, luego `rs.initiate()` desde `mongosh`.
+**Convertir una instalación existente en Windows.** Si MongoDB ya está instalado como servicio, corre **standalone** y las transacciones fallan. Convertirlo a replica set de un nodo **conserva los datos** y es reversible. En una PowerShell **como administrador**:
+
+```powershell
+Add-Content "C:\Program Files\MongoDB\Server\8.3\bin\mongod.cfg" "`nreplication:`n  replSetName: rs0"
+```
+
+```powershell
+Restart-Service MongoDB
+```
+
+Y una sola vez, desde una consola normal:
+
+```powershell
+mongosh --eval "rs.initiate()"
+```
+
+Para volver atrás: quitar esas dos líneas del `.cfg` y reiniciar el servicio.
+
+**Cómo saber si ya es replica set.** `mongosh --eval "db.hello().setName"` devuelve `rs0` si lo es, y vacío si sigue standalone. Sin replica set, crear un torneo falla con `Transaction numbers are only allowed on a replica set member or mongos`.
+
+**Sin instalar nada:** también sirve levantar una segunda instancia en otro puerto, sin tocar la del sistema ni necesitar administrador:
+
+```powershell
+mongod --dbpath "$env:LOCALAPPDATA\bal-mongo" --port 27018 --replSet rs0
+```
+
+Con `MONGODB_URI=mongodb://localhost:27018/?replicaSet=rs0&directConnection=true`.
 
 ### 4.3 Inicializar la base
 
