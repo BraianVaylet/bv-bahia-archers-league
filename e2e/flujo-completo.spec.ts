@@ -93,11 +93,22 @@ async function entrarComoLider(page: Page, tournamentId: string, username: strin
 
 /** Carga el recorrido completo de la patrulla desde la interfaz. */
 async function cargarRecorrido(page: Page) {
+  const tarjetas = page.getByTestId('numero-blanco');
+  await expect(tarjetas).toHaveCount(RECORRIDO.length);
+
+  /**
+   * El orden del recorrido se lee **una sola vez**, antes de cargar nada.
+   *
+   * Leerlo dentro del bucle significaría leerlo mientras la lista se re-renderiza
+   * —cada vez que se vuelve del blanco, y cada vez que termina una
+   * sincronización de fondo— y `textContent()` no reintenta ante un nodo
+   * desprendido. El orden no cambia: la rotación la fija el blanco de inicio.
+   */
+  const orden = (await tarjetas.allTextContents()).map((t) => t.trim());
+
   for (let i = 0; i < RECORRIDO.length; i++) {
-    const tarjetas = page.getByTestId('numero-blanco');
-    const numero = await tarjetas.nth(i).textContent();
-    const blanco = RECORRIDO.find((b) => String(b.index) === numero?.trim());
-    if (!blanco) throw new Error(`No se encontró el blanco ${numero}`);
+    const blanco = RECORRIDO.find((b) => String(b.index) === orden[i]);
+    if (!blanco) throw new Error(`No se encontró el blanco ${orden[i]}`);
 
     await tarjetas.nth(i).click();
 
@@ -111,7 +122,13 @@ async function cargarRecorrido(page: Page) {
      * un estado del dominio y no del DOM.
      */
     const completos = page.getByText('Puntaje completo');
-    const arqueros = await page.getByRole('button', { name: /Unidad [AB]/ }).count();
+    const tarjetasDeArquero = page.getByRole('button', { name: /Unidad [AB]/ });
+
+    // Se espera a que haya arqueros ANTES de contarlos: `count()` no reintenta y
+    // devolvería 0 si la lista todavía no renderizó. Con 0 el bucle no correría
+    // y el fallo aparecería recién al tocar un «Continuar» deshabilitado.
+    await expect(tarjetasDeArquero.first()).toBeVisible();
+    const arqueros = await tarjetasDeArquero.count();
 
     for (let cargados = 0; cargados < arqueros; cargados++) {
       for (const token of FLECHAS[blanco.modality] ?? []) {
@@ -135,10 +152,15 @@ async function firmarYCerrar(page: Page) {
   // y un locator guardado apuntaría a un nodo que ya no está.
   const botones = page.getByRole('button', { name: 'Firmar' });
 
+  // Igual que arriba: primero que exista, después se cuenta.
+  await expect(botones.first()).toBeVisible();
+
   for (let restantes = await botones.count(); restantes > 0; restantes--) {
-    const boton = botones.first();
-    await boton.scrollIntoViewIfNeeded();
-    await boton.click();
+    // Sólo `click()`: hace scroll solo y **reintenta re-resolviendo el
+    // locator**. `scrollIntoViewIfNeeded` no reintenta, y la lista se
+    // re-renderiza sola cuando termina una sincronización de fondo: el nodo
+    // queda desprendido entre que se resuelve y se actúa sobre él.
+    await botones.first().click();
 
     const canvas = page.getByTestId('signature-canvas');
     await expect(canvas).toBeVisible();
