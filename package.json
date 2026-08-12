@@ -20,7 +20,9 @@
     "test:e2e": "playwright test",
     "typecheck": "pnpm --filter @bal/shared build && pnpm -r typecheck",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "budget": "node scripts/presupuesto.mjs",
+    "docker:build": "docker build -t bal ."
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",

@@ -1,0 +1,38 @@
+# Lo que no tiene que entrar al contexto de build.
+#
+# `node_modules` se instala adentro: copiarlo desde el host traería binarios de
+# otra plataforma y una capa enorme.
+
+node_modules
+**/node_modules
+
+# Builds locales: la imagen los genera.
+dist
+**/dist
+packages/api/public
+
+# Nunca: acá viven los secretos.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.vscode
+.idea
+
+# Salidas de test y cobertura.
+coverage
+**/coverage
+test-results
+playwright-report
+**/.vitest
+
+# Documentación y briefs: no se sirven ni se ejecutan.
+docs
+pre
+*.md
+!README.md
+
+Dockerfile
+.dockerignore

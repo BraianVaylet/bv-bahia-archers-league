@@ -19,28 +19,54 @@ import type { Hono } from 'hono';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 
-/**
- * Raíz del monorepo.
- *
- * Se sube desde `packages/api/{src,dist}/middleware` hasta la raíz. Vale para el
- * código compilado y para `tsx` en desarrollo, porque la profundidad es la misma.
- */
-const RAIZ = resolve(AQUI, '..', '..', '..', '..');
+/** `packages/api`, subiendo desde `{src,dist}/middleware`. */
+const PAQUETE = resolve(AQUI, '..', '..');
+
+/** Raíz del monorepo. */
+const RAIZ = resolve(PAQUETE, '..', '..');
 
 export interface RutasDeFrontend {
   readonly landing: string;
   readonly app: string;
 }
 
-export const RUTAS_POR_DEFECTO: RutasDeFrontend = {
+/** `true` si el frontend está construido y se puede servir. */
+export function hayBuild(rutas: RutasDeFrontend): boolean {
+  return existsSync(join(rutas.landing, 'index.html')) && existsSync(join(rutas.app, 'index.html'));
+}
+
+/** Layout de la imagen: los builds se copian junto al `dist` de la API. */
+const EN_IMAGEN: RutasDeFrontend = {
+  landing: join(PAQUETE, 'public', 'landing'),
+  app: join(PAQUETE, 'public', 'app'),
+};
+
+/** Layout del monorepo: cada frontend en su propio `dist`. */
+const EN_MONOREPO: RutasDeFrontend = {
   landing: join(RAIZ, 'packages', 'landing', 'dist'),
   app: join(RAIZ, 'packages', 'app', 'dist'),
 };
 
-/** `true` si el frontend está construido y se puede servir. */
-export function hayBuild(rutas: RutasDeFrontend = RUTAS_POR_DEFECTO): boolean {
-  return existsSync(join(rutas.landing, 'index.html')) && existsSync(join(rutas.app, 'index.html'));
+/**
+ * La primera ubicación que tenga los frontends construidos.
+ *
+ * Si ninguna los tiene devuelve la última, que es la del monorepo: en
+ * desarrollo no hay build y no servir nada es exactamente lo correcto.
+ */
+export function elegirRutas(candidatas: readonly RutasDeFrontend[]): RutasDeFrontend {
+  const encontrada = candidatas.find(hayBuild);
+  // biome-ignore lint/style/noNonNullAssertion: la lista nunca está vacía
+  return encontrada ?? candidatas[candidatas.length - 1]!;
 }
+
+/**
+ * Dónde están los frontends.
+ *
+ * **Se detecta, no se configura.** En la imagen quedan junto al `dist` de la
+ * API; en el monorepo, cada uno en el suyo. Una variable de entorno más sería
+ * una cosa más que puede quedar mal seteada el día del deploy.
+ */
+export const RUTAS_POR_DEFECTO: RutasDeFrontend = elegirRutas([EN_IMAGEN, EN_MONOREPO]);
 
 /**
  * Monta los dos frontends.

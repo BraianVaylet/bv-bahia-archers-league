@@ -383,15 +383,18 @@ _(Hecho. Los 23 pasos, contra el stack real: MongoDB efímero en replica set má
 **Referencia:** [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §11
 **DoD:** skills `web-design-guidelines` y `audit-website` sin issues críticos · contraste verificado en ambos temas · objetivos táctiles medidos · probado en Android e iPhone reales.
 
-### `[ ] INF-3` · Dockerfile · P0
+### `[~] INF-3` · Dockerfile · P0
+_(**Escrito, sin construir.** Multi-stage en tres etapas (deps → build → runner) sobre `node:22-bookworm-slim`, `USER node`, sin toolchain, `HEALTHCHECK` a `/api/health`, y `.dockerignore`. Los frontends se copian a `packages/api/public/{app,landing}`, que es donde los busca `estaticos.ts` dentro de la imagen — esa detección **sí** está probada (`elegirRutas`). **No se pudo correr `docker build`: no hay Docker en la máquina de desarrollo.** Queda pendiente construir la imagen y arrancarla una vez antes de dar la tarea por cerrada.)_
 **Referencia:** [`CONFIG.md`](CONFIG.md) §6
 **DoD:** multi-stage · imagen final slim, **usuario no root**, sin toolchain · sirve `/api` + `/app` + `/` · `HEALTHCHECK` a `/api/health` · `.dockerignore` correcto.
 
-### `[ ] INF-4` · Deploy en Railway · P0
+### `[~] INF-4` · Deploy en Railway · P0
+_(**`railway.json` listo**, con healthcheck y política de reinicio. El deploy en sí **no se hizo**: necesita la cuenta de Railway y el cluster de Atlas, que son del dueño del proyecto. El checklist de puesta en producción de [`CONFIG.md`](CONFIG.md) §10 sigue sin correr.)_
 **Referencia:** [`CONFIG.md`](CONFIG.md) §7
 **DoD:** `railway.json` · desplegado y accesible por HTTPS · variables seteadas · healthcheck verde · **checklist de puesta en producción de `CONFIG.md` §10 completo**.
 
-### `[ ] INF-5` · CI · P0
+### `[x] INF-5` · CI · P0
+_(Hecho. `.github/workflows/ci.yml` con los cuatro jobs: `quality` (lint + tipos + tests), `budget` (tamaño de bundle **y que cada frontend emita su `.css`**), `e2e` (Playwright con el tramo offline, subiendo el reporte si falla) y `audit`. El chequeo del `.css` se verificó **borrando la hoja de estilos del build**: falla con exit 1 y explica el motivo probable. Los cuatro corren en verde localmente; el workflow en sí se estrena con este PR.)_
 **Referencia:** [`CONFIG.md`](CONFIG.md) §8
 **Urgencia comprobada, dos veces:** en `SH-6` se descubrió que `pnpm lint` venía **fallando en `main`** desde `FE-3`, y en `FE-17` que la PWA **se estaba construyendo sin hoja de estilos** desde el mismo momento. Nada lo bloqueaba. Ver [`BITACORA.md`](BITACORA.md).
 **Sumar al job `budget`:** verificar que **cada frontend emita su `.css`**. Es lo que habría delatado el segundo problema el día que apareció.

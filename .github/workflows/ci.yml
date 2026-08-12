@@ -1,0 +1,120 @@
+# Integración continua.
+#
+# Los cuatro jobs de `docs/CONFIG.md` §8. Bloquean el merge.
+#
+# Existe porque tres bugs llegaron a `main` sin que nada los frenara: el lint
+# roto desde `FE-3`, la PWA construyéndose sin hoja de estilos, y la
+# sincronización sin enchufar. Ver `docs/BITACORA.md`.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Los tests de integración levantan MongoDB en memoria; sin esto cada job se
+  # baja el binario de nuevo.
+  MONGOMS_VERSION: 7.0.14
+
+jobs:
+  quality:
+    name: Lint, tipos y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `biome check` incluye formato y lint. Falla si algo no está formateado.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+  budget:
+    name: Presupuestos de bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Verifica el tamaño Y que cada frontend emita su hoja de estilos.
+      - name: Presupuestos
+        run: node scripts/presupuesto.mjs
+
+  e2e:
+    name: E2E con tramo offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Instalar Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # El servidor de E2E levanta su propio MongoDB en memoria y construye los
+      # frontends: no hace falta ningún servicio externo.
+      - name: E2E
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  audit:
+    name: Auditoría de dependencias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Vulnerabilidades altas o críticas
+        run: pnpm audit --audit-level=high

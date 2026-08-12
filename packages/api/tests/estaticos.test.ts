@@ -5,7 +5,7 @@ import { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { resetEnvCache } from '../src/env.js';
-import { hayBuild, montarEstaticos } from '../src/middleware/estaticos.js';
+import { elegirRutas, hayBuild, montarEstaticos } from '../src/middleware/estaticos.js';
 import { startDb, stopDb, testEnvRaw } from './helpers.js';
 
 /**
@@ -49,6 +49,25 @@ describe('hayBuild', () => {
 
   it('es verdadero con los dos construidos', () => {
     expect(hayBuild(RUTAS)).toBe(true);
+  });
+});
+
+describe('elegirRutas', () => {
+  const inexistente = { landing: join(RAIZ, 'no-a'), app: join(RAIZ, 'no-b') };
+
+  // En la imagen los frontends quedan junto al `dist` de la API; en el monorepo,
+  // cada uno en el suyo. Se detecta en vez de configurarse: una variable más es
+  // una cosa más que puede quedar mal seteada el día del deploy.
+  it('prefiere la primera ubicación que tenga los builds', () => {
+    expect(elegirRutas([RUTAS, inexistente])).toEqual(RUTAS);
+    expect(elegirRutas([inexistente, RUTAS])).toEqual(RUTAS);
+  });
+
+  it('sin ninguna construida devuelve la última, y no se sirve nada', () => {
+    const elegida = elegirRutas([inexistente, inexistente]);
+
+    expect(elegida).toEqual(inexistente);
+    expect(hayBuild(elegida)).toBe(false);
   });
 });
 
