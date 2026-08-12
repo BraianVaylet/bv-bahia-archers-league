@@ -302,14 +302,24 @@ async function aplicarScore(
   };
 }
 
-/** Blancos en los que TODOS los participantes de la patrulla ya tienen puntaje. */
+/**
+ * Blancos en los que TODOS los participantes de la patrulla ya tienen puntaje.
+ *
+ * Las dos lecturas van **con la `session`**: corren después de escribir el
+ * puntaje y dentro de la misma transacción, así que sin ella no lo ven y el
+ * blanco recién completado no cuenta hasta la op siguiente. Es el «7 de 8».
+ */
 async function actualizarAvanceDePatrulla(
   patrolId: ObjectId,
   session: ClientSession,
 ): Promise<void> {
-  const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId);
-  const puntajes = await scoreRepo.listScoresOfPatrol(patrolId);
+  const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
+  const puntajes = await scoreRepo.listScoresOfPatrol(patrolId, session);
 
+  // `miembros` nunca viene vacío: sólo se llega acá después de autorizar a un
+  // participante DE esta patrulla, así que hay al menos uno. En el cliente no
+  // vale la misma garantía —ahí el bundle sí puede estar vacío— y por eso
+  // `CircuitPage` necesita su propia guarda.
   const porBlanco = new Map<number, number>();
   for (const s of puntajes) {
     porBlanco.set(s.targetIndex, (porBlanco.get(s.targetIndex) ?? 0) + 1);
@@ -390,11 +400,18 @@ async function aplicarCierre(
   torneo: TournamentDoc,
   session: ClientSession,
 ): Promise<OpResult> {
-  const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId);
+  const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
   const activos = miembros.filter((m) => m.status === 'activo');
 
+  // Con cero activos, `esperados` da cero y todas las comprobaciones de abajo
+  // pasan por vacuidad: la patrulla cerraba el circuito sin un solo puntaje.
+  // Puede quedar sin nadie al redistribuir, conservando usuario y PIN.
+  if (activos.length === 0) {
+    return rechazo(op.opId, 'VALIDATION_ERROR', 'La patrulla no tiene arqueros activos.');
+  }
+
   // Todos los blancos, de todos los arqueros.
-  const puntajes = await scoreRepo.listScoresOfPatrol(patrolId);
+  const puntajes = await scoreRepo.listScoresOfPatrol(patrolId, session);
   const esperados = activos.length * torneo.targets.length;
 
   if (puntajes.length < esperados) {

@@ -37,19 +37,29 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
 
   const total = bundle.participants.length;
 
-  /** Un blanco está completo cuando TODOS los arqueros tienen su puntaje. */
+  /**
+   * Un blanco está completo cuando TODOS los arqueros tienen su puntaje.
+   *
+   * Con `total === 0` la comparación sería verdadera para todos los blancos:
+   * un bundle sin arqueros daba el recorrido entero por hecho y habilitaba las
+   * firmas. Sin arqueros no hay nada completo.
+   */
   const completos = new Set(
-    bundle.tournament.targets
-      .map((t) => t.index)
-      .filter((index) => {
-        const delBlanco = scores.filter(
-          (s) => s.targetIndex === index && s.arrows.length === arrowsDe(bundle, index),
-        );
-        return delBlanco.length >= total;
-      }),
+    total === 0
+      ? []
+      : bundle.tournament.targets
+          .map((t) => t.index)
+          .filter((index) => {
+            const delBlanco = scores.filter(
+              (s) => s.targetIndex === index && s.arrows.length === arrowsDe(bundle, index),
+            );
+            return delBlanco.length >= total;
+          }),
   );
 
-  const recorridoCompleto = completos.size === bundle.tournament.targets.length;
+  // El `> 0` es por la misma razón: un torneo sin blancos daba `0 === 0`.
+  const recorridoCompleto =
+    bundle.tournament.targets.length > 0 && completos.size === bundle.tournament.targets.length;
 
   return (
     <div className="flex flex-col min-h-dvh">

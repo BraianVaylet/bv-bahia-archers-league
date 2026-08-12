@@ -70,12 +70,14 @@ export function borradorDe(patrullas: readonly PatrullaVista[]): Borrador[] {
 /**
  * Reparte a los miembros en unidades de a dos.
  *
- * Una unidad son 1 o 2 arqueros y una patrulla tiene como mucho dos, así que
- * cuatro es el techo. Los que sobren quedan afuera de las unidades: el
- * validador lo va a marcar en vez de dejarlos desaparecer.
+ * **La `B` se queda con todo lo que sobre, aunque pase de dos.** Recortar en
+ * `MAX_PATROL_SIZE` hacía que mover un 5º arquero a una patrulla llena lo
+ * moviera y lo perdiera: desaparecía de la pantalla y del cuerpo que se manda,
+ * sin decir nada. Un estado inválido se muestra y `problemaDelBorrador` frena
+ * el guardado; lo que no se hace es descartar arqueros en silencio.
  */
 export function unidadesDe(miembros: readonly MiembroVista[]) {
-  const b = miembros.slice(2, MAX_PATROL_SIZE);
+  const b = miembros.slice(2);
   return [
     { label: 'A' as Unit, members: miembros.slice(0, 2) },
     ...(b.length > 0 ? [{ label: 'B' as Unit, members: b }] : []),

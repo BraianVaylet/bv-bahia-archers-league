@@ -360,6 +360,46 @@ describe('sincronización', () => {
     expect(p?.normalizedPct).toBeCloseTo(42.31, 1);
   });
 
+  /**
+   * El contador que WAFA muestra como «7 de 8».
+   *
+   * Se calcula DENTRO de la transacción que escribe el puntaje, así que las
+   * lecturas tienen que llevar la `session`: sin ella no ven la escritura que
+   * las precede y el último blanco de cada tanda nunca cuenta.
+   */
+  describe('avance de la patrulla', () => {
+    it('el blanco cuenta apenas anota el ÚLTIMO arquero', async () => {
+      const e = await escenario();
+      const c = await lider(e);
+      const [uno, dos] = e.participantIds as [string, string];
+
+      await c.post('/api/wafl/sync', { ops: [opScore(uno, 1, ['11', '11'])] });
+      expect((await patrols().findOne({ _id: e.patrolId }))?.targetsCompleted).toBe(0);
+
+      await c.post('/api/wafl/sync', { ops: [opScore(dos, 1, ['11', '11'])] });
+      expect((await patrols().findOne({ _id: e.patrolId }))?.targetsCompleted).toBe(1);
+    });
+
+    it('cuenta todos los blancos del recorrido, no uno menos', async () => {
+      const e = await escenario();
+      const c = await lider(e);
+      const [uno, dos] = e.participantIds as [string, string];
+
+      // Los dos blancos del escenario, completos: el 1 es 3D de 2 flechas y el
+      // 2 es sala de 3.
+      await c.post('/api/wafl/sync', {
+        ops: [
+          opScore(uno, 1, ['11', '11']),
+          opScore(dos, 1, ['11', '11']),
+          opScore(uno, 2, ['10', '10', '10']),
+          opScore(dos, 2, ['10', '10', '10']),
+        ],
+      });
+
+      expect((await patrols().findOne({ _id: e.patrolId }))?.targetsCompleted).toBe(e.targetCount);
+    });
+  });
+
   describe('idempotencia', () => {
     it('el mismo batch enviado dos veces no duplica nada', async () => {
       const e = await escenario();
@@ -634,6 +674,30 @@ describe('sincronización', () => {
 
       expect(res.results[0]?.status).toBe('rejected');
       expect(res.results[0]?.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    /**
+     * Una patrulla puede quedar sin nadie al redistribuir —lo dice
+     * `patrolAdminService`— y conserva su usuario y su PIN. Con cero activos,
+     * `esperados` es cero, «faltan puntajes» no se cumple y no falta ninguna
+     * firma: el circuito se cerraba sin un solo puntaje.
+     */
+    it('rechaza el cierre de una patrulla que quedó sin arqueros', async () => {
+      const e = await escenario();
+      const c = await lider(e);
+
+      await participants().deleteMany({ patrolId: e.patrolId });
+
+      const res = (await (
+        await c.post('/api/wafl/sync', {
+          ops: [
+            { type: 'close' as const, opId: uuid(), clientUpdatedAt: new Date().toISOString() },
+          ],
+        })
+      ).json()) as { results: { status: string; error?: { code: string } }[] };
+
+      expect(res.results[0]?.status).toBe('rejected');
+      expect((await patrols().findOne({ _id: e.patrolId }))?.status).not.toBe('cerrada');
     });
 
     it('rechaza el cierre si faltan firmas', async () => {

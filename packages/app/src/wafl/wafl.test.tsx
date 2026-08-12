@@ -201,6 +201,39 @@ describe('CircuitPage', () => {
       ).toBe(false);
     });
   });
+
+  /**
+   * `delBlanco.length >= total` con `total === 0` es verdadero **siempre**.
+   * Un bundle sin arqueros mostraba el recorrido entero como completo y
+   * habilitaba las firmas sin que nadie hubiera anotado nada.
+   */
+  describe('un bundle vacío no puede dar todo por hecho', () => {
+    const renderCon = (b: StoredBundle) =>
+      render(<CircuitPage bundle={b} onAbrirBlanco={vi.fn()} onResultados={vi.fn()} />);
+
+    it('sin arqueros, ningún blanco figura completo', async () => {
+      renderCon({ ...bundle, participants: [] });
+
+      expect(await screen.findByText(/^0 de 3 blancos/)).toBeDefined();
+      expect(screen.queryAllByText('Completo')).toHaveLength(0);
+      expect(screen.getAllByText('Pendiente')).toHaveLength(3);
+    });
+
+    it('sin arqueros, Resultados finales sigue bloqueado', async () => {
+      renderCon({ ...bundle, participants: [] });
+
+      const boton = await screen.findByRole('button', { name: 'Resultados finales' });
+      expect((boton as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('sin blancos, Resultados finales sigue bloqueado', async () => {
+      // `completos.size === targets.length` es 0 === 0: la otra verdad vacua.
+      renderCon({ ...bundle, tournament: { ...bundle.tournament, targets: [] } });
+
+      const boton = await screen.findByRole('button', { name: 'Resultados finales' });
+      expect((boton as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
 });
 
 // ── FE-7 y FE-8 · Resultados, firma y cierre ─────────────────────────────────

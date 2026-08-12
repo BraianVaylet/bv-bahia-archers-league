@@ -77,8 +77,13 @@ export function listParticipants(tournamentId: ObjectId): Promise<ParticipantDoc
   return participants().find({ tournamentId }).toArray();
 }
 
-export function listParticipantsOfPatrol(patrolId: ObjectId): Promise<ParticipantDoc[]> {
-  return participants().find({ patrolId }).toArray();
+export function listParticipantsOfPatrol(
+  patrolId: ObjectId,
+  session?: ClientSession,
+): Promise<ParticipantDoc[]> {
+  return participants()
+    .find({ patrolId }, session ? { session } : {})
+    .toArray();
 }
 
 /**
