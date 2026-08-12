@@ -17,8 +17,13 @@ export function findScore(
   return scores().findOne({ participantId, targetIndex }, session ? { session } : {});
 }
 
-export function listScoresOfPatrol(patrolId: ObjectId): Promise<ScoreDoc[]> {
-  return scores().find({ patrolId }).toArray();
+export function listScoresOfPatrol(
+  patrolId: ObjectId,
+  session?: ClientSession,
+): Promise<ScoreDoc[]> {
+  return scores()
+    .find({ patrolId }, session ? { session } : {})
+    .toArray();
 }
 
 export async function upsertScore(doc: ScoreDoc, session: ClientSession): Promise<void> {

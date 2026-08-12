@@ -14,6 +14,42 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-12 · `REF-1` — Los tres bugs del primer refactor
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Primera tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md). Los tres defectos que impedían correr un torneo, más dos que aparecieron tirando del mismo hilo.
+
+**1 · El avance de patrulla contaba uno de menos.** `actualizarAvanceDePatrulla` recibía la `session` de la transacción y se la pasaba **sólo a la escritura**. Las dos lecturas corrían fuera, no veían el puntaje recién escrito, y el último blanco de cada tanda nunca contaba: 13 de 14. Se agregó el parámetro `session` a `listParticipantsOfPatrol` y `listScoresOfPatrol`.
+
+Es el error que la cabecera de `tournamentRepo.ts` advierte para las escrituras. **Vale igual para las lecturas que van después de una escritura en la misma transacción**, y eso no estaba dicho.
+
+**2 · Todos los blancos figuraban completos.** `delBlanco.length >= total` con `total === 0` es verdadero siempre: un bundle sin arqueros daba el recorrido entero por hecho y habilitaba las firmas. La segunda verdad vacua estaba al lado — `completos.size === targets.length` es `0 === 0` con un torneo sin blancos.
+
+El camino es real y está documentado en el propio `patrolAdminService`: *«una patrulla que queda sin nadie queda vacía»*, conservando usuario y PIN.
+
+**3 · El editor perdía al quinto arquero.** `unidadesDe` recortaba en `MAX_PATROL_SIZE`, así que mover un 5º arquero a una patrulla llena **lo movía y lo perdía**: desaparecía de la pantalla y del cuerpo del `PUT`. La causa real era distinta de la que se supuso al reportarlo — no es que la app no dejara mover.
+
+**Decisiones**
+
+- **La `B` se queda con el excedente aunque pase de dos.** Un estado inválido se muestra; `problemaDelBorrador` ya frenaba el guardado. Descartar en silencio es peor que mostrar algo que no cierra.
+- **No se agregó guarda de patrulla vacía en `actualizarAvanceDePatrulla`.** Ahí `miembros` nunca viene vacío: sólo se llega después de autorizar a un participante de esa patrulla. Habría sido código sin test posible.
+
+**Hallazgos**
+
+- **Una patrulla vacía cerraba el circuito sin un solo puntaje.** Con cero activos, `esperados` da cero, «faltan puntajes» no se cumple y no falta ninguna firma. Misma familia de verdad vacua, del lado del servidor, y con consecuencia peor. Se rechaza el cierre.
+- **El E2E pasaba con el bug 1 adentro.** Verificaba `targetsCompleted` del **participante**, que nunca estuvo roto, y nunca el de la **patrulla**, que es el que WAFA muestra. Se agregó la aserción; con el bug reintroducido da `Expected: 14 · Received: 13`.
+
+**Desvíos:** el plan preveía tres correcciones y salieron cinco. Las dos extra son la misma causa raíz de las que estaban listadas, y separarlas habría dejado el bug conocido en la rama.
+
+**Tests:** 5 nuevos de integración y componente, 4 de lógica pura, 1 aserción de E2E. 745 en verde. **Controles de mutación: 8, murieron 7.**
+
+El que sobrevive es quitar la `session` de la lectura de **participantes** del avance. Sobrevive por una razón concreta: de esa lectura sólo se usa `.length`, y la cantidad de participantes no cambia dentro de la transacción. Se deja la `session` igual —es lo correcto si algún día se lee un campo— dejando constancia de que hoy ningún test la respalda.
+
+**Sobre el método:** una mutación pegó en un **comentario** en vez de en el código, y los tests siguieron pasando. El script de mutación ahora aborta si el patrón aparece más de una vez en el archivo. Es la cuarta vez que una mutación que no se aplica se lee como «el test no sirve».
+
+---
+
 ## 2026-08-12 · Nadie cargaba el `.env`
 
 **Autor:** Claude Opus 5 · **Estado:** corregido

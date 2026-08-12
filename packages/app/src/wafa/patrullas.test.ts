@@ -84,6 +84,26 @@ describe('unidadesDe', () => {
     const unidades = unidadesDe([miembro(), miembro(), miembro()]);
     expect(unidades[1]?.members).toHaveLength(1);
   });
+
+  /**
+   * Recortar en cuatro hacía que mover un 5º arquero lo moviera **y lo
+   * perdiera**: desaparecía de la pantalla y del cuerpo que se manda. El
+   * exceso tiene que verse; frenarlo es tarea de `problemaDelBorrador`.
+   */
+  it('con cinco no descarta a nadie: los cinco siguen ahí', () => {
+    const cinco = [
+      miembro({ id: 'a' }),
+      miembro({ id: 'b' }),
+      miembro({ id: 'c' }),
+      miembro({ id: 'd' }),
+      miembro({ id: 'e' }),
+    ];
+
+    const unidades = unidadesDe(cinco);
+    const vistos = unidades.flatMap((u) => u.members.map((m) => m.id));
+
+    expect(vistos).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
 });
 
 // ── Mover ────────────────────────────────────────────────────────────────────
@@ -231,6 +251,17 @@ describe('cuerpoDeDistribucion', () => {
 
     expect(cuerpo.patrols).toHaveLength(1);
     expect(cuerpo.patrols[0]?.number).toBe(1);
+  });
+
+  // El guardado está bloqueado en ese estado, pero si el cuerpo se armara igual
+  // no puede salir con cuatro de los cinco: sería perder a un arquero en
+  // silencio, que es exactamente el bug.
+  it('con cinco arqueros no se pierde ninguno en el cuerpo', () => {
+    const cinco = ['a', 'b', 'c', 'd', 'e'].map((id) => miembro({ id }));
+    const cuerpo = cuerpoDeDistribucion(borradorDe([patrulla(1, cinco)]));
+    const mandados = cuerpo.patrols[0]?.units.flatMap((u) => u.members);
+
+    expect(mandados).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 
   it('no manda ni la estaca ni la posición: las deriva el servidor', () => {

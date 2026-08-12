@@ -227,6 +227,59 @@ describe('edición manual', () => {
     ).toBe(false);
   });
 
+  /**
+   * El bug que motivó `REF-1`: mover un 5º arquero a una patrulla llena lo
+   * movía **y lo perdía**. `unidadesDe` recortaba en cuatro, así que el
+   * arquero desaparecía de la pantalla y del cuerpo del `PUT` sin aviso.
+   */
+  describe('un quinto arquero', () => {
+    beforeEach(() => {
+      const cuatro = [
+        miembro('a', 'Pérez'),
+        { ...miembro('b', 'Gómez'), position: 'derecha' },
+        miembro('c', 'Díaz'),
+        { ...miembro('d', 'Ruiz'), position: 'derecha' },
+      ];
+
+      rutas['GET /api/admin/tournaments/t1/patrols'] = () => ({
+        json: {
+          patrols: [
+            { ...PATRULLAS[0], members: cuatro },
+            { ...PATRULLAS[1], members: [miembro('e', 'Sosa')] },
+          ],
+          violations: [],
+        },
+      });
+    });
+
+    const moverSosaALaUno = () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Mover a Sosa' }));
+      fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
+    };
+
+    it('queda A LA VISTA en la patrulla destino, no desaparece', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      moverSosaALaUno();
+
+      expect(screen.getByTestId('patrulla-1').textContent).toMatch(/Sosa/);
+      expect(screen.getByTestId('patrulla-2').textContent).not.toMatch(/Sosa/);
+    });
+
+    it('bloquea el guardado y dice cuál es el tope', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      moverSosaALaUno();
+
+      expect(screen.getByText(/La patrulla 1 tiene 5 arqueros. El máximo es 4./)).toBeDefined();
+      expect(
+        (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+    });
+  });
+
   it('guarda mandando las unidades derivadas del orden', async () => {
     rutas['PUT /api/admin/tournaments/t1/patrols'] = () => ({
       json: { patrols: PATRULLAS, violations: [] },
