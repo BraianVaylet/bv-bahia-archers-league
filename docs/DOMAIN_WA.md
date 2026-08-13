@@ -313,26 +313,33 @@ Por cada torneo publicado y **por categoría**, se reparten puntos según el pue
 
 Los puntos se **suman** a lo largo de la temporada. En caso de puesto compartido, **ambos reciben los puntos de esa posición** (dos primeros → 5 puntos cada uno; el siguiente queda 3º y recibe 3).
 
-### 9.2 Ranking por mejor puntaje
+### 9.2 Ranking «mejor de 2»
 
-Se toma el **mejor `normalizedPct`** que el arquero logró en la temporada.
+Se toma el **promedio de los dos mejores `normalizedPct`** que el arquero logró en la temporada.
 
 ```
 normalizedPct = (totalDelTorneo / maxPossibleScore(eseTorneo)) × 100
+mejorDe2       = promedio(los dos normalizedPct más altos de la temporada)
 ```
 
-Se persisten y se muestran los tres datos: el **%**, el **puntaje bruto** que lo originó y el **torneo** donde ocurrió.
+> **Por qué dos y no el mejor.** Un porcentaje suelto premia el día bueno: un arquero que tira excelente una vez y flojo el resto queda por encima de otro que sostiene un nivel alto todo el año. El promedio de los dos mejores mide lo que la liga quiere medir, que es la regularidad. Con dos torneos es el promedio de los dos; con más, los dos mejores.
 
 > **Por qué normalizado.** Cada torneo multitarget tiene una configuración distinta (14 blancos vs 20, distinta mezcla de modalidades) y por lo tanto un máximo posible distinto. Comparar puntajes brutos entre torneos premiaría al que tiró el recorrido más largo, no al que mejor tiró. El % es lo comparable; el bruto se conserva porque es el dato que los arqueros reconocen.
+
+El **mejor resultado suelto** de la temporada se sigue guardando y mostrando —el `%`, el puntaje bruto que lo originó y el torneo donde ocurrió— porque es el récord personal que el arquero reconoce. Pero **ya no ordena ningún ranking**.
+
+> Este modo **reemplazó** a «por mejor puntaje». Los acumulados escritos antes del cambio no tienen los dos porcentajes guardados; se recalculan con `pnpm --filter @bal/api db:reconcile`.
 
 ### 9.3 Requisito de participación
 
 Un arquero necesita **al menos 2 torneos publicados** en la temporada para figurar en cualquiera de los dos rankings. Con 1 solo torneo aparece en el podio de ese torneo, pero no en la liga.
 
+Es el mismo número que necesita «mejor de 2» para tener sentido: con un torneo el promedio sería ese único porcentaje, y el arquero no clasifica igual.
+
 ### 9.4 Desempate en la liga
 
 - **Ranking por posición:** más puntos → más podios de 1º → más podios de 2º → mejor `normalizedPct` de la temporada.
-- **Ranking por mejor puntaje:** mejor `%` → más inner totales → menos `M`.
+- **Ranking «mejor de 2»:** mejor promedio → más inner totales → menos `M`.
 
 Si persiste, puesto compartido.
 

@@ -5,7 +5,7 @@
  * distribución de patrullas y el avance. Ver `docs/FUNCTIONAL.md` §5.3.
  */
 
-import { ObjectIdSchema, sortStandings } from '@bal/shared';
+import { type ArcherStanding, bestTwoAvgPct, ObjectIdSchema, sortStandings } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { seasons } from '../db/client.js';
@@ -19,7 +19,7 @@ import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
 const RankingQuery = z.strictObject({
   seasonId: ObjectIdSchema,
-  mode: z.enum(['position', 'score']).default('position'),
+  mode: z.enum(['position', 'best_two']).default('position'),
 });
 
 export const publico = new Hono()
@@ -56,12 +56,23 @@ export const publico = new Hono()
       else porCategoria.set(s.category, [s]);
     }
 
+    // El promedio de «mejor de 2» se DERIVA al serializar y no se guarda: dos
+    // copias del mismo número son dos que pueden separarse.
+    const conPromedio = <T extends ArcherStanding>(s: T) => ({
+      ...s,
+      bestTwoAvgPct: bestTwoAvgPct(s),
+    });
+
     return c.json({
       mode,
-      categories: [...porCategoria.entries()].map(([category, entradas]) => ({
-        category,
-        ...sortStandings(entradas, mode),
-      })),
+      categories: [...porCategoria.entries()].map(([category, entradas]) => {
+        const { ranked, notYetEligible } = sortStandings(entradas, mode);
+        return {
+          category,
+          ranked: ranked.map(conPromedio),
+          notYetEligible: notYetEligible.map(conPromedio),
+        };
+      }),
     });
   })
 
@@ -169,6 +180,7 @@ export const publico = new Hono()
           podiums: s.podiums,
           bestNormalizedPct: s.bestNormalizedPct,
           bestRawScore: s.bestRawScore,
+          bestTwoAvgPct: bestTwoAvgPct(standingRepo.toDomain(s)),
           totalX: s.totalX,
           totalTens: s.totalTens,
           totalM: s.totalM,

@@ -21,6 +21,8 @@ interface TemporadaDelArquero {
   readonly podiums: { readonly first: number; readonly second: number; readonly third: number };
   readonly bestNormalizedPct: number;
   readonly bestRawScore: number;
+  /** Promedio de los dos mejores porcentajes: es lo que ordena el ranking. */
+  readonly bestTwoAvgPct: number;
   readonly totalX: number;
   readonly totalTens: number;
   readonly totalM: number;
@@ -83,11 +85,12 @@ export function ArcherPage() {
         >
           <h2 className="font-semibold">{CATEGORY_INFO[s.category].label}</h2>
 
-          <dl className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+          <dl className="grid gap-2 grid-cols-2 sm:grid-cols-5">
             <Dato etiqueta="Torneos" valor={s.tournamentsPlayed} />
             <Dato etiqueta="Puntos de liga" valor={s.leaguePoints} />
-            {/* El porcentaje va primero: es lo comparable entre torneos. El bruto
-                al lado, entre paréntesis, porque es lo que el arquero recuerda. */}
+            {/* El que ordena el ranking va primero; el mejor suelto queda al
+                lado porque es el récord que el arquero recuerda. */}
+            <Dato etiqueta="Mejor de 2" valor={`${s.bestTwoAvgPct}%`} />
             <Dato etiqueta="Mejor" valor={`${s.bestNormalizedPct}% (${s.bestRawScore})`} />
             <Dato
               etiqueta="Podios"

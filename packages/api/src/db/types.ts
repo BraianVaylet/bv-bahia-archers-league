@@ -104,6 +104,15 @@ export interface TournamentDoc {
   date: Date;
   description: string;
   status: TournamentStatus;
+
+  /**
+   * Inscripción: **un monto único para todos los arqueros**.
+   *
+   * La recaudación no se guarda, se deriva —pagos × monto— para que no exista
+   * un total que pueda quedar desfasado de los pagos que lo componen.
+   */
+  payment: { required: boolean; amount: number };
+
   /** Embebido: son 14-28 y siempre se leen junto con el torneo. */
   targets: TargetDoc[];
   maxPossibleScore: number;
@@ -177,6 +186,14 @@ export interface ParticipantDoc {
   byModality: Record<Modality, number>;
 
   status: 'activo' | 'ausente';
+
+  /**
+   * Si pagó la inscripción. **El monto no vive acá**: es el del torneo, uno
+   * solo para todos. Guardarlo por participante permitiría que dos arqueros del
+   * mismo torneo tuvieran montos distintos sin que nada lo impida.
+   */
+  paid: boolean;
+
   signature: SignatureDoc | null;
   createdAt: Date;
   updatedAt: Date;
@@ -238,6 +255,9 @@ export interface StandingDoc {
   bestNormalizedPct: number;
   bestRawScore: number;
   bestTournamentId: ObjectId | null;
+
+  /** Los dos mejores porcentajes, de mayor a menor. El promedio se deriva. */
+  topTwoPcts: number[];
 
   totalX: number;
   totalTens: number;

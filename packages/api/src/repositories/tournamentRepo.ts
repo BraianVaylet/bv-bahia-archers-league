@@ -87,6 +87,22 @@ export function listParticipantsOfPatrol(
 }
 
 /**
+ * Marca o desmarca el pago de la inscripción.
+ *
+ * **Sólo el booleano.** El monto es del torneo; acá no se guarda ninguno.
+ */
+export function setParticipantPaid(
+  participantId: ObjectId,
+  paid: boolean,
+): Promise<ParticipantDoc | null> {
+  return participants().findOneAndUpdate(
+    { _id: participantId },
+    { $set: { paid, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+}
+
+/**
  * Reubica a un participante en otra patrulla, unidad y posición.
  *
  * **No toca su snapshot ni sus rollups**: es la misma persona con el mismo
