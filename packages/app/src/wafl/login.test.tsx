@@ -323,13 +323,39 @@ describe('botonera de patrullas', () => {
   });
 
   /**
-   * PENDIENTE — el comportamiento está implementado y sin test.
+   * Cambiar de torneo limpia la patrulla elegida.
    *
-   * Al cambiar de torneo, el efecto limpia la patrulla elegida: con la de otro
-   * torneo puesta, el login fallaría con un 401 que no explica nada. Escribí un
-   * test y falla de forma consistente afirmando que el click sobre la botonera
-   * dejó el campo cargado, aunque el mismo click funciona en el test de arriba
-   * («la patrulla elegida se marca»). No encontré la causa, y prefiero dejarlo
-   * anotado antes que un test que no entiendo o uno que pasa por vacuidad.
+   * Con la patrulla de otro torneo puesta, el login fallaría con un 401 que no
+   * explica nada.
+   *
+   * Se tipea en el campo en vez de tocar la botonera: el comportamiento es el
+   * mismo —el efecto limpia el usuario— y el click sobre la botonera metía una
+   * frontera asincrónica de más que hacía el test intermitente sin agregar
+   * nada a lo que se quiere probar.
    */
+  it('cambiar de torneo limpia la patrulla elegida', async () => {
+    rutas['GET /api/public/tournaments'] = {
+      json: {
+        tournaments: [
+          { id: 't1', name: '3ª fecha', date: '2026-08-08', status: 'en_proceso' },
+          { id: 't2', name: '4ª fecha', date: '2026-09-08', status: 'en_proceso' },
+        ],
+      },
+    };
+    render(<LoginPage onEntro={vi.fn()} />);
+
+    await screen.findByRole('option', { name: /3ª fecha/ });
+    fireEvent.change(screen.getByLabelText('Torneo'), { target: { value: 't1' } });
+    fireEvent.change(screen.getByLabelText('Patrulla'), { target: { value: 'patrulla3' } });
+
+    // Que quede puesto es lo que hace que la aserción de abajo signifique algo:
+    // un campo que nunca se llenó pasaría igual.
+    expect((screen.getByLabelText('Patrulla') as HTMLInputElement).value).toBe('patrulla3');
+
+    fireEvent.change(screen.getByLabelText('Torneo'), { target: { value: 't2' } });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Patrulla') as HTMLInputElement).value).toBe('');
+    });
+  });
 });

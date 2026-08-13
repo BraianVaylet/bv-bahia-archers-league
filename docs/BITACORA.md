@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · Los dos tests que `REF-6` dejó debiendo
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+`REF-6` cerró con dos comportamientos implementados y sin test, anotados en su archivo. Los dos están cubiertos ahora, y **ninguno se arregló insistiendo con el test original**: en los dos casos el problema era el diseño de lo que se probaba.
+
+**1 · El teclado para un arquero que ya firmó.** El guard vivía sólo en el handler: el teclado seguía encendido y se tragaba el toque en silencio. Por eso el test dependía de que la cola de escrituras hubiera drenado, y pasaba con el guard sacado a mano.
+
+La corrección no fue el test sino la pantalla: **el teclado ahora se apaga**. Es lo que el propio design system pide —*un botón que parece activo y no hace nada es peor que uno apagado*— y de paso deja algo visible que verificar, sin depender de ninguna cola. El guard del handler queda como segunda línea.
+
+**2 · Limpiar la patrulla al cambiar de torneo.** El test tocaba la botonera y después cambiaba el torneo, y fallaba afirmando que el click había dejado el campo cargado. La botonera metía una frontera asincrónica de más que no aportaba nada a lo que se quería probar: el comportamiento es del efecto que limpia el usuario, y se llega igual tipeando en el campo. Reescrito así, estable en cinco corridas seguidas.
+
+**Lo que queda como criterio:** cuando un test no se deja escribir de forma confiable, muchas veces el problema no es el test. Acá, uno destapó una pantalla que mentía y el otro, un test que probaba de más.
+
+**Tests:** 4 nuevos. 924 en verde. **Controles de mutación: 3, murieron 3** — apagar el teclado, dejar de pasar el bloqueo, y no limpiar el usuario.
+
+---
+
 ## 2026-08-13 · `REF-7` — Landing
 
 **Autor:** Claude Opus 5 · **Estado:** completado

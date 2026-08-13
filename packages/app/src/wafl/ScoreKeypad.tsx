@@ -38,6 +38,13 @@ export interface ScoreKeypadProps {
   readonly modality: Modality;
   /** Cuántas flechas ya se cargaron. Al llegar al tope, el teclado se deshabilita. */
   readonly cargadas: number;
+  /**
+   * El arquero seleccionado ya firmó: el teclado se apaga.
+   *
+   * Dejarlo encendido y tragar el toque en un guard es peor que apagarlo — un
+   * botón que parece activo y no hace nada no explica nada.
+   */
+  readonly bloqueado?: boolean;
   readonly total: number;
   readonly onToken: (token: string) => void;
   /**
@@ -50,9 +57,16 @@ export interface ScoreKeypadProps {
   readonly disposicion?: Disposicion;
 }
 
-export function ScoreKeypad({ modality, cargadas, total, onToken, disposicion }: ScoreKeypadProps) {
+export function ScoreKeypad({
+  modality,
+  cargadas,
+  total,
+  onToken,
+  disposicion,
+  bloqueado,
+}: ScoreKeypadProps) {
   const cfg = SCORING[modality];
-  const completo = cargadas >= total;
+  const completo = cargadas >= total || bloqueado === true;
   const modo = disposicion ?? disposicionPara(modality);
 
   const tocar = (token: string) => {
