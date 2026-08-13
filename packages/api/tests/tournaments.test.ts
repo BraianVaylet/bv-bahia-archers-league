@@ -264,6 +264,127 @@ describe('arqueros', () => {
 
 // ── BE-5 · Creación de torneo ────────────────────────────────────────────────
 
+/**
+ * Cuántos torneos jugó cada arquero (REF-5).
+ *
+ * La lista de arqueros lo muestra al lado del nombre: es el dato que decide si
+ * alguien está participando de la liga o figura en el padrón y nada más.
+ */
+describe('torneos por arquero', () => {
+  it('un arquero recién creado tiene cero', async () => {
+    const c = await adminListo();
+    await crearArqueros(c, [['razo', 1]]);
+
+    const { archers } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { tournamentCount: number; participated: boolean }[];
+    };
+
+    expect(archers[0]?.tournamentCount).toBe(0);
+    expect(archers[0]?.participated).toBe(false);
+  });
+
+  it('cuenta los torneos en los que participó', async () => {
+    const c = await adminListo();
+    const seasonId = await crearTemporada(c);
+    const ids = await crearArqueros(c, [['razo', 2]]);
+
+    for (const fecha of ['2026-08-08', '2026-09-08']) {
+      await c.post('/api/admin/tournaments', {
+        seasonId,
+        name: `Fecha ${fecha}`,
+        date: fecha,
+        targets: recorridoDeReferencia(),
+        archerIds: ids,
+      });
+    }
+
+    const { archers } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { tournamentCount: number; participated: boolean }[];
+    };
+
+    expect(archers[0]?.tournamentCount).toBe(2);
+    expect(archers[0]?.participated).toBe(true);
+  });
+
+  /**
+   * Cuenta torneos, no participaciones.
+   *
+   * El caso de un arquero repetido **dentro del mismo torneo** no se puede
+   * armar: lo impide el schema al crear y, por debajo, el índice único
+   * `uk_torneo_archer`. Se intentó insertar el duplicado a mano en la base para
+   * cubrirlo y el índice lo rechaza, que es lo correcto.
+   *
+   * Queda anotado: usar `$addToSet` en vez de `$push` es la elección correcta
+   * pero **no distinguible por un test**, porque la base no deja llegar al caso
+   * donde se diferencian.
+   */
+  it('cuenta torneos distintos, no participaciones', async () => {
+    const c = await adminListo();
+    const seasonId = await crearTemporada(c);
+    const ids = await crearArqueros(c, [['razo', 2]]);
+
+    await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Una sola fecha',
+      date: '2026-08-08',
+      targets: recorridoDeReferencia(),
+      archerIds: ids,
+    });
+
+    const { archers } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { tournamentCount: number }[];
+    };
+
+    expect(archers.every((a) => a.tournamentCount === 1)).toBe(true);
+  });
+});
+
+/**
+ * Archivar una temporada (REF-5).
+ *
+ * El modelo ya tenía `status: 'activa' | 'cerrada'` desde `BE-1`; lo que no
+ * había era forma de cambiarlo.
+ */
+describe('archivar temporadas', () => {
+  it('una temporada nueva nace activa', async () => {
+    const c = await adminListo();
+    await crearTemporada(c);
+
+    const { seasons } = (await (await c.get('/api/admin/seasons')).json()) as {
+      seasons: { status: string }[];
+    };
+    expect(seasons[0]?.status).toBe('activa');
+  });
+
+  it('se archiva y se reabre', async () => {
+    const c = await adminListo();
+    const id = await crearTemporada(c);
+
+    expect((await c.post(`/api/admin/seasons/${id}/archive`)).status).toBe(200);
+    const cerrada = (await (await c.get('/api/admin/seasons')).json()) as {
+      seasons: { status: string }[];
+    };
+    expect(cerrada.seasons[0]?.status).toBe('cerrada');
+
+    expect((await c.post(`/api/admin/seasons/${id}/restore`)).status).toBe(200);
+    const abierta = (await (await c.get('/api/admin/seasons')).json()) as {
+      seasons: { status: string }[];
+    };
+    expect(abierta.seasons[0]?.status).toBe('activa');
+  });
+
+  it('archivar una temporada que no existe da 404', async () => {
+    const c = await adminListo();
+    expect((await c.post(`/api/admin/seasons/${'a'.repeat(24)}/archive`)).status).toBe(404);
+  });
+
+  it('exige sesión de admin', async () => {
+    const c = await adminListo();
+    const id = await crearTemporada(c);
+    expect((await cliente().post(`/api/admin/seasons/${id}/archive`)).status).toBe(401);
+  });
+});
+
 describe('creación de torneo', () => {
   it('crea el torneo, los participantes y las patrullas', async () => {
     const c = await adminListo();

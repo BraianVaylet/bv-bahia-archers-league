@@ -241,6 +241,12 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                 </Button>
               </Link>
 
+              <Link to={`/wafa/torneos/${id}/pagos`}>
+                <Button variante="secundario" ancho>
+                  Arqueros y pagos
+                </Button>
+              </Link>
+
               {torneo.status === 'sin_iniciar' && (
                 <Button ancho disabled={iniciando} onClick={() => void iniciar()}>
                   {iniciando ? 'Iniciando…' : 'Iniciar torneo'}

@@ -290,6 +290,75 @@ describe('ArchersPage', () => {
     expect(screen.getByTestId('arquero-Pérez')).toHaveTextContent('Razo');
   });
 
+  // Distingue al que compite del que está anotado en el padrón y nada más.
+  it('dice en cuántos torneos jugó cada uno', async () => {
+    listar([
+      arquero({ lastName: 'Pérez', tournamentCount: 3 }),
+      arquero({ id: 'x2', lastName: 'Gómez', tournamentCount: 1 }),
+      arquero({ id: 'x3', lastName: 'Díaz', tournamentCount: 0 }),
+    ]);
+    renderArqueros();
+
+    expect(await screen.findByTestId('arquero-Pérez')).toHaveTextContent('3 torneos jugados');
+    // En singular, no «1 torneos».
+    expect(screen.getByTestId('arquero-Gómez')).toHaveTextContent('1 torneo jugado');
+    expect(screen.getByTestId('arquero-Díaz')).toHaveTextContent('Todavía no jugó ningún torneo');
+  });
+
+  describe('filtro por categoría', () => {
+    const padronMixto = () =>
+      listar([
+        arquero({ lastName: 'Pérez', category: 'razo' }),
+        arquero({ id: 'x2', lastName: 'Gómez', category: 'longbow' }),
+        arquero({ id: 'x3', lastName: 'Díaz', category: 'razo' }),
+      ]);
+
+    it('deja sólo los de la categoría elegida', async () => {
+      padronMixto();
+      renderArqueros();
+      await screen.findByTestId('arquero-Pérez');
+
+      fireEvent.change(screen.getByLabelText('Filtrar por categoría'), {
+        target: { value: 'longbow' },
+      });
+
+      expect(screen.getByTestId('arquero-Gómez')).toBeDefined();
+      expect(screen.queryByTestId('arquero-Pérez')).toBeNull();
+      expect(screen.queryByTestId('arquero-Díaz')).toBeNull();
+    });
+
+    it('volver a «Todas» los muestra de nuevo', async () => {
+      padronMixto();
+      renderArqueros();
+      await screen.findByTestId('arquero-Pérez');
+
+      const filtro = screen.getByLabelText('Filtrar por categoría');
+      fireEvent.change(filtro, { target: { value: 'longbow' } });
+      fireEvent.change(filtro, { target: { value: '' } });
+
+      expect(screen.getByTestId('arquero-Pérez')).toBeDefined();
+      expect(screen.getByTestId('arquero-Díaz')).toBeDefined();
+    });
+
+    /**
+     * El filtro es del cliente: el padrón ya está en memoria y filtrar de este
+     * lado responde sin viaje. Si pidiera al servidor, cada cambio sería una
+     * consulta — y la pantalla se usa justo mientras se arma un torneo.
+     */
+    it('NO vuelve a pedirle el padrón al servidor', async () => {
+      padronMixto();
+      renderArqueros();
+      await screen.findByTestId('arquero-Pérez');
+
+      const antes = llamadas.filter((l) => l.url.includes('/admin/archers')).length;
+      fireEvent.change(screen.getByLabelText('Filtrar por categoría'), {
+        target: { value: 'razo' },
+      });
+
+      expect(llamadas.filter((l) => l.url.includes('/admin/archers'))).toHaveLength(antes);
+    });
+  });
+
   // Un botón gris sin motivo es una pared, no una respuesta.
   it('quien participó no se puede eliminar, y la pantalla explica por qué', async () => {
     listar([arquero({ participated: true })]);
@@ -483,5 +552,56 @@ describe('SeasonsPage', () => {
     expect(screen.getByTestId('temporada-s1')).toHaveTextContent(
       '1 de enero — 31 de diciembre de 2026',
     );
+  });
+
+  /**
+   * Cerrar una temporada **no borra ni congela nada**: los torneos publicados
+   * siguen contando para su ranking. Es una marca para saber cuál está en curso
+   * cuando hay varias, que es el caso normal a fin de año.
+   */
+  describe('cerrar y reabrir', () => {
+    const conEstado = (status: string) => {
+      servidor({
+        'GET /api/admin/seasons': () => ({
+          json: {
+            seasons: [
+              {
+                id: 's1',
+                name: 'Liga 2026',
+                startsAt: '2026-01-01T00:00:00.000Z',
+                endsAt: '2026-12-31T00:00:00.000Z',
+                status,
+              },
+            ],
+          },
+        }),
+        'POST /api/admin/seasons/s1/archive': () => ({ json: { season: { status: 'cerrada' } } }),
+        'POST /api/admin/seasons/s1/restore': () => ({ json: { season: { status: 'activa' } } }),
+      });
+      render(<SeasonsPage onVolver={vi.fn()} />);
+    };
+
+    it('muestra el estado escrito, no sólo con un color', async () => {
+      conEstado('cerrada');
+      expect(await screen.findByTestId('temporada-s1')).toHaveTextContent('Cerrada');
+    });
+
+    it('cierra una activa', async () => {
+      conEstado('activa');
+      fireEvent.click(await screen.findByRole('button', { name: 'Cerrar' }));
+
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.url.endsWith('/seasons/s1/archive'))).toBe(true);
+      });
+    });
+
+    it('reabre una cerrada', async () => {
+      conEstado('cerrada');
+      fireEvent.click(await screen.findByRole('button', { name: 'Reabrir' }));
+
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.url.endsWith('/seasons/s1/restore'))).toBe(true);
+      });
+    });
   });
 });

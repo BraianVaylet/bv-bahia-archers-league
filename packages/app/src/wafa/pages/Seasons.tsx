@@ -48,6 +48,15 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
     void cargar();
   }, [cargar]);
 
+  const cambiarEstado = async (t: SeasonRow, reabrir: boolean) => {
+    try {
+      await api.post(`/admin/seasons/${t.id}/${reabrir ? 'restore' : 'archive'}`);
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo cambiar el estado.');
+    }
+  };
+
   // Se valida al tipear pero sólo se muestra con algo escrito: un formulario
   // vacío que ya está en rojo no informa, molesta.
   const problema = nombre || desde || hasta ? validarTemporada(nombre, desde, hasta) : undefined;
@@ -125,10 +134,28 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
               className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
               data-testid={`temporada-${t.id}`}
             >
-              <p className="font-semibold">{t.name}</p>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="font-semibold">{t.name}</p>
+                {/* El estado va escrito, no sólo en el color del botón. */}
+                <span className="text-sm px-2 py-0.5 rounded-full bg-[var(--surface-2)] shrink-0">
+                  {t.status === 'cerrada' ? 'Cerrada' : 'Activa'}
+                </span>
+              </div>
+
               <p className="text-sm text-[var(--ink-muted)]">
                 {formatearRango(t.startsAt, t.endsAt)}
               </p>
+
+              {/* Cerrar no borra ni congela nada: es una marca para saber cuál
+                  está en curso cuando hay varias, que es el caso a fin de año. */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variante="secundario"
+                  onClick={() => void cambiarEstado(t, t.status === 'cerrada')}
+                >
+                  {t.status === 'cerrada' ? 'Reabrir' : 'Cerrar'}
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF-5` — WAFA (parcial: 5 de 8)
+
+**Autor:** Claude Opus 5 · **Estado:** parcial
+
+Quinta tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md). **Entraron cinco de los ocho ítems**, y la elección de cuáles no fue por orden de lista: se hicieron los que **desbloquean backend que ya existía y no se podía alcanzar**.
+
+- Los **pagos de `REF-2`** —endpoints, recaudación derivada, todo probado— no tenían ninguna pantalla que los usara. Ahora hay una.
+- Las **temporadas** tenían `status: 'activa' | 'cerrada'` en el modelo desde `BE-1` y ninguna ruta que lo cambiara. Se agregó `POST /admin/seasons/:id/{archive,restore}`.
+- El **conteo de torneos por arquero** es backend nuevo, y es lo que distingue al que compite del que está anotado en el padrón y nada más.
+
+Los tres que faltan —botones a iconos en Arqueros, la tarjeta de tres renglones del Home, y editar/eliminar el torneo desde el detalle— son de presentación y **no bloquean nada**: ninguno tiene backend esperando del otro lado.
+
+**Hallazgos**
+
+- **`participatedIds` devolvía un booleano disfrazado de lista.** Hacía un `distinct` sobre `archerId` sólo para preguntar «¿aparece?». Se reemplazó por `tournamentCounts`, que trae el número real con una sola consulta, y `participated` pasó a **derivarse** del conteo: dos fuentes para el mismo hecho son dos que pueden decir cosas distintas.
+
+**Decisiones**
+
+- **El filtro por categoría es del cliente.** El padrón entero son cientos de arqueros y ya está en memoria; filtrar del lado del servidor sería una consulta por cada cambio del select, en la pantalla que se usa justo mientras se arma un torneo. La búsqueda y el archivado sí viajan, porque necesitan el índice.
+- **La recaudación se muestra, no se recalcula.** La calcula el servidor. Un total sumado en el cliente puede separarse del que ve el tesorero, y son el mismo número. Hay un test que manda un `collected` deliberadamente incoherente con `paidCount × amount` para verificar que la pantalla no lo rehaga.
+- **El monto se anula al desmarcar «cobra inscripción».** Uno que sobrevive apagado reaparece al volver a marcar la casilla, y el torneo termina cobrando sin que nadie lo haya decidido.
+
+**Tests:** 8 de API, 20 de UI. 891 en verde. **Controles de mutación: 3, murieron 2.**
+
+El sobreviviente: cambiar `$addToSet` por `$push` en el conteo de torneos no rompe ningún test. **No es una falla de cobertura, es inalcanzable por construcción** — un arquero repetido dentro del mismo torneo lo impide el schema al crear y, por debajo, el índice único `uk_torneo_archer`. Se intentó insertar el duplicado a mano en la base para cubrirlo y el índice lo rechazó, que es lo correcto. Queda anotado en el test.
+
+---
+
 ## 2026-08-13 · `REF-4` — Transversal de interfaz
 
 **Autor:** Claude Opus 5 · **Estado:** completado

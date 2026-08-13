@@ -106,6 +106,24 @@ export const admin = new Hono()
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } });
   })
 
+  /**
+   * Cerrar y reabrir una temporada.
+   *
+   * Cerrar **no borra ni congela nada**: es una marca para saber cuál está en
+   * curso cuando hay varias, que es el caso normal a fin de año.
+   */
+  .post('/seasons/:id/archive', async (c) => {
+    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'cerrada');
+    if (!doc) throw notFound();
+    return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
+  })
+
+  .post('/seasons/:id/restore', async (c) => {
+    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'activa');
+    if (!doc) throw notFound();
+    return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
+  })
+
   // ── Torneos ────────────────────────────────────────────────────────────────
 
   .post('/tournaments', async (c) => {

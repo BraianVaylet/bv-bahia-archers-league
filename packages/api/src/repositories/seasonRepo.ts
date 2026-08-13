@@ -38,6 +38,24 @@ export async function update(id: ObjectId, input: SeasonInput): Promise<SeasonDo
   );
 }
 
+/**
+ * Abre o cierra la temporada.
+ *
+ * Cerrar **no borra ni congela nada**: los torneos publicados siguen contando
+ * para su ranking. Es una marca para que el admin sepa cuál es la temporada en
+ * curso cuando hay varias, que es el caso normal a fin de año.
+ */
+export async function setStatus(
+  id: ObjectId,
+  status: SeasonDoc['status'],
+): Promise<SeasonDoc | null> {
+  return seasons().findOneAndUpdate(
+    { _id: id },
+    { $set: { status, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+}
+
 export async function hasTournaments(id: ObjectId): Promise<boolean> {
   return (await tournaments().countDocuments({ seasonId: id }, { limit: 1 })) > 0;
 }
