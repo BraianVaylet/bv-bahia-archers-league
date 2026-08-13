@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF-7` — Landing
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Última tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md). Portada, ficha de torneo y ranking.
+
+**Decisiones**
+
+- **La ilustración de portada está dibujada, no fotografiada.** La CSP prohíbe pedidos externos, y una foto que entrara en el presupuesto de la landing tendría que comprimirse hasta verse mal. El SVG pesa 2 KB, usa `currentColor` para acompañar el tema y los tres anillos del blanco son los colores de estaca, que es la identidad de la liga.
+- **El recorrido pasó de lista suelta a cajas encadenadas.** Una lista de catorce ítems no deja ver que el recorrido **es una secuencia**, que es justo lo que hay que caminar. Van en grilla y no en una fila: catorce blancos en línea obligarían a scrollear de costado, y la página nunca scrollea de costado. La línea entre cajas es `aria-hidden`: la secuencia ya la da el orden de la lista, que es lo que lee un lector de pantalla.
+- **Los puntos de liga de la tabla salen de `leaguePointsForPosition`**, la misma función que corre el servidor al publicar. La landing no reimplementa el criterio.
+- **El valor de inscripción sí es público; quién pagó, no.** Cuánto sale entrar es lo que cualquiera quiere saber antes de anotarse, y el club lo publica igual en el grupo y en la puerta. Hay un test de que `paid` y `collected` no salen por ese endpoint.
+- **La medalla del podio nunca va sola:** el número del puesto está al lado y el emoji lleva su nombre en `aria-label`. Del cuarto en adelante no hay medalla — inventar una donde no la hay sería decir algo que no pasó.
+
+**Hallazgo**
+
+**La ficha del torneo se rompía entera si faltaba `payment`.** Lo destaparon las fixtures viejas de los tests, que no traían el campo: la página quedaba en blanco, no sin un dato. El acceso quedó opcional. Es una página pública y una respuesta vieja en caché no puede dejarla vacía — pero las fixtures se actualizaron igual, para que los tests ejerciten el payload real y no el degradado.
+
+**Tests:** 2 de API, 7 de landing. 920 en verde. **Controles de mutación: 4, murieron 4.**
+
+El presupuesto de tamaño sigue en verde con la ilustración adentro: landing 96,75 KB gz de 120.
+
+---
+
 ## 2026-08-13 · `REF-6` — WAFL
 
 **Autor:** Claude Opus 5 · **Estado:** completado, con dos huecos de test anotados

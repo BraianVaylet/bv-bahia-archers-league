@@ -649,6 +649,42 @@ describe('endpoints públicos', () => {
     }
   });
 
+  /**
+   * El valor de inscripción, para la landing (REF-7).
+   *
+   * Es información que el club publica igual en el grupo y en la puerta: quien
+   * mira si va al torneo quiere saber cuánto sale. Lo que **no** sale de acá es
+   * quién pagó, que es del club.
+   */
+  it('expone el valor de la inscripción', async () => {
+    const c = await admin();
+    const { seasonId, archerIds } = await torneoNuevo(c);
+    const id = await otroTorneoEn(c, seasonId, archerIds, {
+      payment: { required: true, amount: 15_000 },
+    });
+    await c.post(`/api/admin/tournaments/${id}/start`);
+
+    const body = (await (await cliente().get(`/api/public/tournaments/${id}`)).json()) as {
+      tournament: { payment: { required: boolean; amount: number } };
+    };
+
+    expect(body.tournament.payment).toEqual({ required: true, amount: 15_000 });
+  });
+
+  it('NO expone quién pagó: eso es del club', async () => {
+    const c = await admin();
+    const { seasonId, archerIds } = await torneoNuevo(c);
+    const id = await otroTorneoEn(c, seasonId, archerIds, {
+      payment: { required: true, amount: 15_000 },
+    });
+    await c.post(`/api/admin/tournaments/${id}/start`);
+
+    const crudo = await (await cliente().get(`/api/public/tournaments/${id}`)).text();
+
+    expect(crudo).not.toMatch(/"paid"/);
+    expect(crudo).not.toMatch(/collected|paidCount/);
+  });
+
   // El PIN es el único factor. Que se filtre hace inútil todo lo demás.
   it('NUNCA expone el PIN de una patrulla', async () => {
     const c = await admin();

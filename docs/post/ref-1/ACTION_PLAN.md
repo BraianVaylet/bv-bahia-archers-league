@@ -216,13 +216,29 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 >
 > 911 en verde. 3 controles de mutación: **murió 1**. Los dos que sobrevivieron destaparon tests que pasaban por llegar antes que la cola de escrituras; están anotados en el código como pendientes en vez de dejarlos verdes en falso.
 
-### `[ ] REF-7` · Landing · **P1**
+### `[x] REF-7` · Landing · **P1**
 
 **Archivos:** `landing/src/pages/{Home,Tournaments,Ranking}.tsx`
 
 - Presentación con imagen de tiro con arco, título, descripción y accesos a WAFA/WAFL arriba; ranking y torneos abajo
 - **Torneos**: estado resaltado, valor de inscripción, por arquero puntaje/X/10/M/%/puntos sumados, patrullas en dos renglones, y **diagrama del recorrido** con cajas y líneas (modalidad y flechas por blanco)
 - **Ranking**: podios con color y emoji, y explicación de cuántos puntos da cada puesto
+
+> **Cerrada el 2026-08-13.** La ilustración de portada está **dibujada, no fotografiada**: la CSP prohíbe pedidos externos y una foto que entrara en el presupuesto de la landing se vería mal. Pesa 2 KB y acompaña el tema.
+>
+> El recorrido pasó de lista suelta a **cajas encadenadas**: una lista no deja ver que el recorrido es una secuencia, que es justo lo que hay que caminar. Van en grilla y no en fila porque catorce blancos en línea obligarían a scrollear de costado.
+>
+> La ficha se rompía entera si faltaba `payment` —las fixtures viejas lo destaparon— así que ese acceso quedó opcional: es una página pública y una respuesta vieja en caché no puede dejarla en blanco.
+>
+> 920 en verde, presupuesto de tamaño incluido: landing 96,75 KB gz de 120. 4 controles de mutación, murieron 4.
+
+---
+
+## Pendiente de las tandas anteriores
+
+- **El PNG del CBA** (`REF-4`): 2000×2000 y 183 KB, sin herramienta en el repo para achicarlo. Redimensionar a ~256px y sumarlo a `shared/assets`.
+- **Dos tests de WAFL** (`REF-6`): el guard del teclado para arqueros firmados, y el limpiado de patrulla al cambiar de torneo. El comportamiento está; la prueba no. Anotados en su archivo.
+- **`db:reconcile` al mergear `REF-2`**: las temporadas ya publicadas necesitan recalcular sus acumulados. Hoy no hay datos de producción, así que el costo es cero — y deja de serlo apenas se corra el primer torneo real.
 
 ---
 

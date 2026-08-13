@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ArcherPage } from './pages/Archer.js';
@@ -233,6 +233,69 @@ describe('RankingPage', () => {
 
     expect(await screen.findByText(/Todavía no hay temporadas/)).toBeDefined();
   });
+
+  describe('podios del ranking', () => {
+    const conPuestos = () =>
+      conTemporada([
+        {
+          category: 'razo',
+          ranked: [
+            arquero({ archerId: 'a1', lastName: 'Oro', position: 1, leaguePoints: 15 }),
+            arquero({ archerId: 'a2', lastName: 'Plata', position: 2, leaguePoints: 12 }),
+            arquero({ archerId: 'a3', lastName: 'Bronce', position: 3, leaguePoints: 9 }),
+            arquero({ archerId: 'a4', lastName: 'Cuarto', position: 4, leaguePoints: 6 }),
+          ],
+          notYetEligible: [],
+        },
+      ]);
+
+    it('marca los tres primeros con su medalla', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      expect(await screen.findByTestId('fila-Oro')).toHaveTextContent('🥇');
+      expect(screen.getByTestId('fila-Plata')).toHaveTextContent('🥈');
+      expect(screen.getByTestId('fila-Bronce')).toHaveTextContent('🥉');
+    });
+
+    // Del cuarto en adelante no hay medalla: inventar una donde no la hay sería
+    // decir algo que no pasó.
+    it('del cuarto en adelante no hay medalla', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      await screen.findByTestId('fila-Oro');
+      expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
+    });
+
+    /**
+     * El emoji **no va solo**: el puesto en número está al lado y la medalla
+     * lleva su nombre para el lector de pantalla. Ver DESIGN_SYSTEM §10.
+     */
+    it('la medalla no es el único portador: el puesto va escrito', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      const fila = await screen.findByTestId('fila-Oro');
+      expect(fila).toHaveTextContent('1');
+      expect(within(fila).getByLabelText(/primer puesto/i)).toBeDefined();
+    });
+
+    // Sin la tabla de puntos, la columna «Puntos» es un número sin origen.
+    it('explica cuántos puntos da cada puesto', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      await screen.findByTestId('fila-Oro');
+      const explicacion = screen.getByTestId('puntos-por-puesto');
+
+      expect(explicacion).toHaveTextContent('5');
+      expect(explicacion).toHaveTextContent('4');
+      expect(explicacion).toHaveTextContent('3');
+      expect(explicacion).toHaveTextContent('2');
+      expect(explicacion).toHaveTextContent('1');
+    });
+  });
 });
 
 // ── FE-19 · Torneos ──────────────────────────────────────────────────────────
@@ -248,6 +311,7 @@ describe('TournamentsPage', () => {
               name: '3ª fecha',
               date: '2026-08-08',
               status: 'publicado',
+              payment: { required: true, amount: 15000 },
               targetCount: 14,
               participantCount: 20,
             },
@@ -276,6 +340,7 @@ describe('TournamentPage', () => {
     date: '2026-08-08',
     description: '',
     status: 'publicado',
+    payment: { required: true, amount: 15000 },
     targets: [
       { index: 1, modality: '3d', arrows: 2 },
       { index: 2, modality: 'sala', arrows: 3 },
@@ -345,7 +410,13 @@ describe('TournamentPage', () => {
   it('un torneo EN CURSO muestra patrullas y avance, y NINGÚN puntaje', async () => {
     servidor({
       '/api/public/tournaments/t1': () => ({
-        json: { tournament: detalle({ status: 'en_proceso', results: undefined }) },
+        json: {
+          tournament: detalle({
+            status: 'en_proceso',
+            payment: { required: true, amount: 15000 },
+            results: undefined,
+          }),
+        },
       }),
     });
     renderDetalle();
@@ -369,6 +440,37 @@ describe('TournamentPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró.');
     expect(screen.getByText('Volver a los torneos')).toBeDefined();
+  });
+
+  // ── REF-7 · Ficha del torneo ───────────────────────────────────────────────
+
+  it('resalta el estado con palabras, no sólo con un color', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    expect(await screen.findByTestId('estado-torneo')).toHaveTextContent(/Resultados oficiales/);
+  });
+
+  it('muestra el valor de la inscripción formateado', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    expect(await screen.findByTestId('inscripcion')).toHaveTextContent('$ 15.000');
+  });
+
+  // Una lista suelta no deja ver que el recorrido ES una secuencia, que es
+  // justo lo que hay que caminar.
+  it('dibuja el recorrido con un blanco por caja, en orden', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    const diagrama = await screen.findByTestId('diagrama-recorrido');
+    const cajas = within(diagrama).getAllByRole('listitem');
+
+    expect(cajas.length).toBeGreaterThan(0);
+    // Cada caja dice su número, su modalidad y sus flechas.
+    expect(cajas[0]).toHaveTextContent(/1/);
+    expect(cajas[0]).toHaveTextContent(/flecha/);
   });
 });
 

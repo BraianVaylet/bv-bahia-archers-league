@@ -7,13 +7,19 @@
  * Ver `docs/FUNCTIONAL.md` §5.1.
  */
 
+import ilustracion from '@bal/shared/assets/arqueria.svg';
 import { Link } from 'react-router-dom';
 import { Screen } from '../components/ui.js';
 
 export function HomePage() {
   return (
     <Screen>
-      <div className="pt-8">
+      {/* Dibujada, no fotografiada: la CSP prohíbe pedidos externos y una foto
+          que entrara en el presupuesto de la landing se vería mal. Pesa 2 KB y
+          acompaña el tema. */}
+      <img src={ilustracion} alt="" className="w-full max-w-md mx-auto pt-6 text-[var(--ink)]" />
+
+      <div>
         <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
           Liga Bahiense de Arquería
         </h1>

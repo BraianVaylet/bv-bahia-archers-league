@@ -14,11 +14,13 @@ import {
   CATEGORY_INFO,
   formatearFecha,
   formatearFechaCorta,
+  formatearMonto,
+  leaguePointsForPosition,
   rankByCategory,
   SCORING,
 } from '@bal/shared';
 import { Link, useParams } from 'react-router-dom';
-import { Cargando, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
+import { Cargando, cn, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
 
 interface TorneoResumen {
@@ -37,6 +39,7 @@ interface Resultado {
   readonly total: number;
   readonly normalizedPct: number;
   readonly innerCount: number;
+  readonly xCount: number;
   readonly tenCount: number;
   readonly mCount: number;
 }
@@ -47,6 +50,7 @@ interface TorneoDetalle {
   readonly date: string;
   readonly description: string;
   readonly status: string;
+  readonly payment: { readonly required: boolean; readonly amount: number };
   readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
   readonly maxPossibleScore: number;
   readonly patrols: readonly {
@@ -134,8 +138,11 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
                 <th className="py-1 pr-2 font-medium">#</th>
                 <th className="py-1 pr-2 font-medium">Arquero</th>
                 <th className="py-1 pr-2 font-medium text-right">Puntaje</th>
+                <th className="py-1 pr-2 font-medium text-right">X</th>
+                <th className="py-1 pr-2 font-medium text-right">10</th>
+                <th className="py-1 pr-2 font-medium text-right">M</th>
                 <th className="py-1 pr-2 font-medium text-right">%</th>
-                <th className="py-1 font-medium text-right">Inner</th>
+                <th className="py-1 font-medium text-right">Puntos</th>
               </tr>
             </thead>
             <tbody>
@@ -151,8 +158,15 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
                   <td className="py-2 pr-2 text-right tabular-nums font-semibold">
                     {e.entry.total}
                   </td>
+                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.xCount}</td>
+                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.tenCount}</td>
+                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.mCount}</td>
                   <td className="py-2 pr-2 text-right tabular-nums">{e.entry.normalizedPct}%</td>
-                  <td className="py-2 text-right tabular-nums">{e.entry.innerCount}</td>
+                  {/* Lo que este torneo le suma a la liga. El mismo cálculo que
+                      corre el servidor al publicar, no una copia del criterio. */}
+                  <td className="py-2 text-right tabular-nums font-semibold">
+                    {leaguePointsForPosition(e.position)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -195,7 +209,22 @@ export function TournamentPage() {
         <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
           {t.name}
         </h1>
-        <p className="text-[var(--ink-muted)]">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <EstadoChip status={t.status} />
+
+          {/* Con `?.`: una respuesta vieja en caché sin el campo no puede dejar
+              la ficha en blanco. Es una página pública. */}
+          {t.payment?.required && (
+            <span
+              className="text-sm px-2.5 h-7 rounded-full bg-[var(--surface-2)] flex items-center"
+              data-testid="inscripcion"
+            >
+              Inscripción {formatearMonto(t.payment.amount)}
+            </span>
+          )}
+        </div>
+
+        <p className="pt-2 text-[var(--ink-muted)]">
           {formatearFecha(t.date)} · {t.targets.length} blancos · máximo {t.maxPossibleScore}
         </p>
         {t.description && <p className="pt-2">{t.description}</p>}
@@ -248,19 +277,84 @@ export function TournamentPage() {
         </ul>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Recorrido</h2>
-        <ol className="flex flex-wrap gap-1.5 text-sm">
-          {t.targets.map((b) => (
-            <li
-              key={b.index}
-              className="px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)]"
-            >
-              {b.index}. {SCORING[b.modality].label} ×{b.arrows}
-            </li>
-          ))}
-        </ol>
-      </section>
+      <DiagramaDelRecorrido targets={t.targets} />
     </Screen>
+  );
+}
+
+// ── Piezas de la ficha del torneo ────────────────────────────────────────────
+
+const ESTADOS: Record<string, { texto: string; clase: string }> = {
+  en_proceso: { texto: 'En curso ahora', clase: 'bg-[var(--warn)] text-[var(--bg)]' },
+  publicado: { texto: 'Resultados oficiales', clase: 'bg-[var(--ok)] text-[var(--bg)]' },
+};
+
+/**
+ * El estado del torneo, resaltado.
+ *
+ * **El color no va solo**: la etiqueta dice el estado con palabras. Un chip
+ * verde y uno amarillo son el mismo chip para quien no distingue los dos.
+ * Ver `docs/DESIGN_SYSTEM.md` §10.
+ */
+function EstadoChip({ status }: { readonly status: string }) {
+  const info = ESTADOS[status];
+  if (!info) return null;
+
+  return (
+    <span
+      data-testid="estado-torneo"
+      className={cn('text-sm font-semibold px-3 h-7 rounded-full flex items-center', info.clase)}
+    >
+      {info.texto}
+    </span>
+  );
+}
+
+/**
+ * El recorrido, como cajas encadenadas.
+ *
+ * Cada caja es un blanco con su número, su modalidad y sus flechas; la línea
+ * entre cajas es el camino. La lista suelta que había antes no dejaba ver que
+ * el recorrido **es una secuencia**, que es justo lo que hay que caminar.
+ *
+ * Las cajas van en grilla y no en una fila: catorce blancos en línea obligarían
+ * a scrollear de costado, y la página nunca scrollea de costado.
+ */
+function DiagramaDelRecorrido({
+  targets,
+}: {
+  readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="font-semibold">Recorrido</h2>
+
+      <ol className="flex flex-wrap items-stretch gap-y-3" data-testid="diagrama-recorrido">
+        {targets.map((b, i) => (
+          <li key={b.index} className="flex items-stretch">
+            <div className="w-24 rounded-[var(--radius-md)] border bg-[var(--surface)] p-2 text-center">
+              <p className="font-[var(--font-display)] text-xl font-bold tabular-nums leading-none">
+                {b.index}
+              </p>
+              <p className="pt-1 text-xs text-[var(--ink-muted)] leading-tight">
+                {SCORING[b.modality].label}
+              </p>
+              <p className="text-xs text-[var(--ink-muted)] tabular-nums">
+                {b.arrows} {b.arrows === 1 ? 'flecha' : 'flechas'}
+              </p>
+            </div>
+
+            {/* El camino entre blancos. Decorativo: la secuencia ya la da el
+                orden de la lista, que es lo que lee un lector de pantalla. */}
+            {i < targets.length - 1 && (
+              <span
+                aria-hidden="true"
+                className="w-4 self-center border-t-2 border-dashed border-[var(--ink-muted)] opacity-50"
+              />
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
