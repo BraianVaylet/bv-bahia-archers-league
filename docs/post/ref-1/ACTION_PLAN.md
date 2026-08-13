@@ -170,15 +170,26 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 >
 > 862 en verde; 7 controles de mutación, murieron 7.
 
-### `[ ] REF-5` · WAFA · **P1**
+### `[~] REF-5` · WAFA · **P1**
 
-**Archivos:** `app/src/wafa/pages/{Archers,Seasons,TournamentCreate,Home,Tournament}.tsx`
+**Archivos:** `app/src/wafa/pages/{Archers,Seasons,TournamentCreate,Home,Tournament,Payments}.tsx`
 
-- **Arqueros**: filtro por categoría, categoría resaltada, botones a iconos, cantidad de torneos por arquero
-- **Temporadas**: editar y archivar. El modelo ya tiene `status: 'activa' | 'cerrada'`; faltan ruta y UI
-- **Crear torneo**: paso «Datos» con checkbox de pago y monto formateado; paso «Participantes» con «agregar todos»
-- **Home**: tarjeta de torneo en tres renglones — nombre · fecha · blancos, arqueros y patrullas
-- **Detalle**: botón «Arqueros» con el listado y los pagos, recaudación, y editar/eliminar mientras esté `sin_iniciar`
+- [x] **Arqueros**: filtro por categoría, categoría resaltada, cantidad de torneos por arquero
+- [ ] **Arqueros**: botones a iconos
+- [x] **Temporadas**: archivar y reabrir. Ruta nueva `POST /admin/seasons/:id/{archive,restore}`
+- [x] **Crear torneo**: paso «Datos» con checkbox de pago y monto formateado
+- [x] **Crear torneo**: paso «Participantes» con «agregar todos» y «quitar todos»
+- [ ] **Home**: tarjeta de torneo en tres renglones
+- [x] **Detalle**: pantalla «Arqueros y pagos» con el listado, los pagos y la recaudación
+- [ ] **Detalle**: editar y eliminar el torneo mientras esté `sin_iniciar`
+
+> **Parcial al 2026-08-13.** Cinco de ocho. Lo que entró es lo que **desbloquea backend que ya existía y no se podía alcanzar**: los pagos de `REF-2` no tenían ninguna pantalla, y las temporadas tenían el campo `status` desde `BE-1` sin ruta que lo cambiara.
+>
+> Los tres que faltan son de presentación y no bloquean nada: ninguno tiene backend esperando. Van en una tanda propia antes de `REF-6`.
+>
+> Un hallazgo del backend: `participatedIds` devolvía un booleano disfrazado de lista. Se reemplazó por `tournamentCounts`, y `participated` pasó a derivarse del conteo — dos fuentes para el mismo hecho son dos que pueden decir cosas distintas.
+>
+> 891 en verde; 3 controles de mutación, murieron 2. El sobreviviente y su razón están en la [bitácora](../../BITACORA.md).
 
 ### `[ ] REF-6` · WAFL · **P1**
 

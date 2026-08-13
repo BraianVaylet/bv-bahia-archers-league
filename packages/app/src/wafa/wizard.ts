@@ -175,6 +175,8 @@ export interface BorradorTorneo {
   name: string;
   date: string;
   description: string;
+  /** Inscripción: un monto único para todos. Ver docs/SECURITY.md §2. */
+  payment: { required: boolean; amount: number };
   blancos: BlancoBorrador[];
   elegidos: ArqueroElegible[];
 }
@@ -185,6 +187,7 @@ export function borradorVacio(): BorradorTorneo {
     name: '',
     date: '',
     description: '',
+    payment: { required: false, amount: 0 },
     blancos: [blancoNuevo(1)],
     elegidos: [],
   };
@@ -196,6 +199,10 @@ export function problemaDelPaso(paso: number, b: BorradorTorneo): string | undef
     if (b.name.trim().length < 3) return 'El nombre necesita al menos 3 caracteres.';
     if (!b.date) return 'Falta la fecha.';
     if (!b.seasonId) return 'Elegí una temporada.';
+    // El servidor lo rechaza igual; decirlo acá evita el viaje.
+    if (b.payment.required && b.payment.amount <= 0) {
+      return 'Si el torneo cobra inscripción, poné el monto.';
+    }
     return undefined;
   }
 
@@ -220,6 +227,10 @@ export function cuerpoDeCreacion(b: BorradorTorneo) {
     name: b.name.trim(),
     date: b.date,
     description: b.description.trim(),
+    // El monto se anula si no se cobra: uno que sobrevive apagado reaparece al
+    // volver a marcar la casilla, y el torneo termina cobrando sin que nadie lo
+    // haya decidido.
+    payment: b.payment.required ? { ...b.payment } : { required: false, amount: 0 },
     targets: b.blancos.map((t) => ({
       index: t.index,
       modality: t.modality,

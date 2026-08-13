@@ -22,6 +22,8 @@ export interface ArcherRow {
   readonly archived: boolean;
   /** Participó de algún torneo, así que **no se puede borrar**. */
   readonly participated: boolean;
+  /** En cuántos torneos jugó. Distingue al que compite del que está en el padrón. */
+  readonly tournamentCount: number;
 }
 
 interface Borrador {
@@ -144,10 +146,18 @@ function Fila({
         <span className="font-semibold">
           {arquero.lastName}, {arquero.firstName}
         </span>
-        <span className="text-sm text-[var(--ink-muted)]">
+        {/* La categoría resaltada: decide estaca y podio, y es lo que el admin
+            busca de un vistazo al armar un torneo. */}
+        <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-[var(--surface-2)] shrink-0">
           {CATEGORY_INFO[arquero.category].label}
         </span>
       </div>
+
+      <p className="text-sm text-[var(--ink-muted)]">
+        {arquero.tournamentCount === 0
+          ? 'Todavía no jugó ningún torneo'
+          : `${arquero.tournamentCount} ${arquero.tournamentCount === 1 ? 'torneo jugado' : 'torneos jugados'}`}
+      </p>
 
       <div className="flex flex-wrap gap-2">
         <Button variante="secundario" onClick={onEditar}>
@@ -187,6 +197,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   const [arqueros, setArqueros] = useState<ArcherRow[]>();
   const [busqueda, setBusqueda] = useState('');
   const [verArchivados, setVerArchivados] = useState(false);
+  const [categoria, setCategoria] = useState<BowCategory | ''>('');
   const [editando, setEditando] = useState<Borrador>();
   const [error, setError] = useState<string>();
 
@@ -218,6 +229,10 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
       setError(err instanceof ApiError ? err.message : 'No se pudo completar la acción.');
     }
   };
+
+  // El filtro se aplica sobre lo que ya llegó: la búsqueda y el archivado sí
+  // viajan al servidor porque necesitan el índice.
+  const visibles = arqueros?.filter((a) => categoria === '' || a.category === categoria);
 
   const guardar = async (b: Borrador) => {
     const cuerpo = { firstName: b.firstName, lastName: b.lastName, category: b.category };
@@ -255,6 +270,27 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           placeholder="Apellido o nombre"
         />
 
+        {/* El filtro es del cliente y no del servidor: el padrón entero son
+            cientos de arqueros, ya está en memoria, y así responde sin viaje. */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="filtro-categoria" className="text-sm font-medium">
+            Filtrar por categoría
+          </label>
+          <select
+            id="filtro-categoria"
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value as BowCategory | '')}
+            className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
+          >
+            <option value="">Todas</option>
+            {BOW_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {CATEGORY_INFO[c].label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <label className="flex items-center gap-2 min-h-[44px]">
           <input
             type="checkbox"
@@ -273,7 +309,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
 
         {arqueros === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
 
-        {arqueros?.length === 0 && (
+        {visibles?.length === 0 && (
           <p className="text-[var(--ink-muted)]">
             {busqueda.trim()
               ? 'Ningún arquero coincide con la búsqueda.'
@@ -284,7 +320,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
         )}
 
         <ul className="flex flex-col gap-2">
-          {arqueros?.map((a) => (
+          {visibles?.map((a) => (
             <Fila
               key={a.id}
               arquero={a}

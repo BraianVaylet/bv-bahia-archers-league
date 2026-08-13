@@ -23,24 +23,28 @@ export interface ArcherView {
    * intente borrarlo, en vez de después. Ver `docs/FUNCTIONAL.md` §6.4.
    */
   readonly participated: boolean;
+
+  /** En cuántos torneos distintos participó. Es de dónde sale `participated`. */
+  readonly tournamentCount: number;
 }
 
-export const toView = (doc: ArcherDoc, participated = false): ArcherView => ({
+export const toView = (doc: ArcherDoc, tournamentCount = 0): ArcherView => ({
   id: doc._id.toHexString(),
   firstName: doc.firstName,
   lastName: doc.lastName,
   category: doc.category,
   archived: doc.archivedAt !== null,
-  participated,
+  // Se deriva del conteo en vez de guardarse aparte: dos fuentes para el mismo
+  // hecho son dos que pueden decir cosas distintas.
+  participated: tournamentCount > 0,
+  tournamentCount,
 });
 
 export async function list(options: archerRepo.ListOptions): Promise<ArcherView[]> {
   const docs = await archerRepo.list(options);
-  const conHistorico = new Set(
-    (await archerRepo.participatedIds(docs.map((d) => d._id))).map((id) => id.toHexString()),
-  );
+  const torneos = await archerRepo.tournamentCounts(docs.map((d) => d._id));
 
-  return docs.map((d) => toView(d, conHistorico.has(d._id.toHexString())));
+  return docs.map((d) => toView(d, torneos.get(d._id.toHexString()) ?? 0));
 }
 
 export async function create(input: ArcherInput): Promise<ArcherView> {

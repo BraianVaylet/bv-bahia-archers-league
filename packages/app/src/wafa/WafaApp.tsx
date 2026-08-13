@@ -15,6 +15,7 @@ import { ChangePasswordPage } from './pages/ChangePassword.js';
 import { HomePage } from './pages/Home.js';
 import { LoginPage } from './pages/Login.js';
 import { PatrolsPage } from './pages/Patrols.js';
+import { PaymentsPage } from './pages/Payments.js';
 import { PublishPage } from './pages/Publish.js';
 import { SeasonsPage } from './pages/Seasons.js';
 import { TournamentPage } from './pages/Tournament.js';
@@ -67,6 +68,7 @@ export function WafaApp() {
       <Route path="/torneos/:id" element={<TournamentPage onVolver={alInicio} />} />
       <Route path="/torneos/:id/patrullas" element={<PatrolsPage onVolver={alInicio} />} />
       <Route path="/torneos/:id/publicar" element={<PublishPage onVolver={alInicio} />} />
+      <Route path="/torneos/:id/pagos" element={<PaymentsPage onVolver={alInicio} />} />
       <Route
         path="/password"
         element={

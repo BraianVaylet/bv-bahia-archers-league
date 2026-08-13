@@ -97,12 +97,27 @@ export async function hasParticipated(id: ObjectId): Promise<boolean> {
 }
 
 /**
- * De los ids dados, cuáles participaron de algún torneo.
+ * En cuántos torneos **distintos** participó cada uno de los ids dados.
  *
  * Una sola consulta para todo el padrón: preguntar uno por uno sería una
  * consulta por arquero cada vez que se abre la pantalla.
+ *
+ * Se cuentan torneos y no participaciones. Un arquero repetido en el mismo
+ * torneo sólo puede venir de un bug, pero un número que sume dos veces la
+ * misma fecha no significa nada para el admin.
+ *
+ * @returns un mapa `archerId` → cantidad. Los que no participaron no aparecen.
  */
-export async function participatedIds(ids: readonly ObjectId[]): Promise<ObjectId[]> {
-  if (ids.length === 0) return [];
-  return participants().distinct('archerId', { archerId: { $in: [...ids] } });
+export async function tournamentCounts(ids: readonly ObjectId[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+
+  const filas = await participants()
+    .aggregate<{ _id: ObjectId; torneos: number }>([
+      { $match: { archerId: { $in: [...ids] } } },
+      { $group: { _id: '$archerId', torneos: { $addToSet: '$tournamentId' } } },
+      { $project: { torneos: { $size: '$torneos' } } },
+    ])
+    .toArray();
+
+  return new Map(filas.map((f) => [f._id.toHexString(), f.torneos]));
 }

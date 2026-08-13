@@ -3,6 +3,7 @@ import {
   type ArqueroElegible,
   agregarBlanco,
   avisoDeComposicion,
+  type BorradorTorneo,
   blancoNuevo,
   borradorVacio,
   conModalidad,
@@ -276,6 +277,7 @@ describe('cuerpoDeCreacion', () => {
       name: '3ª fecha',
       date: '2026-08-08',
       description: '',
+      payment: { required: false, amount: 0 },
       targets: [
         { index: 1, modality: 'sala', arrows: 3, description: null },
         { index: 2, modality: '3d', arrows: 2, description: 'Jabalí' },
@@ -289,5 +291,49 @@ describe('cuerpoDeCreacion', () => {
   it('NO manda el máximo posible ni ningún total', () => {
     const cuerpo = cuerpoDeCreacion({ ...borradorVacio(), seasonId: 's1', name: 'x', date: 'y' });
     expect(Object.keys(cuerpo)).not.toContain('maxPossibleScore');
+  });
+});
+
+// ── REF-5 · Pago de inscripción ──────────────────────────────────────────────
+
+/**
+ * El monto es del torneo, único para todos. El wizard sólo lo declara: quién
+ * pagó se marca después, desde el detalle. Ver docs/SECURITY.md §2.
+ */
+describe('pago de inscripción', () => {
+  const conDatos = (o: Partial<BorradorTorneo> = {}): BorradorTorneo => ({
+    ...borradorVacio(),
+    seasonId: 's1',
+    name: 'Tercera fecha',
+    date: '2026-08-08',
+    ...o,
+  });
+
+  it('un torneo nuevo arranca sin cobrar', () => {
+    expect(borradorVacio().payment).toEqual({ required: false, amount: 0 });
+  });
+
+  it('manda el pago declarado', () => {
+    const cuerpo = cuerpoDeCreacion(conDatos({ payment: { required: true, amount: 15_000 } }));
+    expect(cuerpo.payment).toEqual({ required: true, amount: 15_000 });
+  });
+
+  // El schema del servidor lo rechaza; decirlo acá evita el viaje.
+  it('no deja avanzar si cobra y el monto es cero', () => {
+    const b = conDatos({ payment: { required: true, amount: 0 } });
+    expect(problemaDelPaso(1, b)).toMatch(/monto/i);
+  });
+
+  it('un torneo gratuito con monto cero sí avanza', () => {
+    expect(problemaDelPaso(1, conDatos())).toBeUndefined();
+  });
+
+  // Desmarcar «cobra inscripción» tiene que dejar el torneo realmente gratuito:
+  // un monto que sobrevive apagado reaparece al volver a marcarlo.
+  it('el monto vuelve a cero al dejar de cobrar', () => {
+    const b = conDatos({ payment: { required: true, amount: 15_000 } });
+    const cuerpo = cuerpoDeCreacion({ ...b, payment: { required: false, amount: 15_000 } });
+
+    expect(cuerpo.payment).toEqual({ required: false, amount: 0 });
   });
 });
