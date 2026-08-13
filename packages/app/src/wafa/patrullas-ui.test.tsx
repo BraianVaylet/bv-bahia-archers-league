@@ -97,11 +97,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+let alInicio: () => void;
+
 function renderPatrullas() {
+  alInicio = vi.fn();
   render(
     <MemoryRouter initialEntries={['/wafa/torneos/t1/patrullas']}>
       <Routes>
-        <Route path="/wafa/torneos/:id/patrullas" element={<PatrolsPage onVolver={vi.fn()} />} />
+        <Route path="/wafa/torneos/:id/patrullas" element={<PatrolsPage onVolver={alInicio} />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -177,18 +180,39 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    // La patrulla 1 queda con un solo arquero: viola H1.
+    // Se intercambian dos arqueros: quedan dos patrullas de 2 con las unidades
+    // mezcladas de categoría. Viola el reglamento, pero se puede correr.
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz' }));
+    fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
     const avisos = screen.getByTestId('violaciones');
     expect(avisos.textContent).toMatch(/Podés guardarlas igual; queda registrado/);
-    expect(avisos.textContent).toMatch(/Patrulla 1.*entre 2 y 4/);
+    expect(avisos.textContent).toMatch(/categorías distintas/);
 
     // Y el botón sigue habilitado: avisar no es impedir.
     expect(
       (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
     ).toBe(false);
+  });
+
+  /**
+   * Un arquero solo no tiene quién le controle el puntaje: no es una excepción
+   * que el admin pueda tomar, es un torneo que no se puede correr. A diferencia
+   * de las violaciones de reglamento, el tamaño **sí** frena el guardado.
+   */
+  it('NO deja guardar una patrulla con un solo arquero, y dice cuál', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
+    fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
+
+    expect(screen.getByText(/La patrulla 1 tiene un solo arquero/)).toBeDefined();
+    expect(
+      (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   /**
@@ -302,6 +326,101 @@ describe('edición manual', () => {
     expect(await screen.findByText('Patrullas guardadas.')).toBeDefined();
   });
 
+  /**
+   * Imprimir un borrador sin guardar produce una planilla que no coincide con
+   * lo que el servidor tiene. En el monte, esa planilla es la única fuente de
+   * verdad en papel: no puede decir algo distinto de lo que la app va a mandar.
+   */
+  describe('imprimir', () => {
+    const botonImprimir = () =>
+      screen.getByRole('button', { name: 'Imprimir' }) as HTMLButtonElement;
+
+    it('está habilitado mientras no se haya tocado nada', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      expect(botonImprimir().disabled).toBe(false);
+    });
+
+    it('se deshabilita en cuanto hay un cambio sin guardar', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mover a Díaz' }));
+      fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
+
+      expect(botonImprimir().disabled).toBe(true);
+      expect(screen.getByText(/Guardá los cambios antes de imprimir/)).toBeDefined();
+    });
+
+    it('cambiar el blanco de inicio también cuenta como cambio', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      fireEvent.change(screen.getByLabelText('Blanco de inicio de la patrulla 1'), {
+        target: { value: '4' },
+      });
+
+      expect(botonImprimir().disabled).toBe(true);
+    });
+
+    it('vuelve a habilitarse después de guardar', async () => {
+      rutas['PUT /api/admin/tournaments/t1/patrols'] = () => ({
+        json: { patrols: PATRULLAS, violations: [] },
+      });
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      // Las dos, no una: dejar la patrulla 2 con un solo arquero bloquearía el
+      // guardado y el test verificaría lo que no quiere verificar.
+      for (const apellido of ['Díaz', 'Ruiz']) {
+        fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido}` }));
+        fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
+      }
+      expect(botonImprimir().disabled).toBe(true);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
+
+      await waitFor(() => expect(botonImprimir().disabled).toBe(false));
+    });
+  });
+
+  describe('después de guardar', () => {
+    beforeEach(() => {
+      rutas['PUT /api/admin/tournaments/t1/patrols'] = () => ({
+        json: { patrols: PATRULLAS, violations: [] },
+      });
+    });
+
+    const guardar = async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
+      return screen.findByText('Patrullas guardadas.');
+    };
+
+    // Arriba de todo, en una pantalla con cinco patrullas, el aviso queda fuera
+    // de cuadro: se confirma algo que el admin no llega a ver.
+    it('el aviso aparece junto a los botones, no arriba de todo', async () => {
+      const aviso = await guardar();
+      expect(screen.getByTestId('barra-acciones').contains(aviso)).toBe(true);
+    });
+
+    it('ofrece volver al inicio', async () => {
+      await guardar();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Volver al inicio' }));
+      expect(alInicio).toHaveBeenCalled();
+    });
+
+    it('el botón de volver NO está antes de guardar', async () => {
+      renderPatrullas();
+      await screen.findByTestId('patrulla-1');
+
+      expect(screen.queryByRole('button', { name: 'Volver al inicio' })).toBeNull();
+    });
+  });
+
   it('si el servidor rechaza, lo dice y no se pierde lo editado', async () => {
     rutas['PUT /api/admin/tournaments/t1/patrols'] = () => ({
       status: 400,
@@ -310,12 +429,16 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
-    fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
+    // Las dos de la patrulla 2 pasan a la 1: queda una de 4 y una vacía, que es
+    // un borrador guardable. Mover uno solo dejaría una de 1 y frenaría acá.
+    for (const apellido of ['Díaz', 'Ruiz']) {
+      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido}` }));
+      fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Faltan arqueros');
-    expect(screen.getByTestId('patrulla-2').textContent).toMatch(/Pérez/);
+    expect(screen.getByTestId('patrulla-1').textContent).toMatch(/Díaz/);
   });
 });
 

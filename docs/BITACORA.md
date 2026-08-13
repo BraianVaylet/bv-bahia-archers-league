@@ -14,6 +14,39 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF-3` — Reglas y flujo de patrullas
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Tercera tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md). La regla pedida era «como mucho una patrulla de 2; si quedan dos, se juntan».
+
+**La regla no siempre se puede cumplir.** Una patrulla es a lo sumo dos unidades y de 2 a 4 arqueros, así que las formas posibles son `4 = u2+u2` · `3 = u2+u1` · `2 = u2` ó `u1+u1`. Con 1 recurvo y 3 compuestos —4 arqueros en tres unidades— los repartos son **2+2** o **3+1**, y el segundo viola `H1`. Fusionar es estructuralmente imposible.
+
+Eso no se dedujo, se midió: un barrido sobre todas las composiciones de hasta tres categorías encontró **1213** que producían dos patrullas de 2, y de esas, **cero** fusionables. Todas tenían una patrulla `[1,1]` —dos unidades de uno— que no puede entrar en otra sin pasar de dos unidades.
+
+**Pero el barrido encontró algo mejor.** Comparando contra el óptimo teórico, **30 de 960 composiciones daban peor de lo alcanzable**. La causa: `mejorCompañero` elige por categoría y estaca **ignorando el tamaño de la unidad**. Una unidad solitaria con cupo para llevarse una de a dos se lo gastaba en otra solitaria, fabricando una patrulla de 2 evitable. Con 1 recurvo y 5 compuestos salían una de 2 y una de 4, cuando podían ser dos de 3.
+
+Corregido, el mismo barrido da **0 peores que el óptimo**, y los casos con dos patrullas de 2 bajan de 1213 a 894. Los 894 restantes son inevitables.
+
+**Decisiones**
+
+- **`S4` es un objetivo blando, no una restricción dura.** Se documentó así en [`DOMAIN_WA.md`](DOMAIN_WA.md) §5, con la razón. Llamarlo `H5` habría prometido algo que el armado no puede garantizar.
+- **El validador sólo avisa cuando existe un reparto mejor.** `minPatrolsOfTwo` calcula el mínimo alcanzable a partir de la forma de las unidades. Marcar como violación algo que no se puede arreglar es enseñarle al admin a ignorar los avisos — y el armado automático habría mostrado una advertencia sobre su propio resultado óptimo.
+- **El tamaño ahora sí frena el guardado**, a diferencia del resto de las violaciones. Una patrulla de un arquero no es una excepción que el admin pueda tomar conociendo el terreno: es un torneo que no se puede correr, porque nadie le controla el puntaje. Las violaciones de reglamento siguen avisando sin bloquear.
+- **Una patrulla vacía no frena.** Es un estado intermedio mientras se reacomoda, y no se manda al servidor.
+
+**Hallazgos**
+
+- **El `default:` de `textoDeViolacion` se tragó los códigos nuevos** y los imprimió como «Patrulla undefined». Se reemplazó por un caso por código: ahora agregar una violación sin darle texto rompe el `typecheck` en vez de mostrar el mensaje de otra.
+- **La clave de React de la lista de violaciones era `${code}-${patrolNumber}`**, y las dos violaciones nuevas no tienen `patrolNumber`. `DUPLICATE_START` puede aparecer varias veces —una por blanco repetido— y todas habrían compartido clave. Pasó a ser el texto del mensaje.
+- **El helper `patrulla()` de los tests fijaba `startTargetIndex: 1`** para todas. Con la regla nueva, cada test de validación habría arrastrado un `DUPLICATE_START` de regalo. Ahora usa el número de patrulla.
+
+**Desvíos:** el plan decía que dos patrullas de 2 «se juntan». No se implementó una fusión, porque no existe: se corrigió la causa de que aparecieran de más.
+
+**Tests:** 12 nuevos en `@bal/shared`, 10 en WAFA. 770 en verde. **Controles de mutación: 6, murieron 6.** El barrido que encontró el defecto quedó como test permanente, con su propio oráculo — una copia deliberada de `minPatrolsOfTwo`, para que la implementación no se valide contra sí misma.
+
+---
+
 ## 2026-08-12 · `REF-2` — «Mejor de 2» y pago de inscripción
 
 **Autor:** Claude Opus 5 · **Estado:** completado

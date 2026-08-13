@@ -10,6 +10,7 @@
 import {
   type BowCategory,
   MAX_PATROL_SIZE,
+  MIN_PATROL_SIZE,
   type PatrolViolation,
   POSITIONS,
   type Position,
@@ -144,16 +145,32 @@ export function violacionesDe(borrador: readonly Borrador[]): PatrolViolation[] 
   );
 }
 
-/** Texto de una violación, en el idioma del club. */
+/** Enumera números de patrulla como los diría una persona: «2, 3 y 5». */
+function listar(numeros: readonly number[]): string {
+  if (numeros.length <= 1) return String(numeros[0] ?? '');
+  return `${numeros.slice(0, -1).join(', ')} y ${numeros[numeros.length - 1]}`;
+}
+
+/**
+ * Texto de una violación, en el idioma del club.
+ *
+ * **Sin `default`.** Con un caso por código, agregar una violación nueva sin
+ * darle texto rompe el `typecheck` en vez de imprimir el mensaje de otra: así
+ * aparecieron `TOO_MANY_PAIRS` y `DUPLICATE_START` como «Patrulla undefined».
+ */
 export function textoDeViolacion(v: PatrolViolation): string {
   switch (v.code) {
     case 'PATROL_SIZE':
-      return `Patrulla ${v.patrolNumber}: ${v.size} ${v.size === 1 ? 'arquero' : 'arqueros'}. Tienen que ser entre 2 y ${MAX_PATROL_SIZE}.`;
+      return `Patrulla ${v.patrolNumber}: ${v.size} ${v.size === 1 ? 'arquero' : 'arqueros'}. Tienen que ser entre ${MIN_PATROL_SIZE} y ${MAX_PATROL_SIZE}.`;
     case 'ALL_ESCUELA':
       return `Patrulla ${v.patrolNumber}: son todos de escuela. Necesitan al menos un senior que los acompañe.`;
     case 'MIXED_UNIT':
       return `Patrulla ${v.patrolNumber}, unidad ${v.unit}: tiran juntos arqueros de categorías distintas (${v.categories.join(', ')}).`;
-    default:
+    case 'TOO_MANY_PAIRS':
+      return `Las patrullas ${listar(v.patrolNumbers)} tienen dos arqueros. Si a una le falta uno, el otro se queda sin poder tirar: conviene juntarlas.`;
+    case 'DUPLICATE_START':
+      return `Las patrullas ${listar(v.patrolNumbers)} arrancan las dos en el blanco ${v.targetIndex}. Se van a cruzar en el recorrido.`;
+    case 'STAKE_MISMATCH':
       // La estaca se deriva de la categoría (`H4`): si no coincide, el dato está
       // corrupto, no es una decisión que el admin haya tomado.
       return `Patrulla ${v.patrolNumber}: un arquero tiene estaca ${v.got} y le corresponde ${v.expected}.`;
@@ -163,15 +180,27 @@ export function textoDeViolacion(v: PatrolViolation): string {
 /**
  * Motivo por el que el borrador no se puede guardar, o `undefined` si se puede.
  *
- * **Las violaciones de dominio no frenan** —el admin puede tener motivos, y el
- * servidor las registra— pero sí frena lo que el servidor rechazaría: una
- * patrulla con más arqueros de los que entran en dos unidades.
+ * **El guardado exige entre 2 y 4 en todas.** Las violaciones de reglamento
+ * —una unidad mezclada, una patrulla toda de escuela— siguen avisando sin
+ * frenar, porque el admin conoce el terreno y la decisión queda registrada.
+ * El tamaño no: un arquero solo no tiene quién le controle el puntaje, así que
+ * no es una excepción que alguien pueda decidir, es un torneo que no se puede
+ * correr.
+ *
+ * Una patrulla **vacía** no frena: es un estado intermedio mientras se
+ * reacomoda, y no se manda al servidor.
  */
 export function problemaDelBorrador(borrador: readonly Borrador[]): string | undefined {
   const excedida = borrador.find((p) => p.miembros.length > MAX_PATROL_SIZE);
   if (excedida) {
     return `La patrulla ${excedida.numero} tiene ${excedida.miembros.length} arqueros. El máximo es ${MAX_PATROL_SIZE}.`;
   }
+
+  const escasa = borrador.find((p) => p.miembros.length > 0 && p.miembros.length < MIN_PATROL_SIZE);
+  if (escasa) {
+    return `La patrulla ${escasa.numero} tiene ${escasa.miembros.length === 1 ? 'un solo arquero' : `${escasa.miembros.length} arqueros`}. Tienen que ser al menos ${MIN_PATROL_SIZE}.`;
+  }
+
   return undefined;
 }
 
