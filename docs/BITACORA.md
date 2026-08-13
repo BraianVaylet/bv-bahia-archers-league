@@ -14,6 +14,49 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-2` — la marca, y un ícono que no existía
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### La PWA se anunciaba instalable con un ícono que daba 404
+
+`vite.config.ts` declara `/app/icon.svg` en el manifest. **Ese archivo no estaba en el repo ni en el build.** En Android eso es un ícono en blanco, o una instalación que directamente no arranca.
+
+El test `pwa-instalable` no lo veía porque comprobaba los **campos declarados** del manifest —que hubiera un ícono, que fuera maskable, que midiera al menos 192— y nunca pidió la URL.
+
+**Y mi primera corrección tampoco servía.** Agregué la comprobación, pasó en verde, y al borrar el archivo para controlarla **siguió pasando**. El servidor devuelve `index.html` para cualquier ruta que no reconoce —es lo que hace andar el ruteo del cliente—, así que un ícono inexistente responde **200 con una página HTML** y mis dos aserciones —estado 200, cuerpo no vacío— se cumplían las dos.
+
+Ahora se verifica el `content-type` y que el cuerpo empiece con `<svg`. Con eso la mutación muere.
+
+> Escribí un test para un bug que acababa de encontrar, lo vi en verde, y estaba mal. Lo destapó la mutación. Un test nuevo tampoco prueba nada hasta que se lo ve fallar.
+
+### El logo nuevo saca una excepción a la regla 8
+
+El anterior usaba los tres colores de estaca —roja, azul, amarilla— como identidad. `REF-4` lo decidió con su lógica: los colores salen del dominio. Pero era **el único lugar de toda la interfaz** donde un color de estaca significaba otra cosa, y con `REF2-1` agregando once colores nuevos, dejar esa excepción justo en la marca era pedir confusión.
+
+El nuevo es el arte de `bv-easy-archery-battle` con el verde de acento, sobre placa oscura para no depender del fondo. Colores fijos en los dos temas: una marca que cambia de color no es una marca.
+
+### Los originales no van en la carpeta que se publica
+
+`wallpaper.png` —2,8 MB— estaba en `packages/shared/assets/`, que **se empaqueta y se publica** con la biblioteca. Se movió a `origen/`, y el script genera las salidas:
+
+| Origen | Salida | Antes | Después |
+|---|---|---:|---:|
+| `wallpaper.png` | `portada.webp` 1120px | 2732,4 KB | **130,8 KB** |
+| logo del CBA | `cba.webp` 192px | 183,5 KB | **18,3 KB** |
+
+El script **no elige el tamaño solo**: cada archivo tiene su presupuesto y sale con código 1 si no entra. Rechazó dos configuraciones antes de la que quedó — el CBA a 256px en PNG daba 55,7 KB contra un máximo de 30.
+
+No se agregó ninguna dependencia: Playwright ya está para los E2E y trae un Chromium que hace exactamente lo que haría `sharp`.
+
+### El pie va donde no hay barra fija
+
+Y no es una lista de excepciones: una pantalla que termina en una barra de acción no tiene lugar para un pie, y meterlo empujaría el último elemento debajo de la barra —el mismo problema que el E2E encontró en Resultados con el último arquero—. En la práctica eso deja el pie fuera del recorrido y del teclado de scoring, que es justo donde no se lo quiere.
+
+**Tests:** 6 de marca. 1025 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3** — el del ícono recién en la segunda vuelta.
+
+---
+
 ## 2026-08-13 · `REF2-1` — el paquete de interfaz y la paleta
 
 **Autor:** Claude Opus 5 · **Estado:** completado

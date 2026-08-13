@@ -7,6 +7,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
+import { Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
@@ -26,6 +27,9 @@ export function App() {
         <Route path="/arqueros/:id" element={<ArcherPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {/* Uno solo para todo el sitio: es una app de lectura con una sola
+          columna, y el pie es el mismo en las cinco páginas. */}
+      <Footer />
     </BrowserRouter>
   );
 }
