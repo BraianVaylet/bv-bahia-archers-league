@@ -329,8 +329,9 @@ _(Hecho. Los podios y los puntos de liga se calculan con **las mismas funciones 
 **Archivos:** `src/wafa/pages/Publish.tsx`
 **DoD:** vista previa de podios y de los puntos de liga que se aplicarían · confirmación explícita · despublicar disponible con advertencia clara de lo que revierte.
 
-### `[ ] FE-16` · Ranking en WAFA · P1
-**Nota:** duplica lo que va a mostrar la landing. Conviene hacerlo **después de `FE-18`** y reutilizar sus componentes en vez de escribirlo dos veces.
+### `[x] FE-16` · Ranking en WAFA · P1
+_(**Los mismos datos y modos que la landing, contra los mismos endpoints públicos.** Reutilizar los componentes no se pudo literalmente —la landing y la PWA no comparten bundle, a propósito— así que se compartió **la decisión**: `medallaDe` y `ETIQUETA_DE_MODO` salieron a `@bal/shared/src/podio.ts` y la landing dejó de tener su copia. Lo duplicado es el JSX, que además difiere: tabla en la landing, lista en WAFA. El presupuesto de la PWA pasó de 114,45 a 114,46 KB gz — diez bytes, porque sacar el podio compensó lo que sumó la pantalla. 3 controles de mutación, los 3 detectados.)_
+**Nota original:** duplica lo que va a mostrar la landing. Conviene hacerlo **después de `FE-18`** y reutilizar sus componentes en vez de escribirlo dos veces.
 **Archivos:** `src/wafa/pages/Ranking.tsx`
 **DoD:** mismos datos y modos que la landing.
 
