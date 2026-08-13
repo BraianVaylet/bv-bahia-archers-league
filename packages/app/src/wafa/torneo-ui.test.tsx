@@ -437,3 +437,104 @@ describe('editar y eliminar el torneo', () => {
     });
   });
 });
+
+// ── REF2-5 · Iniciar y volver atrás ──────────────────────────────────────────
+
+describe('iniciar el torneo', () => {
+  /**
+   * **Iniciar pide confirmación.** A partir de ahí las patrullas quedan
+   * congeladas y los líderes bajan el recorrido al celular. Dos toques sobre el
+   * mismo botón, igual que eliminar: sin `confirm()` ni modal.
+   */
+  it('el primer toque no inicia: pregunta', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Iniciar torneo' }));
+
+    expect(screen.getByText(/¿Iniciar el torneo\?/)).toBeDefined();
+    expect(llamadas.find((l) => l.url.includes('/start'))).toBeUndefined();
+  });
+
+  it('el segundo toque lo inicia', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+      'POST /api/admin/tournaments/t1/start': () => ({
+        json: { tournament: { id: 't1', status: 'en_proceso' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Iniciar torneo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, iniciar' }));
+
+    await waitFor(() => {
+      expect(llamadas.find((l) => l.url.includes('/start'))).toBeDefined();
+    });
+  });
+});
+
+describe('volver a sin iniciar', () => {
+  it('un torneo en proceso ofrece volver atrás', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'en_proceso' } },
+      }),
+      'POST /api/admin/tournaments/t1/unstart': () => ({
+        json: { tournament: { id: 't1', status: 'sin_iniciar' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Volver a sin iniciar' }));
+
+    await waitFor(() => {
+      expect(llamadas.find((l) => l.url.includes('/unstart'))).toBeDefined();
+    });
+  });
+
+  /**
+   * **La guarda es del servidor.** Si ya hay puntajes cargados, la pantalla no
+   * lo adivina: pide, y muestra lo que conteste. Una pantalla que decide sola
+   * puede estar mirando datos de hace un minuto.
+   */
+  it('si el servidor dice que no, muestra el motivo', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'en_proceso' } },
+      }),
+      'POST /api/admin/tournaments/t1/unstart': () => ({
+        status: 409,
+        json: {
+          error: {
+            code: 'TOURNAMENT_HAS_SCORES',
+            message: 'Ya hay 3 puntajes cargados: el torneo no puede volver a sin iniciar.',
+          },
+        },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Volver a sin iniciar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/3 puntajes cargados/);
+  });
+
+  it('un torneo sin iniciar no ofrece volver atrás', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    await screen.findByRole('button', { name: 'Iniciar torneo' });
+    expect(screen.queryByRole('button', { name: 'Volver a sin iniciar' })).toBeNull();
+  });
+});

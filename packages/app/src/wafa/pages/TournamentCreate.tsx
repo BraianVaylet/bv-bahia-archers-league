@@ -20,6 +20,7 @@ import {
   type Modality,
   SCORING,
 } from '@bal/shared';
+import { IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
@@ -197,7 +198,7 @@ function PasoRecorrido({
                   onClick={() => set(moverBlanco(borrador.blancos, b.index, -1))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  <span aria-hidden="true">↑</span>
+                  <IconoSubir />
                 </button>
                 <button
                   type="button"
@@ -206,7 +207,7 @@ function PasoRecorrido({
                   onClick={() => set(moverBlanco(borrador.blancos, b.index, 1))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  <span aria-hidden="true">↓</span>
+                  <IconoBajar />
                 </button>
                 <button
                   type="button"
@@ -215,7 +216,7 @@ function PasoRecorrido({
                   onClick={() => set(eliminarBlanco(borrador.blancos, b.index))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  <span aria-hidden="true">✕</span>
+                  <IconoQuitar />
                 </button>
               </div>
             </div>

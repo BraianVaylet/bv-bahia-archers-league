@@ -9,10 +9,11 @@
  * Ver `docs/SECURITY.md` §2.
  */
 
-import { type BowCategory, CATEGORY_INFO, formatearMonto } from '@bal/shared';
+import { type BowCategory, formatearMonto } from '@bal/shared';
+import { ChipCategoria } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Encabezado, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ResumenDePagos {
@@ -101,15 +102,33 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
               <p className="truncate font-medium">
                 {p.lastName}, {p.firstName}
               </p>
-              <p className="text-sm text-[var(--ink-muted)]">
-                {CATEGORY_INFO[p.category].label} · patrulla {p.patrolNumber}
+              <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
+                <ChipCategoria category={p.category} compacto /> · patrulla {p.patrolNumber}
               </p>
             </div>
 
-            {/* El estado va escrito además de en el botón: «Pagó» en gris y
-                «Pagó» en verde serían lo mismo para quien no ve el color. */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-sm">{p.paid ? 'Pagó' : 'Debe'}</span>
+            {/*
+              El estado va **escrito** además de coloreado: «Pagó» en gris y
+              «Pagó» en verde serían lo mismo para quien no ve el color.
+
+              Y separado del botón con aire de sobra: pegados, el pulgar que va
+              a leer el estado termina tocando el botón. `gap-4` en vez de
+              `gap-2`, que es lo que pide el brief.
+
+              Usa `--ok` y `--danger`, que ya existen y significan «bien» y
+              «mal». No son colores de estaca: la regla 8 reserva los TONOS de
+              estaca, y estos dos ya se usaban para lo mismo en toda la app.
+            */}
+            <div className="flex items-center gap-4 shrink-0">
+              <span
+                data-testid={`estado-pago-${p.lastName}`}
+                className={cn(
+                  'text-sm font-semibold',
+                  p.paid ? 'text-[var(--ok)]' : 'text-[var(--danger)]',
+                )}
+              >
+                {p.paid ? 'Pagó' : 'Debe'}
+              </span>
               <Button
                 variante={p.paid ? 'secundario' : 'primario'}
                 onClick={() => void marcar(p.id, !p.paid)}

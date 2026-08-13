@@ -10,7 +10,14 @@
  */
 
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
-import { ChipCategoria } from '@bal/ui';
+import {
+  ChipCategoria,
+  type Icono,
+  IconoArchivar,
+  IconoEditar,
+  IconoEliminar,
+  IconoRestaurar,
+} from '@bal/ui';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
@@ -133,13 +140,13 @@ function ArcherForm({
  * `aria-label` diría dos cosas. Ver `docs/DESIGN_SYSTEM.md` §10.
  */
 function BotonIcono({
-  glifo,
+  icono: Icono,
   etiqueta,
   onClick,
   disabled,
   peligro,
 }: {
-  readonly glifo: string;
+  readonly icono: Icono;
   readonly etiqueta: string;
   readonly onClick: () => void;
   readonly disabled?: boolean;
@@ -154,12 +161,12 @@ function BotonIcono({
       disabled={disabled}
       className={cn(
         'min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border',
-        'flex items-center justify-center text-lg',
+        'flex items-center justify-center',
         'disabled:opacity-40 disabled:cursor-not-allowed',
         peligro ? 'text-[var(--danger)]' : 'bg-[var(--surface-2)]',
       )}
     >
-      <span aria-hidden="true">{glifo}</span>
+      <Icono />
     </button>
   );
 }
@@ -205,20 +212,28 @@ function Fila({
           quince arqueros en pantalla, quince botones «Editar» no se distinguen
           en un lector. Ver docs/DESIGN_SYSTEM.md §10. */}
       <div className="flex flex-wrap gap-2">
-        <BotonIcono glifo="✎" etiqueta={`Editar a ${arquero.lastName}`} onClick={onEditar} />
+        <BotonIcono
+          icono={IconoEditar}
+          etiqueta={`Editar a ${arquero.lastName}`}
+          onClick={onEditar}
+        />
 
         {arquero.archived ? (
           <BotonIcono
-            glifo="↺"
+            icono={IconoRestaurar}
             etiqueta={`Restaurar a ${arquero.lastName}`}
             onClick={onRestaurar}
           />
         ) : (
-          <BotonIcono glifo="🗄" etiqueta={`Archivar a ${arquero.lastName}`} onClick={onArchivar} />
+          <BotonIcono
+            icono={IconoArchivar}
+            etiqueta={`Archivar a ${arquero.lastName}`}
+            onClick={onArchivar}
+          />
         )}
 
         <BotonIcono
-          glifo="🗑"
+          icono={IconoEliminar}
           etiqueta={`Eliminar a ${arquero.lastName}`}
           onClick={onEliminar}
           disabled={arquero.participated}
