@@ -173,13 +173,26 @@ export const CreateTournamentSchema = z
     path: ['targets'],
   });
 
-export const UpdateTournamentSchema = z.strictObject({
-  name: texto(3, 120).optional(),
-  date: z.coerce.date().optional(),
-  description: z.string().max(1000).optional(),
-  payment: PaymentConfigSchema.optional(),
-  targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS).optional(),
-});
+export const UpdateTournamentSchema = z
+  .strictObject({
+    name: texto(3, 120).optional(),
+    date: z.coerce.date().optional(),
+    description: z.string().max(1000).optional(),
+    payment: PaymentConfigSchema.optional(),
+    targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS).optional(),
+    /**
+     * Cambiar quiénes participan.
+     *
+     * **Sólo con el torneo `sin_iniciar`**, y eso lo verifica el servicio, no
+     * este esquema: acá no se sabe en qué estado está el torneo. Cambiar la
+     * lista **rearma las patrullas**, porque las patrullas se derivan de ella.
+     */
+    archerIds: z.array(ObjectIdSchema).min(MIN_PATROL_SIZE).max(MAX_PARTICIPANTS).optional(),
+  })
+  .refine((v) => v.archerIds === undefined || new Set(v.archerIds).size === v.archerIds.length, {
+    message: 'Hay arqueros repetidos.',
+    path: ['archerIds'],
+  });
 
 // ── Patrullas ────────────────────────────────────────────────────────────────
 

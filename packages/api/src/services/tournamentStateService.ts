@@ -14,11 +14,15 @@ import type { ClientSession, ObjectId } from 'mongodb';
 import { tournaments } from '../db/client.js';
 import type { TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
+import * as scoreRepo from '../repositories/scoreRepo.js';
 
 /** Transiciones permitidas. Lo que no está acá, no se puede. */
 const TRANSICIONES: Readonly<Record<TournamentStatus, readonly TournamentStatus[]>> = {
   sin_iniciar: ['en_proceso'],
-  en_proceso: ['completado'],
+  // `sin_iniciar` es la vuelta atrás de un arranque por error. La guarda —que
+  // no haya un solo puntaje— está en `unstart`, no acá: la tabla dice qué
+  // transiciones existen, no cuándo se permiten.
+  en_proceso: ['completado', 'sin_iniciar'],
   completado: ['publicado'],
   // `publicado` sólo vuelve atrás con un despublicar explícito del admin.
   publicado: ['completado'],
@@ -75,4 +79,34 @@ export async function transition(
 /** `sin_iniciar` → `en_proceso`. A partir de acá las patrullas quedan congeladas. */
 export async function start(tournamentId: ObjectId): Promise<TournamentDoc> {
   return transition(tournamentId, 'en_proceso', { startedAt: new Date() });
+}
+
+/**
+ * `en_proceso` → `sin_iniciar`. La vuelta atrás de un arranque por error.
+ *
+ * **Sólo si no se cargó ni un puntaje.** Con un solo blanco anotado ya hay
+ * trabajo de una patrulla en el monte, y volver atrás lo dejaría colgando de un
+ * torneo que dice no haber empezado.
+ *
+ * **Las patrullas y sus PIN se conservan.** Si arrancaste por error, volvés,
+ * corregís y arrancás de nuevo: la planilla impresa sigue sirviendo. Regenerar
+ * los PIN acá obligaría a reimprimir por un error de un toque.
+ *
+ * La guarda es del servidor y no del botón: el botón se puede tocar dos veces,
+ * o desde una pantalla que todavía no se enteró de que alguien anotó.
+ */
+export async function unstart(tournamentId: ObjectId): Promise<TournamentDoc> {
+  const cargados = await scoreRepo.countScoresOfTournament(tournamentId);
+
+  if (cargados > 0) {
+    throw new AppError('TOURNAMENT_HAS_SCORES', {
+      message:
+        cargados === 1
+          ? 'Ya hay un puntaje cargado: el torneo no puede volver a sin iniciar.'
+          : `Ya hay ${cargados} puntajes cargados: el torneo no puede volver a sin iniciar.`,
+      details: { scores: cargados },
+    });
+  }
+
+  return transition(tournamentId, 'sin_iniciar', { startedAt: null });
 }

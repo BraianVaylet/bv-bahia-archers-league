@@ -14,6 +14,47 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-3` — edición, vuelta atrás, y un agujero que abrí yo
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Backend de `ref-2`: editar los participantes de un torneo sin iniciar, volver un torneo en curso a `sin_iniciar`, la recaudación de la temporada y la serie del arquero para el gráfico de evolución.
+
+### El `/security-review` encontró algo real, y era mío
+
+`syncService.sync` **nunca miró el estado del torneo**. La autorización de `/wafl/sync` sale de la sesión de patrulla y nada más.
+
+Eso no era un problema mientras el torneo sólo iba para adelante: `sin_iniciar` nunca convivía con sesiones vivas. **La transición nueva crea esa combinación.** Un líder que entró con el torneo en curso, después de que el admin volviera atrás, seguía pudiendo anotar. El test lo confirmó antes de arreglarlo: la op volvió `applied`.
+
+Y el daño no terminaba ahí. Con un puntaje adentro, el rearmado de participantes borraba patrullas y participantes **pero no los puntajes**: quedaban documentos apuntando a gente que ya no existe, que hacen que `blancosBloqueados` marque blancos de arqueros eliminados y que el torneo no pueda volver atrás nunca más.
+
+Dos correcciones:
+
+- `/wafl/sync` verifica el estado. Rechaza **op por op con 200**, no con un 4xx: un 4xx dejaría al outbox reintentando algo que nunca va a entrar — que es exactamente el bug que arreglamos esta misma mañana.
+- El borrado de patrullas, participantes y puntajes es **una sola función del repositorio**. Los tres se borran juntos o no se borran.
+
+> De paso: había puesto tres `deleteMany` sueltos en un servicio. La regla 3 dice que ninguna consulta a Mongo vive fuera de `repositories/`, y la había roto yo sin notarlo. Es el tipo de cosa que el review encuentra y una corrida en verde no.
+
+### Cambiar participantes rearma las patrullas
+
+No es comodidad: las patrullas **se derivan** de la lista de arqueros y de `H1`-`H4`. Agregar a alguien sin rehacerlas daría una patrulla de cinco o una 100% escuela, que es justo lo que el algoritmo evita. Los PIN cambian, porque las patrullas son nuevas.
+
+Con el torneo en marcha se rechaza: las patrullas ya están en el monte con su planilla impresa.
+
+### Dos tests que pasaban por la razón equivocada
+
+«Rechaza inscribir a un arquero archivado» y «no deja cambiar los participantes de un torneo en proceso» **pasaban antes de escribir una línea de implementación**: Zod rechazaba `archerIds` por ser un campo desconocido en un `strictObject`, y el 400 coincidía con lo que yo esperaba. Recién cuando el campo se aceptó pasaron a probar lo suyo, y las mutaciones lo confirmaron.
+
+También corregí tres códigos de estado que había adivinado: un conflicto con el estado actual es **409**, como sus vecinos `TARGET_LOCKED` e `INVALID_STATE_TRANSITION`, no 400.
+
+### La serie del gráfico no necesitó migración
+
+`StandingDoc` guarda los dos mejores porcentajes y el mejor suelto, **no la secuencia**. Pero `ParticipantDoc` tiene el `normalizedPct` de cada participación y ya existía el índice `ix_archer`: la serie se deriva, sin campo nuevo y sin recalcular lo publicado. Filtrada a torneos **publicados**, que es un endpoint público.
+
+**Tests:** 17 de edición y vuelta atrás. 1041 en verde. **Controles de mutación: 8, murieron 8** — tres de ellos sobre las correcciones del review.
+
+---
+
 ## 2026-08-13 · `REF2-2` — la marca, y un ícono que no existía
 
 **Autor:** Claude Opus 5 · **Estado:** completado

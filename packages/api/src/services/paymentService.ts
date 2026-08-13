@@ -73,3 +73,55 @@ export async function setPaid(participantId: ObjectId, paid: boolean): Promise<{
 
   return { paid: doc.paid };
 }
+
+export interface SeasonCollection {
+  readonly collected: number;
+  readonly tournaments: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly date: Date;
+    readonly amount: number;
+    readonly paidCount: number;
+    readonly participantCount: number;
+    readonly collected: number;
+  }[];
+}
+
+/**
+ * Lo recaudado en toda la temporada, torneo por torneo.
+ *
+ * El total **se deriva de la lista** en vez de contarse aparte: dos números que
+ * dicen lo mismo son dos números que pueden discrepar, y el que discrepa es
+ * siempre el que se mira.
+ *
+ * Va bajo `/admin`: cuánto entró es información del club, no del ranking.
+ */
+export async function seasonCollection(seasonId: ObjectId): Promise<SeasonCollection> {
+  const torneos = await tournamentRepo.list({ seasonId });
+
+  const detalle = await Promise.all(
+    torneos.map(async (t) => {
+      // Por el repositorio, no con una consulta suelta: ninguna query a Mongo
+      // vive fuera de `repositories/`. Es la regla 3 de `CLAUDE.md`.
+      const miembros = await tournamentRepo.listParticipants(t._id);
+      const pagados = miembros.filter((m) => m.paid).length;
+
+      return {
+        id: t._id.toHexString(),
+        name: t.name,
+        date: t.date,
+        amount: t.payment.amount,
+        paidCount: pagados,
+        participantCount: t.participantCount,
+        // Un torneo gratuito recauda cero aunque alguien figure como pagado:
+        // el monto manda, no la marca.
+        collected: pagados * t.payment.amount,
+      };
+    }),
+  );
+
+  return {
+    collected: detalle.reduce((n, t) => n + t.collected, 0),
+    tournaments: detalle,
+  };
+}

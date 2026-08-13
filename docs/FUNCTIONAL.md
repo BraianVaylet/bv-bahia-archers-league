@@ -223,19 +223,34 @@ Con **todas** las firmas presentes, se habilita **Finalizar**. Al confirmarse:
    ┌──────────────┐  iniciar   ┌──────────────┐  todas las patrullas   ┌──────────────┐  publicar  ┌───────────┐
    │ sin_iniciar  │───────────▶│  en_proceso  │  cerraron el circuito  │  completado  │───────────▶│ publicado │
    └──────────────┘            └──────────────┘───────────────────────▶└──────────────┘            └───────────┘
-          │                            │                                                                 │
-   config y patrullas          solo editable en blancos                                            despublicar
-   totalmente editables        sin puntajes cargados                                          (emergencia, auditado)
+          ▲                            │                                                                 │
+          └────────────────────────────┘                                                           despublicar
+              volver atrás, sólo con                                                          (emergencia, auditado)
+              CERO puntajes cargados
 ```
 
 | Estado | Quién escribe | Visible en landing |
 |---|---|---|
-| `sin_iniciar` | Admin (todo) | No |
+| `sin_iniciar` | Admin (todo, **incluidos los participantes**) | No |
 | `en_proceso` | Líderes (puntajes) · Admin (blancos vírgenes) | Solo patrullas y avance, sin puntajes |
 | `completado` | Nadie | Solo patrullas y avance |
 | `publicado` | Nadie | Todo: resultados, podios, rankings |
 
 Transiciones inválidas rechazadas por el servidor con `409 INVALID_STATE_TRANSITION`.
+
+### 8.1 Volver a `sin_iniciar` (`REF2-3`)
+
+Es la vuelta atrás de **un arranque por error**, y por eso su guarda es dura: sólo si el torneo no tiene **ni un solo puntaje**. Con un blanco anotado ya hay trabajo de una patrulla en el monte, y volver atrás lo dejaría colgando de un torneo que dice no haber empezado. Se responde `409 TOURNAMENT_HAS_SCORES`, con cuántos puntajes hay.
+
+**Las patrullas y sus PIN se conservan.** Si arrancaste por error, volvés, corregís y arrancás de nuevo: la planilla impresa sigue sirviendo. Regenerar los PIN obligaría a reimprimir por un error de un toque.
+
+**Las sesiones de patrulla vivas dejan de poder anotar.** Este estado es el único momento en que una sesión emitida con el torneo en curso sobrevive a que el torneo deje de estarlo, así que `/wafl/sync` verifica el estado del torneo y rechaza las ops —una por una, con 200, para que el outbox del cliente no reintente para siempre—. Lo destapó el `/security-review` de esa tanda; ver `BITACORA.md`.
+
+### 8.2 Cambiar los participantes
+
+Sólo con el torneo `sin_iniciar`, y **rearma las patrullas**: las patrullas se derivan de la lista de arqueros y de las restricciones `H1`-`H4`, así que agregar a alguien sin rehacerlas daría una patrulla de cinco o una 100% escuela. Los PIN cambian, porque las patrullas son nuevas.
+
+Con el torneo en marcha se rechaza con `409`: las patrullas ya están en el monte con su planilla impresa, y rearmarlas desde el escritorio dejaría al líder mirando una lista que no coincide con la gente que tiene al lado.
 
 ---
 
