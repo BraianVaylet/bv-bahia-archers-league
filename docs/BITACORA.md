@@ -14,6 +14,63 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · Tres defectos encontrados usando la WAFL
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Al probar la app en local, cuatro ops de firma trabadas: **32 a 38 intentos cada una**, todas con «Los datos enviados no son válidos.». El circuito no se podía cerrar. Tirando de ese hilo aparecieron **tres** defectos distintos, encadenados.
+
+### 1 · La firma dejó de entrar en el límite
+
+En `REF-6` agrandé el canvas de firma de 600x240 a 900x600 —firmar con el dedo en un recuadro chico sale tembloroso—. El PNG que sale de ahí pasó a no entrar en `MAX_SIGNATURE_BYTES`. Medido en Chromium, no estimado:
+
+| Canvas | Una raya | Firma de varios trazos |
+|---|---:|---:|
+| 600x240 (antes) | 20,5 KB | 44,7 KB |
+| **900x600 (REF-6)** | 50,2 KB | **104,9 KB** |
+
+El límite son 60 KB. **El E2E dibujaba una raya**, y una raya a 900x600 pesa 50 KB: pasaba por 10 KB de margen mientras la firma de una persona se pasaba por 45.
+
+> Es la cuarta vez en el proyecto que un test pasa por cómo está escrito y no por lo que dice probar. Las tres anteriores eran carreras de tiempo; esta es distinta y peor: la aserción era correcta, **el dato de entrada no se parecía al real**. Un test con datos de juguete mide el juguete.
+
+Se separó el canvas de **dibujo** del PNG que **viaja**: se dibuja grande y se exporta en la escala más grande que entre en el límite, midiendo el resultado en vez de estimarlo —cuánto pesa un PNG depende de cuántos trazos hizo el arquero, y eso no se sabe de antemano—. El E2E ahora firma con rulos y **verifica que la firma cruda supere el límite**: si algún día vuelve a ser una raya, el test avisa que dejó de probar algo.
+
+### 2 · Un 400 se reintentaba para siempre
+
+El más grave, y el que convirtió un PNG pesado en **un estado del que no se sale**. El `catch` del vaciado del outbox trataba cualquier rechazo como error de red: marcaba intentos y programaba reintento. Un 400 de validación no va a pasar por reintentarlo, así que la op tapaba el outbox, y con el outbox tapado no se puede cerrar el circuito. Para siempre.
+
+Lo llamativo: **`OFFLINE_SYNC.md` §5.4 ya decía qué había que hacer** —«400 / 409: no se reintenta, se marca `conflict`»— desde `FE-2`. El código nunca lo cumplió y ningún test lo notó, porque todos los casos de error probados eran de red o de 401.
+
+Se agregó lo que faltaba: distinguir qué vale la pena reintentar. Ante la duda **se reintenta** —sin `status` no se sabe qué pasó, y nunca se pierde trabajo por una suposición—; 401 y 403 se reintentan porque se arreglan volviendo a entrar. Sólo un 4xx que el servidor ya rechazó deja de intentarse.
+
+Un detalle que no estaba documentado y ahora sí: **el 400 llega a nivel de lote**. Zod valida el array entero, así que una firma rota arrastra a los puntajes buenos que iban en el mismo `POST`. Se reenvía op por op para aislar la culpable.
+
+**La op culpable sale del outbox, el dato no.** Queda en IndexedDB marcado `conflict` con el motivo. No contradice la regla de no descartar ops ante un 401: ahí la op se conserva porque **va a poder enviarse**; acá nunca va a poder, y dejarla es garantizar que el líder no termine el torneo. De paso se cerró un hueco vecino: una op de **firma** rechazada por el servidor no marcaba nada —sólo se manejaba el caso del puntaje—, así que se rechazaba en silencio.
+
+### 3 · Una firma rechazada figuraba como firmada
+
+Apareció al verificar una afirmación que estaba por escribir acá: que después de marcar una firma en conflicto el líder podría volver a firmarla. No podía.
+
+`ResultsPage` armaba el conjunto de firmados con **toda** firma guardada en IndexedDB, sin mirar el `syncState`. Una firma rechazada por el servidor hacía desaparecer el botón «Firmar» igual que una aceptada: el líder cerraba el circuito convencido de que estaba todo firmado, y en el servidor no había ninguna firma. El acta quedaba sin validar y nadie se enteraba.
+
+Ahora una firma en `conflict` no cuenta: vuelve a aparecer el botón, y «Finalizar torneo» sigue bloqueado hasta que se firme de nuevo.
+
+> Los tres defectos son el mismo error mirado desde tres lados: **dar por buena una condición sin comprobar que se cumple**. La firma pesa poco porque el test dibuja poco; el rechazo se reintenta porque todo error se supone de red; la firma está hecha porque hay un registro guardado.
+
+**Tests:** 4 de sincronización, 6 de la exportación de la firma, 1 de firmas en conflicto. 947 en verde, 8 de 8 E2E. **Controles de mutación: 8, murieron 8** —incluido uno sobre el E2E, devolviendo el bug tal cual llegó al usuario para verlo fallar—.
+
+### Dos tests intermitentes, encontrados de paso
+
+Corriendo la suite completa diez veces —no una— aparecieron dos fallos que sueltos nunca fallan. Los dos son el mismo error de siempre, esperar algo que ya es cierto antes de tiempo:
+
+- **«firmado, el teclado queda deshabilitado»** esperaba el título del blanco, presente desde la primera pintada, y afirmaba sobre el teclado, que depende de la lectura de firmas. **Ya estaba arreglado en la entrada de abajo**; esta rama salía de antes de ese merge, así que el flake reapareció acá y lo arreglé por segunda vez. Al mergear quedó una sola versión.
+- **«Continuar se habilita cuando todos tienen puntaje»** esperaba a que IndexedDB tuviera las flechas del primer arquero y clickeaba las del segundo. La escritura y el paso de selección en React son dos momentos distintos: en el medio, las flechas del segundo le llegaban al primero y se perdían. Ahora espera el `aria-pressed`, que es la pantalla diciendo a quién le está cargando.
+
+Un tercero era **mío, de esta misma tanda**: esperaba «Faltan las firmas de Pérez», que también es verdad en el estado inicial —antes de leer nada faltan los dos—. La espera se cumplía con el estado equivocado.
+
+Diez corridas seguidas en verde después de los tres.
+
+**Sobre las cuatro ops que el usuario ya tiene trabadas:** con este build, el primer vaciado las aísla, las marca en conflicto y libera el outbox. Las cuatro firmas van a volver a pedirse, que es lo correcto: el servidor nunca las recibió.
 ## 2026-08-13 · WAFL no decía POR QUÉ no sincronizaba
 
 **Autor:** Claude Opus 5 · **Estado:** corregido

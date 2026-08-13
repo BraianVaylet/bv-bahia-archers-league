@@ -5,8 +5,59 @@
  * está viendo. Ver `docs/DESIGN_SYSTEM.md` §6.6.
  */
 
+import { MAX_SIGNATURE_BYTES } from '@bal/shared';
 import { useRef, useState } from 'react';
 import { Button } from '../components/ui.js';
+
+/**
+ * Escalas de exportación, de mejor a peor.
+ *
+ * **El canvas de dibujo y el PNG que viaja son dos cosas distintas.** Se dibuja
+ * grande —900x600— porque firmar con el dedo en un recuadro chico sale
+ * tembloroso; se manda lo más chico que entre en el límite del schema.
+ *
+ * Sin esto, una firma real de varios trazos pesa ~105 KB contra un límite de
+ * 60 KB: el servidor la rechaza con 400 y la op queda trabada para siempre.
+ * Ver `docs/OFFLINE_SYNC.md` §5.2.
+ */
+export const ESCALAS_DE_FIRMA = [1, 0.6, 0.45, 0.3] as const;
+
+/**
+ * Exporta la firma en la escala más grande que entre en `MAX_SIGNATURE_BYTES`.
+ *
+ * Se mide el resultado en vez de estimarlo: cuánto pesa un PNG depende de
+ * cuántos trazos hizo el arquero, y eso no se sabe de antemano. Una firma
+ * enrulada de diez trazos pesa el triple que una raya.
+ */
+export function exportarDentroDelLimite(
+  canvas: HTMLCanvasElement,
+  maxBytes: number = MAX_SIGNATURE_BYTES,
+): string {
+  let ultima = canvas.toDataURL('image/png');
+  if (ultima.length <= maxBytes) return ultima;
+
+  for (const escala of ESCALAS_DE_FIRMA.slice(1)) {
+    const chico = document.createElement('canvas');
+    chico.width = Math.round(canvas.width * escala);
+    chico.height = Math.round(canvas.height * escala);
+
+    const ctx = chico.getContext('2d');
+    if (!ctx) break;
+
+    // Fondo blanco: al reescalar, el PNG con transparencia pesa más y el trazo
+    // antialiaseado se ve gris sobre el papel del acta impresa.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, chico.width, chico.height);
+    ctx.drawImage(canvas, 0, 0, chico.width, chico.height);
+
+    ultima = chico.toDataURL('image/png');
+    if (ultima.length <= maxBytes) return ultima;
+  }
+
+  // Ni la más chica entró. Se manda igual: que el servidor la rechace y el
+  // líder vea el motivo es mejor que perder la firma acá en silencio.
+  return ultima;
+}
 
 export interface SignaturePadProps {
   readonly nombre: string;
@@ -70,7 +121,7 @@ export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignatureP
   const confirmar = () => {
     const canvas = canvasRef.current;
     if (!canvas || !tieneTrazo) return;
-    onFirmar(canvas.toDataURL('image/png'));
+    onFirmar(exportarDentroDelLimite(canvas));
   };
 
   return (

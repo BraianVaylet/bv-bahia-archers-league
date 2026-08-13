@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../lib/apiClient.js';
 import {
   clearAll,
   closeDb,
@@ -9,6 +10,7 @@ import {
   readOutbox,
   readScore,
   readScores,
+  readSignatures,
   type StoredBundle,
   saveBundle,
   updateOp,
@@ -299,13 +301,93 @@ describe('flush', () => {
 
     configureSync({
       post: async () => {
-        throw new Error('401 Unauthorized');
+        throw new ApiError(401, 'UNAUTHORIZED', 'Tu sesión venció.');
       },
     });
 
     await flush();
     // Se conservan para enviarlas después de reautenticar.
     expect(await countOutbox()).toBe(1);
+  });
+
+  it('un 500 se reintenta: el servidor puede estar volviendo', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    configureSync({
+      post: async () => {
+        throw new ApiError(500, 'INTERNAL', 'Ocurrió un error inesperado.');
+      },
+    });
+
+    await flush();
+    expect(await countOutbox()).toBe(1);
+    expect((await readOutbox())[0]?.attempts).toBe(1);
+  });
+
+  /**
+   * **El outbox trabado para siempre.**
+   *
+   * Probando la WAFL en local aparecieron cuatro ops de firma con 32 a 38
+   * intentos, todas con «Los datos enviados no son válidos.»: un 400 de Zod.
+   * El `catch` del vaciado trataba cualquier rechazo como error de red y lo
+   * reintentaba indefinidamente. Un 400 **nunca** va a pasar por reintentarlo,
+   * así que el circuito no se podía cerrar nunca.
+   *
+   * La op sale del outbox —como ya pasaba con `rejected`— pero el dato NO se
+   * pierde: queda en `signatures` marcado en conflicto, con el motivo.
+   */
+  it('un 400 deja de reintentarse y destraba el outbox', async () => {
+    await writeSignature(P1, 'data:image/png;base64,' + 'A'.repeat(100));
+
+    configureSync({
+      post: async () => {
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Los datos enviados no son válidos.');
+      },
+    });
+
+    await flush();
+
+    expect(await countOutbox()).toBe(0);
+
+    const firma = (await readSignatures()).find((f) => f.participantId === P1);
+    expect(firma?.syncState).toBe('conflict');
+    expect(getSyncState().lastError).toContain('no son válidos');
+  });
+
+  it('con un lote, aísla la op mala y sincroniza las buenas', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    await writeSignature(P2, 'data:image/png;base64,rota');
+
+    const ok = (ops: Record<string, unknown>[]) => ({
+      results: ops.map((o) => ({
+        opId: o.opId as string,
+        status: 'applied' as const,
+        // El servidor es la autoridad del puntaje: siempre devuelve el total.
+        score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+      })),
+      patrol: { status: 'en_curso', targetsCompleted: 0 },
+      serverTime: new Date().toISOString(),
+    });
+
+    configureSync({
+      post: async (ops) => {
+        // El servidor rechaza el lote ENTERO por una sola op mala: es lo que
+        // hace la validación de Zod sobre el array de ops.
+        if (ops.some((o) => o.type === 'signature')) {
+          throw new ApiError(400, 'VALIDATION_ERROR', 'Los datos enviados no son válidos.');
+        }
+        return ok(ops);
+      },
+    });
+
+    await flush();
+
+    // El puntaje bueno no puede quedar rehén de la firma rota.
+    expect(await countOutbox()).toBe(0);
+    expect((await readScore(P1, 1))?.syncState).toBe('synced');
+    expect((await readSignatures()).find((f) => f.participantId === P2)?.syncState).toBe(
+      'conflict',
+    );
   });
 
   it('una op rechazada sale del outbox y marca el puntaje en conflicto', async () => {

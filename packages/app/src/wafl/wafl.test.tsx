@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   countOutbox,
   deleteDb,
+  getDb,
   readBundle,
   readScores,
   readSignatures,
@@ -285,6 +286,45 @@ describe('ResultsPage', () => {
 
     fireEvent.click(boton);
     expect(onCerrado).not.toHaveBeenCalled();
+  });
+
+  /**
+   * **Una firma que el servidor rechazó no es una firma.**
+   *
+   * `firmados` contaba toda firma guardada en IndexedDB, sin mirar su
+   * `syncState`. Una rechazada quedaba marcada `conflict` y aun así hacía
+   * desaparecer el botón: el líder cerraba el circuito convencido de que estaba
+   * todo firmado, y en el servidor no había nada. Se descubrió siguiendo el
+   * rastro del 400 de las firmas pesadas.
+   */
+  it('una firma en conflicto NO cuenta: se puede volver a firmar', async () => {
+    await cargarTodo();
+    await writeSignature(P1, PNG);
+    await writeSignature(P2, PNG);
+
+    // El servidor rechazó la de Pérez.
+    const db = await getDb();
+    const firma = await db.get('signatures', P1);
+    if (!firma) throw new Error('no se guardó la firma');
+    await db.put('signatures', { ...firma, syncState: 'conflict' });
+
+    renderResultados();
+
+    /**
+     * La condición que se espera es la FINAL: falta Pérez y **no** falta Gómez.
+     *
+     * Esperar sólo «Faltan las firmas de Pérez» pasaría con el estado inicial
+     * —antes de leer las firmas faltan los dos, y ese texto lo contiene—, y la
+     * aserción sobre Gómez correría contra la lectura de IndexedDB.
+     */
+    await waitFor(() => {
+      const aviso = screen.getByText(/Faltan las firmas de/).textContent ?? '';
+      expect(aviso).toMatch(/Pérez/);
+      expect(aviso).not.toMatch(/Gómez/);
+    });
+
+    const boton = screen.getByRole('button', { name: 'Finalizar torneo' });
+    expect((boton as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('con todas las firmas, cierra y encola la op', async () => {

@@ -210,7 +210,14 @@ Backoff exponencial con jitter: `min(2^attempts × 1000ms, 60s) × (0.5 + random
 - **Errores de red** (`TypeError: Failed to fetch`, timeout): se reintenta indefinidamente. Es el caso normal en el monte.
 - **5xx**: se reintenta con backoff.
 - **401 / 403**: se detiene la sincronización y se pide reingresar. Las ops **se conservan** y se envían tras reautenticar. Nunca se descarta trabajo por un problema de sesión.
+- **408 / 429**: transitorios por definición, se reintentan.
 - **400 / 409** (op inválida): no se reintenta. Se marca `conflict` y se muestra al usuario qué pasó y con qué arquero y blanco.
+
+**El 400 llega a nivel de lote, no de op.** La validación de Zod corre sobre el array entero, así que una sola op mala hace fallar el `POST` completo y arrastra a las buenas. Cuando el lote se rechaza con un código que no se reintenta, se **reenvía op por op** para aislar la culpable: el puntaje de un arquero no puede quedar rehén de la firma rota de otro.
+
+La op culpable sale del outbox —si se quedara, taparía todo lo demás y el circuito no se podría cerrar nunca— pero **el dato no se pierde**: el puntaje o la firma quedan en IndexedDB marcados `conflict`, con el motivo a la vista.
+
+> Esta regla estaba escrita desde `FE-2` y **el código no la cumplía**: el `catch` del vaciado trataba cualquier rechazo como error de red. Se detectó con la app en la mano, con cuatro firmas a 38 intentos. Ver `BITACORA.md`, entrada del 2026-08-13.
 
 ### 5.5 Cerrar el circuito
 

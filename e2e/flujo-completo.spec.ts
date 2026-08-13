@@ -1,5 +1,13 @@
+import { MAX_SIGNATURE_BYTES } from '@bal/shared';
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
-import { adminApi, entrarComoLider, FLECHAS, PASSWORD_NUEVO, PNG_VALIDO } from './ayudas.js';
+import {
+  adminApi,
+  entrarComoLider,
+  FLECHAS,
+  firmarDeVerdad,
+  PASSWORD_NUEVO,
+  PNG_VALIDO,
+} from './ayudas.js';
 
 /**
  * El flujo completo, contra el stack real, **con un tramo sin conexión**.
@@ -100,14 +108,46 @@ async function firmarYCerrar(page: Page) {
     const caja = await canvas.boundingBox();
     if (!caja) throw new Error('El canvas de firma no tiene tamaño');
 
-    await page.mouse.move(caja.x + 20, caja.y + caja.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(caja.x + caja.width - 20, caja.y + caja.height / 2, { steps: 12 });
-    await page.mouse.up();
+    await firmarDeVerdad(page, caja);
+
+    // El PNG que sale de acá tiene que entrar en el límite del schema, o el
+    // servidor lo rechaza con 400 y el circuito no se puede cerrar nunca.
+    const pesa = await canvas.evaluate(
+      (c) => (c as HTMLCanvasElement).toDataURL('image/png').length,
+    );
+    expect(
+      pesa,
+      'la firma cruda tiene que ser más pesada que el límite, o el test no prueba nada',
+    ).toBeGreaterThan(MAX_SIGNATURE_BYTES);
 
     await page.getByRole('button', { name: 'Confirmar firma' }).click();
     await expect(botones).toHaveCount(restantes - 1);
   }
+
+  /**
+   * **Ninguna firma quedó en conflicto.**
+   *
+   * Que el circuito cierre ya no alcanza como prueba: una op irrecuperable
+   * ahora sale del outbox —si no, queda trabado para siempre—, así que el
+   * cierre pasaría igual con las firmas rechazadas. Esto mira el resultado.
+   */
+  const enConflicto = await page.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const req = indexedDB.open('bal-wafl');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const todas = req.result.transaction('signatures').objectStore('signatures').getAll();
+          todas.onsuccess = () =>
+            resolve(
+              (todas.result as { syncState: string }[]).filter((f) => f.syncState === 'conflict')
+                .length,
+            );
+          todas.onerror = () => reject(todas.error);
+        };
+      }),
+  );
+  expect(enConflicto, 'el servidor rechazó alguna firma').toBe(0);
 
   const cerrar = page.getByRole('button', { name: 'Finalizar torneo' });
   await expect(cerrar).toBeEnabled();

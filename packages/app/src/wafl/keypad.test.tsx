@@ -296,8 +296,14 @@ describe('TargetPage', () => {
     // Primer arquero: al completarlo, la selección pasa sola al segundo.
     fireEvent.click(await screen.findByRole('button', { name: 'Puntaje 11' }));
     fireEvent.click(screen.getByRole('button', { name: 'Puntaje 8' }));
-    await waitFor(async () => {
-      expect((await readScore(P1, 1))?.arrows).toHaveLength(2);
+    /**
+     * Se espera a que la selección haya pasado **en pantalla**, no a que la
+     * escritura haya terminado en IndexedDB: son dos momentos distintos.
+     * Clickeando en el medio, las flechas del segundo arquero le llegan al
+     * primero —que ya está completo— y se pierden.
+     */
+    await waitFor(() => {
+      expect(screen.getByRole('button', { pressed: true }).textContent).toMatch(/Gómez/);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Puntaje 10' }));

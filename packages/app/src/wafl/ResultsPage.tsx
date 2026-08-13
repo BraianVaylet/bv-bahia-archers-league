@@ -36,7 +36,16 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
     void recargar();
   }, [recargar]);
 
-  const firmados = new Set(firmas.map((f) => f.participantId));
+  /**
+   * **Una firma que el servidor rechazó no es una firma.**
+   *
+   * Contar toda firma guardada dejaba pasar las que quedaron en `conflict`: el
+   * botón desaparecía, el líder cerraba el circuito, y en el servidor no había
+   * nada. Hay que poder volver a firmar.
+   */
+  const firmados = new Set(
+    firmas.filter((f) => f.syncState !== 'conflict').map((f) => f.participantId),
+  );
 
   const resumen = bundle.participants.map((p) => {
     const propios = scores.filter((s) => s.participantId === p.id);

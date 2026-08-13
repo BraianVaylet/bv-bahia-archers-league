@@ -5,7 +5,7 @@
  * desde un handler. Ver `docs/OFFLINE_SYNC.md` §5.3 y §12.
  */
 
-import { api } from '../lib/apiClient.js';
+import { ApiError, api } from '../lib/apiClient.js';
 import {
   countOutbox,
   getDb,
@@ -149,10 +149,18 @@ export async function flush(): Promise<boolean> {
       try {
         respuesta = await deps.post(lote.map(aPayload));
       } catch (error) {
-        // Error de red: se reintenta indefinidamente. Es el caso normal en el
-        // monte, y NUNCA se descartan las ops.
-        await marcarIntentos(lote, error);
-        programarReintento(lote);
+        if (esReintentable(error)) {
+          // Error de red: se reintenta indefinidamente. Es el caso normal en el
+          // monte, y NUNCA se descartan las ops.
+          await marcarIntentos(lote, error);
+          programarReintento(lote);
+          await refrescarPendientes();
+          return false;
+        }
+
+        // El servidor entendió el pedido y dijo que no. Reintentar no lo va a
+        // cambiar: hay que sacar la op del medio o el outbox queda trabado.
+        await aislarIrrecuperables(lote, error);
         await refrescarPendientes();
         return false;
       }
@@ -183,25 +191,11 @@ async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Pro
       // No se reintenta: el servidor ya dijo que no. Se marca para que el
       // líder vea qué pasó y con qué arquero.
       hayConflicto = true;
-      const participantId = op.payload.participantId as string | undefined;
-      const targetIndex = op.payload.targetIndex as number | undefined;
+      const motivo = resultado.error?.message ?? 'La sincronización rechazó este cambio.';
 
-      if (participantId !== undefined && targetIndex !== undefined) {
-        const score = await db.get('scores', [participantId, targetIndex]);
-        if (score) {
-          await db.put('scores', {
-            ...score,
-            syncState: 'conflict',
-            error: resultado.error?.message ?? 'La sincronización rechazó este puntaje.',
-          });
-        }
-      }
-
+      await marcarConflicto(op, motivo);
       await removeOp(op.opId);
-      emitir({
-        status: 'error',
-        lastError: resultado.error?.message ?? 'Error de sincronización.',
-      });
+      emitir({ status: 'error', lastError: motivo });
       continue;
     }
 
@@ -224,6 +218,92 @@ async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Pro
   }
 
   return hayConflicto;
+}
+
+/**
+ * ¿Tiene sentido volver a mandar esto?
+ *
+ * **Sí por defecto.** Sin conexión, con el servidor caído o con la sesión
+ * vencida, la op se reintenta para siempre: es trabajo del líder y no se tira.
+ *
+ * **No cuando el servidor contestó que el pedido está mal.** Un 400 de
+ * validación va a dar 400 las mil veces siguientes, y mientras tanto tapa el
+ * outbox y el circuito no se puede cerrar. Pasó de verdad: cuatro firmas con
+ * 38 intentos cada una, todas con «Los datos enviados no son válidos.».
+ */
+function esReintentable(error: unknown): boolean {
+  // Sin `status` no se sabe qué pasó —típicamente el `TypeError` de `fetch`
+  // sin red—. Ante la duda, se reintenta: nunca se pierde trabajo por una
+  // suposición.
+  if (!(error instanceof ApiError)) return true;
+
+  const { status } = error;
+
+  // 401 y 403 se arreglan volviendo a entrar; la op tiene que estar ahí cuando
+  // eso pase. `docs/OFFLINE_SYNC.md` §5.4.
+  if (status === 401 || status === 403) return true;
+  // Timeout y rate limit son transitorios por definición.
+  if (status === 408 || status === 429) return true;
+
+  return status >= 500;
+}
+
+/**
+ * Saca del outbox lo que el servidor nunca va a aceptar.
+ *
+ * El servidor rechaza **el lote entero** —la validación corre sobre el array
+ * completo—, así que una sola op mala arrastra a las buenas. Se reenvía op por
+ * op para separar la culpable: el puntaje de un arquero no puede quedar rehén
+ * de la firma rota de otro.
+ *
+ * El dato **no se pierde**: sale la op, pero el puntaje o la firma quedan en
+ * IndexedDB marcados en conflicto, con el motivo a la vista.
+ */
+async function aislarIrrecuperables(lote: OutboxOp[], error: unknown): Promise<void> {
+  if (lote.length === 1) {
+    const [op] = lote;
+    if (op) await descartarIrrecuperable(op, error);
+    return;
+  }
+
+  for (const op of lote) {
+    try {
+      await aplicarResultados([op], await deps.post([aPayload(op)]));
+    } catch (e) {
+      if (esReintentable(e)) {
+        // Esta no era la culpable; se queda para el próximo intento.
+        await marcarIntentos([op], e);
+      } else {
+        await descartarIrrecuperable(op, e);
+      }
+    }
+  }
+}
+
+async function descartarIrrecuperable(op: OutboxOp, error: unknown): Promise<void> {
+  const mensaje = error instanceof Error ? error.message : String(error);
+  await marcarConflicto(op, mensaje);
+  await removeOp(op.opId);
+  emitir({ status: 'error', lastError: mensaje });
+}
+
+/** Deja la marca donde el líder la va a ver: sobre el puntaje o la firma. */
+async function marcarConflicto(op: OutboxOp, mensaje: string): Promise<void> {
+  const db = await getDb();
+  const participantId = op.payload.participantId as string | undefined;
+  if (participantId === undefined) return;
+
+  if (op.type === 'signature') {
+    const firma = await db.get('signatures', participantId);
+    if (firma) await db.put('signatures', { ...firma, syncState: 'conflict' });
+    return;
+  }
+
+  const targetIndex = op.payload.targetIndex as number | undefined;
+  if (targetIndex === undefined) return;
+
+  const score = await db.get('scores', [participantId, targetIndex]);
+  if (score) await db.put('scores', { ...score, syncState: 'conflict', error: mensaje });
 }
 
 async function marcarIntentos(lote: OutboxOp[], error: unknown): Promise<void> {
