@@ -24,6 +24,16 @@ export function syncLabel(estado: SyncState): string {
         ? `Sin conexión · ${estado.pending} ${estado.pending === 1 ? 'cambio guardado' : 'cambios guardados'} en el celular`
         : 'Sin conexión';
     case 'error':
-      return 'Hay un problema con la sincronización';
+      /**
+       * El motivo, si el servidor dio uno.
+       *
+       * «Hay un problema con la sincronización» no le sirve a nadie: el líder
+       * no puede decidir nada con eso. Con el motivo a la vista, sí — si dice
+       * que la sesión venció, vuelve a entrar; si dice que no hay conexión,
+       * camina hasta donde haya. El dato ya venía en el estado y se descartaba.
+       */
+      return estado.lastError
+        ? `Problema al sincronizar: ${estado.lastError}`
+        : 'Hay un problema con la sincronización';
   }
 }

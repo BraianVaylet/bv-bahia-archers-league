@@ -427,7 +427,14 @@ describe('editar hasta la firma', () => {
     await writeSignature(P1, PNG);
     renderBlanco();
 
-    await screen.findByText('Blanco 1');
+    /**
+     * Se espera el aviso de la firma, **no el título del blanco**.
+     *
+     * El título está desde la primera pintada, pero las firmas llegan de
+     * IndexedDB en un efecto: esperar el título dejaba la aserción corriendo
+     * carrera contra esa lectura, y el test fallaba una de cada varias veces.
+     */
+    await screen.findByText(/ya firmó/);
 
     const teclas = within(screen.getByTestId('score-keypad')).getAllByRole('button');
     expect(teclas.length).toBeGreaterThan(0);
