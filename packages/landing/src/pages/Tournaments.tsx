@@ -9,7 +9,14 @@
  * Ver `docs/FUNCTIONAL.md` §5.3.
  */
 
-import { type BowCategory, CATEGORY_INFO, rankByCategory, SCORING } from '@bal/shared';
+import {
+  type BowCategory,
+  CATEGORY_INFO,
+  formatearFecha,
+  formatearFechaCorta,
+  rankByCategory,
+  SCORING,
+} from '@bal/shared';
 import { Link, useParams } from 'react-router-dom';
 import { Cargando, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
@@ -86,7 +93,9 @@ export function TournamentsPage() {
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-semibold">{t.name}</span>
-                  <span className="text-sm text-[var(--ink-muted)] tabular-nums">{t.date}</span>
+                  <span className="text-sm text-[var(--ink-muted)] tabular-nums">
+                    {formatearFechaCorta(t.date)}
+                  </span>
                 </div>
                 <p className="text-sm text-[var(--ink-muted)]">
                   {t.targetCount} blancos · {t.participantCount} arqueros
@@ -187,7 +196,7 @@ export function TournamentPage() {
           {t.name}
         </h1>
         <p className="text-[var(--ink-muted)]">
-          {t.date} · {t.targets.length} blancos · máximo {t.maxPossibleScore}
+          {formatearFecha(t.date)} · {t.targets.length} blancos · máximo {t.maxPossibleScore}
         </p>
         {t.description && <p className="pt-2">{t.description}</p>}
       </div>

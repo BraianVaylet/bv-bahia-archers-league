@@ -5,8 +5,9 @@
  * pueden cruzar años. Ver `docs/FUNCTIONAL.md` §6.5.
  */
 
+import { formatearRango } from '@bal/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, Field, Screen } from '../../components/ui.js';
+import { Button, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface SeasonRow {
@@ -70,12 +71,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center gap-3">
-        <button type="button" onClick={onVolver} className="min-h-[44px] text-left">
-          ← Inicio
-        </button>
-        <span className="font-semibold">Temporadas</span>
-      </header>
+      <Encabezado titulo="Temporadas" onVolver={onVolver} />
 
       <Screen>
         <form
@@ -131,7 +127,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
             >
               <p className="font-semibold">{t.name}</p>
               <p className="text-sm text-[var(--ink-muted)]">
-                {t.startsAt.slice(0, 10)} → {t.endsAt.slice(0, 10)}
+                {formatearRango(t.startsAt, t.endsAt)}
               </p>
             </li>
           ))}

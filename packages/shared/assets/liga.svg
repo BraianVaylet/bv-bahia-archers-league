@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Liga Bahiense de Arquería">
+  <title>Liga Bahiense de Arquería</title>
+  <!--
+    Un blanco de tres anillos con una flecha clavada en el centro.
+
+    Los tres anillos son los tres colores de estaca —roja, azul, amarilla— que
+    son semántica reservada del dominio: acá se usan como identidad, que es de
+    donde salen. La flecha entra en diagonal, no de frente, para que se lea
+    como flecha y no como una diana sola.
+
+    Sin degradados ni filtros: tiene que verse a 24px en el header y a 200px en
+    una planilla impresa en blanco y negro.
+  -->
+  <circle cx="28" cy="36" r="20" fill="#d22b2b" />
+  <circle cx="28" cy="36" r="13" fill="#1d5fd6" />
+  <circle cx="28" cy="36" r="6" fill="#f5c518" />
+
+  <!-- Astil, de arriba a la derecha hacia el centro del blanco. -->
+  <path d="M28 36 L58 6" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+  <!-- Plumas. -->
+  <path
+    d="M52 4 L60 4 L60 12"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

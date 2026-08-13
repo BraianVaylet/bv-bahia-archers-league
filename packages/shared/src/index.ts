@@ -11,10 +11,12 @@
 
 export * from './constants.js';
 export * from './domain.js';
+export * from './fechas.js';
 export * from './league.js';
 export * from './patrolling.js';
 export * from './ranking.js';
 export * from './schemas.js';
 export * from './scoring.js';
 export * from './stats.js';
+export * from './tema.js';
 export * from './text.js';

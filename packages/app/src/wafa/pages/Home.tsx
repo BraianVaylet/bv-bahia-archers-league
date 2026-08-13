@@ -7,10 +7,10 @@
  * Ver `docs/FUNCTIONAL.md` §6.2.
  */
 
-import type { TournamentStatus } from '@bal/shared';
+import { formatearFechaCorta, type TournamentStatus } from '@bal/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Screen } from '../../components/ui.js';
+import { Button, Encabezado, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 export interface TournamentRow {
@@ -45,7 +45,9 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-semibold">{torneo.name}</span>
-        <span className="text-sm text-[var(--ink-muted)] tabular-nums">{torneo.date}</span>
+        <span className="text-sm text-[var(--ink-muted)] tabular-nums">
+          {formatearFechaCorta(torneo.date)}
+        </span>
       </div>
       <p className="text-sm text-[var(--ink-muted)]">
         {torneo.targetCount} blancos · {torneo.participantCount} arqueros · {torneo.patrolCount}{' '}
@@ -68,12 +70,11 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center justify-between gap-3">
-        <span className="font-[var(--font-display)] font-bold">WAFA</span>
-        <button type="button" onClick={onSalir} className="min-h-[44px] text-sm">
+      <Encabezado titulo="WAFA">
+        <button type="button" onClick={onSalir} className="min-h-[44px] px-2 text-sm">
           Salir
         </button>
-      </header>
+      </Encabezado>
 
       <Screen>
         <nav className="pt-4 flex flex-col gap-2">

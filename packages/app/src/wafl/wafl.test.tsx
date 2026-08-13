@@ -177,7 +177,12 @@ describe('CircuitPage', () => {
   it('abre el blanco al tocarlo', async () => {
     const { onAbrir } = renderCircuito();
 
-    fireEvent.click((await screen.findAllByRole('button'))[0] as HTMLElement);
+    // Se busca el blanco por su número, no por posición en el DOM: el header
+    // tiene botones propios —el conmutador de tema— y `buttons[0]` apuntaba a
+    // uno de ellos apenas se agregó.
+    const primero = (await screen.findAllByTestId('numero-blanco'))[0];
+    fireEvent.click(primero?.closest('button') as HTMLElement);
+
     expect(onAbrir).toHaveBeenCalledWith(expect.objectContaining({ index: 2 }));
   });
 

@@ -7,10 +7,10 @@
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { CATEGORY_INFO, SCORING, type TournamentStatus } from '@bal/shared';
+import { CATEGORY_INFO, formatearFecha, SCORING, type TournamentStatus } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, cn, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type AvanceDePatrulla,
@@ -211,12 +211,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center gap-3">
-        <button type="button" onClick={onVolver} className="min-h-[44px] text-left">
-          ← Inicio
-        </button>
-        <span className="font-semibold">Torneo</span>
-      </header>
+      <Encabezado titulo="Torneo" onVolver={onVolver} />
 
       <Screen>
         {error && (
@@ -234,8 +229,8 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                 {torneo.name}
               </h1>
               <p className="text-[var(--ink-muted)]" data-testid="estado">
-                {ETIQUETA_ESTADO[torneo.status]} · {torneo.date} · {torneo.participantCount}{' '}
-                arqueros · máximo {torneo.maxPossibleScore}
+                {ETIQUETA_ESTADO[torneo.status]} · {formatearFecha(torneo.date)} ·{' '}
+                {torneo.participantCount} arqueros · máximo {torneo.maxPossibleScore}
               </p>
             </div>
 
@@ -306,7 +301,12 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                       </div>
 
                       {/* Un blanco bloqueado dice POR QUÉ: si no, parece un error. */}
-                      {bloqueo && <p className="text-sm text-[var(--ink-muted)]">🔒 {bloqueo}</p>}
+                      {bloqueo && (
+                        <p className="text-sm text-[var(--ink-muted)]">
+                          <span aria-hidden="true">🔒 </span>
+                          {bloqueo}
+                        </p>
+                      )}
                     </li>
                   );
                 })}

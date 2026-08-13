@@ -9,7 +9,7 @@
 
 import type { Modality } from '@bal/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Screen } from '../components/ui.js';
+import { Button, Encabezado, Screen } from '../components/ui.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
 import { readScore, readScores } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
@@ -128,12 +128,9 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center justify-between gap-3">
-        <button type="button" onClick={onVolver} className="min-h-[44px] min-w-[44px] text-left">
-          ← Blancos
-        </button>
+      <Encabezado onVolver={onVolver} textoVolver="← Blancos">
         <SyncBadge />
-      </header>
+      </Encabezado>
 
       <Screen conBarraFija>
         <div className="flex items-baseline gap-3 pt-2">

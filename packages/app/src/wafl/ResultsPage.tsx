@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Screen } from '../components/ui.js';
+import { Button, cn, Encabezado, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
 import { readScores, readSignatures } from '../offline/db.js';
 import { requestClose, writeSignature } from '../offline/outbox.js';
@@ -95,12 +95,9 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center justify-between gap-3">
-        <button type="button" onClick={onVolver} className="min-h-[44px] min-w-[44px] text-left">
-          ← Blancos
-        </button>
+      <Encabezado onVolver={onVolver} textoVolver="← Blancos">
         <SyncBadge />
-      </header>
+      </Encabezado>
 
       <Screen conBarraFija>
         <h1 className="pt-2 font-[var(--font-display)] text-[var(--text-display)] font-bold">

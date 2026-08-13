@@ -121,8 +121,10 @@ describe('TournamentPage', () => {
   it('muestra el estado, la fecha y el máximo', async () => {
     renderPantalla(TournamentPage);
 
+    // La fecha se escribe, no se muestra el ISO crudo. Y es el 8: la API la
+    // manda como medianoche UTC, y formatearla en hora local daría el 7.
     expect(await screen.findByTestId('estado')).toHaveTextContent(
-      'En proceso · 2026-08-08 · 4 arqueros · máximo 120',
+      'En proceso · 8 de agosto de 2026 · 4 arqueros · máximo 120',
     );
   });
 

@@ -12,6 +12,7 @@ import {
   BOW_CATEGORIES,
   type BowCategory,
   CATEGORY_INFO,
+  formatearFecha,
   MAX_ARROWS_PER_TARGET,
   MIN_ARROWS_PER_TARGET,
   MODALITIES,
@@ -19,7 +20,7 @@ import {
   SCORING,
 } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Field, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type ArqueroElegible,
@@ -153,7 +154,7 @@ function PasoRecorrido({
                   onClick={() => set(moverBlanco(borrador.blancos, b.index, -1))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  ↑
+                  <span aria-hidden="true">↑</span>
                 </button>
                 <button
                   type="button"
@@ -162,7 +163,7 @@ function PasoRecorrido({
                   onClick={() => set(moverBlanco(borrador.blancos, b.index, 1))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  ↓
+                  <span aria-hidden="true">↓</span>
                 </button>
                 <button
                   type="button"
@@ -171,7 +172,7 @@ function PasoRecorrido({
                   onClick={() => set(eliminarBlanco(borrador.blancos, b.index))}
                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border disabled:opacity-40"
                 >
-                  ✕
+                  <span aria-hidden="true">✕</span>
                 </button>
               </div>
             </div>
@@ -458,7 +459,7 @@ function PasoRevision({
         1,
         <div className="text-sm text-[var(--ink-muted)]">
           <p>{borrador.name}</p>
-          <p>{borrador.date}</p>
+          <p>{formatearFecha(borrador.date)}</p>
         </div>,
       )}
 
@@ -544,12 +545,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center gap-3">
-        <button type="button" onClick={onVolver} className="min-h-[44px] text-left">
-          ← Inicio
-        </button>
-        <span className="font-semibold">Crear torneo</span>
-      </header>
+      <Encabezado titulo="Crear torneo" onVolver={onVolver} />
 
       <Screen conBarraFija>
         <ol className="pt-4 flex gap-1.5" aria-label="Pasos">

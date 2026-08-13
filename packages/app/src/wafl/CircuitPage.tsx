@@ -10,7 +10,7 @@
 
 import type { Modality } from '@bal/shared';
 import { useEffect, useState } from 'react';
-import { Button, cn, Screen } from '../components/ui.js';
+import { Button, cn, Encabezado, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
 import { readScores } from '../offline/db.js';
 import { SyncBadge } from './SyncBadge.js';
@@ -63,10 +63,9 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center justify-between gap-3">
-        <span className="font-semibold">Patrulla {bundle.patrol.number}</span>
+      <Encabezado titulo={`Patrulla ${bundle.patrol.number}`}>
         <SyncBadge />
-      </header>
+      </Encabezado>
 
       <Screen conBarraFija>
         <div className="pt-2">
