@@ -11,11 +11,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./tokens.css": "./styles/tokens.css"
+    "./tokens.css": "./styles/tokens.css",
+    "./assets/*": "./assets/*"
   },
   "files": [
     "dist",
-    "styles"
+    "styles",
+    "assets"
   ],
   "scripts": {
     "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",

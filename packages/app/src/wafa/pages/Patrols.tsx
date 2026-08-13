@@ -11,7 +11,7 @@
 import { CATEGORY_INFO } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Screen, StakeChip } from '../../components/ui.js';
+import { Button, Encabezado, Screen, StakeChip } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type Borrador,
@@ -151,12 +151,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <div className="flex flex-col min-h-dvh">
-      <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center gap-3 print:hidden">
-        <button type="button" onClick={onVolver} className="min-h-[44px] text-left">
-          ← Inicio
-        </button>
-        <span className="font-semibold">Patrullas</span>
-      </header>
+      <Encabezado titulo="Patrullas" onVolver={onVolver} />
 
       <Screen conBarraFija>
         <h1 className="pt-2 font-[var(--font-display)] text-[var(--text-display)] font-bold">
@@ -273,7 +268,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                                   aria-label={`Mover a ${m.lastName}`}
                                   className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border print:hidden"
                                 >
-                                  ⇄
+                                  <span aria-hidden="true">⇄</span>
                                 </button>
                               )}
                             </div>

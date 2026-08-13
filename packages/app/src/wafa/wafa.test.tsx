@@ -479,6 +479,9 @@ describe('SeasonsPage', () => {
     render(<SeasonsPage onVolver={vi.fn()} />);
 
     expect(await screen.findByTestId('temporada-s1')).toHaveTextContent('Liga 2026');
-    expect(screen.getByTestId('temporada-s1')).toHaveTextContent('2026-01-01 → 2026-12-31');
+    // El año no se repite cuando las dos fechas son del mismo.
+    expect(screen.getByTestId('temporada-s1')).toHaveTextContent(
+      '1 de enero — 31 de diciembre de 2026',
+    );
   });
 });

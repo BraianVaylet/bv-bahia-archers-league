@@ -241,6 +241,30 @@ El relleno del anillo es la única animación con algo de gracia, y se la ganó:
 - `<meta name="theme-color">` se sincroniza con el tema para que la barra del navegador acompañe.
 - **El tema claro es el default en WAFL**, porque es el que gana bajo el sol. El oscuro está para el pabellón y para la carga nocturna.
 
+### Dónde vive cada parte
+
+La decisión de **qué tema corresponde** está en `@bal/shared/src/tema.ts` —`resolverTema`, `TEMA_KEY`, `COLOR_DE_BARRA`— y probada ahí. La **aplicación** al documento es de cada app: `BotonTema` en `app/src/components/ui.tsx` y en `landing/src/components/ui.tsx`.
+
+Son **cuatro lugares** que tienen que coincidir: los dos scripts anti-FOUC de los `index.html` —que no pueden importar nada, porque corren antes de cualquier bundle— y los dos conmutadores. Hay un test en `@bal/shared` que **lee los dos HTML** y verifica que usen la misma clave y los mismos colores. Que exista un archivo con los valores correctos no prueba que los `index.html` digan lo mismo.
+
+Un valor guardado que no se reconoce **no cuenta como elección**: se sigue la preferencia del sistema. Forzar claro ignoraría a alguien que tiene el sistema en oscuro por una entrada corrupta que nunca eligió.
+
+---
+
+## 9.1 Fechas
+
+Todas las fechas se escriben con `@bal/shared/src/fechas.ts`, nunca crudas.
+
+| Función | Resultado |
+|---|---|
+| `formatearFecha` | `8 de agosto de 2026` |
+| `formatearFechaCorta` | `08/08/2026` |
+| `formatearRango` | `1 de marzo — 30 de noviembre de 2026` |
+
+**Se formatea en UTC, a propósito.** La fecha de un torneo es un *día del calendario*, no un instante: se guarda como medianoche UTC y Argentina es UTC-3, así que formatear en la zona del navegador mostraría **el día anterior**. En la planilla impresa esa diferencia es un problema real.
+
+Una fecha que no se puede interpretar se devuelve **tal cual**. Es un bug, pero romper la pantalla es peor que mostrar el dato crudo, que además deja verlo para reportarlo.
+
 ---
 
 ## 10. Accesibilidad
@@ -253,6 +277,19 @@ El relleno del anillo es la única animación con algo de gracia, y se la ganó:
 - Navegable por teclado de punta a punta (importante para el admin, que usa notebook).
 - `spellcheck="off"` y `autocomplete` correcto en los campos de nombre y PIN.
 - Objetivos táctiles del §5, verificados en los tests de componente.
+
+### Iconografía
+
+**Ni el color ni el ícono son nunca el único portador de información.** En la práctica son dos reglas:
+
+1. Un control que sólo muestra un símbolo lleva `aria-label` que dice **qué hace**, no cómo se ve: `Cambiar a tema oscuro`, `Subir el blanco 3`, `Mover a Pérez`.
+2. Un símbolo decorativo lleva `aria-hidden="true"`, para que no se anuncie al lado del texto que ya lo dice.
+
+Lo verifica un test que **recorre el código de las pantallas** y marca cualquier glifo que no esté acompañado de una de las dos cosas. Se revisa el código y no el DOM a propósito: montar las trece pantallas costaría más y dejaría afuera las que todavía no tienen test de render.
+
+### Logo
+
+El de la **Liga** es un SVG original en `@bal/shared/assets/liga.svg`: tres anillos con los colores de estaca y una flecha clavada, sin degradados ni filtros, para que se lea a 24px en el header y en blanco y negro en una planilla impresa. Va siempre **acompañando al nombre**, nunca reemplazándolo, y con `alt=""` porque el texto de al lado ya lo dice.
 
 ---
 

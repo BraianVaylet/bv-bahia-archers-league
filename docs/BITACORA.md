@@ -14,6 +14,43 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF-4` — Transversal de interfaz
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Cuarta tanda de [`post/ref-1/ACTION_PLAN.md`](post/ref-1/ACTION_PLAN.md): conmutador de tema, formateo de fechas, iconografía y logo. Lo que atraviesa las tres apps, antes del trabajo por pantalla.
+
+**Hallazgos**
+
+- **El conmutador rompía la pantalla entera.** No por falta de guarda: `temaInicial` llamaba a `matchMedia` dentro del `try` **y otra vez en el `catch`**. Cuando `matchMedia` no existe —navegadores viejos, jsdom sin configurar— el `try` fallaba y el camino de respaldo repetía la misma llamada, así que el error salía sin atrapar. Como el conmutador vive en el header, no faltaba un botón: no se veía nada.
+
+  *Un camino de respaldo que repite la llamada que falló no es un respaldo.* La consulta quedó aislada en su propia función con su propio `try`.
+
+- **Las fechas se mostraban crudas en las tres apps**, y formatearlas en la zona del navegador habría sido peor que dejarlas así: se guardan como medianoche UTC y Argentina es UTC-3, así que un torneo del 8 de agosto se habría mostrado como **7**. En la planilla impresa esa diferencia es un problema real. Todo se formatea en UTC.
+
+- **Los siete headers de WAFA estaban repetidos literalmente**, con el mismo markup. Se extrajo `Encabezado`, que es lo que permitió agregar el conmutador **una vez** en lugar de siete — y lo que evita que la próxima pieza transversal vuelva a pegarse siete veces.
+
+**Decisiones**
+
+- **La decisión del tema vive en `@bal/shared`; la aplicación, en cada app.** Son cuatro lugares que tienen que coincidir: los dos scripts anti-FOUC de los `index.html` —que no pueden importar nada— y los dos conmutadores. Hay un test que **lee los dos HTML** y verifica que usen la misma clave y los mismos colores.
+- **Un valor de tema corrupto no cuenta como elección**: se sigue la preferencia del sistema. Forzar claro ignoraría a alguien que tiene el sistema en oscuro por una entrada que nunca eligió.
+- **Una fecha que no se puede interpretar se muestra tal cual.** Es un bug, pero romper la pantalla es peor que mostrar el dato crudo, que además deja verlo para reportarlo.
+- **El componente de tema se duplica entre la PWA y la landing**, por la misma razón que el resto de las primitivas de la landing: no comparten bundle. Lo que **no** se duplica es la decisión.
+
+**Desvíos**
+
+- **El PNG del CBA no entró.** Es de 2000×2000 y 183 KB, y no hay herramienta de imágenes en el repo para achicarlo. Meterlo en una PWA que tiene que funcionar en un celular en el monte no es aceptable, y precargarlo en el service worker sería peor. El SVG de la Liga sí entró: 1,1 KB, sin degradados ni filtros, legible a 24px y en blanco y negro.
+
+**Deuda:** el logo del CBA, pendiente de redimensionar a ~256px con una herramienta externa. Queda como ítem de `REF-7`, que es donde la landing arma su presentación.
+
+**Tests:** 16 nuevos en `@bal/shared`, 24 en la PWA. 862 en verde. **Controles de mutación: 7, murieron 7.**
+
+Uno sobrevivió al principio y valió la pena: sacar la guarda `typeof matchMedia === 'function'` no rompía ningún test, porque el `try/catch` ya la cubría. Perseguir esa mutación mostró que el arreglo real era otro —el `catch` que repetía la llamada— y que hacía falta un test con **los dos fallos a la vez**: `localStorage` bloqueado *y* sin `matchMedia`. Con uno solo de los dos, el bug no se ve.
+
+El guard de iconografía se verificó inyectándole un glifo suelto en una pantalla.
+
+---
+
 ## 2026-08-13 · `REF-3` — Reglas y flujo de patrullas
 
 **Autor:** Claude Opus 5 · **Estado:** completado

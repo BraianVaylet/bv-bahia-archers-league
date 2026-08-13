@@ -145,7 +145,7 @@ Toca `@bal/shared` y el modelo de datos. Antes que cualquier interfaz que los co
 >
 > El barrido quedó como test permanente. 770 en verde; 6 controles de mutación, murieron 6.
 
-### `[ ] REF-4` · Transversal de interfaz · **P1**
+### `[x] REF-4` · Transversal de interfaz · **P1**
 
 Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no repetirlo.
 
@@ -157,6 +157,18 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 - **Logos**: SVG de la Liga y PNG del CBA, en `@bal/shared` para que las dos apps los usen
 
 **DoD:** el tema se conmuta y persiste, sin parpadeo al recargar · ninguna fecha cruda en pantalla · todo ícono lleva texto o `aria-label`.
+
+> **Cerrada el 2026-08-13.** Dos hallazgos y una baja.
+>
+> **El conmutador rompía la pantalla entera** en cualquier entorno sin `matchMedia`. No por falta de guarda: `temaInicial` llamaba a `matchMedia` dentro del `try` **y otra vez en el `catch`**, así que el camino de respaldo repetía la llamada que había fallado y el error salía sin atrapar. Como el conmutador vive en el header, no faltaba un botón: no se veía nada.
+>
+> **Las fechas se formatean en UTC.** Se guardan como medianoche UTC y Argentina es UTC-3: formatear en la zona del navegador mostraba **el día anterior**. Un torneo del 8 aparecía como 7.
+>
+> **El PNG del CBA no entró.** Es de 2000×2000 y 183 KB, y no hay herramienta de imágenes en el repo para achicarlo. Meter eso en una PWA que tiene que andar en un celular en el monte no es aceptable. El SVG de la Liga sí, que pesa 1,1 KB.
+>
+> De paso: los siete headers de WAFA estaban repetidos literalmente. Se extrajo `Encabezado`, que es lo que permitió agregar el conmutador una vez en lugar de siete.
+>
+> 862 en verde; 7 controles de mutación, murieron 7.
 
 ### `[ ] REF-5` · WAFA · **P1**
 
