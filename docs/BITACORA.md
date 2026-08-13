@@ -14,6 +14,43 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `TEST-2` — Los cinco escenarios E2E
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Los cinco escenarios adicionales de [`TESTING.md`](TESTING.md) §6. Ocho tests E2E en total, 1,7 minutos.
+
+| Escenario | Qué demuestra |
+|---|---|
+| `offline-recarga` | Cerrar la app a mitad del recorrido y volver a abrirla **sin conexión** no pierde nada, y se sigue cargando desde donde se dejó |
+| `dos-dispositivos` | Gana el `clientUpdatedAt` más reciente, **no** el que llegó último al servidor |
+| `sesion-vencida` | Un 401 durante la sincronización **conserva el outbox**, y lo pendiente sale solo al volver la conexión |
+| `blanco-bloqueado` | Un puntaje real, por el stack real, bloquea el blanco y la API rechaza el cambio |
+| `pwa-instalable` | Manifest instalable, service worker registrado, y **`skipWaiting` detrás del mensaje** |
+
+**Hallazgos**
+
+- **Mi test de la PWA prohibía `skipWaiting()` a secas y fallaba contra un service worker correcto.** Con `registerType: 'prompt'`, Workbox **sí** emite `skipWaiting()`: lo que hace es dejarlo detrás del mensaje `SKIP_WAITING` que manda la página cuando el usuario acepta actualizar. La regla del proyecto es que no se actualice **solo**, no que la función no exista. La aserción correcta es que esté dentro del `addEventListener("message")` y que no haya `clientsClaim()`.
+- **También pedía un ícono de 512px** y el manifest tiene un SVG con `sizes: "any"`, que Chrome acepta. Sumar un PNG grande al bundle de la PWA por una regla que no aplica sería pagar peso a cambio de nada.
+- **El flujo original se rompió al compartir la base con los nuevos.** Dos causas, las dos suyas y no de la app: su `adminApi` cambiaba el password sin fijarse si ya estaba cambiado, y el ranking de la landing lo abría **sin decir qué temporada** — con varias en la base, la primera era la de otro spec y no tenía nada publicado. Ahora el helper de admin es tolerante y el test navega con su `seasonId` en la URL.
+
+**Decisiones**
+
+- **Los helpers se extrajeron a `e2e/ayudas.ts`.** Estaban dentro de `flujo-completo.spec.ts`; copiarlos cinco veces habría dejado cinco versiones que se separan la primera vez que cambia una pantalla.
+- **`blanco-bloqueado` no verifica la pantalla del admin.** Eso ya lo cubre `torneo-ui.test.tsx` con el mismo `motivoDeBloqueo`; repetirlo acá obligaba a un login de admin por interfaz y sumaba fragilidad sin probar nada nuevo. El E2E se queda con lo que sólo él puede demostrar.
+- **`dos-dispositivos` manda las dos ops por API, no por clicks.** Lo que se prueba es la regla de resolución, y con clicks los dos relojes quedarían a merced de cuánto tarda cada uno. Acá el orden temporal es el dato del test.
+
+**Tests:** 5 escenarios nuevos, 7 tests. **Controles de mutación: 4, murieron 4** — uno por escenario, cada uno contra la regla que ese escenario existe para proteger:
+
+| Mutación | Lo detectó |
+|---|---|
+| Un error de red descarta las ops del outbox | `sesion-vencida` — el badge decía «Sincronizado» con el trabajo perdido |
+| Gana el que llega último, no el más reciente | `dos-dispositivos` — `applied` donde iba `superseded` |
+| Un blanco tirado deja de bloquearse | `blanco-bloqueado` — la lista de bloqueados vino vacía |
+| Entrar sin conexión deja de funcionar | `offline-recarga` |
+
+---
+
 ## 2026-08-13 · Los dos tests que `REF-6` dejó debiendo
 
 **Autor:** Claude Opus 5 · **Estado:** completado

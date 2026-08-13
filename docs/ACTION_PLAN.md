@@ -372,7 +372,8 @@ _(Hecho. Los 23 pasos, contra el stack real: MongoDB efímero en replica set má
 **Referencia:** [`TESTING.md`](TESTING.md) §6
 **DoD:** los 23 pasos del flujo, **incluyendo `context.setOffline(true)` para cargar el recorrido completo sin conexión** y la verificación de que todo sincroniza al reconectar · verde en CI.
 
-### `[ ] TEST-2` · E2E de escenarios adicionales · P1
+### `[x] TEST-2` · E2E de escenarios adicionales · P1
+_(**Los cinco, más los helpers compartidos en `e2e/ayudas.ts`.** Ocho tests E2E en total, 1,7 minutos. Cuatro controles de mutación, uno por escenario, los cuatro detectados. Dos hallazgos: el test de la PWA prohibía `skipWaiting()` a secas y fallaba contra un service worker correcto —con `prompt`, Workbox lo emite detrás del mensaje `SKIP_WAITING`, que es justo lo que hay que verificar— y el flujo original se rompió al compartir la base efímera, por cambiar el password sin fijarse y por abrir el ranking sin decir qué temporada. Ver [`BITACORA.md`](BITACORA.md).)_
 **DoD:** los 5 escenarios de `TESTING.md` §6 (recarga offline, dos dispositivos, sesión vencida, blanco bloqueado, PWA instalable).
 
 ### `[~] BE-14` · Auditoría de seguridad · **P0**

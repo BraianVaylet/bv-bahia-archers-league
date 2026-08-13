@@ -1,10 +1,5 @@
-import {
-  type APIRequestContext,
-  type BrowserContext,
-  expect,
-  type Page,
-  test,
-} from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { adminApi, entrarComoLider, FLECHAS, PASSWORD_NUEVO, PNG_VALIDO } from './ayudas.js';
 
 /**
  * El flujo completo, contra el stack real, **con un tramo sin conexión**.
@@ -15,9 +10,6 @@ import {
  *
  * Ver `docs/TESTING.md` §6.
  */
-
-const PASSWORD_INICIAL = 'password-inicial-e2e';
-const PASSWORD_NUEVO = 'un-password-de-admin-largo';
 
 /** El recorrido del brief: 6 blancos 3D, 6 de campo, 1 de aire libre, 1 de sala. */
 const RECORRIDO = [
@@ -30,66 +22,7 @@ const RECORRIDO = [
 /** 6×3D(2×11) + 6×campo(3×6) + aire libre(6×10) + sala(3×10) = 330. */
 const MAXIMO_ESPERADO = 330;
 
-/** PNG mínimo con su cabecera real: el servidor valida los primeros bytes. */
-const PNG_VALIDO = `data:image/png;base64,${Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
-]).toString('base64')}`;
-
-/** Tokens que se cargan en cada blanco, según su modalidad. */
-const FLECHAS: Record<string, string[]> = {
-  '3d': ['11', '10'],
-  campo: ['6', '5', '4'],
-  aire_libre: ['X', '10', '9', '8', '7', '6'],
-  sala: ['X', '10', '9'],
-};
-
-// ── Ayudas de API ────────────────────────────────────────────────────────────
-
-/**
- * Cliente de API con sesión de admin.
- *
- * Los pasos de preparación se hacen por API y no por interfaz a propósito: el
- * wizard ya está cubierto por sus propios tests, y hacer 20 altas a mano acá
- * haría el E2E lento y frágil sin verificar nada nuevo.
- */
-async function adminApi(request: APIRequestContext) {
-  const csrf = await request.get('/api/auth/csrf');
-  const token = (await csrf.json()).csrfToken as string;
-  const headers = { 'x-csrf-token': token };
-
-  await request.post('/api/auth/admin/login', {
-    headers,
-    data: { username: 'admin', password: PASSWORD_INICIAL },
-  });
-  await request.post('/api/auth/admin/password', {
-    headers,
-    data: { currentPassword: PASSWORD_INICIAL, newPassword: PASSWORD_NUEVO },
-  });
-
-  return {
-    headers,
-    get: async <T>(path: string): Promise<T> => (await request.get(path)).json() as Promise<T>,
-    post: async <T>(path: string, data?: unknown): Promise<T> =>
-      (await request.post(path, { headers, ...(data ? { data } : {}) })).json() as Promise<T>,
-  };
-}
-
 // ── Ayudas de interfaz ───────────────────────────────────────────────────────
-
-/** Entra a WAFL con las credenciales de una patrulla. */
-async function entrarComoLider(page: Page, tournamentId: string, username: string, pin: string) {
-  await page.goto('/app/wafl');
-
-  // Se espera la OPCIÓN, no el select: elegir un valor cuya opción todavía no
-  // cargó no hace nada, y el formulario quedaría vacío sin que se note.
-  await expect(page.getByRole('option', { name: /Fecha E2E/ })).toBeAttached();
-  await page.getByLabel('Torneo').selectOption(tournamentId);
-  await page.getByLabel('Patrulla').fill(username);
-  await page.getByLabel('PIN').fill(pin);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-
-  await expect(page.getByRole('button', { name: 'Resultados finales' })).toBeVisible();
-}
 
 /** Carga el recorrido completo de la patrulla desde la interfaz. */
 async function cargarRecorrido(page: Page) {
@@ -255,7 +188,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   const contexto: BrowserContext = await browser.newContext();
   const page = await contexto.newPage();
 
-  await entrarComoLider(page, tournament.id, primera.username, primera.pin);
+  await entrarComoLider(page, tournament.id, 'Fecha E2E', primera.username, primera.pin);
 
   /**
    * ▶ 10. Se corta la conexión.
@@ -371,7 +304,15 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   await publico.goto(`/torneos/${tournament.id}`);
   await expect(publico.getByTestId('podio-razo')).toBeVisible();
 
-  await publico.goto('/ranking');
+  /**
+   * Con la temporada en la URL, no con la que la landing elija por defecto.
+   *
+   * El ranking abre en la primera temporada de la lista, y los escenarios
+   * adicionales crean las suyas en la misma base efímera: sin esto, el test
+   * pasaba corriendo solo y fallaba en la suite, porque la temporada por
+   * defecto era la de otro spec y no tenía nada publicado.
+   */
+  await publico.goto(`/ranking?temporada=${season.id}`);
   await expect(publico.getByRole('heading', { name: 'Razo' })).toBeVisible();
   await anonimo.close();
 
