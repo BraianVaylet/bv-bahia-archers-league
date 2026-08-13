@@ -9,6 +9,7 @@
 - Usar un color para identificar cada categoria (compuesto libre, compuesto cazador, recurvo olimpico, razo, tradicional, longbow y escuela)
 - Usar un color para identificar cada una de las modalidades (sala, airelibre, juego de campo, 3D)
 - Usar los iconos de "bv-easy-archery-battle" para las modalidades (sala, airelibre, juego de campo, 3D) y aplicarlos en las apps donde corresponda.
+- Reutiliza la iconogradia de "bv-easy-archery", no solo las mensionadas previamente. sino tambien las que se usan en botones y otros componentes
 
 
 ## Landingpage

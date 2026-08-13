@@ -337,7 +337,7 @@ describe('flush', () => {
    * pierde: queda en `signatures` marcado en conflicto, con el motivo.
    */
   it('un 400 deja de reintentarse y destraba el outbox', async () => {
-    await writeSignature(P1, 'data:image/png;base64,' + 'A'.repeat(100));
+    await writeSignature(P1, `data:image/png;base64,${'A'.repeat(100)}`);
 
     configureSync({
       post: async () => {

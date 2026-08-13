@@ -51,16 +51,51 @@ El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de 
 
 El color nunca va solo: el chip de estaca lleva **siempre** el nombre escrito. Un daltónico lee "Azul"; el resto ve el color. Ninguno de los dos depende del otro.
 
-### 2.3 Colores de modalidad
+### 2.3 Colores de categoría y de modalidad
 
-Cada modalidad de blanco lleva un identificador visual propio, pero de **forma**, no de color: un glifo monocromo. El color está saturado de significado con las estacas; agregar cuatro colores más lo arruinaría.
+> **Esta sección se revirtió en `REF2-1`.** Antes decía que la modalidad se distinguía *«de forma, no de color»*, porque «el color está saturado de significado con las estacas; agregar cuatro colores más lo arruinaría». Con la app en la mano, encontrar la categoría de un arquero en una lista de veinte, o la modalidad de un blanco en un recorrido de catorce, sale demasiado lento leyendo texto.
+>
+> La advertencia era correcta y sigue en pie. Lo que cambió es que ahora hay **tres candados** en lugar de una prohibición.
 
-| Modalidad | Glifo |
-|---|---|
-| Sala | Anillos concéntricos cerrados |
-| Aire libre | Anillos con marca de distancia |
-| Juego de campo | Cara de campo (centro sólido, anillo exterior) |
-| 3D | Silueta de animal |
+Los valores viven en `@bal/shared/src/paleta.ts`, no en este documento: un color que se copia a mano a un `.md` se separa del que compila.
+
+**Candado 1 · El color nunca va solo.** Cada chip lleva su ícono y su texto. El color acelera el reconocimiento de algo que **ya está escrito**; no lo reemplaza. Es §10 aplicado sin excepción, y hay un test por categoría y por modalidad que lo comprueba.
+
+**Candado 2 · Categoría y modalidad se distinguen por forma.** La categoría es una **píldora**; la modalidad, un **rectángulo**. Por eso los dos ejes pueden compartir familia de color sin confundirse: nunca dicen lo mismo y nunca se ven iguales.
+
+Esto no es un adorno, es una necesidad aritmética. Excluyendo rojo, azul y amarillo —reservados por §2.2— quedan **seis familias de tono** utilizables para **once** valores. Sin la distinción de forma, el reparto no cierra.
+
+**Candado 3 · Otro registro visual.** Los tonos de estaca son saturados **a propósito**, para encontrarlos con el sol de frente. Los de categoría y modalidad son sordos, sobre fondo teñido y no en bloque. Pertenecen a otra capa de la interfaz y no compiten por esa atención.
+
+| Familia | Categorías | Modalidades |
+|---|---|---|
+| Teal | Recurvo olímpico | Aire libre |
+| Violeta | Compuesto libre | Sala |
+| Magenta | Compuesto cazador | — |
+| Verde | Razo, Longbow | Juego de campo |
+| Tierra apagada | Tradicional | 3D |
+| Neutro | Escuela | — |
+
+`escuela` es la única **neutra**, y no por falta de tonos: es la única categoría que no es senior y la única que no puntúa para el ranking. Que no tenga color propio dice eso mismo sin una nota al pie.
+
+**Dos tests sostienen todo esto**, y los dos fallan con valores que a ojo parecen razonables:
+
+- Cada color llega a **AA contra el fondo de su tema**.
+- Ningún color se confunde con una estaca: no puede estar a menos de 25° de tono **y** ser saturado a la vez. Un tierra apagado no se lee como «roja»; un rojo vivo sí.
+
+> El segundo test rechazó tres de los once colores del primer intento. El oliva de `razo` estaba a 22° del amarillo de estaca con saturación 1,0 — un oliva **es** un amarillo oscuro—, y lo mismo el marrón de `tradicional` y el óxido de `3d` respecto del rojo. No se veían mal; se veían como estacas.
+
+Los glifos de modalidad siguen siendo los mismos, y ahora también hay uno por categoría:
+
+| Modalidad | Glifo | | Categoría | Glifo |
+|---|---|---|---|---|
+| Sala | Anillos concéntricos | | Compuesto libre | Mira de scope con un pin |
+| Aire libre | Sol sobre el horizonte | | Compuesto cazador | Anillo de mira con tres pines |
+| Juego de campo | Terreno con pinos | | Razo | Flecha con emplumado |
+| 3D | Silueta de animal | | Recurvo olímpico | Arco con estabilizador |
+| | | | Tradicional | Arco de palas recurvadas |
+| | | | Longbow | Arco largo en D |
+| | | | Escuela | Diana con la flecha en camino |
 
 ### 2.4 Contraste
 

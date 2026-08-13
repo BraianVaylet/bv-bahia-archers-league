@@ -11,9 +11,11 @@
 
 export * from './constants.js';
 export * from './domain.js';
+export * from './estados.js';
 export * from './fechas.js';
 export * from './league.js';
 export * from './numeros.js';
+export * from './paleta.js';
 export * from './patrolling.js';
 export * from './podio.js';
 export * from './ranking.js';

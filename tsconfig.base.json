@@ -26,7 +26,8 @@
     "baseUrl": ".",
     "paths": {
       "@bal/shared": ["./packages/shared/src/index.ts"],
-      "@bal/shared/*": ["./packages/shared/src/*"]
+      "@bal/shared/*": ["./packages/shared/src/*"],
+      "@bal/ui": ["./packages/ui/src/index.ts"]
     }
   }
 }

@@ -80,6 +80,25 @@
   --stake-amarilla: #f5c518;
 }
 
+/**
+ * Chips de categoría y modalidad.
+ *
+ * El componente emite sus dos variantes de color como variables inline
+ * (`--chip` y `--chip-oscuro`) y **el tema elige acá**, en CSS. Resolverlo en
+ * JavaScript obligaría a re-renderizar al conmutar el tema y dejaría un frame
+ * con el color anterior.
+ *
+ * Los valores viven en `@bal/shared/src/paleta.ts`, con un test que verifica
+ * que llegan a contraste AA y que ninguno se confunde con una estaca.
+ */
+[data-chip] {
+  --chip-actual: var(--chip);
+}
+
+:root[data-theme='dark'] [data-chip] {
+  --chip-actual: var(--chip-oscuro);
+}
+
 @layer base {
   * {
     border-color: var(--line);

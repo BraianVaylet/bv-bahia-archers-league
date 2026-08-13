@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "rootDir": "src",
+    "outDir": "dist",
+    /**
+     * `tsconfig.base.json` mapea `@bal/shared` a su código fuente, que es lo
+     * que quieren las aplicaciones: typecheckean contra lo último sin tener que
+     * compilar `shared` primero.
+     *
+     * Acá no sirve. Este paquete **emite** a `dist`, y con ese mapeo las
+     * fuentes de `shared` caen fuera de su `rootDir`. Se anula para que la
+     * resolución vaya por `node_modules` a los tipos ya compilados.
+     */
+    "paths": {}
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}
