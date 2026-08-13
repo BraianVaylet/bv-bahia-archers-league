@@ -138,21 +138,36 @@ Nada visual todavía. Es la base que las seis tandas siguientes consumen, y la q
 
 ---
 
-### `[ ] REF2-2` · La marca: logo, imágenes y footers · **P0**
+### `[x] REF2-2` · La marca: logo, imágenes y footers · **P0**
 
 **Archivos:** `scripts/imagenes.mjs` (nuevo), `shared/assets/`, `packages/ui/src/{Logo,Footer}.tsx`
 
-- [ ] `scripts/imagenes.mjs`: redimensiona con Playwright y deja registrado el origen y el tamaño de cada asset
-- [ ] **`wallpaper.png` de 2,8 MB** → ancho de portada, formato y peso acotados. Es el hallazgo 4
-- [ ] **PNG del CBA a ~256 px** — la deuda abierta de `REF-4`
-- [ ] `Logo` de la Liga: el arte de `bv-easy-archery-battle` **con el verde de acento** (`--nock`), no los colores de aquel repo
-- [ ] Logo en el header de landing, WAFA y WAFL
-- [ ] `Footer` en las tres apps, con el logo de la Liga y el del CBA
+- [x] `scripts/imagenes.mjs`: redimensiona con Playwright y deja registrado el origen y el tamaño de cada asset
+- [x] **`wallpaper.png` de 2,8 MB** → `portada.webp`, 1120px, **130,8 KB**
+- [x] **Logo del CBA** → `cba.webp`, 192px, **18,3 KB**. Salda la deuda de `REF-4`
+- [x] `Logo` de la Liga con el verde de acento
+- [x] Logo en el header de las tres apps
+- [x] `Footer` en las tres apps
+- [x] **El ícono de la PWA, que no existía** — ver la nota de cierre
 
 **DoD:** ninguna imagen de más de 150 KB en `shared/assets` · el presupuesto de la landing sigue en verde · el logo se ve bien en claro y en oscuro.
 **Tests:** que el footer nombre a la Liga y al CBA con texto, no sólo con imágenes · `alt` en las dos.
 
 > El logo del CBA **es de un club, no del proyecto**: se usa tal cual, sin reinterpretarlo. El de la Liga es original.
+>
+> **Cerrada el 2026-08-13**, con un defecto encontrado de paso y un test propio que no servía.
+>
+> **El manifest declaraba `/app/icon.svg` y ese archivo no existía.** La PWA se anunciaba instalable con un ícono que daba 404 — en Android eso es un ícono en blanco o una instalación que no arranca. El test de `pwa-instalable` no lo veía porque comprobaba los **campos declarados** del manifest, no que el ícono se sirviera.
+>
+> **Y la primera corrección tampoco servía.** Agregué la comprobación del ícono, pasó en verde, y al borrar el archivo para controlarla **siguió pasando**: el servidor devuelve `index.html` para cualquier ruta desconocida —es lo que hace andar el ruteo del cliente— así que un ícono inexistente responde 200 con una página HTML. Ahora se verifica el `content-type` y que el cuerpo empiece con `<svg>`. Lo destapó la mutación, no la corrida en verde.
+>
+> **El logo nuevo saca una excepción a la regla 8.** El anterior usaba los tres colores de estaca como identidad (`REF-4`): era el único lugar de la interfaz donde un color de estaca significaba otra cosa. Con `REF2-1` agregando once colores, dejar esa excepción en la marca era pedir confusión.
+>
+> **Los originales salieron de `shared/assets/`.** Esa carpeta se empaqueta y se publica con `@bal/shared`; un PNG de 2,8 MB no tiene por qué viajar con la biblioteca. Ahora viven en `origen/` y el script genera las salidas.
+>
+> El script **no elige el tamaño por mí**: tiene un presupuesto por archivo y sale con error si no entra. Rechazó dos configuraciones antes de la que quedó, y la del CBA a 256px en PNG pesaba 55,7 KB contra un máximo de 30.
+>
+> 1025 tests, 8 de 8 E2E. **3 controles de mutación, murieron 3** — el del ícono en dos vueltas: la primera sobrevivió.
 
 ---
 

@@ -4,7 +4,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.1.
  */
 
-import logoLiga from '@bal/shared/assets/liga.svg';
+import { Logo } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Button, Field, Screen } from '../../components/ui.js';
 import { ApiError } from '../../lib/apiClient.js';
@@ -41,7 +41,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
     <Screen>
       <div className="pt-10 pb-2">
         <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold flex items-center gap-3">
-          <img src={logoLiga} alt="" width={40} height={40} className="shrink-0" />
+          <Logo size={40} className="shrink-0" />
           WAFA
         </h1>
         <p className="text-[var(--ink-muted)]">Administración de la Liga Bahiense</p>

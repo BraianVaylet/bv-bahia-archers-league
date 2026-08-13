@@ -8,8 +8,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import logoLiga from '@bal/shared/assets/liga.svg';
-import { BotonTema, cn, StakeChip } from '@bal/ui';
+import { BotonTema, cn, Logo, StakeChip } from '@bal/ui';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -37,7 +36,7 @@ export function Encabezado() {
         >
           {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice
               de qué liga se trata, ni se lee en un lector de pantalla. */}
-          <img src={logoLiga} alt="" width={28} height={28} className="shrink-0" />
+          <Logo size={28} className="shrink-0" />
           Liga Bahiense
         </Link>
         <div className="flex gap-4 text-sm">
