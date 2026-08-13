@@ -414,16 +414,43 @@ describe('editar hasta la firma', () => {
   });
 
   /**
-   * PENDIENTE — el guard del teclado está puesto y sin test que lo respalde.
+   * El teclado se APAGA para un arquero que ya firmó.
    *
-   * El teclado SÍ se renderiza para un arquero firmado —es el mismo para todos—
-   * así que el guard de `agregarFlecha` es lo único que lo frena. El test que
-   * escribí pasaba **con el guard sacado a mano**: la aserción llegaba antes de
-   * que drenara la cola de escrituras. Al reescribirlo usando la escritura de
-   * otro arquero como señal de que la cola pasó, no logré que la selección del
-   * segundo arquero funcionara desde el test.
-   *
-   * Queda anotado: lo que sí está cubierto es que el botón de borrar desaparece
-   * y que la pantalla explica por qué. El guard del handler, no.
+   * Antes seguía encendido y el guard del handler tragaba el toque en
+   * silencio. El propio design system lo dice: un botón que parece activo y no
+   * hace nada es peor que uno apagado. Y así el test verifica algo visible en
+   * vez de depender de que la cola de escrituras haya drenado — que es cómo el
+   * intento anterior pasaba con el guard sacado a mano.
    */
+  it('firmado, el teclado queda deshabilitado', async () => {
+    await writeScore(P1, 1, ['11']);
+    await writeSignature(P1, PNG);
+    renderBlanco();
+
+    await screen.findByText('Blanco 1');
+
+    const teclas = within(screen.getByTestId('score-keypad')).getAllByRole('button');
+    expect(teclas.length).toBeGreaterThan(0);
+    for (const tecla of teclas) {
+      expect((tecla as HTMLButtonElement).disabled).toBe(true);
+    }
+  });
+
+  it('y dice por qué está apagado', async () => {
+    await writeScore(P1, 1, ['11']);
+    await writeSignature(P1, PNG);
+    renderBlanco();
+
+    expect(await screen.findByText(/ya firmó/)).toBeDefined();
+  });
+
+  it('para el que NO firmó sigue encendido', async () => {
+    await writeScore(P2, 1, ['11']);
+    renderBlanco();
+
+    await screen.findByText('Blanco 1');
+    expect((screen.getByRole('button', { name: 'Puntaje 11' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
 });

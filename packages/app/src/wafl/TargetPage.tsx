@@ -185,6 +185,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
       <div className="sticky bottom-0 mt-auto flex flex-col gap-2">
         <ScoreKeypad
           modality={target.modality}
+          bloqueado={firmados.has(seleccionado)}
           cargadas={cargadas}
           total={target.arrows}
           onToken={agregarFlecha}

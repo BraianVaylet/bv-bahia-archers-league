@@ -237,7 +237,7 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 ## Pendiente de las tandas anteriores
 
 - **El PNG del CBA** (`REF-4`): 2000×2000 y 183 KB, sin herramienta en el repo para achicarlo. Redimensionar a ~256px y sumarlo a `shared/assets`.
-- **Dos tests de WAFL** (`REF-6`): el guard del teclado para arqueros firmados, y el limpiado de patrulla al cambiar de torneo. El comportamiento está; la prueba no. Anotados en su archivo.
+- ~~**Dos tests de WAFL** (`REF-6`)~~ — **saldados el 2026-08-13.** Ninguno se arregló insistiendo con el test: el del teclado destapó una pantalla que mentía —seguía encendido y se tragaba el toque— y el otro probaba de más. Ver [bitácora](../../BITACORA.md).
 - **`db:reconcile` al mergear `REF-2`**: las temporadas ya publicadas necesitan recalcular sus acumulados. Hoy no hay datos de producción, así que el costo es cero — y deja de serlo apenas se corra el primer torneo real.
 
 ---
