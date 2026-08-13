@@ -180,3 +180,37 @@ export async function cargarBlanco(page: Page, posicion: number, modality: strin
 
   await page.getByRole('button', { name: 'Continuar' }).click();
 }
+
+/**
+ * Firma como firma una persona: varios trazos, no una raya.
+ *
+ * **La diferencia importa y no es estética.** El E2E dibujaba una sola línea
+ * recta, y una línea recta comprime a ~50 KB mientras una firma real de varios
+ * trazos pesa ~105 KB. Con el límite del schema en 60 KB, el test pasaba y la
+ * app fallaba en la mano del líder: cuatro firmas rechazadas con 400 y el
+ * outbox trabado. Ver `BITACORA.md`, entrada del 2026-08-13.
+ */
+export async function firmarDeVerdad(
+  page: Page,
+  caja: { x: number; y: number; width: number; height: number },
+): Promise<void> {
+  const medio = caja.y + caja.height / 2;
+  const paso = caja.width / 40;
+
+  await page.mouse.move(caja.x + paso, medio);
+  await page.mouse.down();
+
+  // Rulos: es lo que hace pesado al PNG, y es lo que hace una firma.
+  for (let i = 1; i < 38; i++) {
+    const x = caja.x + paso * i;
+    const alto = (caja.height / 2.5) * Math.sin(i / 1.7);
+    await page.mouse.move(x, medio + alto, { steps: 6 });
+  }
+  await page.mouse.up();
+
+  // Segundo trazo: el subrayado que casi toda firma tiene abajo.
+  await page.mouse.move(caja.x + paso * 2, medio + caja.height / 3);
+  await page.mouse.down();
+  await page.mouse.move(caja.x + caja.width - paso * 2, medio + caja.height / 4, { steps: 30 });
+  await page.mouse.up();
+}

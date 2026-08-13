@@ -25,6 +25,7 @@
     "docker:build": "docker build -t bal ."
   },
   "devDependencies": {
+    "@bal/shared": "workspace:^",
     "@biomejs/biome": "2.5.7",
     "@hono/node-server": "^2.1.0",
     "@playwright/test": "^1.62.1",

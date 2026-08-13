@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@bal/shared':
+        specifier: workspace:^
+        version: link:packages/shared
       '@biomejs/biome':
         specifier: 2.5.7
         version: 2.5.7
