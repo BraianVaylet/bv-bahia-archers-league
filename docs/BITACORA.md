@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-4` — la identidad aplicada
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Badges de estado, chips de categoría y modalidad, y el renglón que dice de qué está hecho el recorrido.
+
+### Lo único con lógica real era el reparto de porcentajes
+
+Y no es formateo. Con catorce blancos, seis en 3D son el **42,857…%**: redondear cada parte por su cuenta da 99% o 101%. Un renglón que dice «50% campo · 21% 3D · 29% sala» y no suma cien hace dudar del resto de la pantalla.
+
+Se usa el **método del resto mayor** —el mismo con el que se reparten bancas, y por la misma razón—. El test que importa no es ninguno de los ejemplos sino el barrido sobre 30 totales × 7 repartos: los ejemplos documentan, la propiedad protege. Los ejemplos, de hecho, casi no sirven acá: el recorrido de referencia da 100 **de casualidad** incluso con el redondeo ingenuo. El que rompe es el de tres partes iguales.
+
+### La distribución la calcula el servidor
+
+El listado no manda los blancos. Mandarlos para que el cliente los cuente sería enviar catorce objetos por torneo para mostrar cuatro números.
+
+### Un pendiente que dejo dicho
+
+**Los glifos de texto no pasaron a íconos.** Los íconos existen desde `REF2-1`, pero `BotonIcono` recibe un `glifo: string`: cambiarlos toca la firma del componente y las cuatro pantallas que lo usan. `REF2-5` ya rehace esos mismos botones para agregar subir y bajar, así que entra ahí. Hacerlo dos veces sobre el mismo componente es fabricar un conflicto.
+
+### Y una tercera copia de las etiquetas de estado
+
+`REF2-1` unificó dos —la ficha del torneo y la landing— y apareció una tercera: los títulos de grupo de la home de WAFA, con palabras distintas otra vez. Ahora los cuatro salen de `ESTADO_DE_TORNEO`.
+
+**Tests:** 11 de reparto porcentual, 2 de la tarjeta, 2 del chip con porcentaje. 1040 en verde, 8 de 8 E2E. **Controles de mutación: 4, murieron 4.**
+
+---
+
 ## 2026-08-13 · `REF2-2` — la marca, y un ícono que no existía
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -7,7 +7,13 @@
  * Ver `docs/FUNCTIONAL.md` §6.2.
  */
 
-import { formatearFecha, type TournamentStatus } from '@bal/shared';
+import {
+  ESTADO_DE_TORNEO,
+  formatearFecha,
+  type ParteDeModalidad,
+  type TournamentStatus,
+} from '@bal/shared';
+import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Encabezado, Screen } from '../../components/ui.js';
@@ -22,19 +28,18 @@ export interface TournamentRow {
   readonly patrolCount: number;
   readonly participantCount: number;
   readonly maxPossibleScore: number;
+  /** Qué proporción del recorrido es de cada modalidad. La calcula el servidor. */
+  readonly modalities?: readonly ParteDeModalidad[];
 }
 
-/** Orden de los grupos: primero lo que está pasando ahora. */
-const GRUPOS: readonly { status: TournamentStatus; titulo: string; vacio: string }[] = [
-  { status: 'en_proceso', titulo: 'En proceso', vacio: 'No hay ningún torneo corriendo.' },
-  { status: 'sin_iniciar', titulo: 'Sin iniciar', vacio: 'No hay torneos preparados.' },
-  {
-    status: 'completado',
-    titulo: 'Completados, sin publicar',
-    vacio: 'Nada pendiente de publicar.',
-  },
-  { status: 'publicado', titulo: 'Publicados', vacio: 'Todavía no se publicó ningún torneo.' },
-];
+/**
+ * Orden de los grupos: primero lo que está pasando ahora.
+ *
+ * El texto de cada uno sale de `ESTADO_DE_TORNEO`, no de una copia local: estos
+ * títulos estaban escritos acá y otra vez en la ficha del torneo, con palabras
+ * distintas para el mismo estado.
+ */
+const ORDEN: readonly TournamentStatus[] = ['en_proceso', 'sin_iniciar', 'completado', 'publicado'];
 
 function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
   return (
@@ -54,6 +59,16 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
         {torneo.targetCount} blancos · {torneo.participantCount} arqueros · {torneo.patrolCount}{' '}
         patrullas
       </p>
+
+      {/* Renglón nuevo: de qué está hecho el recorrido. Con el ícono y el
+          nombre al lado del porcentaje, no sólo el color. */}
+      {torneo.modalities && torneo.modalities.length > 0 && (
+        <p className="mt-1.5 flex flex-wrap gap-1.5" data-testid="modalidades">
+          {torneo.modalities.map((m) => (
+            <ChipModalidad key={m.modality} modality={m.modality} pct={m.pct} compacto />
+          ))}
+        </p>
+      )}
     </Link>
   );
 }
@@ -116,17 +131,18 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
 
         {torneos !== undefined &&
           torneos.length > 0 &&
-          GRUPOS.map(({ status, titulo, vacio }) => {
+          ORDEN.map((status) => {
+            const info = ESTADO_DE_TORNEO[status];
             const delGrupo = torneos.filter((t) => t.status === status);
 
             return (
               <section key={status} className="flex flex-col gap-2">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                  {titulo}
+                  {info.plural}
                 </h2>
 
                 {delGrupo.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-muted)]">{vacio}</p>
+                  <p className="text-sm text-[var(--ink-muted)]">{info.vacio}</p>
                 ) : (
                   delGrupo.map((t) => <TarjetaTorneo key={t.id} torneo={t} />)
                 )}

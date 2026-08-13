@@ -130,3 +130,21 @@ describe('StakeChip', () => {
     expect((grande.firstChild as HTMLElement).className).toContain('h-7');
   });
 });
+
+describe('ChipModalidad con porcentaje', () => {
+  /**
+   * El número va **dentro del chip**, con su ícono y su nombre. En un renglón
+   * aparte habría que emparejar «43%» con «3D» a ojo.
+   */
+  it('muestra el porcentaje junto a la modalidad', () => {
+    render(<ChipModalidad modality="campo" pct={43} />);
+
+    expect(screen.getByText('43%')).toBeInTheDocument();
+    expect(screen.getByText(SCORING.campo.label)).toBeInTheDocument();
+  });
+
+  it('sin porcentaje no inventa uno', () => {
+    render(<ChipModalidad modality="campo" />);
+    expect(screen.queryByText(/%$/)).toBeNull();
+  });
+});

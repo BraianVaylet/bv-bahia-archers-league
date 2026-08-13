@@ -10,6 +10,7 @@
  */
 
 export * from './constants.js';
+export * from './distribucion.js';
 export * from './domain.js';
 export * from './estados.js';
 export * from './fechas.js';

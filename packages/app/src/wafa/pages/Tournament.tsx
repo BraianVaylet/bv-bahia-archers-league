@@ -7,7 +7,8 @@
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { CATEGORY_INFO, formatearFecha, SCORING, type TournamentStatus } from '@bal/shared';
+import { formatearFecha, type SCORING, type TournamentStatus } from '@bal/shared';
+import { BadgeEstado, ChipCategoria, ChipModalidad } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
@@ -29,13 +30,6 @@ interface Torneo {
   readonly maxPossibleScore: number;
   readonly participantCount: number;
 }
-
-const ETIQUETA_ESTADO: Record<TournamentStatus, string> = {
-  sin_iniciar: 'Sin iniciar',
-  en_proceso: 'En proceso',
-  completado: 'Completado, sin publicar',
-  publicado: 'Publicado',
-};
 
 // ── Desbloqueo de firma ──────────────────────────────────────────────────────
 
@@ -272,7 +266,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                 {torneo.name}
               </h1>
               <p className="text-[var(--ink-muted)]" data-testid="estado">
-                {ETIQUETA_ESTADO[torneo.status]} · {formatearFecha(torneo.date)} ·{' '}
+                <BadgeEstado status={torneo.status} compacto /> · {formatearFecha(torneo.date)} ·{' '}
                 {torneo.participantCount} arqueros · máximo {torneo.maxPossibleScore}
               </p>
             </div>
@@ -404,8 +398,9 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                       data-testid={`blanco-${t.index}`}
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <span>
-                          {t.index}. {SCORING[t.modality].label}
+                        <span className="flex items-center gap-2">
+                          {t.index}.
+                          <ChipModalidad modality={t.modality} compacto />
                         </span>
                         <span className="text-sm text-[var(--ink-muted)] tabular-nums">
                           {t.arrows} flechas
@@ -439,10 +434,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                       data-testid={`participante-${p.lastName}`}
                     >
                       <span className="min-w-0 truncate">
-                        {p.lastName}, {p.firstName}{' '}
-                        <span className="text-sm text-[var(--ink-muted)]">
-                          {CATEGORY_INFO[p.category].label}
-                        </span>
+                        {p.lastName}, {p.firstName} <ChipCategoria category={p.category} compacto />
                       </span>
                       <span className="tabular-nums font-medium shrink-0">
                         {p.targetsCompleted}/{torneo.targets.length}

@@ -66,7 +66,21 @@ export function ChipCategoria({
 }
 
 /** Modalidad del blanco. Rectángulo. */
-export function ChipModalidad({ modality, compacto }: ChipProps & { readonly modality: Modality }) {
+export function ChipModalidad({
+  modality,
+  compacto,
+  pct,
+}: ChipProps & {
+  readonly modality: Modality;
+  /**
+   * Qué proporción del recorrido ocupa.
+   *
+   * Va **dentro del mismo chip** y no en un renglón aparte: el número y aquello
+   * de lo que habla tienen que poder leerse de un vistazo. Separados, hay que
+   * emparejarlos con la vista.
+   */
+  readonly pct?: number;
+}) {
   const Icono = ICONO_DE_MODALIDAD[modality];
 
   return (
@@ -81,6 +95,7 @@ export function ChipModalidad({ modality, compacto }: ChipProps & { readonly mod
     >
       <Icono size={compacto ? 14 : 16} />
       <span>{SCORING[modality].label}</span>
+      {pct !== undefined && <span className="font-semibold tabular-nums">{pct}%</span>}
     </span>
   );
 }
@@ -109,6 +124,7 @@ export function BadgeEstado({ status, publico, compacto }: BadgeEstadoProps) {
 
   return (
     <span
+      data-testid="estado-torneo"
       data-estado={status}
       style={{ backgroundColor: info.color }}
       className={cn(

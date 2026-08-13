@@ -193,21 +193,34 @@ Todo lo que WAFA y la landing necesitan del servidor. **Antes** que las pantalla
 
 ---
 
-### `[ ] REF2-4` · La identidad aplicada · **P1**
+### `[x] REF2-4` · La identidad aplicada · **P1**
 
 Ya con los catálogos y el backend listos, la pasada visual sobre las tres apps.
 
 **Archivos:** `wafa/pages/{Home,Tournament,Archers}.tsx`, `landing/pages/Tournaments.tsx`, `wafl/CircuitPage.tsx`
 
-- [ ] **Badge de color por estado** en WAFA y en la landing, del catálogo de `REF2-1`
-- [ ] **Chip de categoría** con su color y su ícono, donde hoy sólo hay texto
-- [ ] **Chip de modalidad** con color e ícono
-- [ ] **Distribución de modalidades** en el listado de torneos: un renglón nuevo con los porcentajes
-- [ ] Los glifos de texto pasan a íconos
+- [x] **Badge de color por estado** en WAFA y en la landing, del catálogo de `REF2-1`
+- [x] **Chip de categoría** en la ficha del torneo, el padrón y el editor de patrullas
+- [x] **Chip de modalidad**, con el porcentaje adentro
+- [x] **Distribución de modalidades** en los dos listados de torneos
+- [x] `repartirPorcentajes` en `@bal/shared`, con TDD
+- [~] Los glifos de texto pasan a íconos — ver la nota de cierre
 
 **DoD:** ningún color es el único portador de información · todo ícono tiene texto o `aria-label` · el mismo estado se ve igual en las tres apps.
 **Tests:** que los porcentajes de modalidad **sumen 100** con cualquier reparto de blancos, incluidos los que no dividen exacto.
 **Mutaciones:** redondear cada porcentaje por separado y ver que la suma se rompe.
+
+> **Cerrada el 2026-08-13.**
+>
+> **El reparto porcentual no era formateo.** Con catorce blancos, seis en 3D son el 42,857…%, y redondear cada parte por su cuenta da 99% o 101%. Se resolvió con el método del resto mayor —el mismo con el que se reparten bancas, y por la misma razón: el total tiene que cerrar—. El barrido sobre 30 totales × 7 repartos es el test que importa; los de ejemplo sólo documentan casos.
+>
+> **La distribución la calcula el servidor.** El listado no manda los blancos, y mandarlos para que el cliente los cuente sería enviar catorce objetos por torneo para mostrar cuatro números.
+>
+> **Los glifos de texto quedaron pendientes.** Los íconos de acción existen desde `REF2-1` pero `BotonIcono` recibe un `glifo: string`, así que cambiarlos toca la firma del componente y las cuatro pantallas que lo usan. Entra en `REF2-5`, que ya rehace esos botones para agregar subir y bajar: hacerlo dos veces sobre el mismo componente es pedir un conflicto.
+>
+> De paso, los títulos de grupo de la home salían de una copia local con palabras distintas a las de la ficha. Ahora los cuatro salen de `ESTADO_DE_TORNEO`.
+>
+> 1040 tests, 8 de 8 E2E. **4 controles de mutación, murieron 4.** Presupuestos: PWA 117,13 KB gz de 150, landing 98,34 KB de 120.
 
 ---
 
