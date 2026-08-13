@@ -7,7 +7,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.2.
  */
 
-import { formatearFechaCorta, type TournamentStatus } from '@bal/shared';
+import { formatearFecha, type TournamentStatus } from '@bal/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Encabezado, Screen } from '../../components/ui.js';
@@ -43,12 +43,13 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
       className="block min-h-[44px] rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
       data-testid={`torneo-${torneo.id}`}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold">{torneo.name}</span>
-        <span className="text-sm text-[var(--ink-muted)] tabular-nums">
-          {formatearFechaCorta(torneo.date)}
-        </span>
-      </div>
+      {/* Tres renglones, uno por pregunta: cuál es, cuándo es, qué tan grande.
+          Apretados en dos, el nombre y la fecha competían por el ancho y en un
+          celular el nombre largo se cortaba. */}
+      <p className="font-semibold">{torneo.name}</p>
+
+      <p className="text-sm text-[var(--ink-muted)] tabular-nums">{formatearFecha(torneo.date)}</p>
+
       <p className="text-sm text-[var(--ink-muted)]">
         {torneo.targetCount} blancos · {torneo.participantCount} arqueros · {torneo.patrolCount}{' '}
         patrullas

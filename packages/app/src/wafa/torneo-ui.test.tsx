@@ -362,3 +362,78 @@ describe('PublishPage', () => {
     );
   });
 });
+
+// ── REF-5 · Editar y eliminar un torneo sin iniciar ──────────────────────────
+
+/**
+ * Sólo mientras nadie tiró. Una vez iniciado, el recorrido está descargado en
+ * los celulares de los líderes y cambiarlo dejaría la app y el papel diciendo
+ * cosas distintas.
+ */
+describe('editar y eliminar el torneo', () => {
+  const sinIniciar = () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+  };
+
+  it('con el torneo en proceso NO ofrece ni editar ni eliminar', async () => {
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('estado');
+
+    expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+  });
+
+  it('editar abre el formulario con lo que ya tiene cargado', async () => {
+    sinIniciar();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByTestId('editar-torneo')).toBeDefined();
+    expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe(TORNEO.name);
+  });
+
+  it('guardar manda PATCH y recarga', async () => {
+    sinIniciar();
+    servidor({ 'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Nombre nuevo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => {
+      const patch = llamadas.find((l) => l.method === 'PATCH');
+      expect(patch?.body).toMatchObject({ name: 'Nombre nuevo' });
+    });
+  });
+
+  /**
+   * Borrar pide dos toques sobre el mismo botón. Sin `confirm()` —bloquea el
+   * hilo y en un celular saca del contexto— ni modal, que taparía la pantalla.
+   */
+  it('el primer toque en Eliminar NO borra: avisa qué se va a perder', async () => {
+    sinIniciar();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar' }));
+
+    expect(llamadas.some((l) => l.method === 'DELETE')).toBe(false);
+    expect(screen.getByText(/Tocá de nuevo para confirmar/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Confirmar borrado' })).toBeDefined();
+  });
+
+  it('el segundo toque sí borra', async () => {
+    sinIniciar();
+    servidor({ 'DELETE /api/admin/tournaments/t1': () => ({ json: { ok: true } }) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar borrado' }));
+
+    await waitFor(() => {
+      expect(llamadas.some((l) => l.method === 'DELETE')).toBe(true);
+    });
+  });
+});

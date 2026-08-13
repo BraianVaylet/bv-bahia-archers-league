@@ -10,7 +10,7 @@
 import { CATEGORY_INFO, formatearFecha, SCORING, type TournamentStatus } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type AvanceDePatrulla,
@@ -172,6 +172,17 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
   const [bloqueados, setBloqueados] = useState<number[]>([]);
   const [error, setError] = useState<string>();
   const [iniciando, setIniciando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
+  /**
+   * Borrar pide dos toques.
+   *
+   * No hay `confirm()` —bloquea el hilo y en un celular sale del contexto— ni
+   * modal: el segundo toque sobre el mismo botón, con el texto cambiado, dice
+   * lo mismo y no tapa la pantalla.
+   */
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [editando, setEditando] = useState<Torneo>();
 
   const cargar = useCallback(async () => {
     try {
@@ -204,6 +215,38 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
       setError(err instanceof ApiError ? err.message : 'No se pudo iniciar el torneo.');
     } finally {
       setIniciando(false);
+    }
+  };
+
+  const guardarDatos = async () => {
+    if (!editando) return;
+    try {
+      await api.patch(`/admin/tournaments/${id}`, {
+        name: editando.name.trim(),
+        date: editando.date.slice(0, 10),
+      });
+      setEditando(undefined);
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar los cambios.');
+    }
+  };
+
+  const eliminar = async () => {
+    if (!confirmandoBorrado) {
+      setConfirmandoBorrado(true);
+      return;
+    }
+
+    setEliminando(true);
+    try {
+      await api.del(`/admin/tournaments/${id}`);
+      onVolver();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo eliminar el torneo.');
+      setConfirmandoBorrado(false);
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -259,6 +302,69 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                     {torneo.status === 'publicado' ? 'Ver resultados' : 'Revisar y publicar'}
                   </Button>
                 </Link>
+              )}
+
+              {/* Sólo mientras nadie tiró. Una vez iniciado, el recorrido está
+                  descargado en los celulares de los líderes y cambiarlo dejaría
+                  la app y el papel diciendo cosas distintas. */}
+              {torneo.status === 'sin_iniciar' && (
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variante="secundario"
+                    className="flex-1"
+                    onClick={() => setEditando(editando ? undefined : { ...torneo })}
+                  >
+                    {editando ? 'Cancelar edición' : 'Editar'}
+                  </Button>
+
+                  <Button
+                    variante="peligro"
+                    disabled={eliminando}
+                    onClick={() => void eliminar()}
+                    className="flex-1"
+                  >
+                    {confirmandoBorrado ? 'Confirmar borrado' : 'Eliminar'}
+                  </Button>
+                </div>
+              )}
+
+              {confirmandoBorrado && (
+                <p role="status" className="text-sm text-[var(--danger)]">
+                  Se van a borrar el torneo, sus patrullas y sus credenciales. Tocá de nuevo para
+                  confirmar.
+                </p>
+              )}
+
+              {/* Sólo nombre, fecha y descripción. El recorrido tiene sus
+                  propias reglas —un blanco con puntajes está bloqueado— y se
+                  edita desde su pantalla, no de refilón acá. */}
+              {editando && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void guardarDatos();
+                  }}
+                  className="flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+                  data-testid="editar-torneo"
+                >
+                  <Field
+                    label="Nombre"
+                    value={editando.name}
+                    onChange={(e) => setEditando({ ...editando, name: e.target.value })}
+                    required
+                  />
+                  <Field
+                    label="Fecha"
+                    type="date"
+                    value={editando.date.slice(0, 10)}
+                    onChange={(e) => setEditando({ ...editando, date: e.target.value })}
+                    required
+                  />
+
+                  <Button type="submit" ancho disabled={editando.name.trim().length < 3}>
+                    Guardar cambios
+                  </Button>
+                </form>
               )}
             </nav>
 

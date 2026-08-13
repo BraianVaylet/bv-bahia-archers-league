@@ -51,10 +51,20 @@ describe('iconografía', () => {
         .filter(({ linea }) => !linea.includes('──'))
         .filter(({ linea }) => !linea.includes('aria-hidden'))
         .filter(({ linea }) => !linea.includes('aria-label'))
-        // `textoVolver="← Blancos"` lleva su propio texto al lado de la flecha.
-        // Con `\s*`: la prop se escribe pegada en el JSX y con espacios en la
-        // firma del componente, y sin eso el default se marcaba como sospechoso.
-        .filter(({ linea }) => !/texto\w*\s*=/.test(linea));
+        /**
+         * Props cuyo destino se hace cargo de la accesibilidad:
+         *
+         * - `textoVolver="← Blancos"` lleva su propio texto al lado de la flecha.
+         * - `glifo="✎"` va a `BotonIcono`, que lo pinta con `aria-hidden` y le
+         *   pone el nombre desde `etiqueta`.
+         *
+         * El guard mira línea por línea y no puede saber a dónde va un valor;
+         * cada exención se anota acá con su motivo, en vez de aflojar la regla.
+         *
+         * El `\s*` es porque la prop se escribe pegada en el JSX y con espacios
+         * en la firma del componente.
+         */
+        .filter(({ linea }) => !/(texto|glifo)\w*\s*=/.test(linea));
 
       expect(sospechosas).toEqual([]);
     },
