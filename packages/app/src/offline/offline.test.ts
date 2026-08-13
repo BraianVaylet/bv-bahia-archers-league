@@ -11,9 +11,11 @@ import {
   readScores,
   type StoredBundle,
   saveBundle,
+  updateOp,
 } from './db.js';
 import { requestClose, uuidv7, writeScore, writeSignature } from './outbox.js';
 import { configureSync, flush, getSyncState, resetSyncWorker } from './syncWorker.js';
+import { syncLabel } from './useSyncStatus.js';
 
 /**
  * Capa offline (FE-2).
@@ -396,6 +398,50 @@ describe('requestClose', () => {
     expect((await readOutbox()).filter((o) => o.type === 'close')).toHaveLength(0);
   });
 
+  /**
+   * Cuando el servidor viene rechazando, el mensaje **dice qué pasó**.
+   *
+   * «Buscá señal» es el consejo correcto sin conexión y es un consejo inútil
+   * cuando el servidor contesta y rechaza: manda al líder a caminar buscando
+   * antena por un problema que no está en la antena. El motivo ya se guardaba
+   * en cada op del outbox; lo que faltaba era mostrarlo.
+   */
+  it('con un error del servidor, el mensaje lo dice en vez de culpar a la señal', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    const [op] = await readOutbox();
+    if (!op) throw new Error('no se encoló nada');
+    await updateOp({ ...op, attempts: 3, lastError: 'Sesión vencida.' });
+
+    const r = await requestClose();
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.message).toContain('Sesión vencida.');
+      expect(r.message).not.toContain('Buscá señal');
+    }
+  });
+
+  // Sin motivo guardado, no hubo respuesta del servidor: ahí SÍ es la señal.
+  it('sin error registrado sigue diciendo que busque señal', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    const r = await requestClose();
+    if (!r.ok) expect(r.message).toContain('Buscá señal');
+  });
+
+  // Lo que nunca cambia: los puntajes están guardados y se dice.
+  it('en los dos casos aclara que lo cargado está a salvo', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    const sinMotivo = await requestClose();
+    if (!sinMotivo.ok) expect(sinMotivo.message).toMatch(/guardad/i);
+
+    const [op] = await readOutbox();
+    if (op) await updateOp({ ...op, lastError: 'Error 500.' });
+
+    const conMotivo = await requestClose();
+    if (!conMotivo.ok) expect(conMotivo.message).toMatch(/guardad/i);
+  });
   it('encola el cierre con el outbox vacío', async () => {
     expect(await requestClose()).toEqual({ ok: true });
 
@@ -414,5 +460,46 @@ describe('clearAll', () => {
     expect(await readBundle()).toBeUndefined();
     expect(await readScores()).toEqual([]);
     expect(await countOutbox()).toBe(0);
+  });
+});
+
+// ── El indicador dice QUÉ pasó ───────────────────────────────────────────────
+
+/**
+ * «Hay un problema con la sincronización» no le sirve a nadie.
+ *
+ * El motivo ya viajaba en `lastError` del estado y el badge lo ignoraba. Con el
+ * motivo a la vista, el líder puede decidir: si dice «Sesión vencida», vuelve a
+ * entrar; si dice que no hay conexión, camina.
+ */
+describe('syncLabel', () => {
+  const base = { pending: 0, lastSyncAt: null, lastError: null } as const;
+
+  it('sincronizado no dice nada más', () => {
+    expect(syncLabel({ ...base, status: 'synced' })).toBe('Sincronizado');
+  });
+
+  it('pendientes en singular y en plural', () => {
+    expect(syncLabel({ ...base, status: 'pending', pending: 1 })).toMatch(/1 cambio sin/);
+    expect(syncLabel({ ...base, status: 'pending', pending: 4 })).toMatch(/4 cambios sin/);
+  });
+
+  it('con error, DICE el motivo en vez de sólo avisar que lo hay', () => {
+    const etiqueta = syncLabel({
+      ...base,
+      status: 'error',
+      lastError: 'Sesión vencida. Entrá de nuevo.',
+    });
+
+    expect(etiqueta).toContain('Sesión vencida. Entrá de nuevo.');
+  });
+
+  // Sin motivo registrado no se inventa uno.
+  it('con error y sin motivo, avisa igual', () => {
+    expect(syncLabel({ ...base, status: 'error' })).toMatch(/problema/i);
+  });
+
+  it('sin conexión aclara que lo cargado está en el celular', () => {
+    expect(syncLabel({ ...base, status: 'offline', pending: 3 })).toMatch(/en el celular/);
   });
 });

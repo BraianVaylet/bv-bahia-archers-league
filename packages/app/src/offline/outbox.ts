@@ -17,7 +17,14 @@ import {
   validateTargetScore,
   X_TOKEN,
 } from '@bal/shared';
-import { getDb, type OutboxOp, type OutboxOpType, readBundle, type StoredScore } from './db.js';
+import {
+  getDb,
+  type OutboxOp,
+  type OutboxOpType,
+  readBundle,
+  readOutbox,
+  type StoredScore,
+} from './db.js';
 
 /**
  * uuid v7: los primeros 48 bits son el timestamp, así que ordenar por `opId`
@@ -239,6 +246,31 @@ export type CloseResult =
   | { ok: false; code: 'PENDING_OPS'; pending: number; message: string };
 
 /**
+ * Por qué no se pudo cerrar, dicho de forma útil.
+ *
+ * **«Buscá señal» es el consejo correcto sin conexión, y es inútil cuando el
+ * servidor contesta y rechaza**: manda al líder a caminar buscando antena por
+ * un problema que no está en la antena.
+ *
+ * El motivo ya se guardaba en cada op —`marcarIntentos` escribe `lastError`—
+ * pero no se mostraba en ningún lado. Se toma el de la op que más veces se
+ * intentó, que es la que mejor representa por qué está trabada.
+ */
+async function motivoDelPendiente(pendientes: number): Promise<string> {
+  const cuantos = `${pendientes} ${pendientes === 1 ? 'cambio' : 'cambios'}`;
+  const aSalvo = 'Tus puntajes ya están guardados en el celular.';
+
+  const ops = await readOutbox();
+  const masIntentada = ops.filter((o) => o.lastError).sort((a, b) => b.attempts - a.attempts)[0];
+
+  if (masIntentada?.lastError) {
+    return `Falta sincronizar ${cuantos}. El servidor respondió: ${masIntentada.lastError} ${aSalvo}`;
+  }
+
+  return `Falta sincronizar ${cuantos}. Buscá señal y probá de nuevo. ${aSalvo}`;
+}
+
+/**
  * Encola el cierre del circuito.
  *
  * **Sólo si el outbox está vacío.** Cerrar con puntajes pendientes dejaría al
@@ -254,7 +286,7 @@ export async function requestClose(): Promise<CloseResult> {
       ok: false,
       code: 'PENDING_OPS',
       pending: pendientes,
-      message: `Faltan sincronizar ${pendientes} cambios. Buscá señal y probá de nuevo.`,
+      message: await motivoDelPendiente(pendientes),
     };
   }
 
