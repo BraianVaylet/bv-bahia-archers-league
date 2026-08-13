@@ -15,6 +15,7 @@ export * from './fechas.js';
 export * from './league.js';
 export * from './numeros.js';
 export * from './patrolling.js';
+export * from './podio.js';
 export * from './ranking.js';
 export * from './schemas.js';
 export * from './scoring.js';

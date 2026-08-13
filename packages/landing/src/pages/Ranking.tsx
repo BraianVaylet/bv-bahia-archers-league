@@ -12,8 +12,10 @@
 import {
   type BowCategory,
   CATEGORY_INFO,
+  ETIQUETA_DE_MODO,
   LEAGUE_POINTS_BY_POSITION,
   MIN_TOURNAMENTS_FOR_RANKING,
+  medallaDe,
 } from '@bal/shared';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -46,13 +48,6 @@ interface CategoriaRankeada {
   readonly notYetEligible: readonly Entrada[];
 }
 
-/** Los tres del podio. Del cuarto en adelante no hay medalla que inventar. */
-const MEDALLAS: Record<number, { emoji: string; nombre: string }> = {
-  1: { emoji: '🥇', nombre: 'primer puesto' },
-  2: { emoji: '🥈', nombre: 'segundo puesto' },
-  3: { emoji: '🥉', nombre: 'tercer puesto' },
-};
-
 /**
  * La medalla del podio.
  *
@@ -61,7 +56,7 @@ const MEDALLAS: Record<number, { emoji: string; nombre: string }> = {
  * Ver `docs/DESIGN_SYSTEM.md` §10.
  */
 function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
-  const medalla = puesto === undefined ? undefined : MEDALLAS[puesto];
+  const medalla = medallaDe(puesto);
   if (!medalla) return null;
 
   return (
@@ -72,11 +67,6 @@ function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
 }
 
 type Modo = 'position' | 'best_two';
-
-const ETIQUETA_DE_MODO: Record<Modo, string> = {
-  position: 'Por puntos',
-  best_two: 'Mejor de 2',
-};
 
 function FilaDeArquero({ entrada, modo }: { readonly entrada: Entrada; readonly modo: Modo }) {
   return (

@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `FE-16` — Ranking de liga en WAFA
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Los mismos datos y los mismos dos modos que la landing, contra los mismos endpoints públicos. El admin lo mira sin cambiar de app en medio de la fecha.
+
+**La duplicación que el plan anticipaba, resuelta a medias a propósito**
+
+`ACTION_PLAN.md` avisaba: *«duplica lo que va a mostrar la landing […] conviene reutilizar sus componentes en vez de escribirlo dos veces»*. No se puede literalmente: la landing y la PWA **no comparten bundle**, y es a propósito —arrastrar la biblioteca de la landing a una app que tiene que abrir sin señal le sumaría peso a cambio de nada.
+
+Lo que sí se compartió es **la decisión**, que es lo que no debería divergir: `medallaDe` y `ETIQUETA_DE_MODO` viven en `@bal/shared/src/podio.ts` y los usan las dos pantallas. La landing dejó de tener su copia. Lo duplicado es el JSX, que además es distinto: la landing usa tabla y WAFA una lista, porque el admin la mira en el celular tanto como en la notebook.
+
+**El costo, medido:** el presupuesto de la PWA pasó de 114,45 a **114,46 KB gz** — diez bytes. Sacar el podio a `shared` compensó casi exactamente lo que sumó la pantalla nueva.
+
+**Decisiones**
+
+- **La pantalla pega a los endpoints públicos**, no a unos de admin. El ranking ya es público y no hay nada que ocultarle al admin que no vea cualquiera; agregar rutas equivalentes bajo `/admin` habría sido superficie nueva sin ninguna razón.
+- **Si el ranking no carga, lo dice.** WAFA es la app del admin, en el club, con wifi flojo: quedarse en blanco es peor que un mensaje.
+- **Los que no llegan al mínimo van aparte, no se ocultan.** Misma regla que la landing, por el mismo motivo: esconderlos haría creer que se perdió su resultado.
+
+**Tests:** 6 en `@bal/shared`, 6 en WAFA. 937 en verde, presupuesto y E2E incluidos. **Controles de mutación: 3, murieron 3** — darle medalla al cuarto, dejar la medalla sin nombre, y no cambiar de endpoint al conmutar el modo.
+
+---
+
 ## 2026-08-13 · `TEST-2` — Los cinco escenarios E2E
 
 **Autor:** Claude Opus 5 · **Estado:** completado

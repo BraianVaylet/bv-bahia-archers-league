@@ -94,6 +94,12 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
               </Button>
             </Link>
           </div>
+
+          <Link to="/wafa/ranking">
+            <Button variante="secundario" ancho>
+              Ranking de la liga
+            </Button>
+          </Link>
         </nav>
 
         {error && (

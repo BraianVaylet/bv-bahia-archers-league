@@ -17,6 +17,7 @@ import { LoginPage } from './pages/Login.js';
 import { PatrolsPage } from './pages/Patrols.js';
 import { PaymentsPage } from './pages/Payments.js';
 import { PublishPage } from './pages/Publish.js';
+import { RankingPage } from './pages/Ranking.js';
 import { SeasonsPage } from './pages/Seasons.js';
 import { TournamentPage } from './pages/Tournament.js';
 import { TournamentCreatePage } from './pages/TournamentCreate.js';
@@ -54,6 +55,7 @@ export function WafaApp() {
       <Route path="/" element={<HomePage onSalir={() => void salir()} />} />
       <Route path="/arqueros" element={<ArchersPage onVolver={alInicio} />} />
       <Route path="/temporadas" element={<SeasonsPage onVolver={alInicio} />} />
+      <Route path="/ranking" element={<RankingPage onVolver={alInicio} />} />
       {/* Recién creado el torneo se va derecho a las patrullas: es lo primero
           que el admin quiere revisar, y lo único editable antes de arrancar. */}
       <Route
