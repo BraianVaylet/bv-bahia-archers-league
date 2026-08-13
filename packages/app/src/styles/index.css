@@ -3,3 +3,11 @@
 /* Los tokens viven en `@bal/shared` para que la PWA y la landing no se separen.
    Ver docs/DESIGN_SYSTEM.md §2. */
 @import '@bal/shared/tokens.css';
+
+/**
+ * Tailwind ignora `node_modules` salvo que se le diga lo contrario, y `@bal/ui`
+ * vive ahí (enlazado por el workspace). Sin esta línea el paquete compila, se
+ * importa y **se renderiza sin una sola clase aplicada**: chips sin fondo y sin
+ * altura, en las tres apps a la vez.
+ */
+@source '../../../ui/src';

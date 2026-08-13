@@ -14,6 +14,48 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-1` — el paquete de interfaz y la paleta
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Primera tanda del segundo refactor. No se ve nada todavía: es la base que consumen las seis que siguen. Tres decisiones que no estaban en el plan.
+
+### La documentación decía que no hiciéramos esto
+
+`DESIGN_SYSTEM.md` §2.3 era explícito: la modalidad se distingue **«de forma, no de color»**, porque *«el color está saturado de significado con las estacas; agregar cuatro colores más lo arruinaría»*. El brief de `ref-2` pide color por modalidad **y** por categoría.
+
+La advertencia era correcta y sigue en pie. Lo que se agregó son tres candados en lugar de una prohibición: el color nunca va solo, categoría y modalidad se separan **por forma** —píldora y rectángulo—, y los tonos son sordos donde los de estaca son saturados.
+
+El candado de la forma no es un adorno: excluyendo rojo, azul y amarillo quedan **seis familias de tono para once valores**. Sin esa distinción, el reparto no cierra. La sección se reescribió contando que se revierte y por qué, en vez de borrarla.
+
+### El test rechazó tres de los once colores que elegí
+
+Y no por poco. El oliva de `razo` estaba **a 22° del amarillo de estaca con saturación 1,0**. Un oliva es un amarillo oscuro; un marrón es un rojo oscuro. El marrón de `tradicional` y el óxido de `3d` cayeron por lo mismo.
+
+Ninguno se veía mal. Se veían **como estacas**, que es exactamente lo que la regla 8 prohíbe y lo que mirando la paleta en el editor no se nota.
+
+> La regla decía «no uses rojo, azul ni amarillo». Yo la leí como «no uses `#d22b2b`». Un test que compara tono y saturación la lee como está escrita.
+
+### De los cinco componentes «duplicados», sólo tres lo estaban
+
+`cn` y `BotonTema` eran idénticos carácter por carácter. `StakeChip` difería **sólo en el tamaño** —`h-6` en las tablas de la landing, `h-7` donde hay que tocarlo en la PWA—: una diferencia real que nadie había decidido, y que quedó como prop.
+
+**`Screen` y `Encabezado` comparten el nombre y no son el mismo componente.** El de la PWA es una barra fija con vuelta atrás y ranura para el `SyncBadge`; el de la landing, una navegación pública con enlaces. Unificarlos daría un componente con dos modos, que es peor que dos componentes con un nombre repetido. Se dejaron donde están, y el plan se corrigió.
+
+### El brief pedía íconos que no existen
+
+*«Reutilizá también las que se usan en botones y otros componentes»* de `bv-easy-archery-battle`. Ese repo tiene exactamente tres fuentes de iconografía: el logo, cuatro íconos de modalidad y seis de categoría. **De botones, ninguno.** Los once de acción se dibujaron acá con el mismo trazo, y reemplazan a los glifos de texto que había repartidos —`↑ ↓ ✕ ⇄ ☀ ☾ 🔒 ✎ ↺ 🗄 🗑`—, que dependen de la fuente del sistema y se ven distinto en cada Android.
+
+### Y una línea que existe pero podría no leerse
+
+Tailwind ignora `node_modules`, y `@bal/ui` vive ahí por el enlace del workspace. Sin un `@source` explícito, el paquete **compila, se importa y se renderiza sin una sola clase aplicada**. Se agregó, y se controló quitándolo y reconstruyendo: la utilidad de los chips desaparece del CSS.
+
+> Es el mismo control que la bitácora viene pidiendo desde `FE-17`: un archivo de configuración que existe no prueba que algo lo lea.
+
+**Tests:** 37 de paleta y catálogos, 27 del paquete nuevo. 1019 en verde. **Controles de mutación: 8, murieron 8.** Presupuestos: PWA 116,06 KB gz de 150, landing 97,32 KB de 120.
+
+---
+
 ## 2026-08-13 · Tres defectos encontrados usando la WAFL
 
 **Autor:** Claude Opus 5 · **Estado:** corregido

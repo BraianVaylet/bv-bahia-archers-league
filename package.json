@@ -14,7 +14,7 @@
     "dev:api": "pnpm --filter @bal/api dev",
     "dev:app": "pnpm --filter @bal/app dev",
     "dev:landing": "pnpm --filter @bal/landing dev",
-    "build": "pnpm --filter @bal/shared build && pnpm --filter @bal/api build && pnpm --filter @bal/app build && pnpm --filter @bal/landing build",
+    "build": "pnpm --filter @bal/shared build && pnpm --filter @bal/ui build && pnpm --filter @bal/api build && pnpm --filter @bal/app build && pnpm --filter @bal/landing build",
     "start": "pnpm --filter @bal/api start",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "test:e2e": "playwright test",
