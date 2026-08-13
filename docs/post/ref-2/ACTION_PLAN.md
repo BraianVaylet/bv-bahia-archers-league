@@ -156,17 +156,18 @@ Nada visual todavía. Es la base que las seis tandas siguientes consumen, y la q
 
 ---
 
-### `[ ] REF2-3` · Backend: edición, vuelta atrás e historial · **P0** · **TDD**
+### `[x] REF2-3` · Backend: edición, vuelta atrás e historial · **P0** · **TDD**
 
 Todo lo que WAFA y la landing necesitan del servidor. **Antes** que las pantallas que lo consumen.
 
 **Archivos:** `shared/src/schemas.ts`, `api/src/services/{tournamentEditService,tournamentStateService,paymentService}.ts`, `api/src/routes/{admin,publico}.ts`
 
-- [ ] `UpdateTournamentSchema` acepta `participants` — hallazgo 6. **Sólo con el torneo `sin_iniciar`**
-- [ ] Transición `en_proceso → sin_iniciar`, con guarda: **cero puntajes cargados**. Patrullas y PIN se conservan
-- [ ] `POST /admin/tournaments/:id/unstart`
-- [ ] Recaudación **de la temporada**, además de la del torneo — hallazgo 8
-- [ ] Serie por torneo del arquero, derivada de `participants` con `ix_archer` — hallazgo 5. Sin migración
+- [x] `UpdateTournamentSchema` acepta `archerIds`. **Sólo con el torneo `sin_iniciar`**, y rearma las patrullas
+- [x] Transición `en_proceso → sin_iniciar`, con guarda de cero puntajes. Patrullas y PIN se conservan
+- [x] `POST /admin/tournaments/:id/unstart`
+- [x] `GET /admin/seasons/:id/collection` — recaudación de la temporada
+- [x] Serie por torneo del arquero, derivada de `participants` con `ix_archer`. Sin migración
+- [x] **La guarda de estado en `/wafl/sync`** — la encontró el `/security-review`
 
 **Referencia:** [`SECURITY.md`](../../SECURITY.md) §2 — **el monto lo valida el servidor**. Todo cuerpo pasa por Zod `.strict()` antes de tocar un filtro de Mongo (regla 5).
 **DoD:** quitar un arquero de un torneo `sin_iniciar` lo saca también de su patrulla · un torneo con un solo puntaje **no** puede volver atrás · la recaudación de la temporada coincide con la suma de sus torneos.
@@ -175,6 +176,16 @@ Todo lo que WAFA y la landing necesitan del servidor. **Antes** que las pantalla
 **Actualizar:** `FUNCTIONAL.md` §8 —la máquina de estados cambia— y `TECHNICAL.md` §3.
 
 > `/security-review` obligatorio antes de mergear: toca autorización y entrada del usuario.
+>
+> **Cerrada el 2026-08-13, y el review encontró algo real.**
+>
+> `syncService.sync` nunca miró el estado del torneo: la autorización de `/wafl/sync` sale de la sesión de patrulla y nada más. Mientras el torneo sólo iba para adelante eso no importaba; **la transición nueva crea la combinación** de un torneo `sin_iniciar` con sesiones vivas, y un líder que entró antes seguía pudiendo anotar. El test lo confirmó antes de arreglarlo: la op volvió `applied`.
+>
+> Con un puntaje adentro, el rearmado borraba patrullas y participantes **pero no los puntajes**, dejando documentos que apuntan a gente que ya no existe. Ahora los tres se borran juntos, en una función del repositorio — porque además yo había puesto tres `deleteMany` sueltos en un servicio, rompiendo la regla 3 sin notarlo.
+>
+> **Dos tests pasaban por la razón equivocada**: Zod rechazaba `archerIds` por campo desconocido y el 400 coincidía con lo que yo esperaba. Recién al aceptar el campo pasaron a probar lo suyo.
+>
+> 1041 tests. **8 controles de mutación, murieron 8**, tres sobre las correcciones del review.
 
 ---
 
