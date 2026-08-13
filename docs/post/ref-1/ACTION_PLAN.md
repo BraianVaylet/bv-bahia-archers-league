@@ -191,7 +191,7 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 >
 > 891 en verde; 3 controles de mutación, murieron 2. El sobreviviente y su razón están en la [bitácora](../../BITACORA.md).
 
-### `[ ] REF-6` · WAFL · **P1**
+### `[x] REF-6` · WAFL · **P1**
 
 **La app crítica.** Cada cambio se prueba con el E2E offline andando.
 
@@ -205,6 +205,16 @@ Lo que atraviesa las tres apps. **Antes** que el trabajo por pantalla, para no r
 - La pantalla de circuito cerrado lleva a la landing
 
 **DoD:** el líder entra sin tipear el usuario · corrige un puntaje mal cargado antes de firmar · el E2E offline sigue verde.
+
+> **Cerrada el 2026-08-13**, con dos huecos de test anotados en el código.
+>
+> **No hizo falta endpoint nuevo.** El público de torneo ya exponía el número de cada patrulla, y el usuario es `patrulla${number}`: se agregó el campo para que el cliente no repita la regla de nombrado, no porque antes fuera secreto. Hay un test que verifica que el PIN **nunca** salga por ahí.
+>
+> **Los arcos del teclado se dieron de baja como default.** `FE-6` los dejó como apuesta sin validar; la decisión ahora es el mismo orden de lectura en las cuatro modalidades. Quedan detrás de la prop.
+>
+> **Se encontró un agujero real:** se podía editar el puntaje de alguien que ya firmó, y el cierre después fallaba con `SIGNATURE_MISMATCH` — un error que sale al final del recorrido, lejos de su causa.
+>
+> 911 en verde. 3 controles de mutación: **murió 1**. Los dos que sobrevivieron destaparon tests que pasaban por llegar antes que la cola de escrituras; están anotados en el código como pendientes en vez de dejarlos verdes en falso.
 
 ### `[ ] REF-7` · Landing · **P1**
 

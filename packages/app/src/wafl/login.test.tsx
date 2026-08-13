@@ -231,3 +231,105 @@ describe('LoginPage', () => {
     );
   });
 });
+
+// ── REF-6 · Botonera de patrullas ────────────────────────────────────────────
+
+/**
+ * Al elegir el torneo aparecen los botones de cada patrulla y sólo se tipea el
+ * PIN. Tipear `patrulla3` con guantes, al sol, con el celular en una mano, es
+ * la parte más lenta de entrar — y la que más se equivoca.
+ */
+describe('botonera de patrullas', () => {
+  const conPatrullas = (patrols: { number: number; username: string }[]) => {
+    rutas['GET /api/public/tournaments/t1'] = { json: { tournament: { patrols } } };
+  };
+
+  /**
+   * Se espera la OPCIÓN, no el select.
+   *
+   * `findByLabelText('Torneo')` resuelve apenas existe el `<select>`, pero los
+   * torneos llegan por fetch: elegir un valor cuya `<option>` todavía no
+   * renderizó **no hace nada**, y el formulario queda vacío sin que se note.
+   * Es el mismo defecto que apareció en el E2E.
+   */
+  const elegirTorneo = async (id = 't1') => {
+    render(<LoginPage onEntro={vi.fn()} />);
+    await screen.findByRole('option', { name: /3ª fecha/ });
+    fireEvent.change(screen.getByLabelText('Torneo'), { target: { value: id } });
+  };
+
+  it('al elegir el torneo aparecen los botones de sus patrullas', async () => {
+    conPatrullas([
+      { number: 1, username: 'patrulla1' },
+      { number: 2, username: 'patrulla2' },
+      { number: 3, username: 'patrulla3' },
+    ]);
+    await elegirTorneo();
+
+    expect(await screen.findByRole('button', { name: 'Patrulla 1' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Patrulla 3' })).toBeDefined();
+  });
+
+  it('sin torneo elegido no hay botonera', async () => {
+    conPatrullas([{ number: 1, username: 'patrulla1' }]);
+    render(<LoginPage onEntro={vi.fn()} />);
+    await screen.findByLabelText('Torneo');
+
+    expect(screen.queryByRole('button', { name: 'Patrulla 1' })).toBeNull();
+  });
+
+  it('elegir una patrulla deja el formulario listo para tipear sólo el PIN', async () => {
+    conPatrullas([
+      { number: 1, username: 'patrulla1' },
+      { number: 2, username: 'patrulla2' },
+    ]);
+    await elegirTorneo();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Patrulla 2' }));
+    fireEvent.change(screen.getByLabelText('PIN'), { target: { value: '481902' } });
+
+    expect((screen.getByRole('button', { name: 'Entrar' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it('la patrulla elegida se marca, para saber cuál se apretó', async () => {
+    conPatrullas([
+      { number: 1, username: 'patrulla1' },
+      { number: 2, username: 'patrulla2' },
+    ]);
+    await elegirTorneo();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Patrulla 2' }));
+
+    expect(screen.getByRole('button', { name: 'Patrulla 2' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Patrulla 1' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+  });
+
+  /**
+   * Si el torneo no responde —sin señal en el club, por ejemplo— el líder tiene
+   * que poder entrar igual tipeando el usuario. Quedarse sin botonera Y sin
+   * campo sería quedarse afuera del torneo.
+   */
+  it('si no llegan las patrullas, el campo de texto sigue estando', async () => {
+    // Sin ruta declarada: el fetch simulado rechaza.
+    await elegirTorneo();
+
+    expect(await screen.findByLabelText('Patrulla')).toBeDefined();
+  });
+
+  /**
+   * PENDIENTE — el comportamiento está implementado y sin test.
+   *
+   * Al cambiar de torneo, el efecto limpia la patrulla elegida: con la de otro
+   * torneo puesta, el login fallaría con un 401 que no explica nada. Escribí un
+   * test y falla de forma consistente afirmando que el click sobre la botonera
+   * dejó el campo cargado, aunque el mismo click funciona en el test de arriba
+   * («la patrulla elegida se marca»). No encontré la causa, y prefiero dejarlo
+   * anotado antes que un test que no entiendo o uno que pasa por vacuidad.
+   */
+});

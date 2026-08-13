@@ -275,11 +275,11 @@ describe('ResultsPage', () => {
     });
   });
 
-  it('Cerrar circuito está bloqueado y dice QUIÉNES faltan firmar', async () => {
+  it('Finalizar torneo está bloqueado y dice QUIÉNES faltan firmar', async () => {
     await cargarTodo();
     const { onCerrado } = renderResultados();
 
-    const boton = await screen.findByRole('button', { name: 'Cerrar circuito' });
+    const boton = await screen.findByRole('button', { name: 'Finalizar torneo' });
     expect((boton as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Faltan las firmas de Pérez, Gómez/)).toBeDefined();
 
@@ -298,7 +298,7 @@ describe('ResultsPage', () => {
 
     const { onCerrado } = renderResultados();
 
-    const boton = await screen.findByRole('button', { name: 'Cerrar circuito' });
+    const boton = await screen.findByRole('button', { name: 'Finalizar torneo' });
     await waitFor(() => {
       expect((boton as HTMLButtonElement).disabled).toBe(false);
     });
@@ -322,7 +322,7 @@ describe('ResultsPage', () => {
 
     const { onCerrado } = renderResultados();
 
-    const boton = await screen.findByRole('button', { name: 'Cerrar circuito' });
+    const boton = await screen.findByRole('button', { name: 'Finalizar torneo' });
     await waitFor(() => expect((boton as HTMLButtonElement).disabled).toBe(false));
 
     fireEvent.click(boton);

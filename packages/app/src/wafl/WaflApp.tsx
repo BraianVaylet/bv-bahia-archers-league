@@ -61,13 +61,23 @@ export function WaflApp() {
 
     case 'cerrado':
       return (
-        <div className="mx-auto w-full max-w-lg px-4 pt-16 text-center flex flex-col gap-3">
+        <div className="mx-auto w-full max-w-lg px-4 pt-16 text-center flex flex-col gap-4">
           <p className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-            Circuito cerrado
+            Torneo finalizado
           </p>
           <p className="text-[var(--ink-muted)]">
             Ya está. Los puntajes de tu patrulla quedaron firmados y enviados.
           </p>
+
+          {/* La app de la patrulla no tiene nada más que ofrecer: de acá en
+              adelante lo que importa son los resultados, que están en la
+              landing. Sin salida, la pantalla es un callejón. */}
+          <a
+            href="/"
+            className="min-h-[52px] px-5 rounded-[var(--radius-md)] bg-[var(--nock)] text-[var(--nock-ink)] font-semibold flex items-center justify-center"
+          >
+            Ver los resultados de la liga
+          </a>
         </div>
       );
 

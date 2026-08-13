@@ -627,6 +627,40 @@ describe('endpoints públicos', () => {
     expect(body.tournament.results).toBeUndefined();
   });
 
+  /**
+   * El usuario de cada patrulla, para la botonera de WAFL (REF-6).
+   *
+   * **No expone nada nuevo.** El `username` es `patrulla${number}` y el
+   * `number` ya venía en esta misma respuesta: se agrega para que el cliente no
+   * tenga que repetir la regla de nombrado, no porque antes fuera secreto. El
+   * PIN sigue siendo el único factor, y el rate limit lo protege.
+   */
+  it('expone el usuario de cada patrulla, que ya se derivaba del número', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c, [['razo', 4]]);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const body = (await (
+      await cliente().get(`/api/public/tournaments/${tournamentId}`)
+    ).json()) as { tournament: { patrols: { number: number; username: string }[] } };
+
+    for (const p of body.tournament.patrols) {
+      expect(p.username).toBe(`patrulla${p.number}`);
+    }
+  });
+
+  // El PIN es el único factor. Que se filtre hace inútil todo lo demás.
+  it('NUNCA expone el PIN de una patrulla', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const crudo = await (await cliente().get(`/api/public/tournaments/${tournamentId}`)).text();
+
+    expect(crudo).not.toMatch(/"pin"/i);
+    expect(crudo).not.toMatch(/pinHash|pinEnc/);
+  });
+
   it('un torneo sin iniciar no es visible desde afuera', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);

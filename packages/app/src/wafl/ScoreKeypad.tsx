@@ -19,14 +19,19 @@ export const TAMAÑO_TECLA_PX = 56;
 export type Disposicion = 'grilla' | 'arcos';
 
 /**
- * Elige la disposición según la cantidad de tokens.
+ * Grilla en las cuatro modalidades: izquierda a derecha, arriba abajo.
  *
- * Sala y aire libre tienen 12 tokens: doce zonas no caben en anillos legibles,
- * así que van en grilla. 3D y campo tienen 5 y 8, y sus zonas mapean 1:1 con los
- * anillos de la cara real del blanco.
+ * Los arcos mapeaban 1:1 con los anillos de la cara real del blanco, y eran una
+ * apuesta que `FE-6` dejó explícitamente sin validar. Con la app en la mano ganó
+ * el **orden de lectura igual en todas**: cambiar de disposición entre un blanco
+ * 3D y uno de sala obliga a volver a buscar dónde está cada tecla, en el medio
+ * del recorrido y con guantes.
+ *
+ * Los arcos siguen existiendo detrás de la prop `disposicion`. Ver
+ * `docs/DESIGN_SYSTEM.md` §6.1.
  */
-export function disposicionPara(modality: Modality): Disposicion {
-  return SCORING[modality].scoringSet.length <= 8 ? 'arcos' : 'grilla';
+export function disposicionPara(_modality: Modality): Disposicion {
+  return 'grilla';
 }
 
 export interface ScoreKeypadProps {
@@ -59,7 +64,9 @@ export function ScoreKeypad({ modality, cargadas, total, onToken, disposicion }:
 
   return (
     <div
-      className="flex flex-col items-center gap-2 p-3 rounded-t-[var(--radius-lg)] bg-[var(--surface)] shadow-[0_-2px_12px_rgba(0,0,0,0.08)]"
+      // Menos aire alrededor: cada píxel que no es tecla es un píxel que la
+      // tecla no tiene. Los 56px del §5 son piso, no techo.
+      className="flex flex-col items-center gap-1.5 px-2 pt-2 pb-3 rounded-t-[var(--radius-lg)] bg-[var(--surface)] shadow-[0_-2px_12px_rgba(0,0,0,0.08)]"
       data-disposicion={modo}
       data-testid="score-keypad"
     >
@@ -72,9 +79,7 @@ export function ScoreKeypad({ modality, cargadas, total, onToken, disposicion }:
       <div
         className={cn(
           'w-full',
-          modo === 'grilla'
-            ? 'grid grid-cols-4 gap-2 justify-items-center'
-            : 'flex flex-col items-center gap-2',
+          modo === 'grilla' ? 'grid grid-cols-4 gap-1.5' : 'flex flex-col items-center gap-2',
         )}
       >
         {modo === 'arcos'
@@ -141,10 +146,12 @@ function Tecla({ token, inner, disabled, onPress }: TeclaProps) {
       disabled={disabled}
       onClick={() => onPress(token)}
       aria-label={esMiss ? 'Miss, flecha sin puntaje' : `Puntaje ${token}`}
-      // 56px es el mínimo para acertar con guante de tiro, caminando.
+      // 56px es el PISO, no el techo: la tecla se estira a lo que le deje la
+      // grilla. Cuanto más grande, menos se erra con guantes.
       style={{ minWidth: TAMAÑO_TECLA_PX, minHeight: TAMAÑO_TECLA_PX }}
       className={cn(
-        'rounded-[var(--radius-md)] font-[var(--font-display)] text-xl font-semibold',
+        'w-full h-[13vh] max-h-24',
+        'rounded-[var(--radius-md)] font-[var(--font-display)] text-2xl font-semibold',
         'border transition-opacity duration-[80ms] active:opacity-70',
         'disabled:opacity-30 disabled:cursor-not-allowed',
         esMiss

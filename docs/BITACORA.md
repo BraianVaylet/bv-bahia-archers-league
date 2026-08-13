@@ -14,6 +14,33 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF-6` — WAFL
+
+**Autor:** Claude Opus 5 · **Estado:** completado, con dos huecos de test anotados
+
+La app crítica. Botonera de patrullas, puntajes editables hasta la firma, teclado, pad de firma y el cierre.
+
+**Hallazgo: se podía editar el puntaje de alguien que ya firmó.** La firma guarda un `scorecardHash` del puntaje del momento; editarlo después hace que el servidor rechace el cierre con `SIGNATURE_MISMATCH` — un error que aparece **al final del recorrido, lejos de su causa**, cuando la patrulla ya quiere irse. Ahora el puntaje queda congelado al firmar y la pantalla explica que para corregirlo el admin tiene que desbloquear la firma.
+
+**Decisiones**
+
+- **No hizo falta endpoint nuevo para la botonera.** El endpoint público de torneo ya exponía el número de cada patrulla, y el usuario es `patrulla${number}`: se agregó el campo para que el cliente no repita la regla de nombrado, no porque antes fuera secreto. Hay un test que verifica que el PIN nunca salga por ahí.
+- **El campo de texto de patrulla se queda además de la botonera.** Si la lista no llega por falta de señal, quedarse sin las dos cosas sería quedarse afuera del torneo.
+- **Los arcos del teclado dejan de ser el default.** `FE-6` los dejó como apuesta de usabilidad sin validar. La decisión ahora es el **mismo orden de lectura en las cuatro modalidades**: cambiar de disposición entre un blanco 3D y uno de sala obliga a volver a buscar dónde está cada tecla, en el medio del recorrido y con guantes. Los arcos siguen detrás de la prop.
+
+**Los dos huecos, anotados en el código**
+
+De tres controles de mutación **murió uno**. Los otros dos destaparon tests míos que pasaban por la razón equivocada:
+
+1. **El guard del teclado para arqueros firmados.** El test pasaba con el guard sacado a mano: la aserción llegaba antes de que drenara la cola de escrituras. Lo reescribí usando la escritura de otro arquero como señal de que la cola pasó, y no logré que la selección del segundo arquero funcionara desde el test. Lo que sí queda cubierto es que el botón de borrar desaparece y que la pantalla explica por qué; el guard del handler, no.
+2. **Limpiar la patrulla al cambiar de torneo.** El test falla de forma consistente afirmando que el click sobre la botonera dejó el campo cargado, aunque el mismo click funciona en el test de al lado. No encontré la causa.
+
+Los dos están escritos como comentario en su archivo. **Un test que pasa por llegar temprano es peor que ninguno**: el segundo no miente sobre lo que está cubierto.
+
+**Tests:** 2 de API, 11 de UI. 911 en verde, E2E incluido.
+
+---
+
 ## 2026-08-13 · `REF-5b` — Los tres que faltaban de WAFA
 
 **Autor:** Claude Opus 5 · **Estado:** completado

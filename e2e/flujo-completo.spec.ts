@@ -176,10 +176,10 @@ async function firmarYCerrar(page: Page) {
     await expect(botones).toHaveCount(restantes - 1);
   }
 
-  const cerrar = page.getByRole('button', { name: 'Cerrar circuito' });
+  const cerrar = page.getByRole('button', { name: 'Finalizar torneo' });
   await expect(cerrar).toBeEnabled();
   await cerrar.click();
-  await expect(page.getByText('Circuito cerrado')).toBeVisible();
+  await expect(page.getByText('Torneo finalizado')).toBeVisible();
 }
 
 // ── El flujo ─────────────────────────────────────────────────────────────────
