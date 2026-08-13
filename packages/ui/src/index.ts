@@ -26,6 +26,7 @@ export {
   type ChipProps,
 } from './Chips.js';
 export { cn } from './cn.js';
+export { Footer, type FooterProps } from './Footer.js';
 export * from './iconos/acciones.js';
 export type { Icono, IconoProps } from './iconos/base.js';
 export { Svg } from './iconos/base.js';
@@ -33,4 +34,5 @@ export * from './iconos/categoria.js';
 export { ICONO_DE_CATEGORIA } from './iconos/categoria.js';
 export * from './iconos/modalidad.js';
 export { ICONO_DE_MODALIDAD } from './iconos/modalidad.js';
+export { Logo, type LogoProps } from './Logo.js';
 export { StakeChip, type StakeChipProps } from './StakeChip.js';

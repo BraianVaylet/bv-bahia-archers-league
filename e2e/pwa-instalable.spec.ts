@@ -53,6 +53,41 @@ test('el manifest tiene lo que hace falta para instalar', async ({ page, request
 
   // Maskable: sin esto Android recorta el ícono con un cuadrado blanco detrás.
   expect(iconos.some((i) => (i.purpose ?? '').includes('maskable'))).toBe(true);
+
+  /**
+   * **Y que el ícono exista de verdad.**
+   *
+   * Hasta `REF2-2` esto no se verificaba, y el manifest declaraba
+   * `/app/icon.svg` **sin que ese archivo estuviera en el build**: la app se
+   * anunciaba instalable con un ícono que daba 404. Todo lo de arriba pasaba
+   * igual, porque miraba lo declarado y no lo servido.
+   *
+   * Es el mismo error que la bitácora viene anotando desde `FE-17`: un archivo
+   * de configuración que existe no prueba que lo que nombra exista.
+   */
+  for (const icono of iconos) {
+    const url = new URL(icono.src, page.url());
+    const respuesta = await request.get(url.pathname);
+    const cuerpo = await respuesta.text();
+
+    expect(respuesta.status(), `el ícono ${icono.src} no se sirve`).toBe(200);
+
+    /**
+     * **Un 200 no alcanza.** El servidor devuelve `index.html` para cualquier
+     * ruta que no reconoce —es lo que hace que funcione el ruteo del lado del
+     * cliente—, así que un ícono inexistente responde 200 con una página HTML.
+     *
+     * La primera versión de este test comprobaba sólo el estado y el largo del
+     * cuerpo, y **pasaba con el ícono borrado**. Lo destapó la mutación, no la
+     * corrida en verde.
+     */
+    expect(respuesta.headers()['content-type'], `${icono.src} no se sirve como imagen`).toContain(
+      'image/',
+    );
+    expect(cuerpo.trimStart().startsWith('<svg'), `${icono.src} devolvió el HTML del SPA`).toBe(
+      true,
+    );
+  }
 });
 
 test('el service worker se registra y responde', async ({ page }) => {

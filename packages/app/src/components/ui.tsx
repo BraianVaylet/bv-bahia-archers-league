@@ -18,14 +18,14 @@ const VARIANTES: Record<Variante, string> = {
   peligro: 'bg-[var(--danger)] text-white font-semibold',
 };
 
-import { BotonTema, cn, StakeChip } from '@bal/ui';
+import { BotonTema, cn, Footer, Logo, StakeChip } from '@bal/ui';
 
 /**
  * `cn`, `StakeChip` y `BotonTema` **se mudaron a `@bal/ui`**: estaban escritos
  * dos veces, uno de ellos carácter por carácter. Se reexportan desde acá para
  * que las veinte pantallas que los importan no tengan que cambiar de origen.
  */
-export { BotonTema, cn, StakeChip };
+export { BotonTema, cn, Footer, Logo, StakeChip };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variante?: Variante;
@@ -114,14 +114,28 @@ export interface ScreenProps {
 
 export function Screen({ children, conBarraFija }: ScreenProps) {
   return (
-    <div
-      className={cn(
-        'mx-auto w-full max-w-lg px-4 flex flex-col gap-4',
-        conBarraFija ? 'pb-28' : 'pb-8',
-      )}
-    >
-      {children}
-    </div>
+    <>
+      <div
+        className={cn(
+          'mx-auto w-full max-w-lg px-4 flex flex-col gap-4',
+          conBarraFija ? 'pb-28' : 'pb-8',
+        )}
+      >
+        {children}
+      </div>
+
+      {/*
+        **El pie va donde no hay barra fija**, y eso no es una lista de
+        excepciones: una pantalla que termina en una barra de acción no tiene
+        lugar para un pie, y meterlo empujaría el último elemento debajo de la
+        barra. Es el mismo problema que `conBarraFija` ya resuelve con el
+        `padding`, y que el E2E encontró en Resultados con el último arquero.
+
+        En la práctica esto deja el pie fuera del recorrido y del teclado de
+        scoring, que es exactamente donde no se lo quiere.
+      */}
+      {!conBarraFija && <Footer anchoMaximo="max-w-lg" />}
+    </>
   );
 }
 
@@ -154,6 +168,17 @@ export function Encabezado({
           {textoVolver}
         </button>
       )}
+
+      {/*
+        El logo va **después** de la vuelta atrás, no antes: lo primero que se
+        toca en un header es el botón de volver, y en un celular eso es el
+        borde izquierdo. La marca no le gana ese lugar a la navegación.
+
+        Decorativo: el título de al lado dice en qué pantalla estás, que es lo
+        que hace falta escuchar.
+      */}
+      <Logo size={24} className="shrink-0" />
+
       {titulo && <span className="font-semibold">{titulo}</span>}
 
       <div className="ml-auto flex items-center gap-2">
