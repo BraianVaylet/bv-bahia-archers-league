@@ -52,6 +52,16 @@ Tailwind ignora `node_modules`, y `@bal/ui` vive ahí por el enlace del workspac
 
 > Es el mismo control que la bitácora viene pidiendo desde `FE-17`: un archivo de configuración que existe no prueba que algo lo lea.
 
+### Y el CI encontró lo que mi verde local escondía
+
+El PR falló con `Failed to resolve import "@bal/ui"`. Local pasaba; en CI no existía `packages/ui/dist`, porque **nada lo construye antes de los tests**.
+
+Al reproducirlo borrando los `dist` apareció que el problema era más viejo y más grande: sin compilar, **también fallan los siete archivos de test de la API**. `pnpm test` venía dependiendo de que alguien hubiera corrido un build antes, y nadie lo había notado porque en una máquina de trabajo el `dist` siempre está de alguna corrida anterior. En CI, que arranca limpio, el `typecheck` lo tapaba: construía `@bal/shared` de paso y dejaba el `dist` justo a tiempo para los tests. Bastó agregar un segundo paquete para que se cayera.
+
+Ahora `test` y `typecheck` construyen las bibliotecas primero, con un `build:libs` compartido. Verificado borrando los dos `dist` y corriendo cada uno en frío.
+
+> Mi verde local no probaba que el comando funcionara: probaba que yo había corrido otro comando antes. Es la misma trampa que el test que pasa porque espera algo que ya está en pantalla.
+
 **Tests:** 37 de paleta y catálogos, 27 del paquete nuevo. 1019 en verde. **Controles de mutación: 8, murieron 8.** Presupuestos: PWA 116,06 KB gz de 150, landing 97,32 KB de 120.
 
 ---
