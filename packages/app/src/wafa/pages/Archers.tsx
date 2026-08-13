@@ -11,7 +11,7 @@
 
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, Encabezado, Field, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ArcherRow {
@@ -124,6 +124,45 @@ function ArcherForm({
 
 // ── Fila ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Botón de sólo ícono.
+ *
+ * El glifo va `aria-hidden` y el nombre lo pone `aria-label`: un símbolo sin
+ * nombre no dice nada en un lector de pantalla, y anunciarlo *además* del
+ * `aria-label` diría dos cosas. Ver `docs/DESIGN_SYSTEM.md` §10.
+ */
+function BotonIcono({
+  glifo,
+  etiqueta,
+  onClick,
+  disabled,
+  peligro,
+}: {
+  readonly glifo: string;
+  readonly etiqueta: string;
+  readonly onClick: () => void;
+  readonly disabled?: boolean;
+  readonly peligro?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={etiqueta}
+      title={etiqueta}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border',
+        'flex items-center justify-center text-lg',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+        peligro ? 'text-[var(--danger)]' : 'bg-[var(--surface-2)]',
+      )}
+    >
+      <span aria-hidden="true">{glifo}</span>
+    </button>
+  );
+}
+
 function Fila({
   arquero,
   onEditar,
@@ -159,24 +198,30 @@ function Fila({
           : `${arquero.tournamentCount} ${arquero.tournamentCount === 1 ? 'torneo jugado' : 'torneos jugados'}`}
       </p>
 
+      {/* A iconos para que las tres acciones entren en un renglón sin empujar
+          el nombre. El `aria-label` lleva el APELLIDO además del verbo: con
+          quince arqueros en pantalla, quince botones «Editar» no se distinguen
+          en un lector. Ver docs/DESIGN_SYSTEM.md §10. */}
       <div className="flex flex-wrap gap-2">
-        <Button variante="secundario" onClick={onEditar}>
-          Editar
-        </Button>
+        <BotonIcono glifo="✎" etiqueta={`Editar a ${arquero.lastName}`} onClick={onEditar} />
 
         {arquero.archived ? (
-          <Button variante="secundario" onClick={onRestaurar}>
-            Restaurar
-          </Button>
+          <BotonIcono
+            glifo="↺"
+            etiqueta={`Restaurar a ${arquero.lastName}`}
+            onClick={onRestaurar}
+          />
         ) : (
-          <Button variante="secundario" onClick={onArchivar}>
-            Archivar
-          </Button>
+          <BotonIcono glifo="🗄" etiqueta={`Archivar a ${arquero.lastName}`} onClick={onArchivar} />
         )}
 
-        <Button variante="peligro" onClick={onEliminar} disabled={arquero.participated}>
-          Eliminar
-        </Button>
+        <BotonIcono
+          glifo="🗑"
+          etiqueta={`Eliminar a ${arquero.lastName}`}
+          onClick={onEliminar}
+          disabled={arquero.participated}
+          peligro
+        />
       </div>
 
       {/* La explicación va siempre que el botón esté deshabilitado: un botón gris

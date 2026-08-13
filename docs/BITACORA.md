@@ -14,7 +14,25 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
-## 2026-08-13 · `REF-5` — WAFA (parcial: 5 de 8)
+## 2026-08-13 · `REF-5b` — Los tres que faltaban de WAFA
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Cierra `REF-5`: botones a iconos en Arqueros, tarjeta de tres renglones en el Home, y editar/eliminar el torneo desde el detalle.
+
+**Decisiones**
+
+- **El `aria-label` de los botones de ícono lleva el apellido**, no sólo el verbo. Con quince arqueros en pantalla, quince botones «Editar» no se distinguen en un lector de pantalla. Los tests pasaron de buscar `{ name: 'Eliminar' }` a `{ name: /^Eliminar a/ }`.
+- **Editar el torneo es inline y sólo sobre nombre y fecha.** El recorrido tiene sus propias reglas —un blanco con puntajes está bloqueado, y eso ya vive en su pantalla— así que editarlo de refilón desde el detalle habría duplicado esa lógica. Un enlace a una pantalla de edición que no existe habría sido peor: un 404.
+- **Borrar pide dos toques sobre el mismo botón**, con el texto cambiado a «Confirmar borrado» y la lista de lo que se pierde. Sin `confirm()`, que bloquea el hilo y en un celular saca del contexto, y sin modal, que tapa la pantalla.
+
+**Hallazgo:** el guard de iconografía de `REF-4` **agarró el código nuevo**. Los `glifo="✎"` que se pasan a `BotonIcono` no llevan `aria-hidden` en su línea, aunque el componente destino sí lo pone. Se agregó la exención con su motivo escrito, junto a la de `textoVolver`: el guard mira línea por línea y no puede saber a dónde va un valor, así que cada exención se anota en vez de aflojar la regla.
+
+**Tests:** 5 de UI. 899 en verde. **Control de mutación: 1, murió 1** — borrar al primer toque rompe los dos tests de confirmación.
+
+---
+
+## 2026-08-13 · `REF-5` — WAFA (5 de 8)
 
 **Autor:** Claude Opus 5 · **Estado:** parcial
 

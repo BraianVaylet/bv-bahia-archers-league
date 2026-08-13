@@ -364,7 +364,7 @@ describe('ArchersPage', () => {
     listar([arquero({ participated: true })]);
     renderArqueros();
 
-    const eliminar = await screen.findByRole('button', { name: 'Eliminar' });
+    const eliminar = await screen.findByRole('button', { name: /^Eliminar a/ });
     expect((eliminar as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/no se puede eliminar sin romper su histórico/)).toBeDefined();
     // Y ofrece la alternativa que sí sirve.
@@ -375,7 +375,7 @@ describe('ArchersPage', () => {
     listar([arquero({ participated: false })]);
     renderArqueros();
 
-    const eliminar = await screen.findByRole('button', { name: 'Eliminar' });
+    const eliminar = await screen.findByRole('button', { name: /^Eliminar a/ });
     expect((eliminar as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByText(/no se puede eliminar/)).toBeNull();
   });
@@ -390,7 +390,7 @@ describe('ArchersPage', () => {
     });
     renderArqueros();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Archivar' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Archivar a/ }));
 
     await waitFor(() => {
       expect(llamadas.some((l) => l.url.endsWith('/archers/x1/archive'))).toBe(true);
@@ -458,7 +458,7 @@ describe('ArchersPage', () => {
     });
     renderArqueros();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Editar a/ }));
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Juan Carlos' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
