@@ -268,7 +268,7 @@ export function TournamentPage() {
                     <span className="text-[var(--ink-muted)]">
                       {CATEGORY_INFO[m.category].label}
                     </span>
-                    <StakeChip stake={m.stake} />
+                    <StakeChip stake={m.stake} compacto />
                   </li>
                 ))}
               </ul>
