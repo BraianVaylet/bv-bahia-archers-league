@@ -74,7 +74,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
     if (!r.ok) {
       // Sin señal no se puede cerrar, pero los puntajes YA están guardados:
       // se dice explícitamente para que nadie crea que perdió el trabajo.
-      setAviso(`${r.message} Tus puntajes ya están guardados en el celular.`);
+      setAviso(r.message);
       nudge();
       return;
     }

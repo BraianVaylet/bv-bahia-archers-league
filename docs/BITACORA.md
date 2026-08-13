@@ -63,7 +63,7 @@ Ahora una firma en `conflict` no cuenta: vuelve a aparecer el botón, y «Finali
 
 Corriendo la suite completa diez veces —no una— aparecieron dos fallos que sueltos nunca fallan. Los dos son el mismo error de siempre, esperar algo que ya es cierto antes de tiempo:
 
-- **«firmado, el teclado queda deshabilitado»** esperaba el título del blanco, presente desde la primera pintada, y afirmaba sobre el teclado, que depende de la lectura de firmas. Ya lo había arreglado antes, pero **en el test de al lado**: este quedó igual.
+- **«firmado, el teclado queda deshabilitado»** esperaba el título del blanco, presente desde la primera pintada, y afirmaba sobre el teclado, que depende de la lectura de firmas. **Ya estaba arreglado en la entrada de abajo**; esta rama salía de antes de ese merge, así que el flake reapareció acá y lo arreglé por segunda vez. Al mergear quedó una sola versión.
 - **«Continuar se habilita cuando todos tienen puntaje»** esperaba a que IndexedDB tuviera las flechas del primer arquero y clickeaba las del segundo. La escritura y el paso de selección en React son dos momentos distintos: en el medio, las flechas del segundo le llegaban al primero y se perdían. Ahora espera el `aria-pressed`, que es la pantalla diciendo a quién le está cargando.
 
 Un tercero era **mío, de esta misma tanda**: esperaba «Faltan las firmas de Pérez», que también es verdad en el estado inicial —antes de leer nada faltan los dos—. La espera se cumplía con el estado equivocado.
@@ -71,6 +71,33 @@ Un tercero era **mío, de esta misma tanda**: esperaba «Faltan las firmas de P�
 Diez corridas seguidas en verde después de los tres.
 
 **Sobre las cuatro ops que el usuario ya tiene trabadas:** con este build, el primer vaciado las aísla, las marca en conflicto y libera el outbox. Las cuatro firmas van a volver a pedirse, que es lo correcto: el servidor nunca las recibió.
+## 2026-08-13 · WAFL no decía POR QUÉ no sincronizaba
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Probando la app en local apareció este mensaje al querer finalizar el torneo:
+
+> *Faltan sincronizar 4 cambios. Buscá señal y probá de nuevo. Tus puntajes ya están guardados en el celular.*
+
+**El mensaje siempre culpaba a la señal.** «Buscá señal» es el consejo correcto sin conexión y es **inútil cuando el servidor contesta y rechaza**: manda al líder a caminar buscando antena por un problema que no está en la antena. Con la sesión vencida, con un 500, con un rechazo de validación, decía exactamente lo mismo.
+
+Y el motivo real **ya estaba guardado**: `marcarIntentos` escribe `lastError` en cada op del outbox desde `FE-2`, y `flush` lo emite en `SyncState.lastError`. Ninguno de los dos lugares que le hablan al líder lo miraba.
+
+- El cierre ahora dice: *«Falta sincronizar 4 cambios. El servidor respondió: <motivo>. Tus puntajes ya están guardados en el celular.»* Se toma el error de la op **más intentada**, que es la que mejor representa por qué está trabada.
+- El badge pasa de «Hay un problema con la sincronización» a *«Problema al sincronizar: <motivo>»*. Sin motivo registrado no se inventa uno.
+
+De paso, dos cosas más:
+
+- **«1 cambios».** El plural estaba fijo.
+- **La frase tranquilizadora vivía en `ResultsPage`**, pegada al mensaje que venía de `outbox`. Ahora el mensaje es uno solo y se arma en un lugar.
+
+**Y un flake propio, encontrado en el camino.** El test «firmado, el teclado queda deshabilitado» —de la tanda anterior— esperaba el **título del blanco**, que está desde la primera pintada, y después afirmaba sobre el teclado. Pero las firmas llegan de IndexedDB en un efecto: la aserción corría carrera contra esa lectura. Ahora espera el aviso de la firma, que es la señal de que las firmas ya se leyeron. Seis corridas seguidas en verde.
+
+> No es el primer test que escribo esperando algo que ya está en pantalla en vez de lo que de verdad indica que el trabajo terminó. Es el mismo error que el `waitFor` de `FE-8` y que la aserción que llegaba antes que la cola de escrituras en `REF-6`.
+
+**Sobre la causa concreta del usuario:** no se determinó. La API respondía 200 en `/api/health` al revisar, así que no era que estuviera caída. Con este cambio, la próxima vez el mensaje lo dice solo.
+
+**Tests:** 3 de cierre, 5 de `syncLabel` —que no tenía ninguno—. 945 en verde. **Controles de mutación: 2, murieron 2.**
 
 ---
 

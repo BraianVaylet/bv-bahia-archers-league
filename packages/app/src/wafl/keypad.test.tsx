@@ -433,11 +433,13 @@ describe('editar hasta la firma', () => {
     await writeSignature(P1, PNG);
     renderBlanco();
 
-    // Se espera el aviso de la firma, NO el título del blanco: el título está
-    // desde la primera pintada y las firmas llegan de IndexedDB en un efecto.
-    // Esperar el título hace que la aserción corra carrera contra esa lectura,
-    // y bajo carga la pierde. Es la segunda vez que este mismo test se escribe
-    // así; ver `BITACORA.md`, entradas del 2026-08-13.
+    /**
+     * Se espera el aviso de la firma, **no el título del blanco**.
+     *
+     * El título está desde la primera pintada, pero las firmas llegan de
+     * IndexedDB en un efecto: esperar el título dejaba la aserción corriendo
+     * carrera contra esa lectura, y el test fallaba una de cada varias veces.
+     */
     await screen.findByText(/ya firmó/);
 
     const teclas = within(screen.getByTestId('score-keypad')).getAllByRole('button');
