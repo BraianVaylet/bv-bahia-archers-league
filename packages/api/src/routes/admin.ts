@@ -8,6 +8,7 @@
 import {
   ArcherInputSchema,
   CreateTournamentSchema,
+  distribucionDeModalidades,
   MarkPaymentSchema,
   ObjectIdSchema,
   PatrolDistributionSchema,
@@ -149,6 +150,10 @@ export const admin = new Hono()
         patrolCount: t.patrolCount,
         participantCount: t.participantCount,
         maxPossibleScore: t.maxPossibleScore,
+        // La distribución se calcula acá y no en el cliente: el listado no
+        // manda los blancos, y mandarlos para que el cliente los cuente sería
+        // enviar catorce objetos por torneo para mostrar cuatro números.
+        modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
       })),
     });
   })

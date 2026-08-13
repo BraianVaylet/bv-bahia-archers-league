@@ -16,20 +16,24 @@ import {
   formatearFechaCorta,
   formatearMonto,
   leaguePointsForPosition,
+  type ParteDeModalidad,
   rankByCategory,
   SCORING,
+  type TournamentStatus,
 } from '@bal/shared';
+import { BadgeEstado, ChipModalidad } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
-import { Cargando, cn, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
+import { Cargando, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
 
 interface TorneoResumen {
   readonly id: string;
   readonly name: string;
   readonly date: string;
-  readonly status: string;
+  readonly status: TournamentStatus;
   readonly targetCount: number;
   readonly participantCount: number;
+  readonly modalities?: readonly ParteDeModalidad[];
 }
 
 interface Resultado {
@@ -49,14 +53,14 @@ interface TorneoDetalle {
   readonly name: string;
   readonly date: string;
   readonly description: string;
-  readonly status: string;
+  readonly status: TournamentStatus;
   readonly payment: { readonly required: boolean; readonly amount: number };
   readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
   readonly maxPossibleScore: number;
   readonly patrols: readonly {
     number: number;
     startTargetIndex: number;
-    status: string;
+    status: TournamentStatus;
     targetsCompleted: number;
     members: readonly {
       firstName: string;
@@ -103,8 +107,16 @@ export function TournamentsPage() {
                 </div>
                 <p className="text-sm text-[var(--ink-muted)]">
                   {t.targetCount} blancos · {t.participantCount} arqueros
-                  {t.status === 'en_proceso' && ' · en curso ahora'}
                 </p>
+
+                {/* De qué está hecho el recorrido, y en qué estado está. Los
+                    dos con su palabra al lado del color. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <EstadoChip status={t.status} />
+                  {t.modalities?.map((m) => (
+                    <ChipModalidad key={m.modality} modality={m.modality} pct={m.pct} compacto />
+                  ))}
+                </div>
               </Link>
             </li>
           ))}
@@ -284,30 +296,20 @@ export function TournamentPage() {
 
 // ── Piezas de la ficha del torneo ────────────────────────────────────────────
 
-const ESTADOS: Record<string, { texto: string; clase: string }> = {
-  en_proceso: { texto: 'En curso ahora', clase: 'bg-[var(--warn)] text-[var(--bg)]' },
-  publicado: { texto: 'Resultados oficiales', clase: 'bg-[var(--ok)] text-[var(--bg)]' },
-};
-
 /**
  * El estado del torneo, resaltado.
  *
  * **El color no va solo**: la etiqueta dice el estado con palabras. Un chip
  * verde y uno amarillo son el mismo chip para quien no distingue los dos.
  * Ver `docs/DESIGN_SYSTEM.md` §10.
+ *
+ * El texto y el color salen ahora de `ESTADO_DE_TORNEO`, en `@bal/shared`.
+ * Estaban acá, con dos de los cuatro estados nada más, y otra vez en WAFA con
+ * palabras distintas. `BadgeEstado` devuelve `null` para los estados que no se
+ * muestran en público, que es lo que hacía este `if (!info)`.
  */
-function EstadoChip({ status }: { readonly status: string }) {
-  const info = ESTADOS[status];
-  if (!info) return null;
-
-  return (
-    <span
-      data-testid="estado-torneo"
-      className={cn('text-sm font-semibold px-3 h-7 rounded-full flex items-center', info.clase)}
-    >
-      {info.texto}
-    </span>
-  );
+function EstadoChip({ status }: { readonly status: TournamentStatus }) {
+  return <BadgeEstado status={status} publico />;
 }
 
 /**

@@ -8,7 +8,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.6.
  */
 
-import { CATEGORY_INFO } from '@bal/shared';
+import { ChipCategoria } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Encabezado, Screen, StakeChip } from '../../components/ui.js';
@@ -254,7 +254,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                                 {m.lastName}, {m.firstName}
                               </p>
                               <p className="text-sm text-[var(--ink-muted)]">
-                                {CATEGORY_INFO[m.category].label} ·{' '}
+                                <ChipCategoria category={m.category} compacto /> ·{' '}
                                 {i === 0 ? 'izquierda' : 'derecha'}
                               </p>
                             </div>

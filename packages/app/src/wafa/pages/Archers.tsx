@@ -10,6 +10,7 @@
  */
 
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
+import { ChipCategoria } from '@bal/ui';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
@@ -186,9 +187,10 @@ function Fila({
           {arquero.lastName}, {arquero.firstName}
         </span>
         {/* La categoría resaltada: decide estaca y podio, y es lo que el admin
-            busca de un vistazo al armar un torneo. */}
-        <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-[var(--surface-2)] shrink-0">
-          {CATEGORY_INFO[arquero.category].label}
+            busca de un vistazo al armar un torneo. Ahora con su color y su
+            ícono, para encontrarla en una lista de cuarenta. */}
+        <span className="shrink-0">
+          <ChipCategoria category={arquero.category} compacto />
         </span>
       </div>
 

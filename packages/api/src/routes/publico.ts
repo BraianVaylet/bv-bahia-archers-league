@@ -5,7 +5,13 @@
  * distribución de patrullas y el avance. Ver `docs/FUNCTIONAL.md` §5.3.
  */
 
-import { type ArcherStanding, bestTwoAvgPct, ObjectIdSchema, sortStandings } from '@bal/shared';
+import {
+  type ArcherStanding,
+  bestTwoAvgPct,
+  distribucionDeModalidades,
+  ObjectIdSchema,
+  sortStandings,
+} from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { seasons } from '../db/client.js';
@@ -91,6 +97,7 @@ export const publico = new Hono()
         status: t.status,
         targetCount: t.targets.length,
         participantCount: t.participantCount,
+        modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
       })),
     });
   })

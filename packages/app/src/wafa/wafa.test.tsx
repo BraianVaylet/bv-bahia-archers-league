@@ -237,6 +237,54 @@ describe('HomePage', () => {
     expect(enlaces).toEqual(['torneo-ahora', 'torneo-viejo']);
   });
 
+  /**
+   * **De qué está hecho el recorrido**, en el listado (`REF2-4`).
+   *
+   * El porcentaje va con su ícono y su nombre dentro del mismo chip: separados
+   * en un renglón aparte, hay que emparejar «43%» con «3D» a ojo.
+   */
+  it('muestra la distribución de modalidades del recorrido', async () => {
+    servidor({
+      'GET /api/admin/tournaments': () => ({
+        json: {
+          tournaments: [
+            torneo({
+              id: 'ahora',
+              status: 'en_proceso',
+              modalities: [
+                { modality: '3d', count: 6, pct: 43 },
+                { modality: 'campo', count: 6, pct: 43 },
+                { modality: 'sala', count: 1, pct: 7 },
+                { modality: 'aire_libre', count: 1, pct: 7 },
+              ],
+            }),
+          ],
+        },
+      }),
+    });
+    renderHome();
+
+    const fila = await screen.findByTestId('modalidades');
+    expect(fila.textContent).toMatch(/3D/);
+    expect(fila.textContent).toMatch(/43%/);
+
+    // Y suman cien: es lo que hace que el renglón se pueda leer como un reparto.
+    const pcts = [...(fila.textContent ?? '').matchAll(/(\d+)%/g)].map((m) => Number(m[1]));
+    expect(pcts.reduce((n, x) => n + x, 0)).toBe(100);
+  });
+
+  // Un torneo viejo, de una respuesta en caché, no trae el campo. La tarjeta
+  // no puede quedar en blanco por eso.
+  it('sin distribución la tarjeta sigue en pie', async () => {
+    servidor({
+      'GET /api/admin/tournaments': () => ({ json: { tournaments: [torneo({ id: 'x' })] } }),
+    });
+    renderHome();
+
+    expect(await screen.findByTestId('torneo-x')).toBeDefined();
+    expect(screen.queryByTestId('modalidades')).toBeNull();
+  });
+
   it('cada grupo vacío explica que está vacío, no desaparece', async () => {
     servidor({
       'GET /api/admin/tournaments': () => ({
