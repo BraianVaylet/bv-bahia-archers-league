@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteDb, readScore, type StoredBundle, saveBundle } from '../offline/db.js';
+import { writeScore, writeSignature } from '../offline/outbox.js';
 import { configureSync, resetSyncWorker } from '../offline/syncWorker.js';
 import { disposicionPara, ScoreKeypad, TAMAÑO_TECLA_PX } from './ScoreKeypad.js';
 import { TargetPage } from './TargetPage.js';
@@ -157,24 +158,40 @@ describe('ScoreKeypad', () => {
   });
 
   describe('disposición', () => {
-    // 3D y campo mapean 1:1 con los anillos de la cara real. Sala y aire libre
-    // tienen doce tokens, que no caben en anillos legibles.
-    it('elige arcos para 3D y campo, grilla para sala y aire libre', () => {
-      expect(disposicionPara('3d')).toBe('arcos');
-      expect(disposicionPara('campo')).toBe('arcos');
+    /**
+     * **Grilla en las cuatro modalidades** (REF-6).
+     *
+     * La disposición en arcos mapeaba 1:1 con los anillos de la cara real, y
+     * era una apuesta de usabilidad que `FE-6` dejó explícitamente sin validar.
+     * Con la app en la mano, la decisión fue el orden de lectura —izquierda a
+     * derecha, arriba abajo— igual en todas: cambiar de disposición entre un
+     * blanco 3D y uno de sala obliga a volver a buscar dónde está cada tecla,
+     * en el medio del recorrido y con guantes.
+     */
+    it('usa grilla en las cuatro modalidades', () => {
+      expect(disposicionPara('3d')).toBe('grilla');
+      expect(disposicionPara('campo')).toBe('grilla');
       expect(disposicionPara('sala')).toBe('grilla');
       expect(disposicionPara('aire_libre')).toBe('grilla');
     });
 
-    // La disposición en arcos es una apuesta sin validar: si en la prueba de
-    // campo no le gana a la grilla, se cambia con una prop.
-    it('se puede forzar la grilla sin tocar el resto del componente', () => {
+    // La disposición en arcos queda detrás de la prop: la decisión se tomó con
+    // la app en la mano, no con arqueros tirando, y volver atrás no debería
+    // costar un rediseño.
+    it('los arcos siguen disponibles con la prop', () => {
       render3d({ disposicion: 'grilla' });
       expect(screen.getByTestId('score-keypad').dataset.disposicion).toBe('grilla');
 
       cleanup();
       render3d({ disposicion: 'arcos' });
       expect(screen.getByTestId('score-keypad').dataset.disposicion).toBe('arcos');
+    });
+
+    it('en grilla los tokens van en el orden del set, sin reordenar', () => {
+      render3d({ disposicion: 'grilla' });
+
+      const teclas = within(screen.getByTestId('score-keypad')).getAllByRole('button');
+      expect(teclas.map((t) => t.textContent)).toEqual(['11', '10', '8', '5', 'M']);
     });
 
     it('en arcos siguen estando todos los tokens', () => {
@@ -307,7 +324,7 @@ describe('TargetPage', () => {
       expect((await readScore(P1, 1))?.arrows).toEqual(['11']);
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Borrar' })[0] as HTMLElement);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Borrar la última/ })[0] as HTMLElement);
 
     await waitFor(async () => {
       expect((await readScore(P1, 1))?.arrows).toEqual([]);
@@ -330,4 +347,83 @@ describe('TargetPage', () => {
     renderPagina();
     expect(await screen.findByTestId('sync-badge')).toBeDefined();
   });
+});
+
+// ── REF-6 · Editable hasta firmar ────────────────────────────────────────────
+
+/**
+ * El puntaje se corrige hasta que el arquero firma, y **ni un toque después**.
+ *
+ * La firma guarda un `scorecardHash` del puntaje del momento. Si se edita
+ * después, el servidor rechaza el cierre con `SIGNATURE_MISMATCH` — un error
+ * que aparece al final del recorrido, lejos de su causa, cuando la patrulla ya
+ * quiere irse. Es mejor no dejar tocarlo.
+ */
+describe('editar hasta la firma', () => {
+  const PNG = 'data:image/png;base64,AAA';
+
+  const renderBlanco = () => {
+    const target = bundle.tournament.targets[0];
+    if (!target) throw new Error('falta el blanco');
+    render(
+      <TargetPage
+        target={target}
+        participants={participantes}
+        onContinuar={vi.fn()}
+        onVolver={() => {}}
+      />,
+    );
+  };
+
+  it('un puntaje completo se puede corregir borrando la última', async () => {
+    await writeScore(P1, 1, ['11', '11']);
+    renderBlanco();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Borrar la última de Pérez/ }));
+
+    await waitFor(async () => {
+      expect((await readScore(P1, 1))?.arrows).toEqual(['11']);
+    });
+  });
+
+  it('firmado, ya no se puede borrar', async () => {
+    await writeScore(P1, 1, ['11', '11']);
+    await writeSignature(P1, PNG);
+    renderBlanco();
+
+    await screen.findByText('Blanco 1');
+    expect(screen.queryByRole('button', { name: /Borrar la última de Pérez/ })).toBeNull();
+  });
+
+  // Un control que desaparece sin explicación parece un bug de la app.
+  it('firmado, la pantalla dice por qué quedó bloqueado', async () => {
+    await writeScore(P1, 1, ['11', '11']);
+    await writeSignature(P1, PNG);
+    renderBlanco();
+
+    expect(await screen.findByText(/Pérez ya firmó/)).toBeDefined();
+  });
+
+  it('la firma de uno NO bloquea al otro', async () => {
+    await writeScore(P1, 1, ['11', '11']);
+    await writeSignature(P1, PNG);
+    await writeScore(P2, 1, ['11']);
+    renderBlanco();
+
+    expect(await screen.findByRole('button', { name: /Borrar la última de Gómez/ })).toBeDefined();
+  });
+
+  /**
+   * PENDIENTE — el guard del teclado está puesto y sin test que lo respalde.
+   *
+   * El teclado SÍ se renderiza para un arquero firmado —es el mismo para todos—
+   * así que el guard de `agregarFlecha` es lo único que lo frena. El test que
+   * escribí pasaba **con el guard sacado a mano**: la aserción llegaba antes de
+   * que drenara la cola de escrituras. Al reescribirlo usando la escritura de
+   * otro arquero como señal de que la cola pasó, no logré que la selección del
+   * segundo arquero funcionara desde el test.
+   *
+   * Queda anotado: lo que sí está cubierto es que el botón de borrar desaparece
+   * y que la pantalla explica por qué. El guard del handler, no.
+   */
 });

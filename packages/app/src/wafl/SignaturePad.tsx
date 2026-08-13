@@ -74,7 +74,14 @@ export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignatureP
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    /* A pantalla completa: firmar con el dedo en un recuadro de 240px sale
+       tembloroso, y una firma que no se parece a la de siempre es la que el
+       arquero discute después. Fijo sobre todo lo demás para que nada se
+       mueva mientras se firma. */
+    <div
+      className="fixed inset-0 z-20 bg-[var(--bg)] flex flex-col gap-3 p-4 overflow-y-auto"
+      data-testid="pad-firma"
+    >
       {/* El puntaje va ARRIBA del canvas: se firma lo que se está viendo. */}
       <div className="text-center">
         <p className="font-semibold">{nombre}</p>
@@ -86,15 +93,17 @@ export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignatureP
 
       <canvas
         ref={canvasRef}
-        width={600}
-        height={240}
+        width={900}
+        height={600}
         aria-label={`Firma de ${nombre}`}
         data-testid="signature-canvas"
         onPointerDown={empezar}
         onPointerMove={mover}
         onPointerUp={terminar}
         onPointerLeave={terminar}
-        className="w-full h-60 rounded-[var(--radius-lg)] border-2 border-dashed bg-white touch-none"
+        //  para comerse todo el alto que sobre: cuanto más grande el
+        // área, más se parece al trazo de siempre.
+        className="w-full grow min-h-[16rem] rounded-[var(--radius-lg)] border-2 border-dashed bg-white touch-none"
       />
 
       <div className="flex gap-2">

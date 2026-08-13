@@ -116,6 +116,11 @@ export const publico = new Hono()
       maxPossibleScore: torneo.maxPossibleScore,
       patrols: patrullas.map((p) => ({
         number: p.number,
+        // El usuario, para la botonera de WAFL. **No es información nueva**:
+        // es `patrulla${number}` y el número ya está acá al lado. Se manda para
+        // que el cliente no repita la regla de nombrado. El PIN sigue siendo el
+        // único factor y nunca sale de acá. Ver `docs/SECURITY.md` §3.
+        username: p.username,
         startTargetIndex: p.startTargetIndex,
         status: p.status,
         targetsCompleted: p.targetsCompleted,

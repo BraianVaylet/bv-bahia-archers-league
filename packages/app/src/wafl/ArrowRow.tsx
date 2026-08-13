@@ -21,6 +21,14 @@ export interface ArrowRowProps {
   readonly seleccionado: boolean;
   readonly onSelect: () => void;
   readonly onBorrarUltima: () => void;
+  /**
+   * El arquero ya firmó: el puntaje queda congelado.
+   *
+   * La firma guarda un hash del puntaje del momento. Editarlo después hace que
+   * el servidor rechace el cierre con `SIGNATURE_MISMATCH`, un error que sale
+   * al final del recorrido y lejos de su causa.
+   */
+  readonly firmado?: boolean;
 }
 
 export function ArrowRow({
@@ -35,6 +43,7 @@ export function ArrowRow({
   seleccionado,
   onSelect,
   onBorrarUltima,
+  firmado,
 }: ArrowRowProps) {
   const ordenadas = sortArrowsDescending(modality, arrows);
   const completo = arrows.length >= arrowsPerTarget;
@@ -88,10 +97,11 @@ export function ArrowRow({
           })}
         </div>
 
-        {arrows.length > 0 && (
+        {arrows.length > 0 && !firmado && (
           <button
             type="button"
             onClick={onBorrarUltima}
+            aria-label={`Borrar la última de ${lastName}`}
             className="min-h-[44px] min-w-[44px] px-3 rounded-[var(--radius-md)] text-sm text-[var(--ink-muted)] border"
           >
             Borrar
@@ -101,6 +111,14 @@ export function ArrowRow({
 
       <StakeChip stake={stake} />
       {completo && <span className="sr-only">Puntaje completo</span>}
+
+      {/* Un control que desaparece sin explicación parece un bug de la app. */}
+      {firmado && (
+        <p className="text-sm text-[var(--ink-muted)]">
+          {lastName} ya firmó: el puntaje quedó cerrado. Para corregirlo, el admin tiene que
+          desbloquear la firma.
+        </p>
+      )}
     </div>
   );
 }

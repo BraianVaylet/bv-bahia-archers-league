@@ -14,7 +14,7 @@
 import { formatearFechaCorta } from '@bal/shared';
 import logoLiga from '@bal/shared/assets/liga.svg';
 import { type FormEvent, useEffect, useState } from 'react';
-import { Button, Field, Screen } from '../components/ui.js';
+import { Button, cn, Field, Screen } from '../components/ui.js';
 import { ApiError, api } from '../lib/apiClient.js';
 import type { StoredBundle } from '../offline/db.js';
 import { readBundle } from '../offline/db.js';
@@ -40,6 +40,12 @@ export function antiguedadDe(fetchedAt: number, ahora: number = Date.now()): str
   return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
 }
 
+/** Lo mínimo que la botonera necesita de cada patrulla del torneo. */
+interface PatrullaDelTorneo {
+  readonly number: number;
+  readonly username: string;
+}
+
 export function LoginPage({ onEntro }: LoginPageProps) {
   const [torneos, setTorneos] = useState<TorneoAbierto[]>();
   const [tournamentId, setTournamentId] = useState('');
@@ -48,6 +54,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);
   const [guardado, setGuardado] = useState<StoredBundle>();
+  const [patrullas, setPatrullas] = useState<PatrullaDelTorneo[]>([]);
 
   useEffect(() => {
     // El bundle guardado se lee primero: es lo que permite entrar sin señal, y
@@ -59,6 +66,37 @@ export function LoginPage({ onEntro }: LoginPageProps) {
       .then((r) => setTorneos(r.tournaments.filter((t) => t.status === 'en_proceso')))
       .catch(() => setTorneos([]));
   }, []);
+
+  /**
+   * Las patrullas del torneo elegido, para la botonera.
+   *
+   * Si falla —sin señal en el club— se queda vacía y el campo de texto sigue
+   * estando: quedarse sin botonera **y** sin campo sería quedarse afuera del
+   * torneo.
+   */
+  useEffect(() => {
+    setUsername('');
+    if (!tournamentId) {
+      setPatrullas([]);
+      return;
+    }
+
+    let vigente = true;
+    api
+      .get<{ tournament: { patrols: PatrullaDelTorneo[] } }>(`/public/tournaments/${tournamentId}`)
+      .then((r) => {
+        if (vigente) setPatrullas(r.tournament.patrols);
+      })
+      .catch(() => {
+        if (vigente) setPatrullas([]);
+      });
+
+    // Cambiar de torneo dos veces rápido dejaría la respuesta de la primera
+    // pisando a la segunda.
+    return () => {
+      vigente = false;
+    };
+  }, [tournamentId]);
 
   const entrar = async (e: FormEvent) => {
     e.preventDefault();
@@ -133,6 +171,37 @@ export function LoginPage({ onEntro }: LoginPageProps) {
             </p>
           )}
         </div>
+
+        {/* Un botón por patrulla: tipear `patrulla3` con guantes, al sol y con
+            el celular en una mano es la parte más lenta de entrar, y la que más
+            se equivoca. El campo de texto queda igual debajo — si la lista no
+            llegó por falta de señal, quedarse sin las dos cosas sería quedarse
+            afuera del torneo. */}
+        {patrullas.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium pb-1">Tu patrulla</legend>
+
+            <div className="flex flex-wrap gap-2">
+              {patrullas.map((p) => (
+                <button
+                  key={p.username}
+                  type="button"
+                  aria-pressed={username === p.username}
+                  onClick={() => setUsername(p.username)}
+                  className={cn(
+                    'min-h-[56px] min-w-[72px] px-4 rounded-[var(--radius-md)] border',
+                    'text-base font-semibold',
+                    username === p.username
+                      ? 'bg-[var(--nock)] text-[var(--nock-ink)]'
+                      : 'bg-[var(--surface)]',
+                  )}
+                >
+                  Patrulla {p.number}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <Field
           label="Patrulla"

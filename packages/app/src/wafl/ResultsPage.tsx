@@ -167,7 +167,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
 
       <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t">
         <Button ancho disabled={faltanFirmas.length > 0} onClick={() => void cerrar()}>
-          Cerrar circuito
+          Finalizar torneo
         </Button>
 
         {faltanFirmas.length > 0 && (

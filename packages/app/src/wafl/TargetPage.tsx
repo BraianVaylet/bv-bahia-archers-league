@@ -11,7 +11,7 @@ import type { Modality } from '@bal/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Screen } from '../components/ui.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
-import { readScore, readScores } from '../offline/db.js';
+import { readScore, readScores, readSignatures } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
 import { nudge } from '../offline/syncWorker.js';
 import { ArrowRow } from './ArrowRow.js';
@@ -34,12 +34,15 @@ const ETIQUETA_MODALIDAD: Record<Modality, string> = {
 
 export function TargetPage({ target, participants, onContinuar, onVolver }: TargetPageProps) {
   const [scores, setScores] = useState<StoredScore[]>([]);
+  const [firmados, setFirmados] = useState<ReadonlySet<string>>(new Set());
   const [seleccionado, setSeleccionado] = useState(participants[0]?.id ?? '');
   const [error, setError] = useState<string>();
 
   // Toda la lectura sale de IndexedDB. Si no hay red, no cambia nada.
   const recargar = useCallback(async () => {
-    setScores((await readScores()).filter((s) => s.targetIndex === target.index));
+    const [todos, firmas] = await Promise.all([readScores(), readSignatures()]);
+    setScores(todos.filter((s) => s.targetIndex === target.index));
+    setFirmados(new Set(firmas.map((f) => f.participantId)));
   }, [target.index]);
 
   useEffect(() => {
@@ -71,7 +74,9 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
   const agregarFlecha = useCallback(
     (token: string) => {
-      if (!seleccionado) return;
+      // Firmado no se toca: la firma guarda un hash del puntaje del momento, y
+      // editarlo después hace que el servidor rechace el cierre.
+      if (!seleccionado || firmados.has(seleccionado)) return;
 
       encolar(async () => {
         // Se lee de la base, no del estado de React: es lo que hace que dos
@@ -107,11 +112,13 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         }
       });
     },
-    [encolar, participants, recargar, seleccionado, target.arrows, target.index],
+    [encolar, firmados, participants, recargar, seleccionado, target.arrows, target.index],
   );
 
   const borrarUltima = useCallback(
     (participantId: string) => {
+      if (firmados.has(participantId)) return;
+
       encolar(async () => {
         const score = await readScore(participantId, target.index);
         if (!score || score.arrows.length === 0) return;
@@ -121,7 +128,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         nudge();
       });
     },
-    [encolar, recargar, target.index],
+    [encolar, firmados, recargar, target.index],
   );
 
   const puedeContinuar = faltantes.length === 0;
@@ -168,6 +175,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
                 seleccionado={p.id === seleccionado}
                 onSelect={() => setSeleccionado(p.id)}
                 onBorrarUltima={() => borrarUltima(p.id)}
+                firmado={firmados.has(p.id)}
               />
             );
           })}
