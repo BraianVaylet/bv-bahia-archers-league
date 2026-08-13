@@ -6,14 +6,21 @@
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { maxPossibleScore, type UpdateTournamentInput } from '@bal/shared';
-import type { ObjectId } from 'mongodb';
+import {
+  buildPatrols,
+  maxPossibleScore,
+  type StakeMap,
+  type UpdateTournamentInput,
+} from '@bal/shared';
+import { ObjectId } from 'mongodb';
 import { tournaments } from '../db/client.js';
 import type { TargetDoc, TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
+import * as archerRepo from '../repositories/archerRepo.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { aParticipantInput, conTransaccion, materializar } from './tournamentService.js';
 
 /** Blancos del torneo que ya tienen al menos un puntaje cargado. */
 export async function blancosBloqueados(torneo: TournamentDoc): Promise<number[]> {
@@ -93,6 +100,29 @@ export async function updateTournament(
     cambios.maxPossibleScore = maxPossibleScore(nuevos);
   }
 
+  if (input.payment) cambios.payment = { ...input.payment };
+
+  /**
+   * Cambiar quiénes participan **rearma las patrullas**.
+   *
+   * No es una decisión de comodidad: las patrullas se derivan de la lista de
+   * arqueros y de las restricciones del dominio (`H1`-`H4`). Agregar a alguien
+   * sin rehacerlas daría una patrulla de cinco o una 100% escuela, que es justo
+   * lo que el algoritmo evita.
+   *
+   * Sólo con el torneo `sin_iniciar`. Con el torneo en marcha las patrullas ya
+   * están en el monte con su PIN y su planilla impresa: rearmarlas desde el
+   * escritorio dejaría al líder mirando una lista que no coincide con la gente
+   * que tiene al lado.
+   */
+  const nuevosParticipantes =
+    input.archerIds === undefined ? null : await prepararParticipantes(torneo, input.archerIds);
+
+  if (nuevosParticipantes) {
+    cambios.patrolCount = nuevosParticipantes.patrolDocs.length;
+    cambios.participantCount = nuevosParticipantes.participantDocs.length;
+  }
+
   const actualizado = await tournaments().findOneAndUpdate(
     { _id: tournamentId, status: torneo.status },
     { $set: cambios },
@@ -102,6 +132,32 @@ export async function updateTournament(
   if (!actualizado) {
     throw new AppError('INVALID_STATE_TRANSITION', {
       message: 'El torneo cambió de estado mientras se procesaba la solicitud.',
+    });
+  }
+
+  if (nuevosParticipantes) {
+    const { patrolDocs, participantDocs } = nuevosParticipantes;
+
+    // En una transacción: un torneo sin patrullas, aunque sea por un instante,
+    // es un torneo que un líder no puede abrir.
+    await conTransaccion(async (session) => {
+      // Patrullas, participantes y puntajes, juntos: un puntaje sin dueño hace
+      // que el torneo marque blancos bloqueados de arqueros que ya no existen.
+      await tournamentRepo.clearDistribution(tournamentId, session);
+      await tournamentRepo.insertPatrols(patrolDocs, session);
+      await tournamentRepo.insertParticipants(participantDocs, session);
+
+      await auditRepo.record(
+        {
+          actorType: 'admin',
+          actorId,
+          action: 'tournament.participants_edit',
+          entity: 'tournament',
+          entityId: tournamentId,
+          meta: { participants: participantDocs.length, patrols: patrolDocs.length },
+        },
+        session,
+      );
     });
   }
 
@@ -131,4 +187,39 @@ export async function removeTournament(tournamentId: ObjectId): Promise<void> {
   }
 
   await tournamentRepo.remove(tournamentId);
+}
+
+/**
+ * Valida la lista de arqueros y arma las patrullas nuevas.
+ *
+ * Las mismas dos comprobaciones que al crear el torneo —que existan y que
+ * ninguno esté archivado—: si estuvieran sólo en la creación, se podría meter
+ * un archivado por la puerta de la edición.
+ */
+async function prepararParticipantes(torneo: TournamentDoc, archerIds: readonly string[]) {
+  if (torneo.status !== 'sin_iniciar') {
+    throw new AppError('INVALID_STATE_TRANSITION', {
+      message: 'Los participantes sólo se pueden cambiar antes de iniciar el torneo.',
+    });
+  }
+
+  const ids = archerIds.map((id) => new ObjectId(id));
+  const arqueros = await archerRepo.findManyByIds(ids);
+
+  if (arqueros.length !== ids.length) {
+    throw new AppError('NOT_FOUND', { message: 'Alguno de los arqueros no existe.' });
+  }
+
+  const archivados = arqueros.filter((a) => a.archivedAt !== null);
+  if (archivados.length > 0) {
+    throw new AppError('VALIDATION_ERROR', {
+      message: 'No se puede inscribir a un arquero archivado.',
+      details: { archerIds: archivados.map((a) => a._id.toHexString()) },
+    });
+  }
+
+  const stakeMap: StakeMap = torneo.stakeMap;
+  const plan = buildPatrols(aParticipantInput(arqueros), stakeMap, torneo.targets.length);
+
+  return materializar(plan, torneo._id, new Date());
 }

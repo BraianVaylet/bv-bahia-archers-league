@@ -156,7 +156,7 @@ export async function createTournament(
 
 // ── Auxiliares ───────────────────────────────────────────────────────────────
 
-function aParticipantInput(arqueros: readonly ArcherDoc[]): ParticipantInput[] {
+export function aParticipantInput(arqueros: readonly ArcherDoc[]): ParticipantInput[] {
   return arqueros.map((a) => ({
     archerId: a._id.toHexString(),
     firstName: a.firstName,
@@ -175,7 +175,7 @@ function aParticipantInput(arqueros: readonly ArcherDoc[]): ParticipantInput[] {
  * tarda cientos de milisegundos y mantener la transacción abierta ese tiempo
  * sostiene locks sin necesidad.
  */
-async function materializar(
+export async function materializar(
   plan: PatrolPlan,
   tournamentId: ObjectId,
   ahora: Date,

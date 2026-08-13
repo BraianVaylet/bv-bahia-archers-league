@@ -180,6 +180,18 @@ export const admin = new Hono()
     return c.json({ ok: true });
   })
 
+  /**
+   * Vuelve un torneo `en_proceso` a `sin_iniciar`.
+   *
+   * La guarda —que no haya un solo puntaje cargado— vive en el servicio, no en
+   * el botón: el botón se puede tocar dos veces, o desde una pantalla que
+   * todavía no se enteró de que alguien anotó.
+   */
+  .post('/tournaments/:id/unstart', async (c) => {
+    const doc = await tournamentStateService.unstart(toObjectId(c.req.param('id')));
+    return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
+  })
+
   .post('/tournaments/:id/publish', async (c) => {
     return c.json(await publishService.publish(toObjectId(c.req.param('id')), currentAdminId(c)));
   })
@@ -270,6 +282,11 @@ export const admin = new Hono()
    * Va bajo `/admin` y no en el endpoint público: quién pagó y quién no es
    * información del club, no del ranking.
    */
+  /** Lo recaudado en toda la temporada, torneo por torneo. */
+  .get('/seasons/:id/collection', async (c) => {
+    return c.json(await paymentService.seasonCollection(toObjectId(c.req.param('id'))));
+  })
+
   .get('/tournaments/:id/payments', async (c) => {
     return c.json(await paymentService.summary(toObjectId(c.req.param('id'))));
   })

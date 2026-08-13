@@ -183,11 +183,44 @@ export const publico = new Hono()
     const primero = acumulados[0];
     if (!primero) throw notFound();
 
+    /**
+     * La serie del gráfico de evolución.
+     *
+     * Sale de las participaciones —que tienen el `normalizedPct` de cada
+     * torneo— cruzadas con los torneos **publicados**. Un torneo sin publicar
+     * no aparece: es un endpoint público y los resultados no son oficiales
+     * hasta que el admin los publica.
+     */
+    const participaciones = await tournamentRepo.listParticipationsOfArcher(archerId);
+    const torneos = await tournamentRepo.findManyByIds(participaciones.map((p) => p.tournamentId));
+    const publicados = new Map(
+      torneos.filter((t) => t.status === 'publicado').map((t) => [t._id.toHexString(), t]),
+    );
+
+    const history = participaciones
+      .flatMap((p) => {
+        const torneo = publicados.get(p.tournamentId.toHexString());
+        if (!torneo) return [];
+
+        return [
+          {
+            tournamentId: torneo._id.toHexString(),
+            name: torneo.name,
+            date: torneo.date,
+            seasonId: torneo.seasonId.toHexString(),
+            normalizedPct: p.normalizedPct,
+            total: p.total,
+          },
+        ];
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
     return c.json({
       archer: {
         id: archerId.toHexString(),
         firstName: primero.firstName,
         lastName: primero.lastName,
+        history,
         seasons: acumulados.map((s) => ({
           seasonId: s.seasonId.toHexString(),
           category: s.category,

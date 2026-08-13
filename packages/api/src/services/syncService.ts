@@ -81,6 +81,36 @@ export async function sync(
     throw new Error('El torneo de la sesión ya no existe.');
   }
 
+  /**
+   * **El torneo tiene que estar en curso.**
+   *
+   * La autorización de `/wafl/sync` sale de la sesión de patrulla y nada más, y
+   * una sesión emitida mientras el torneo corría sigue viva después. Mientras
+   * el torneo sólo iba para adelante eso no importaba; desde que existe la
+   * vuelta atrás a `sin_iniciar` (`REF2-3`), un líder que entró antes podía
+   * seguir anotando sobre un torneo que dice no haber empezado.
+   *
+   * Se rechaza **op por op** y no con un error del batch: un 4xx dejaría al
+   * outbox del cliente reintentando algo que nunca va a entrar, y el contrato
+   * de `/sync` es responder 200 siempre con el resultado individual de cada op.
+   * Ver `docs/OFFLINE_SYNC.md` §6 y la entrada del `/security-review` en
+   * `BITACORA.md`.
+   */
+  if (torneo.status !== 'en_proceso') {
+    return {
+      results: batch.ops.map((op) => ({
+        opId: op.opId,
+        status: 'rejected' as const,
+        error: {
+          code: 'INVALID_STATE_TRANSITION',
+          message: 'El torneo no está en curso. Consultá con la organización.',
+        },
+      })),
+      patrol: { status: 'pendiente', targetsCompleted: 0 },
+      serverTime: new Date().toISOString(),
+    };
+  }
+
   const results: OpResult[] = [];
   for (const op of batch.ops) {
     results.push(await procesarOp(op, patrolId, torneo));
