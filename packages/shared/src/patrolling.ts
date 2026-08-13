@@ -83,6 +83,12 @@ export type PatrolViolation =
       readonly categories: readonly BowCategory[];
     }
   | { readonly code: 'ALL_ESCUELA'; readonly patrolNumber: number }
+  | { readonly code: 'TOO_MANY_PAIRS'; readonly patrolNumbers: readonly number[] }
+  | {
+      readonly code: 'DUPLICATE_START';
+      readonly targetIndex: number;
+      readonly patrolNumbers: readonly number[];
+    }
   | {
       readonly code: 'STAKE_MISMATCH';
       readonly patrolNumber: number;
@@ -217,9 +223,16 @@ function combinar(unidades: readonly Unidad[]): {
     if (i === -1) break;
     const unidad = sacar(pool, i);
 
-    // Mientras haya cupo, puede llevarse una de a dos (mejor para S1 y S2).
+    // Mientras haya cupo, se lleva una de a dos y forma una patrulla de TRES.
     // Agotado el cupo, sólo puede emparejarse con otra solitaria.
-    const candidatas = cupoDePares > 0 ? pool : pool.filter((u) => tamañoUnidad(u) === 1);
+    //
+    // La preferencia por las de a dos es lo que cumple `S4`. Ofrecerle el pool
+    // entero dejaba que se emparejara con otra solitaria —una patrulla de 2—
+    // **gastando el cupo igual**: con 1 recurvo y 5 compuestos salían una de 2
+    // y una de 4, en vez de dos de 3.
+    const deADos = pool.filter((u) => tamañoUnidad(u) === 2);
+    const candidatas =
+      cupoDePares > 0 && deADos.length > 0 ? deADos : pool.filter((u) => tamañoUnidad(u) === 1);
     const compañero = mejorCompañero(unidad, candidatas);
 
     if (!compañero) {
@@ -356,6 +369,73 @@ export function buildPatrols(
 }
 
 /**
+ * Mínimo de patrullas de dos alcanzable con estas unidades.
+ *
+ * Una patrulla es a lo sumo dos unidades y de 2 a 4 arqueros, así que las
+ * formas posibles son `4 = u2+u2` · `3 = u2+u1` · `2 = u2` ó `u1+u1`. Se prueban
+ * todas las cantidades de patrullas de tres y se toma la mejor; las
+ * combinaciones que dejarían una unidad solitaria suelta se descartan, porque
+ * serían una patrulla de uno y violarían `H1`.
+ *
+ * Con 7 arqueros repartidos en 5 unidades, por ejemplo, el mínimo es **dos**:
+ * no hay reparto que lo evite.
+ */
+function minPatrolsOfTwo(patrols: readonly PlannedPatrol[]): number {
+  const unidades = patrols.flatMap((p) => p.units);
+  const u1 = unidades.filter((u) => u.members.length === 1).length;
+  const u2 = unidades.filter((u) => u.members.length === 2).length;
+
+  let mejor = Number.POSITIVE_INFINITY;
+  for (let tres = 0; tres <= Math.min(u1, u2); tres++) {
+    const solitariasRestantes = u1 - tres;
+    if (solitariasRestantes % 2 !== 0) continue;
+    mejor = Math.min(mejor, solitariasRestantes / 2 + ((u2 - tres) % 2));
+  }
+
+  return mejor;
+}
+
+/**
+ * Violaciones que dependen del **conjunto**, no de una patrulla suelta.
+ *
+ * Van aparte de `validatePatrols` para que el recorrido por patrulla siga
+ * leyéndose de un vistazo: son reglas de otra naturaleza, que sólo tienen
+ * sentido mirando todas juntas.
+ */
+function violacionesDelConjunto(patrols: readonly PlannedPatrol[]): PatrolViolation[] {
+  const violaciones: PatrolViolation[] = [];
+
+  // S4 — como mucho una patrulla de dos. Si a una le falta uno, el otro queda
+  // solo y no puede tirar. Las de UNO ya las reporta H1: contarlas acá sería
+  // decir dos veces lo mismo con dos nombres distintos.
+  //
+  // Sólo se avisa si existe un reparto MEJOR. Con ciertas composiciones dos de
+  // dos es el óptimo —7 arqueros en 5 unidades, por ejemplo— y marcar como
+  // violación algo que no se puede arreglar es enseñarle al admin a ignorar
+  // los avisos.
+  const deDos = patrols.filter((p) => p.units.flatMap((u) => u.members).length === MIN_PATROL_SIZE);
+  if (deDos.length > 1 && deDos.length > minPatrolsOfTwo(patrols)) {
+    violaciones.push({ code: 'TOO_MANY_PAIRS', patrolNumbers: deDos.map((p) => p.number) });
+  }
+
+  // Dos patrullas en el mismo blanco de inicio se cruzan en el recorrido.
+  const porBlanco = new Map<number, number[]>();
+  for (const p of patrols) {
+    const grupo = porBlanco.get(p.startTargetIndex);
+    if (grupo) grupo.push(p.number);
+    else porBlanco.set(p.startTargetIndex, [p.number]);
+  }
+
+  for (const [targetIndex, patrolNumbers] of porBlanco) {
+    if (patrolNumbers.length > 1) {
+      violaciones.push({ code: 'DUPLICATE_START', targetIndex, patrolNumbers });
+    }
+  }
+
+  return violaciones;
+}
+
+/**
  * Verifica `H1`..`H4` sobre una distribución de patrullas.
  *
  * Se usa tras la edición manual del admin. **Informa, no bloquea**: el admin
@@ -412,6 +492,8 @@ export function validatePatrols(
       }
     }
   }
+
+  violaciones.push(...violacionesDelConjunto(patrols));
 
   return violaciones;
 }

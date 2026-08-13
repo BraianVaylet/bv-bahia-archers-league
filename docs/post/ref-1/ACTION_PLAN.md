@@ -116,18 +116,28 @@ Toca `@bal/shared` y el modelo de datos. Antes que cualquier interfaz que los co
 **DoD:** con dos torneos al 80 % y 90 %, el ranking muestra 85 % · con uno solo el arquero sigue sin clasificar · la recaudación coincide con pagos × monto.
 **Actualizar:** `DOMAIN_WA.md` §9, `TECHNICAL.md` §2 y §3.
 
-### `[ ] REF-3` · Reglas y flujo de patrullas · **P0**
+### `[x] REF-3` · Reglas y flujo de patrullas · **P0**
 
 **Archivos:** `shared/src/patrolling.ts`, `app/src/wafa/patrullas.ts`, `app/src/wafa/pages/Patrols.tsx`
 
-- Nueva restricción: **como mucho una patrulla de 2**. Si quedan dos, se juntan. Con TDD, en `buildPatrols` y `validatePatrols`
-- Todas las patrullas arrancan en un **blanco distinto**
-- El guardado exige 2–4 en todas; el editor permite pasarse **transitoriamente**
-- **No se puede imprimir** hasta guardar
-- El aviso de guardado va **al final, arriba de los botones**
-- Botón de volver al inicio después de guardar
+- [x] Nueva restricción: **como mucho una patrulla de 2**. Si quedan dos, se juntan. Con TDD, en `buildPatrols` y `validatePatrols`
+- [x] Todas las patrullas arrancan en un **blanco distinto**
+- [x] El guardado exige 2–4 en todas; el editor permite pasarse **transitoriamente**
+- [x] **No se puede imprimir** hasta guardar
+- [x] El aviso de guardado va **al final, arriba de los botones**
+- [x] Botón de volver al inicio después de guardar
 
 **DoD:** un torneo que generaría dos patrullas de 2 genera una de 4 · el validador nombra qué patrulla está mal y por qué · imprimir está deshabilitado con cambios sin guardar.
+
+> **Cerrada el 2026-08-13.** La regla, tal como estaba escrita, **no siempre se puede cumplir**, y eso salió de medirlo, no de suponerlo.
+>
+> Una patrulla es a lo sumo dos unidades: `4 = u2+u2` · `3 = u2+u1` · `2 = u2` ó `u1+u1`. Con 1 recurvo y 3 compuestos —4 arqueros en tres unidades— los repartos son **2+2** o **3+1**, y el segundo viola `H1`. No hay fusión posible.
+>
+> Un barrido sobre 1213 composiciones que producían dos patrullas de 2 encontró **cero** fusionables. Pero el mismo barrido encontró algo mejor: **30 de 960 composiciones daban peor que el óptimo**. `mejorCompañero` elegía por categoría y estaca **ignorando el tamaño**, así que una unidad solitaria con cupo para llevarse un par se lo gastaba en otra solitaria y fabricaba una patrulla de 2. Con 1 recurvo y 5 compuestos salían una de 2 y una de 4 en vez de dos de 3.
+>
+> Corregido: **0 peores que el óptimo**, y los casos con dos patrullas de 2 bajaron de 1213 a 894. Los 894 restantes son inevitables, y el validador **no avisa sobre ellos**: marcar como violación algo que no se puede arreglar enseña a ignorar los avisos.
+>
+> El barrido quedó como test permanente. 770 en verde; 6 controles de mutación, murieron 6.
 
 ### `[ ] REF-4` · Transversal de interfaz · **P1**
 

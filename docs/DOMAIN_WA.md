@@ -123,6 +123,21 @@ Estacas por cercanía al blanco: **roja** (más lejos) › **azul** (media) › 
 | `S1` | Reunir la mayor cantidad de arqueros de la misma categoría en la misma patrulla (minimizar unidades solitarias). |
 | `S2` | Balancear el tamaño de las patrullas (evitar una de 4 y otra de 2 si se puede repartir 3 y 3). |
 | `S3` | Repartir los blancos de inicio uniformemente a lo largo del circuito. |
+| `S4` | **Como mucho una patrulla de dos.** Una unidad solitaria prefiere llevarse una de a dos —formando una patrulla de 3— antes que emparejarse con otra solitaria. |
+
+#### Por qué `S4` es blando y no duro
+
+Una patrulla de dos es la peor de las válidas: si uno falta el día del torneo, el otro queda solo y no puede tirar, porque nadie le controla el puntaje. Conviene evitarlas.
+
+Pero **no siempre se puede.** Una patrulla es a lo sumo dos unidades y de 2 a 4 arqueros, así que las formas posibles son:
+
+```
+4 = u2 + u2      3 = u2 + u1      2 = u2   ó   u1 + u1
+```
+
+Con 1 recurvo y 3 compuestos —4 arqueros en tres unidades— los repartos posibles son **2 + 2** o **3 + 1**, y el segundo viola `H1`. Dos patrullas de dos es el mejor reparto que existe.
+
+Por eso el validador **sólo avisa cuando hay un reparto mejor**. Marcar como violación algo que no se puede arreglar es enseñarle al admin a ignorar los avisos.
 
 ### Ejemplos del reglamento del club
 
@@ -168,6 +183,10 @@ Mismo input → mismo output, siempre. Sin aleatoriedad, sin dependencia del ord
       como máximo min(P, S) se llevan una, menos uno si la paridad no cierra
       (las restantes tienen que poder emparejarse entre sí, o sea quedar en
       número par). Ej.: S=3, P=2 → sólo 1 se lleva un par.
+   a-ter. Mientras tenga ese cupo, la solitaria elige entre las de A DOS,
+      no entre todas (S4). Ofrecerle el conjunto entero la dejaba emparejarse
+      con otra solitaria —una patrulla de 2— gastando el cupo igual: con
+      1 recurvo y 5 compuestos salían una de 2 y una de 4 en vez de dos de 3.
    b. Las unidades SENIOR restantes se combinan entre sí,
       priorizando misma categoría (S1), luego misma estaca.
    c. Una unidad que queda sola forma su propia patrulla
@@ -205,7 +224,19 @@ interface PatrolPlan {
 
 ### Edición manual
 
-El admin puede reacomodar patrullas a mano **antes de iniciar el torneo**. El validador `validatePatrols()` vuelve a chequear `H1..H4` y devuelve la lista de violaciones. La UI las muestra de forma prominente, **pero no bloquea el guardado**: el admin conoce el terreno y puede tener razones válidas para una excepción. La decisión queda registrada en el audit log.
+El admin puede reacomodar patrullas a mano **antes de iniciar el torneo**. El validador `validatePatrols()` vuelve a chequear `H1..H4`, más dos reglas del conjunto, y devuelve la lista de violaciones:
+
+| Código | Qué informa |
+|---|---|
+| `PATROL_SIZE` · `MIXED_UNIT` · `ALL_ESCUELA` · `STAKE_MISMATCH` | `H1`..`H4`, patrulla por patrulla |
+| `TOO_MANY_PAIRS` | Más de una patrulla de dos, **y existe un reparto mejor** (`S4`) |
+| `DUPLICATE_START` | Dos patrullas arrancan en el mismo blanco: se cruzan en el recorrido |
+
+La UI las muestra de forma prominente, **pero no bloquea el guardado**: el admin conoce el terreno y puede tener razones válidas para una excepción. La decisión queda registrada en el audit log.
+
+**El tamaño es la excepción.** El guardado exige entre 2 y 4 arqueros en todas las patrullas que tengan gente. Un arquero solo no tiene quién le controle el puntaje: no es una excepción que alguien pueda decidir, es un torneo que no se puede correr. Una patrulla **vacía** sí se puede guardar —es un estado intermedio mientras se reacomoda— y simplemente no se manda al servidor.
+
+**No se puede imprimir con cambios sin guardar.** La planilla en papel es la única fuente de verdad en el monte; no puede decir algo distinto de lo que la app va a mandar.
 
 Una vez el torneo pasa a `en_proceso`, las patrullas quedan **congeladas**.
 

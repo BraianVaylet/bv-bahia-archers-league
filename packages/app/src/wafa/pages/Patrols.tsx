@@ -89,6 +89,22 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
 
+  /**
+   * Hay cambios que el servidor todavía no tiene.
+   *
+   * Es lo que deshabilita **Imprimir**: la planilla en papel es la única fuente
+   * de verdad en el monte, y no puede decir algo distinto de lo que la app va a
+   * mandar. Cualquier edición lo prende; guardar y recargar lo apagan.
+   */
+  const [sinGuardar, setSinGuardar] = useState(false);
+
+  /** Toda edición del borrador pasa por acá, para que ninguna se olvide de marcarlo. */
+  const editar = (siguiente: Borrador[]) => {
+    setBorrador(siguiente);
+    setSinGuardar(true);
+    setGuardado(false);
+  };
+
   const cargar = useCallback(async () => {
     try {
       const [t, r] = await Promise.all([
@@ -98,6 +114,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
       setTorneo(t.tournament);
       setPatrullas(r.patrols);
       setBorrador(borradorDe(r.patrols));
+      setSinGuardar(false);
       setError(undefined);
     } catch {
       setError('No se pudieron cargar las patrullas. Revisá la conexión.');
@@ -123,6 +140,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
       );
       setPatrullas(r.patrols);
       setBorrador(borradorDe(r.patrols));
+      setSinGuardar(false);
       setGuardado(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar. Revisá la conexión.');
@@ -158,12 +176,6 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
           </p>
         )}
 
-        {guardado && !error && (
-          <p role="status" className="text-sm text-[var(--ok)]">
-            Patrullas guardadas.
-          </p>
-        )}
-
         {/* Avisa pero no bloquea: el admin decide, y queda registrado. */}
         {violaciones.length > 0 && (
           <section
@@ -174,9 +186,12 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
               Estas patrullas no cumplen el reglamento. Podés guardarlas igual; queda registrado.
             </p>
             <ul className="text-sm flex flex-col gap-1">
-              {violaciones.map((v) => (
-                <li key={`${v.code}-${v.patrolNumber}`}>{textoDeViolacion(v)}</li>
-              ))}
+              {/* El texto como clave: no todas las violaciones tienen una sola
+                  patrulla, y `DUPLICATE_START` puede aparecer varias veces. */}
+              {violaciones.map((v) => {
+                const texto = textoDeViolacion(v);
+                return <li key={texto}>{texto}</li>;
+              })}
             </ul>
           </section>
         )}
@@ -207,7 +222,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                       aria-label={`Blanco de inicio de la patrulla ${p.numero}`}
                       value={p.startTargetIndex}
                       onChange={(e) =>
-                        setBorrador(cambiarInicio(borrador, p.numero, Number(e.target.value)))
+                        editar(cambiarInicio(borrador, p.numero, Number(e.target.value)))
                       }
                       className="min-h-[44px] px-2 rounded-[var(--radius-sm)] border bg-[var(--surface)]"
                     >
@@ -276,9 +291,8 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                                   key={otra.numero}
                                   variante="secundario"
                                   onClick={() => {
-                                    setBorrador(moverArquero(borrador, moviendo, otra.numero));
+                                    editar(moverArquero(borrador, moviendo, otra.numero));
                                     setMoviendo(undefined);
-                                    setGuardado(false);
                                   }}
                                 >
                                   A la {otra.numero}
@@ -299,11 +313,29 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
       </Screen>
 
       {editable && (
-        <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2 print:hidden">
+        <div
+          className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2 print:hidden"
+          data-testid="barra-acciones"
+        >
           {problema && <p className="text-sm text-[var(--danger)] text-center">{problema}</p>}
 
+          {/* El aviso va acá y no arriba de todo: con cinco patrullas en
+              pantalla, el admin no llega a ver una confirmación que quedó fuera
+              de cuadro, y vuelve a apretar Guardar. */}
+          {guardado && !error && (
+            <p role="status" className="text-sm text-[var(--ok)] text-center">
+              Patrullas guardadas.
+            </p>
+          )}
+
+          {sinGuardar && (
+            <p className="text-sm text-[var(--ink-muted)] text-center">
+              Guardá los cambios antes de imprimir: la planilla tiene que decir lo mismo que la app.
+            </p>
+          )}
+
           <div className="flex gap-2">
-            <Button variante="secundario" onClick={() => window.print()}>
+            <Button variante="secundario" disabled={sinGuardar} onClick={() => window.print()}>
               Imprimir
             </Button>
             <Button
@@ -314,6 +346,12 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
               {guardando ? 'Guardando…' : 'Guardar patrullas'}
             </Button>
           </div>
+
+          {guardado && !error && (
+            <Button variante="secundario" ancho onClick={onVolver}>
+              Volver al inicio
+            </Button>
+          )}
         </div>
       )}
     </div>

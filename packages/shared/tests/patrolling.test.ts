@@ -52,7 +52,9 @@ function patrulla(
 ): PlannedPatrol {
   return {
     number: numero,
-    startTargetIndex: 1,
+    // Uno distinto por patrulla: arrancar dos en el mismo blanco es su propia
+    // violación, y con un 1 fijo se colaría en todos los demás casos.
+    startTargetIndex: numero,
     units: unidades.map((cats, i) => ({
       label: (i === 0 ? 'A' : 'B') as 'A' | 'B',
       category: cats[0] as BowCategory,
@@ -76,6 +78,35 @@ function tamaño(p: PlannedPatrol): number {
 function categoriasDe(p: PlannedPatrol): BowCategory[] {
   return p.units.flatMap((u) => u.members.map((m) => m.category));
 }
+
+/**
+ * Mínimo de patrullas de dos alcanzable, dado cuántas unidades de 1 y de 2 hay.
+ *
+ * Una patrulla es a lo sumo dos unidades y de 2 a 4 arqueros:
+ * `4 = u2+u2` · `3 = u2+u1` · `2 = u2` ó `u1+u1`. Se prueban todas las
+ * cantidades de patrullas de tres; las que dejarían una unidad solitaria suelta
+ * se descartan, porque sería una patrulla de uno y violaría `H1`.
+ *
+ * **Es una copia deliberada** de la que vive en `patrolling.ts`: acá funciona
+ * como oráculo independiente. Si las dos se separan, el test lo dice.
+ */
+function minimoPatrullasDeDos(u1: number, u2: number): number {
+  let mejor = Number.POSITIVE_INFINITY;
+  for (let tres = 0; tres <= Math.min(u1, u2); tres++) {
+    const restoSolitarias = u1 - tres;
+    if (restoSolitarias % 2 !== 0) continue;
+    mejor = Math.min(mejor, restoSolitarias / 2 + ((u2 - tres) % 2));
+  }
+  return mejor;
+}
+
+const PAREJAS_DE_CATEGORIAS = [
+  ['recurvo', 'compuesto'],
+  ['razo', 'longbow'],
+  ['cazador', 'tradicional'],
+] as const;
+
+const CANTIDADES = [1, 2, 3, 4, 5, 6, 7, 8];
 
 // ── validatePatrols: los ejemplos normativos del reglamento ──────────────────
 
@@ -200,7 +231,80 @@ describe('validatePatrols — ejemplos del reglamento del club', () => {
     expect(violaciones).toEqual([
       { code: 'ALL_ESCUELA', patrolNumber: 2 },
       { code: 'MIXED_UNIT', patrolNumber: 3, unit: 'A', categories: ['longbow', 'razo'] },
+      // Las tres son de dos, y con seis arqueros en tres unidades de a dos
+      // alcanzaba con una de 4 y una de 2.
+      { code: 'TOO_MANY_PAIRS', patrolNumbers: [1, 2, 3] },
     ]);
+  });
+
+  /**
+   * `H5` — como mucho una patrulla de dos.
+   *
+   * Si uno de los dos falta, el otro queda solo y no puede tirar. El armado
+   * automático ya las evita (`S4`); esto cubre la edición manual del admin.
+   */
+  describe('casos derivados de H5', () => {
+    const dos = (n: number) => patrulla([['razo', 'razo']], n);
+
+    it('una sola patrulla de dos NO es violación', () => {
+      expect(validatePatrols([dos(1), patrulla([['razo', 'razo'], ['razo']], 2)])).toEqual([]);
+    });
+
+    it('dos patrullas de dos sí, y las nombra a las dos', () => {
+      expect(validatePatrols([dos(1), dos(2)])).toContainEqual({
+        code: 'TOO_MANY_PAIRS',
+        patrolNumbers: [1, 2],
+      });
+    });
+
+    it('nombra a todas las que sean de dos, no sólo a las dos primeras', () => {
+      expect(validatePatrols([dos(1), dos(2), dos(3)])).toContainEqual({
+        code: 'TOO_MANY_PAIRS',
+        patrolNumbers: [1, 2, 3],
+      });
+    });
+
+    /**
+     * Con 7 arqueros repartidos en 5 unidades no hay reparto que deje menos de
+     * dos patrullas de dos. Marcarlo como violación sería pedirle al admin algo
+     * que no se puede hacer, y enseñarle a ignorar los avisos.
+     */
+    it('NO avisa cuando dos de dos es el mejor reparto posible', () => {
+      const plan = buildPatrols(
+        [...arqueros('recurvo', 3), ...arqueros('razo', 3), ...arqueros('longbow', 1)],
+        DEFAULT_STAKE_MAP,
+        14,
+      );
+
+      expect(plan.patrols.filter((p) => tamaño(p) === 2)).toHaveLength(2);
+      expect(validatePatrols(plan.patrols)).toEqual([]);
+    });
+
+    // Una patrulla de 1 ya la reporta H1; contarla como «de dos» sería decir
+    // dos veces lo mismo con dos nombres distintos.
+    it('una patrulla de UNO no cuenta como patrulla de dos', () => {
+      const v = validatePatrols([dos(1), patrulla([['razo']], 2)]);
+      expect(v.some((x) => x.code === 'TOO_MANY_PAIRS')).toBe(false);
+      expect(v).toContainEqual({ code: 'PATROL_SIZE', patrolNumber: 2, size: 1 });
+    });
+  });
+
+  describe('blancos de inicio repetidos', () => {
+    it('dos patrullas que arrancan en el mismo blanco', () => {
+      const a = { ...patrulla([['razo', 'razo']], 1), startTargetIndex: 7 };
+      const b = { ...patrulla([['longbow', 'longbow']], 2), startTargetIndex: 7 };
+
+      expect(validatePatrols([a, b])).toContainEqual({
+        code: 'DUPLICATE_START',
+        targetIndex: 7,
+        patrolNumbers: [1, 2],
+      });
+    });
+
+    it('cada una en el suyo no genera nada', () => {
+      const v = validatePatrols([patrulla([['razo', 'razo']], 1)]);
+      expect(v.some((x) => x.code === 'DUPLICATE_START')).toBe(false);
+    });
   });
 
   it('detecta una estaca que no corresponde a la categoría (H4)', () => {
@@ -384,6 +488,79 @@ describe('buildPatrols', () => {
       // El admin puede armar las patrullas antes de terminar el recorrido.
       const plan = buildPatrols(arqueros('razo', 8), DEFAULT_STAKE_MAP, 0);
       expect(plan.patrols.every((p) => p.startTargetIndex === 1)).toBe(true);
+    });
+  });
+
+  /**
+   * `S4` — evitar patrullas de dos.
+   *
+   * Una patrulla de 2 es la peor de las válidas: si uno falta, la otra queda
+   * sola y no puede tirar. El armado prefiere repartir a los solitarios entre
+   * las unidades de a dos —formando patrullas de 3— antes que emparejarlos
+   * entre sí.
+   */
+  describe('evitar patrullas de dos (S4)', () => {
+    const tamaños = (gente: ParticipantInput[]) =>
+      buildPatrols(gente, DEFAULT_STAKE_MAP, 14)
+        .patrols.map(tamaño)
+        .sort((a, b) => a - b);
+
+    it('con 1 recurvo y 5 compuestos arma 3 y 3, no 2 y 4', () => {
+      // Unidades: recurvo(1) · compuesto(2) · compuesto(2) · compuesto(1).
+      // Cada solitario se lleva una unidad de a dos y no queda ninguna de 2.
+      expect(tamaños([...arqueros('recurvo', 1), ...arqueros('compuesto', 5)])).toEqual([3, 3]);
+    });
+
+    it('con 1 recurvo y 7 compuestos deja UNA de 2, no dos', () => {
+      expect(tamaños([...arqueros('recurvo', 1), ...arqueros('compuesto', 7)])).toEqual([2, 3, 3]);
+    });
+
+    // Con 4 arqueros en tres unidades no hay forma de evitarlo: 3+1 dejaría una
+    // patrulla de uno, que viola H1. Dos de 2 es el mejor reparto posible.
+    it('cuando NO se puede evitar, no lo fuerza rompiendo H1', () => {
+      expect(tamaños([...arqueros('recurvo', 1), ...arqueros('compuesto', 3)])).toEqual([2, 2]);
+    });
+
+    it('nunca deja a nadie sin asignar al reacomodar', () => {
+      const gente = [...arqueros('recurvo', 1), ...arqueros('compuesto', 5)];
+      const plan = buildPatrols(gente, DEFAULT_STAKE_MAP, 14);
+
+      expect(plan.unassigned).toEqual([]);
+      expect(plan.patrols.reduce((n, p) => n + tamaño(p), 0)).toBe(gente.length);
+    });
+
+    /**
+     * El barrido que encontró el defecto, como red permanente.
+     *
+     * `minimoPatrullasDeDos` calcula, a partir de la forma de las unidades, el
+     * mínimo alcanzable respetando `H1` y el tope de dos unidades por patrulla.
+     * Una patrulla es `4 = u2+u2` · `3 = u2+u1` · `2 = u2` ó `u1+u1`.
+     *
+     * Antes del arreglo, 30 de estas 960 composiciones daban peor que el mínimo.
+     */
+    it('nunca arma más patrullas de dos que el mínimo alcanzable', () => {
+      const peores = PAREJAS_DE_CATEGORIAS.flatMap(([x, y]) =>
+        CANTIDADES.flatMap((a) =>
+          CANTIDADES.map((b) => {
+            const plan = buildPatrols(
+              [...arqueros(x, a), ...arqueros(y, b)],
+              DEFAULT_STAKE_MAP,
+              14,
+            );
+            if (plan.unassigned.length > 0) return null;
+
+            const deDos = plan.patrols.filter((p) => tamaño(p) === 2).length;
+            const minimo = minimoPatrullasDeDos(
+              (a % 2) + (b % 2),
+              Math.floor(a / 2) + Math.floor(b / 2),
+            );
+
+            return deDos > minimo ? `${x}:${a} ${y}:${b} → ${deDos}, mínimo ${minimo}` : null;
+          }),
+        ),
+      ).filter((x) => x !== null);
+
+      expect(peores).toEqual([]);
     });
   });
 

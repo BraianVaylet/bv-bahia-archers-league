@@ -207,16 +207,57 @@ describe('textoDeViolacion', () => {
 // ── Guardado ─────────────────────────────────────────────────────────────────
 
 describe('problemaDelBorrador', () => {
-  // Las violaciones de dominio no frenan; lo que el servidor rechazaría, sí.
   it('frena una patrulla con más de 4 arqueros', () => {
     const cinco = [miembro(), miembro(), miembro(), miembro(), miembro()];
     expect(problemaDelBorrador(borradorDe([patrulla(1, cinco)]))).toMatch(/El máximo es 4/);
   });
 
-  it('NO frena una patrulla que viola el reglamento pero entra', () => {
-    // Un solo arquero viola H1, pero el admin puede tener motivos y el servidor
-    // lo registra.
-    expect(problemaDelBorrador(borradorDe([patrulla(1, [miembro()])]))).toBeUndefined();
+  /**
+   * El guardado exige 2–4 en todas.
+   *
+   * Antes una patrulla de uno se podía guardar: era una violación que «avisaba
+   * sin bloquear». Pero un arquero solo no puede tirar —no tiene quién le
+   * controle el puntaje— así que no es una excepción que el admin pueda tomar,
+   * es un torneo que no se puede correr.
+   */
+  it('frena una patrulla con un solo arquero', () => {
+    expect(problemaDelBorrador(borradorDe([patrulla(1, [miembro()])]))).toMatch(/al menos 2/);
+  });
+
+  it('nombra la patrulla que está mal, no dice sólo que algo falla', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()]), patrulla(7, [miembro()])]);
+    expect(problemaDelBorrador(b)).toMatch(/patrulla 7/i);
+  });
+
+  // Una patrulla vacía es un estado intermedio mientras se reacomoda, y no se
+  // manda al servidor: no tiene por qué frenar el guardado.
+  it('NO frena una patrulla sin nadie', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()]), patrulla(2, [])]);
+    expect(problemaDelBorrador(b)).toBeUndefined();
+  });
+
+  // Las violaciones de reglamento siguen avisando sin bloquear: el admin conoce
+  // el terreno y la decisión queda registrada.
+  it('NO frena una patrulla que viola el reglamento pero se puede correr', () => {
+    const escuela = { category: 'escuela' as const, stake: 'amarilla' as const };
+    const b = borradorDe([patrulla(1, [miembro(escuela), miembro(escuela)])]);
+
+    expect(violacionesDe(b).some((v) => v.code === 'ALL_ESCUELA')).toBe(true);
+    expect(problemaDelBorrador(b)).toBeUndefined();
+  });
+});
+
+describe('textoDeViolacion · reglas nuevas', () => {
+  it('nombra las patrullas de dos que se podrían juntar', () => {
+    expect(textoDeViolacion({ code: 'TOO_MANY_PAIRS', patrolNumbers: [2, 5] })).toMatch(
+      /patrullas 2 y 5.*dos arqueros/i,
+    );
+  });
+
+  it('nombra el blanco compartido y quiénes lo comparten', () => {
+    expect(
+      textoDeViolacion({ code: 'DUPLICATE_START', targetIndex: 7, patrolNumbers: [1, 3] }),
+    ).toMatch(/patrullas 1 y 3.*blanco 7/i);
   });
 });
 
