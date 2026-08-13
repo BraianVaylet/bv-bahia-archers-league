@@ -9,7 +9,12 @@
  * Ver `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
  */
 
-import { type BowCategory, CATEGORY_INFO, MIN_TOURNAMENTS_FOR_RANKING } from '@bal/shared';
+import {
+  type BowCategory,
+  CATEGORY_INFO,
+  LEAGUE_POINTS_BY_POSITION,
+  MIN_TOURNAMENTS_FOR_RANKING,
+} from '@bal/shared';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Cargando, cn, Fallo, Screen, TablaScrollable } from '../components/ui.js';
@@ -41,6 +46,31 @@ interface CategoriaRankeada {
   readonly notYetEligible: readonly Entrada[];
 }
 
+/** Los tres del podio. Del cuarto en adelante no hay medalla que inventar. */
+const MEDALLAS: Record<number, { emoji: string; nombre: string }> = {
+  1: { emoji: '🥇', nombre: 'primer puesto' },
+  2: { emoji: '🥈', nombre: 'segundo puesto' },
+  3: { emoji: '🥉', nombre: 'tercer puesto' },
+};
+
+/**
+ * La medalla del podio.
+ *
+ * El emoji lleva su nombre como `aria-label`: un símbolo suelto no dice nada en
+ * un lector de pantalla, y el número del puesto va al lado igual.
+ * Ver `docs/DESIGN_SYSTEM.md` §10.
+ */
+function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
+  const medalla = puesto === undefined ? undefined : MEDALLAS[puesto];
+  if (!medalla) return null;
+
+  return (
+    <span role="img" aria-label={medalla.nombre}>
+      {medalla.emoji}
+    </span>
+  );
+}
+
 type Modo = 'position' | 'best_two';
 
 const ETIQUETA_DE_MODO: Record<Modo, string> = {
@@ -51,9 +81,13 @@ const ETIQUETA_DE_MODO: Record<Modo, string> = {
 function FilaDeArquero({ entrada, modo }: { readonly entrada: Entrada; readonly modo: Modo }) {
   return (
     <tr className="border-b" data-testid={`fila-${entrada.lastName}`}>
-      <td className="py-2 pr-2 tabular-nums w-10">
-        {entrada.position}
-        {entrada.tied && <span className="text-[var(--ink-muted)]">=</span>}
+      <td className="py-2 pr-2 tabular-nums w-16">
+        <span className="inline-flex items-center gap-1">
+          {/* El número SIEMPRE va: la medalla lo acompaña, no lo reemplaza. */}
+          {entrada.position}
+          {entrada.tied && <span className="text-[var(--ink-muted)]">=</span>}
+          <Medalla puesto={entrada.position} />
+        </span>
       </td>
       <td className="py-2 pr-2">
         <Link to={`/arqueros/${entrada.archerId}`} className="underline">
@@ -140,6 +174,36 @@ export function RankingPage() {
 
       {ranking.estado === 'cargando' && elegida && <Cargando />}
       {ranking.estado === 'error' && <Fallo mensaje={ranking.mensaje} />}
+
+      {/* La columna «Puntos» es un número sin origen si no se dice de dónde
+          sale. Ver docs/DOMAIN_WA.md §9.1. */}
+      {ranking.estado === 'listo' && ranking.datos.categories.length > 0 && (
+        <details className="text-sm" data-testid="puntos-por-puesto">
+          <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
+            Cómo se reparten los puntos
+          </summary>
+          <p className="pb-2 text-[var(--ink-muted)]">
+            En cada torneo, y <strong>por categoría</strong>, el podio reparte:
+          </p>
+          <ul className="flex flex-wrap gap-2">
+            {LEAGUE_POINTS_BY_POSITION.map((puntos, i) => (
+              <li
+                key={puntos}
+                className="h-8 px-3 rounded-full bg-[var(--surface-2)] flex items-center gap-1.5"
+              >
+                <Medalla puesto={i + 1} />
+                <span>
+                  {i + 1}º: {puntos} {puntos === 1 ? 'punto' : 'puntos'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="pt-2 text-[var(--ink-muted)]">
+            Del sexto en adelante, cero. Si dos empatan, <strong>los dos</strong> se llevan los
+            puntos de ese puesto.
+          </p>
+        </details>
+      )}
 
       {ranking.estado === 'listo' &&
         ranking.datos.categories.map((c) => (

@@ -112,6 +112,10 @@ export const publico = new Hono()
       date: torneo.date,
       description: torneo.description,
       status: torneo.status,
+      // Cuánto sale entrar: lo que cualquiera quiere saber antes de anotarse, y
+      // que el club publica igual en el grupo y en la puerta. Quién pagó NO
+      // sale de acá: eso es del club.
+      payment: torneo.payment,
       targets: torneo.targets,
       maxPossibleScore: torneo.maxPossibleScore,
       patrols: patrullas.map((p) => ({
