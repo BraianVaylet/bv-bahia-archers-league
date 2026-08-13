@@ -17,6 +17,7 @@ export type ErrorCode =
   | 'INVALID_TOKEN'
   | 'INVALID_STATE_TRANSITION'
   | 'TARGET_LOCKED'
+  | 'TOURNAMENT_HAS_SCORES'
   | 'ARCHER_IN_USE'
   | 'SIGNATURES_MISSING'
   | 'SIGNATURE_MISMATCH'
@@ -34,6 +35,7 @@ const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   INVALID_TOKEN: 400,
   INVALID_STATE_TRANSITION: 409,
   TARGET_LOCKED: 409,
+  TOURNAMENT_HAS_SCORES: 409,
   ARCHER_IN_USE: 409,
   SIGNATURES_MISSING: 409,
   SIGNATURE_MISMATCH: 409,
@@ -53,6 +55,7 @@ const MENSAJES: Record<ErrorCode, string> = {
   INVALID_TOKEN: 'Ese puntaje no es válido para la modalidad de este blanco.',
   INVALID_STATE_TRANSITION: 'El torneo no está en un estado que permita esta acción.',
   TARGET_LOCKED: 'Este blanco ya tiene puntajes cargados y no se puede editar.',
+  TOURNAMENT_HAS_SCORES: 'El torneo ya tiene puntajes cargados.',
   ARCHER_IN_USE: 'El arquero participó de un torneo. Archivalo en vez de eliminarlo.',
   SIGNATURES_MISSING: 'Faltan firmas para cerrar el circuito.',
   SIGNATURE_MISMATCH: 'El puntaje cambió después de firmarse.',

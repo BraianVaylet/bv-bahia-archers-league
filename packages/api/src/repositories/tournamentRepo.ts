@@ -8,7 +8,7 @@
 
 import type { Position, TournamentStatus, Unit } from '@bal/shared';
 import type { ClientSession, ObjectId } from 'mongodb';
-import { participants, patrols, tournaments } from '../db/client.js';
+import { participants, patrols, scores, tournaments } from '../db/client.js';
 import type { ParticipantDoc, PatrolDoc, TournamentDoc } from '../db/types.js';
 
 // ── Torneos ──────────────────────────────────────────────────────────────────
@@ -125,4 +125,44 @@ export async function reassignParticipant(
     },
     session ? { session } : {},
   );
+}
+
+/**
+ * Todas las participaciones de un arquero, de la más vieja a la más nueva.
+ *
+ * Resuelto por el índice `ix_archer`. Es de donde sale la serie del gráfico de
+ * evolución: `StandingDoc` guarda los dos mejores porcentajes y el mejor
+ * suelto, **no la secuencia**, así que la serie se deriva de acá en vez de
+ * agregar un campo nuevo y tener que recalcular lo ya publicado.
+ */
+export function listParticipationsOfArcher(archerId: ObjectId): Promise<ParticipantDoc[]> {
+  return participants().find({ archerId }).limit(200).toArray();
+}
+
+/** Varios torneos de una, para no consultar de a uno en un bucle. */
+export function findManyByIds(ids: readonly ObjectId[]): Promise<TournamentDoc[]> {
+  if (ids.length === 0) return Promise.resolve([]);
+  return tournaments()
+    .find({ _id: { $in: [...ids] } })
+    .toArray();
+}
+
+/**
+ * Borra el reparto entero de un torneo: patrullas, participantes y puntajes.
+ *
+ * Los tres juntos y en una sola función porque **se borran juntos o no se
+ * borran**: un puntaje cuyo participante ya no existe hace que el torneo marque
+ * blancos bloqueados de arqueros que no están y que no pueda volver a
+ * `sin_iniciar` nunca más.
+ *
+ * La usa el rearmado de participantes. La transacción la pone quien llama.
+ */
+export async function clearDistribution(
+  tournamentId: ObjectId,
+  session?: ClientSession,
+): Promise<void> {
+  const opts = session ? { session } : {};
+  await patrols().deleteMany({ tournamentId }, opts);
+  await participants().deleteMany({ tournamentId }, opts);
+  await scores().deleteMany({ tournamentId }, opts);
 }

@@ -41,6 +41,16 @@ export async function countScoresOfTarget(
   return scores().countDocuments({ tournamentId, targetIndex }, { limit: 1 });
 }
 
+/**
+ * Cuántos puntajes tiene el torneo entero.
+ *
+ * Sin `limit`: el número se le muestra al admin para explicarle por qué no
+ * puede volver atrás, y «ya hay puntajes» dice menos que «ya hay 3 puntajes».
+ */
+export async function countScoresOfTournament(tournamentId: ObjectId): Promise<number> {
+  return scores().countDocuments({ tournamentId });
+}
+
 // ── Participantes ────────────────────────────────────────────────────────────
 
 export function findParticipant(

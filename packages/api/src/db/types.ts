@@ -271,6 +271,8 @@ export type AuditAction =
   | 'tournament.publish'
   | 'tournament.unpublish'
   | 'tournament.target_edit'
+  | 'tournament.participants_edit'
+  | 'tournament.unstart'
   | 'tournament.create'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'
