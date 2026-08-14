@@ -165,41 +165,85 @@ export function RankingPage() {
       {ranking.estado === 'cargando' && elegida && <Cargando />}
       {ranking.estado === 'error' && <Fallo mensaje={ranking.mensaje} />}
 
-      {/* La columna «Puntos» es un número sin origen si no se dice de dónde
-          sale. Ver docs/DOMAIN_WA.md §9.1. */}
+      {/*
+        **La explicación sigue al modo elegido.**
+
+        Antes estaba detrás de un `<details>` que no dependía del modo: con
+        «Mejor de 2» elegido, lo único que se ofrecía explicar era el reparto de
+        puntos del podio, que en ese modo no ordena nada. La columna que se está
+        mirando quedaba sin explicar, y la que se explicaba no estaba en pantalla.
+
+        Y va **abierta**, no plegada: la primera vez que alguien ve este ranking
+        necesita saber qué significan los números, no descubrir que hay una
+        explicación escondida. Ver `docs/DOMAIN_WA.md` §9.1.
+      */}
       {ranking.estado === 'listo' && ranking.datos.categories.length > 0 && (
-        <details className="text-sm" data-testid="puntos-por-puesto">
-          <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-            Cómo se reparten los puntos
-          </summary>
-          <p className="pb-2 text-[var(--ink-muted)]">
-            En cada torneo, y <strong>por categoría</strong>, el podio reparte:
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {LEAGUE_POINTS_BY_POSITION.map((puntos, i) => (
-              <li
-                key={puntos}
-                className="h-8 px-3 rounded-full bg-[var(--surface-2)] flex items-center gap-1.5"
-              >
-                <Medalla puesto={i + 1} />
-                <span>
-                  {i + 1}º: {puntos} {puntos === 1 ? 'punto' : 'puntos'}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="pt-2 text-[var(--ink-muted)]">
-            Del sexto en adelante, cero. Si dos empatan, <strong>los dos</strong> se llevan los
-            puntos de ese puesto.
-          </p>
-        </details>
+        <section
+          className="text-sm rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 text-[var(--ink-muted)]"
+          data-testid={modo === 'position' ? 'puntos-por-puesto' : 'como-se-calcula-mejor-de-2'}
+        >
+          {modo === 'position' ? (
+            <>
+              <p>
+                En cada torneo, y <strong>por categoría</strong>, el podio reparte:
+              </p>
+              <ul className="flex flex-wrap gap-2">
+                {LEAGUE_POINTS_BY_POSITION.map((puntos, i) => (
+                  <li
+                    key={puntos}
+                    className="h-8 px-3 rounded-full bg-[var(--surface-2)] flex items-center gap-1.5"
+                  >
+                    <Medalla puesto={i + 1} />
+                    <span>
+                      {i + 1}º: {puntos} {puntos === 1 ? 'punto' : 'puntos'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Del sexto en adelante, cero. Si dos empatan, <strong>los dos</strong> se llevan los
+                puntos de ese puesto.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                Es el <strong>promedio de los dos mejores porcentajes</strong> que sacaste en la
+                temporada. El porcentaje de un torneo es tu puntaje sobre el máximo posible de ese
+                torneo, así que se pueden comparar fechas con recorridos distintos.
+              </p>
+
+              {/* Un ejemplo concreto: el promedio de dos porcentajes se
+                  entiende en un renglón y se explica mal en un párrafo. */}
+              <p className="rounded-[var(--radius-md)] bg-[var(--surface-2)] p-2.5">
+                Tiraste tres fechas y sacaste <strong>78%</strong>, <strong>85%</strong> y{' '}
+                <strong>81%</strong>. Se toman las dos mejores —85 y 81— y el ranking te muestra{' '}
+                <strong>83%</strong>. La de 78 no resta.
+              </p>
+
+              <p>
+                Hacen falta al menos {MIN_TOURNAMENTS_FOR_RANKING} torneos para entrar: con uno solo
+                no hay dos que promediar.
+              </p>
+            </>
+          )}
+        </section>
       )}
 
       {ranking.estado === 'listo' &&
         ranking.datos.categories.map((c) => (
           <section
             key={c.category}
-            className="flex flex-col gap-2"
+            /*
+              Cada categoría, dentro de su tarjeta.
+              
+              Sueltas y una debajo de la otra, siete categorías se leen como una
+              sola lista larga y el título de cada una se pierde entre las
+              tablas. Con borde, se ve dónde empieza y dónde termina cada una —
+              y sobre todo las vacías, que sin tarjeta parecen un renglón
+              huérfano de la categoría de arriba.
+            */
+            className="flex flex-col gap-2 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
             data-testid={`cat-${c.category}`}
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>

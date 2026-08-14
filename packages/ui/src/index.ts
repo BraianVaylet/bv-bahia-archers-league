@@ -27,6 +27,11 @@ export {
 } from './Chips.js';
 export { cn } from './cn.js';
 export { Footer, type FooterProps } from './Footer.js';
+export {
+  GraficoDeEvolucion,
+  type GraficoDeEvolucionProps,
+  type PuntoDeEvolucion,
+} from './GraficoDeEvolucion.js';
 export * from './iconos/acciones.js';
 export type { Icono, IconoProps } from './iconos/base.js';
 export { Svg } from './iconos/base.js';

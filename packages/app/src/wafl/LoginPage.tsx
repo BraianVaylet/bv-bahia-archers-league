@@ -12,6 +12,7 @@
  */
 
 import { formatearFechaCorta } from '@bal/shared';
+import cba from '@bal/shared/assets/cba.webp';
 import { Logo } from '@bal/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Button, cn, Field, Screen } from '../components/ui.js';
@@ -131,6 +132,18 @@ export function LoginPage({ onEntro }: LoginPageProps) {
           WAFL
         </h1>
         <p className="text-[var(--ink-muted)]">Planilla de patrulla</p>
+
+        {/*
+          Los dos logos, con su nombre escrito. Es la pantalla donde el líder
+          confirma que abrió la app de la liga y no otra cosa — y la única que
+          ve antes de tener el recorrido descargado.
+        */}
+        <p className="pt-3 flex items-center gap-2 text-sm text-[var(--ink-muted)]">
+          <Logo size={20} className="shrink-0" />
+          Liga Bahiense
+          <img src={cba} alt="" width={20} height={20} className="shrink-0" />
+          Círculo Bahiense de Arquería
+        </p>
       </div>
 
       {guardado && (

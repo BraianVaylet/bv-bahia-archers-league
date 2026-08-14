@@ -107,7 +107,10 @@ describe('RankingPage', () => {
         json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
       }),
       '/api/public/rankings?seasonId=s1&mode=position': () => ({ json: { categories } }),
-      '/api/public/rankings?seasonId=s1&mode=score': () => ({ json: { categories } }),
+      // `best_two`, no `score`: ese modo lo eliminó `REF-2` y el mock se quedó
+      // con el nombre viejo. Ningún test lo notó porque el que conmuta de modo
+      // sólo verificaba que cambiara la URL, no lo que volvía.
+      '/api/public/rankings?seasonId=s1&mode=best_two': () => ({ json: { categories } }),
     });
   };
 
@@ -294,6 +297,47 @@ describe('RankingPage', () => {
       expect(explicacion).toHaveTextContent('3');
       expect(explicacion).toHaveTextContent('2');
       expect(explicacion).toHaveTextContent('1');
+    });
+
+    /**
+     * **La explicación sigue al modo elegido** (`REF2-7`).
+     *
+     * Antes había una sola, la del reparto de puntos, y no dependía del modo:
+     * con «Mejor de 2» elegido, la columna que se estaba mirando quedaba sin
+     * explicar y la que se explicaba no estaba en pantalla.
+     */
+    it('con «Mejor de 2» explica el promedio, no el reparto de puntos', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      await screen.findByTestId('fila-Oro');
+      expect(screen.getByTestId('puntos-por-puesto')).toBeDefined();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mejor de 2' }));
+
+      const explicacion = await screen.findByTestId('como-se-calcula-mejor-de-2');
+      expect(explicacion).toHaveTextContent(/promedio de los dos mejores/i);
+
+      // Y con un ejemplo con números: el promedio de dos porcentajes se
+      // entiende en un renglón y se explica mal en un párrafo.
+      expect(explicacion.textContent ?? '').toMatch(/\d+%/);
+
+      // La otra explicación ya no está: son excluyentes, no acumulativas.
+      expect(screen.queryByTestId('puntos-por-puesto')).toBeNull();
+    });
+
+    /**
+     * Cada categoría dentro de su tarjeta. Sueltas, siete categorías se leen
+     * como una sola lista larga y las vacías parecen un renglón huérfano de la
+     * de arriba.
+     */
+    it('cada categoría va en su propia tarjeta', async () => {
+      conPuestos();
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      const seccion = await screen.findByTestId('cat-razo');
+      expect(seccion.className).toMatch(/border/);
+      expect(seccion.className).toMatch(/rounded/);
     });
   });
 });
