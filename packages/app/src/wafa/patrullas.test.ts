@@ -3,8 +3,10 @@ import {
   borradorDe,
   cambiarInicio,
   cuerpoDeDistribucion,
+  eliminarPatrulla,
   type MiembroVista,
   moverArquero,
+  moverEnPatrulla,
   type PatrullaVista,
   problemaDelBorrador,
   textoDeViolacion,
@@ -229,11 +231,22 @@ describe('problemaDelBorrador', () => {
     expect(problemaDelBorrador(b)).toMatch(/patrulla 7/i);
   });
 
-  // Una patrulla vacía es un estado intermedio mientras se reacomoda, y no se
-  // manda al servidor: no tiene por qué frenar el guardado.
-  it('NO frena una patrulla sin nadie', () => {
+  /**
+   * **Esto cambió en `REF2-5`.**
+   *
+   * Antes decía «NO frena una patrulla sin nadie», con este razonamiento: una
+   * patrulla vacía es un estado intermedio mientras se reacomoda, y no se manda
+   * al servidor. La primera mitad sigue siendo cierta —por eso el editor deja
+   * vaciarla— pero la segunda era el problema: `cuerpoDeDistribucion` la
+   * filtraba **en silencio**, y el torneo terminaba con una patrulla menos y
+   * una numeración con huecos que nadie había pedido.
+   *
+   * Ahora vaciarla se puede, guardarla no. Se elimina explícitamente, que es lo
+   * que renumera al resto.
+   */
+  it('frena una patrulla sin nadie, en vez de descartarla en silencio', () => {
     const b = borradorDe([patrulla(1, [miembro(), miembro()]), patrulla(2, [])]);
-    expect(problemaDelBorrador(b)).toBeUndefined();
+    expect(problemaDelBorrador(b)).toMatch(/patrulla 2/i);
   });
 
   // Las violaciones de reglamento siguen avisando sin bloquear: el admin conoce
@@ -310,5 +323,144 @@ describe('cuerpoDeDistribucion', () => {
     const unidad = cuerpo.patrols[0]?.units[0] as Record<string, unknown>;
 
     expect(Object.keys(unidad)).toEqual(['label', 'members']);
+  });
+});
+
+// ── REF2-5 · Ordenar dentro de la patrulla ───────────────────────────────────
+
+describe('moverEnPatrulla', () => {
+  /**
+   * **El orden dentro de la patrulla no es cosmético.**
+   *
+   * `unidadesDe` reparte por posición en la lista: los dos primeros son la
+   * unidad `A` y el resto la `B`. Y la `A` tira primero. Así que subir a un
+   * arquero lo puede pasar de la segunda tanda a la primera, que es justo lo
+   * que el admin quiere poder hacer.
+   */
+  it('subir a un arquero lo pasa a la unidad que tira antes', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro(), miembro(), miembro()])]);
+    const cuarto = b[0]?.miembros[3]?.id as string;
+
+    // Estaba en B; sube dos veces y entra en A.
+    let r = moverEnPatrulla(b, cuarto, 'arriba');
+    r = moverEnPatrulla(r, cuarto, 'arriba');
+
+    expect(unidadesDe(r[0]?.miembros ?? [])[0]?.members.map((m) => m.id)).toContain(cuarto);
+  });
+
+  it('bajar hace lo inverso', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro(), miembro()])]);
+    const primero = b[0]?.miembros[0]?.id as string;
+
+    const r = moverEnPatrulla(b, primero, 'abajo');
+    expect(r[0]?.miembros[1]?.id).toBe(primero);
+  });
+
+  // Un botón que no hace nada es peor que uno apagado: la pantalla los
+  // deshabilita en los extremos, y esto garantiza que además no pase nada.
+  it('en los extremos no hace nada', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()])]);
+    const antes = b[0]?.miembros.map((m) => m.id);
+
+    expect(
+      moverEnPatrulla(b, antes?.[0] as string, 'arriba')[0]?.miembros.map((m) => m.id),
+    ).toEqual(antes);
+    expect(moverEnPatrulla(b, antes?.[1] as string, 'abajo')[0]?.miembros.map((m) => m.id)).toEqual(
+      antes,
+    );
+  });
+
+  it('no toca las otras patrullas', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+    const otra = b[1]?.miembros.map((m) => m.id);
+
+    const r = moverEnPatrulla(b, b[0]?.miembros[1]?.id as string, 'arriba');
+    expect(r[1]?.miembros.map((m) => m.id)).toEqual(otra);
+  });
+});
+
+// ── REF2-5 · Eliminar una patrulla y renumerar ───────────────────────────────
+
+describe('eliminarPatrulla', () => {
+  /**
+   * **Renumerar no es un detalle de presentación.**
+   *
+   * El `username` de la patrulla es `patrulla${number}` y el líder lo tipea —o
+   * lo elige de la botonera— para entrar. Una numeración con huecos deja un
+   * `patrulla3` que no existe y un torneo con patrullas 1, 2 y 4.
+   */
+  it('elimina la del medio y renumera sin huecos', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, []),
+      patrulla(3, [miembro(), miembro()]),
+      patrulla(4, [miembro(), miembro()]),
+    ]);
+
+    const r = eliminarPatrulla(b, 2);
+
+    expect(r.map((p) => p.numero)).toEqual([1, 2, 3]);
+    expect(r).toHaveLength(3);
+  });
+
+  it('elimina la primera y renumera', () => {
+    const b = borradorDe([patrulla(1, []), patrulla(2, [miembro(), miembro()])]);
+
+    expect(eliminarPatrulla(b, 1).map((p) => p.numero)).toEqual([1]);
+  });
+
+  it('elimina la última', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()]), patrulla(2, [])]);
+
+    expect(eliminarPatrulla(b, 2).map((p) => p.numero)).toEqual([1]);
+  });
+
+  /**
+   * **Sólo se elimina una patrulla vacía.** Con gente adentro, eliminarla
+   * borraría arqueros del torneo sin decirlo: primero se los mueve.
+   */
+  it('NO elimina una patrulla con arqueros', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+
+    expect(eliminarPatrulla(b, 1)).toEqual(b);
+  });
+
+  // Los arqueros conservan su patrulla aunque el número cambie.
+  it('los que quedan no pierden a su gente', () => {
+    const b = borradorDe([patrulla(1, []), patrulla(2, [miembro(), miembro()])]);
+    const suyos = b[1]?.miembros.map((m) => m.id);
+
+    const r = eliminarPatrulla(b, 1);
+    expect(r[0]?.miembros.map((m) => m.id)).toEqual(suyos);
+  });
+});
+
+// ── REF2-5 · Una patrulla vacía frena el guardado ────────────────────────────
+
+describe('problemaDelBorrador con patrullas vacías', () => {
+  /**
+   * **Antes se guardaba, y la patrulla vacía desaparecía en silencio.**
+   *
+   * `cuerpoDeDistribucion` la filtraba antes de mandar. El resultado era un
+   * torneo con una patrulla menos y una numeración con huecos, sin que nadie
+   * lo hubiera pedido. Ahora hay que eliminarla explícitamente, que es lo que
+   * renumera al resto.
+   */
+  it('una patrulla sin arqueros frena el guardado y dice cuál', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()]), patrulla(2, [])]);
+
+    expect(problemaDelBorrador(b)).toMatch(/patrulla 2/i);
+    expect(problemaDelBorrador(b)).toMatch(/sin arqueros|no tiene arqueros/i);
+  });
+
+  it('sin patrullas vacías no se queja', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()])]);
+    expect(problemaDelBorrador(b)).toBeUndefined();
   });
 });

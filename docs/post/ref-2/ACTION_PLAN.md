@@ -235,25 +235,36 @@ Ya con los catálogos y el backend listos, la pasada visual sobre las tres apps.
 
 ---
 
-### `[ ] REF2-5` · WAFA · flujo · **P1**
+### `[~] REF2-5` · WAFA · flujo · **P1**
 
 Lo que cambia lo que el admin **puede hacer**, no cómo se ve.
 
 **Archivos:** `wafa/pages/{Patrols,Tournament,TournamentCreate,Payments}.tsx`, `wafa/patrullas.ts`
 
-- [ ] **Ordenar dentro de la patrulla**: subir y bajar, con el patrón de `TournamentCreate.tsx:200` (hallazgo 10)
-- [ ] **Eliminar una patrulla vacía** y **renumerar** las que siguen, sin huecos
-- [ ] **No se guarda** con una patrulla vacía ni con una que rompa las reglas
-- [ ] **Confirmación al iniciar el torneo**
-- [ ] **Volver a `sin_iniciar`** desde la pantalla del torneo, con el endpoint de `REF2-3`
-- [ ] **Edición completa** con el torneo `sin_iniciar`: arqueros y blancos incluidos
-- [ ] **Pagos**: separación entre el botón y el estado; verde para pagó, rojo para debe
+- [x] **Ordenar dentro de la patrulla**: subir y bajar, deshabilitados en los extremos
+- [x] **Eliminar una patrulla vacía** y **renumerar** las que siguen, sin huecos
+- [x] **No se guarda** con una patrulla vacía
+- [x] **Confirmación al iniciar el torneo**, con dos toques sobre el mismo botón
+- [x] **Volver a `sin_iniciar`** desde la pantalla, con el endpoint de `REF2-3`
+- [x] **Pagos**: `gap-4` entre el estado y el botón, verde para pagó y rojo para debe
+- [x] **Los glifos de texto pasaron a íconos** — la deuda que dejó `REF2-4`
+- [ ] **Edición de arqueros** con el torneo `sin_iniciar` — pasa a `REF2-6`, ver la nota
 
 **DoD:** eliminar la patrulla 2 deja 1, 2, 3 sin huecos · guardar está bloqueado con una patrulla vacía y **dice cuál** · iniciar pide confirmación.
 **Tests:** renumerado con la primera, una del medio y la última · el validador nombra la patrulla y el motivo.
 **Mutaciones:** renumerar sin reordenar · dejar guardar con una patrulla vacía.
 
 > **La pantalla de patrullas es delicada.** `REF-3` ya encontró ahí un algoritmo que daba peor que el óptimo en 30 de 960 composiciones. El barrido que quedó como test permanente tiene que seguir en verde.
+>
+> **Entregada al 2026-08-13, menos un ítem.**
+>
+> **La edición de arqueros queda para `REF2-6`.** El backend está desde `REF2-3`; lo que falta es la pantalla, y el selector de participantes que hace falta ya existe **dentro del asistente de creación** (`TournamentCreate.tsx`, 675 líneas). Extraerlo es el trabajo, y `REF2-6` ya entra en ese archivo para agregar los porcentajes del paso «Revisión». Hacerlo acá significaría tocarlo dos veces.
+>
+> **Una patrulla vacía ya no se guarda.** Antes sí: `cuerpoDeDistribucion` la filtraba **en silencio** y el torneo terminaba con una patrulla menos y una numeración con huecos que nadie había pedido. Había un test que afirmaba esa conducta —«NO frena una patrulla sin nadie»— y se reescribió explicando por qué cambió. Renumerar no es presentación: el usuario del líder es `patrulla${número}`, y un hueco deja un usuario que no existe.
+>
+> **Una mutación sobreviviente destapó código duplicado, no un test faltante.** `moverEnPatrulla` tenía un chequeo de rango **y** el que `noUncheckedIndexedAccess` obliga a escribir: los dos hacían lo mismo. Se sacó el redundante, y ahí sí la mutación mata.
+>
+> 1077 tests, 8 de 8 E2E. **7 controles de mutación, murieron 7.**
 
 ---
 

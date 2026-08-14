@@ -157,7 +157,7 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
     expect(screen.getByTestId('patrulla-2').textContent).toMatch(/Pérez/);
@@ -182,9 +182,9 @@ describe('edición manual', () => {
 
     // Se intercambian dos arqueros: quedan dos patrullas de 2 con las unidades
     // mezcladas de categoría. Viola el reglamento, pero se puede correr.
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
     const avisos = screen.getByTestId('violaciones');
@@ -206,7 +206,7 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
     expect(screen.getByText(/La patrulla 1 tiene un solo arquero/)).toBeDefined();
@@ -224,11 +224,11 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
 
     // Ahora la patrulla 2 tiene sólo a Díaz (longbow): Pérez (razo) cae al lado.
-    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
     expect(screen.getByTestId('violaciones').textContent).toMatch(/unidad A.*categorías distintas/);
@@ -239,13 +239,22 @@ describe('edición manual', () => {
     await screen.findByTestId('patrulla-1');
 
     for (const apellido of ['Díaz', 'Ruiz']) {
-      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido}` }));
+      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido} a otra patrulla` }));
       fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
     }
 
     // Cuatro entran; el quinto no existe, así que se prueba con el tope justo:
     // 4 es válido y el aviso de tope no aparece.
     expect(screen.queryByText(/El máximo es 4/)).toBeNull();
+
+    /**
+     * La 2 quedó vacía, y desde `REF2-5` **eso frena el guardado**: antes se
+     * mandaba igual y la patrulla desaparecía en silencio, dejando una
+     * numeración con huecos. Se elimina, que es lo que renumera al resto.
+     */
+    expect(screen.getByTestId('patrulla-vacia')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la patrulla 2' }));
+
     expect(
       (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
     ).toBe(false);
@@ -277,7 +286,7 @@ describe('edición manual', () => {
     });
 
     const moverSosaALaUno = () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Mover a Sosa' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Mover a Sosa a otra patrulla' }));
       fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
     };
 
@@ -346,7 +355,7 @@ describe('edición manual', () => {
       renderPatrullas();
       await screen.findByTestId('patrulla-1');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Mover a Díaz' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Mover a Díaz a otra patrulla' }));
       fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
 
       expect(botonImprimir().disabled).toBe(true);
@@ -372,11 +381,15 @@ describe('edición manual', () => {
       await screen.findByTestId('patrulla-1');
 
       // Las dos, no una: dejar la patrulla 2 con un solo arquero bloquearía el
-      // guardado y el test verificaría lo que no quiere verificar.
+      // guardado y el test verificaría lo que no quiere verificar. Y al quedar
+      // vacía hay que eliminarla, que desde `REF2-5` es lo que renumera.
       for (const apellido of ['Díaz', 'Ruiz']) {
-        fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido}` }));
+        fireEvent.click(
+          screen.getByRole('button', { name: `Mover a ${apellido} a otra patrulla` }),
+        );
         fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
       }
+      fireEvent.click(screen.getByRole('button', { name: 'Eliminar la patrulla 2' }));
       expect(botonImprimir().disabled).toBe(true);
 
       fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
@@ -429,12 +442,14 @@ describe('edición manual', () => {
     renderPatrullas();
     await screen.findByTestId('patrulla-1');
 
-    // Las dos de la patrulla 2 pasan a la 1: queda una de 4 y una vacía, que es
-    // un borrador guardable. Mover uno solo dejaría una de 1 y frenaría acá.
+    // Las dos de la patrulla 2 pasan a la 1 y la vacía se elimina: queda una
+    // sola de cuatro, que es un borrador guardable. Mover uno solo dejaría una
+    // de 1 y frenaría acá, y dejar la vacía también — desde `REF2-5`.
     for (const apellido of ['Díaz', 'Ruiz']) {
-      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido}` }));
+      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido} a otra patrulla` }));
       fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
     }
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la patrulla 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Faltan arqueros');
@@ -455,12 +470,79 @@ describe('torneo ya iniciado', () => {
     renderPatrullas();
 
     expect(await screen.findByText(/las patrullas quedaron congeladas/)).toBeDefined();
-    expect(screen.queryByRole('button', { name: 'Mover a Pérez' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mover a Pérez a otra patrulla' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Guardar patrullas' })).toBeNull();
   });
 
   it('las credenciales se siguen viendo: el líder puede necesitarlas', async () => {
     renderPatrullas();
     expect(await screen.findByTestId('pin-1')).toHaveTextContent('481902');
+  });
+});
+
+// ── REF2-5 · Orden dentro de la patrulla y patrullas vacías ──────────────────
+
+describe('ordenar dentro de la patrulla', () => {
+  /**
+   * **El orden decide quién tira primero.** Los dos primeros son la unidad `A`
+   * y la `A` tira antes, así que esto no es acomodar una lista.
+   */
+  it('subir a un arquero lo adelanta en la patrulla', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    // Ruiz es el segundo de la patrulla 2, detrás de Díaz.
+    const orden = () =>
+      [...screen.getByTestId('patrulla-2').querySelectorAll('[data-testid^=miembro-]')].map((e) =>
+        e.getAttribute('data-testid'),
+      );
+
+    const antes = orden();
+    fireEvent.click(screen.getByRole('button', { name: 'Subir a Ruiz' }));
+
+    expect(orden()).not.toEqual(antes);
+    expect(orden()[0]).toBe('miembro-Ruiz');
+  });
+
+  /**
+   * En los extremos el botón está **apagado**, no ignorado. Un botón que
+   * parece activo y no hace nada es peor que uno apagado — es la misma lección
+   * del teclado de scoring en `REF-6`.
+   */
+  it('el primero no puede subir y el último no puede bajar', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    expect(
+      (screen.getByRole('button', { name: 'Subir a Pérez' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Bajar a Ruiz' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+});
+
+describe('patrullas vacías', () => {
+  it('una patrulla vacía avisa y frena el guardado', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    for (const apellido of ['Díaz', 'Ruiz']) {
+      fireEvent.click(screen.getByRole('button', { name: `Mover a ${apellido} a otra patrulla` }));
+      fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
+    }
+
+    expect(screen.getByTestId('patrulla-vacia')).toBeDefined();
+    expect(
+      (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  // Con gente adentro no hay botón: eliminarla sacaría arqueros del torneo.
+  it('sólo se puede eliminar la que está vacía', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    expect(screen.queryByRole('button', { name: 'Eliminar la patrulla 1' })).toBeNull();
   });
 });

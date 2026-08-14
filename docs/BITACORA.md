@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-5` — el flujo de WAFA
+
+**Autor:** Claude Opus 5 · **Estado:** entregada, menos un ítem
+
+Subir y bajar dentro de la patrulla, eliminar la vacía con renumerado, confirmación al iniciar, la vuelta atrás, y los pagos con color.
+
+### Una patrulla vacía se guardaba, y desaparecía en silencio
+
+`cuerpoDeDistribucion` la filtraba antes de mandar. El torneo terminaba con una patrulla menos y una **numeración con huecos** que nadie había pedido — y eso importa porque el usuario del líder es `patrulla${número}`: un hueco deja un `patrulla3` que no existe.
+
+Había un test que afirmaba esa conducta: **«NO frena una patrulla sin nadie»**, con este razonamiento escrito al lado: *«es un estado intermedio mientras se reacomoda, y no se manda al servidor»*. La primera mitad sigue siendo cierta —por eso el editor deja vaciarla—; la segunda era el problema. Se reescribió el test explicando qué cambió y por qué, en vez de borrarlo.
+
+### Una mutación sobreviviente destapó código duplicado
+
+`moverEnPatrulla` tenía un `if (j < 0 || j >= length)` **y** el `if (!a || !b)` que `noUncheckedIndexedAccess` obliga a escribir igual. Borrar el primero no rompía ningún test — y tenía razón: los dos hacen el mismo trabajo.
+
+No era un test faltante: era una segunda condición que podía quedar desincronizada sin que nadie lo notara. Se sacó, y la mutación sobre el que queda sí mata.
+
+> Es la primera vez en el proyecto que un mutante sobreviviente señala código de más en lugar de un test de menos. Vale anotarlo: la pregunta correcta ante un sobreviviente no es siempre «¿qué test falta?».
+
+### El orden dentro de la patrulla no es cosmético
+
+`unidadesDe` reparte por posición: los dos primeros son la unidad `A`, y **la `A` tira primero**. Subir a un arquero lo puede pasar de la segunda tanda a la primera. Los botones se deshabilitan en los extremos, no se ignoran.
+
+### Lo que no entró
+
+**La edición de arqueros con el torneo sin iniciar.** El backend está desde `REF2-3`; falta la pantalla. El selector de participantes que hace falta **ya existe dentro del asistente de creación** —675 líneas—, y extraerlo es el trabajo real. `REF2-6` ya entra en ese archivo para los porcentajes del paso «Revisión»: hacerlo acá sería tocarlo dos veces.
+
+De paso entraron los glifos que `REF2-4` había dejado pendientes: `BotonIcono` pasa de recibir un `glifo: string` a recibir el componente.
+
+**Tests:** 12 de patrullas, 5 de iniciar y volver atrás. 1077 en verde, 8 de 8 E2E. **Controles de mutación: 7, murieron 7.**
+
+---
+
 ## 2026-08-13 · `REF2-4` — la identidad aplicada
 
 **Autor:** Claude Opus 5 · **Estado:** completado

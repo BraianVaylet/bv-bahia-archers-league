@@ -8,7 +8,14 @@
  * Ver `docs/FUNCTIONAL.md` §6.6.
  */
 
-import { ChipCategoria } from '@bal/ui';
+import {
+  ChipCategoria,
+  type Icono,
+  IconoBajar,
+  IconoEliminar,
+  IconoMover,
+  IconoSubir,
+} from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Encabezado, Screen, StakeChip } from '../../components/ui.js';
@@ -18,7 +25,9 @@ import {
   borradorDe,
   cambiarInicio,
   cuerpoDeDistribucion,
+  eliminarPatrulla,
   moverArquero,
+  moverEnPatrulla,
   type PatrullaVista,
   problemaDelBorrador,
   textoDeViolacion,
@@ -78,6 +87,44 @@ function Credencial({
 }
 
 // ── Pantalla ─────────────────────────────────────────────────────────────────
+
+/** Índice de un arquero dentro de su patrulla, para saber si está en un extremo. */
+function indiceEnPatrulla(p: Borrador, participantId: string): number {
+  return p.miembros.findIndex((m) => m.id === participantId);
+}
+
+/**
+ * Botón de sólo ícono de una fila de arquero.
+ *
+ * El ícono va `aria-hidden` y el nombre lo pone `aria-label`: un símbolo sin
+ * nombre no dice nada en un lector de pantalla, y anunciarlo *además* del
+ * `aria-label` diría dos cosas.
+ */
+function BotonDeFila({
+  icono: Icono,
+  etiqueta,
+  onClick,
+  disabled,
+}: {
+  readonly icono: Icono;
+  readonly etiqueta: string;
+  readonly onClick: () => void;
+  readonly disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={etiqueta}
+      title={etiqueta}
+      className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border print:hidden
+        flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      <Icono />
+    </button>
+  );
+}
 
 export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
@@ -205,10 +252,34 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
               >
                 <div className="flex items-baseline justify-between gap-3">
                   <h2 className="font-semibold">Patrulla {p.numero}</h2>
-                  <span className="text-sm text-[var(--ink-muted)]">
-                    Arranca en el blanco {p.startTargetIndex}
+
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm text-[var(--ink-muted)]">
+                      Arranca en el blanco {p.startTargetIndex}
+                    </span>
+
+                    {/*
+                      Eliminar, **sólo cuando quedó vacía**. Con gente adentro
+                      sacaría arqueros del torneo sin decirlo: primero se los
+                      mueve. Eliminarla renumera a las que siguen, porque el
+                      usuario del líder es `patrulla${'{'}number{'}'}` y una
+                      numeración con huecos deja un usuario que no existe.
+                    */}
+                    {editable && p.miembros.length === 0 && (
+                      <BotonDeFila
+                        icono={IconoEliminar}
+                        etiqueta={`Eliminar la patrulla ${p.numero}`}
+                        onClick={() => editar(eliminarPatrulla(borrador, p.numero))}
+                      />
+                    )}
                   </span>
                 </div>
+
+                {editable && p.miembros.length === 0 && (
+                  <p className="text-sm text-[var(--warn)]" data-testid="patrulla-vacia">
+                    Sin arqueros. Movele alguien o eliminala: así no se puede guardar.
+                  </p>
+                )}
 
                 {editable && torneo && (
                   <label className="flex items-center gap-2 text-sm print:hidden">
@@ -262,14 +333,39 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                             <div className="flex items-center gap-2 shrink-0">
                               <StakeChip stake={m.stake} />
                               {editable && (
-                                <button
-                                  type="button"
-                                  onClick={() => setMoviendo(moviendo === m.id ? undefined : m.id)}
-                                  aria-label={`Mover a ${m.lastName}`}
-                                  className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border print:hidden"
-                                >
-                                  <span aria-hidden="true">⇄</span>
-                                </button>
+                                <>
+                                  {/*
+                                    Subir y bajar **dentro** de la patrulla. No es
+                                    cosmético: los dos primeros son la unidad `A`
+                                    y la `A` tira primero, así que esto decide el
+                                    orden de tiro.
+
+                                    Deshabilitados en los extremos: un botón que
+                                    parece activo y no hace nada es peor que uno
+                                    apagado. Ver `DESIGN_SYSTEM.md` §10.
+                                  */}
+                                  <BotonDeFila
+                                    icono={IconoSubir}
+                                    etiqueta={`Subir a ${m.lastName}`}
+                                    disabled={indiceEnPatrulla(p, m.id) === 0}
+                                    onClick={() =>
+                                      editar(moverEnPatrulla(borrador, m.id, 'arriba'))
+                                    }
+                                  />
+                                  <BotonDeFila
+                                    icono={IconoBajar}
+                                    etiqueta={`Bajar a ${m.lastName}`}
+                                    disabled={indiceEnPatrulla(p, m.id) === p.miembros.length - 1}
+                                    onClick={() => editar(moverEnPatrulla(borrador, m.id, 'abajo'))}
+                                  />
+                                  <BotonDeFila
+                                    icono={IconoMover}
+                                    etiqueta={`Mover a ${m.lastName} a otra patrulla`}
+                                    onClick={() =>
+                                      setMoviendo(moviendo === m.id ? undefined : m.id)
+                                    }
+                                  />
+                                </>
                               )}
                             </div>
                           </div>

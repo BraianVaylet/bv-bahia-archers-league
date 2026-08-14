@@ -104,6 +104,66 @@ export function moverArquero(
   });
 }
 
+/**
+ * Mueve un arquero dentro de su patrulla.
+ *
+ * **El orden no es cosmético.** `unidadesDe` reparte por posición en la lista:
+ * los dos primeros son la unidad `A` y el resto la `B`, y **la `A` tira
+ * primero**. Subir a un arquero lo puede pasar de la segunda tanda a la
+ * primera, que es exactamente lo que el admin quiere poder decidir.
+ *
+ * En los extremos no hace nada. La pantalla además deshabilita el botón: un
+ * botón que parece activo y no hace nada es peor que uno apagado.
+ */
+export function moverEnPatrulla(
+  borrador: readonly Borrador[],
+  participantId: string,
+  direccion: 'arriba' | 'abajo',
+): Borrador[] {
+  return borrador.map((p) => {
+    const i = p.miembros.findIndex((m) => m.id === participantId);
+    if (i === -1) return p;
+
+    const j = direccion === 'arriba' ? i - 1 : i + 1;
+
+    const miembros = [...p.miembros];
+    const a = miembros[i];
+    const b = miembros[j];
+
+    /**
+     * Fuera de rango, `b` es `undefined` y no hay nada que intercambiar.
+     *
+     * Acá había **además** un `if (j < 0 || j >= length)`. Una mutación que lo
+     * borraba no rompía ningún test, y tenía razón: los dos chequeos hacen el
+     * mismo trabajo. El que queda es el que `noUncheckedIndexedAccess` obliga a
+     * escribir igual, así que el otro era una segunda condición que podía
+     * quedar desincronizada sin que nadie lo notara.
+     */
+    if (!a || !b) return p;
+
+    miembros[i] = b;
+    miembros[j] = a;
+    return { ...p, miembros };
+  });
+}
+
+/**
+ * Elimina una patrulla vacía y **renumera** las que siguen.
+ *
+ * Renumerar no es presentación: el `username` de la patrulla es
+ * `patrulla${number}` y es lo que el líder usa para entrar. Una numeración con
+ * huecos deja un `patrulla3` que no existe y un torneo con patrullas 1, 2 y 4.
+ *
+ * **Sólo se elimina si está vacía.** Con gente adentro, eliminarla sacaría
+ * arqueros del torneo sin decirlo: primero se los mueve.
+ */
+export function eliminarPatrulla(borrador: readonly Borrador[], numero: number): Borrador[] {
+  const objetivo = borrador.find((p) => p.numero === numero);
+  if (!objetivo || objetivo.miembros.length > 0) return [...borrador];
+
+  return borrador.filter((p) => p.numero !== numero).map((p, i) => ({ ...p, numero: i + 1 }));
+}
+
 /** Cambia el blanco desde el que arranca una patrulla. */
 export function cambiarInicio(
   borrador: readonly Borrador[],
@@ -194,6 +254,19 @@ export function problemaDelBorrador(borrador: readonly Borrador[]): string | und
   const excedida = borrador.find((p) => p.miembros.length > MAX_PATROL_SIZE);
   if (excedida) {
     return `La patrulla ${excedida.numero} tiene ${excedida.miembros.length} arqueros. El máximo es ${MAX_PATROL_SIZE}.`;
+  }
+
+  /**
+   * **Una patrulla vacía frena el guardado.**
+   *
+   * Antes se guardaba: `cuerpoDeDistribucion` la filtraba antes de mandar y el
+   * torneo terminaba con una patrulla menos y una numeración con huecos, sin
+   * que nadie lo hubiera pedido. Ahora hay que eliminarla explícitamente, que
+   * es lo que renumera al resto.
+   */
+  const vacia = borrador.find((p) => p.miembros.length === 0);
+  if (vacia) {
+    return `La patrulla ${vacia.numero} no tiene arqueros. Movele alguien o eliminala.`;
   }
 
   const escasa = borrador.find((p) => p.miembros.length > 0 && p.miembros.length < MIN_PATROL_SIZE);
