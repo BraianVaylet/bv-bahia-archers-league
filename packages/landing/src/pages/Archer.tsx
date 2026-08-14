@@ -9,6 +9,7 @@
  */
 
 import { type BowCategory, CATEGORY_INFO } from '@bal/shared';
+import { GraficoDeEvolucion } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import { Cargando, Fallo, Screen } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
@@ -33,6 +34,13 @@ interface Arquero {
   readonly firstName: string;
   readonly lastName: string;
   readonly seasons: readonly TemporadaDelArquero[];
+  /**
+   * Un punto por torneo publicado, del más viejo al más nuevo.
+   *
+   * Opcional: una respuesta vieja en caché no lo trae, y la ficha no puede
+   * quedar en blanco por eso. Ver la entrada de `REF-7` en `BITACORA.md`.
+   */
+  readonly history?: readonly { seasonId: string; name: string; normalizedPct: number }[];
 }
 
 function Dato({ etiqueta, valor }: { readonly etiqueta: string; readonly valor: string | number }) {
@@ -98,8 +106,26 @@ export function ArcherPage() {
             />
             <Dato etiqueta="Inner" valor={s.totalX} />
             <Dato etiqueta="Dieces" valor={s.totalTens} />
-            <Dato etiqueta="Emes" valor={s.totalM} />
+            {/* «M» y no «Emes»: es como se anota en la planilla y como se dice
+                en la línea de tiro. */}
+            <Dato etiqueta="M" valor={s.totalM} />
           </dl>
+
+          {/*
+            Cómo viene la temporada, torneo por torneo.
+
+            Mide **porcentaje**, no puntaje bruto: cada torneo tiene un máximo
+            distinto y los puntajes de dos fechas no se comparan entre sí. Es la
+            misma razón por la que el ranking usa `normalizedPct`.
+
+            Con un solo torneo no dibuja nada, y de eso se hace cargo el
+            componente.
+          */}
+          <GraficoDeEvolucion
+            puntos={(a.history ?? [])
+              .filter((h) => h.seasonId === s.seasonId)
+              .map((h) => ({ name: h.name, normalizedPct: h.normalizedPct }))}
+          />
         </section>
       ))}
 

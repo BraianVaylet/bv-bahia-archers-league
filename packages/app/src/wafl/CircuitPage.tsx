@@ -8,19 +8,19 @@
  * Ver `docs/FUNCTIONAL.md` §7.2.
  */
 
-import type { Modality } from '@bal/shared';
+import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Button, cn, Encabezado, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
 import { readScores } from '../offline/db.js';
 import { SyncBadge } from './SyncBadge.js';
 
-const ETIQUETA: Record<Modality, string> = {
-  sala: 'Sala 18 m',
-  aire_libre: 'Aire libre',
-  campo: 'Juego de campo',
-  '3d': '3D',
-};
+/*
+ * Acá había un `ETIQUETA: Record<Modality, string>` con los cuatro nombres
+ * escritos a mano — la cuarta copia de la misma tabla en el proyecto, después
+ * de las tres de estados que unificó `REF2-1`. Los nombres salen de `SCORING`,
+ * que es el catálogo del reglamento, y ahora los pone `ChipModalidad`.
+ */
 
 export interface CircuitPageProps {
   readonly bundle: StoredBundle;
@@ -103,8 +103,17 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
                     {target.index}
                   </span>
 
-                  <span className="flex flex-col grow">
-                    <span className="font-medium">{ETIQUETA[target.modality]}</span>
+                  <span className="flex flex-col grow gap-0.5 items-start">
+                    {/*
+                      La modalidad con su color y su ícono. Es lo que hay que
+                      reconocer caminando: dice qué cara de blanco viene y qué
+                      teclas va a ofrecer el teclado.
+
+                      El nombre va escrito adentro del chip, así que el color
+                      acelera algo que ya se puede leer. Al sol, un chip verde
+                      y uno violeta pueden verse casi iguales.
+                    */}
+                    <ChipModalidad modality={target.modality} compacto />
                     <span className="text-sm text-[var(--ink-muted)]">
                       {target.arrows} {target.arrows === 1 ? 'flecha' : 'flechas'}
                       {target.description ? ` · ${target.description}` : ''}

@@ -295,26 +295,38 @@ Lo que cambia lo que el admin **puede hacer**, no cómo se ve.
 
 ---
 
-### `[ ] REF2-7` · Landing y WAFL · **P1**
+### `[x] REF2-7` · Landing y WAFL · **P1**
 
 **Archivos:** `landing/pages/{Home,Ranking,Archer}.tsx`, `packages/ui/src/EvolutionChart.tsx`, `wafl/{LoginPage,CircuitPage}.tsx`
 
 **Landing**
-- [ ] `wallpaper.png` —ya optimizado en `REF2-2`— reemplaza a `arqueria.svg` en la portada
-- [ ] **La explicación sigue al modo elegido**: con «Por puntos», el reparto del podio; con «Mejor de 2», cómo se calcula el promedio, **con un ejemplo**. Hoy está detrás de un `<details>` que no depende del modo (`Ranking.tsx:173`)
-- [ ] «Emes» pasa a **«M»** (`Archer.tsx:101`)
-- [ ] **Gráfico de evolución** de «Mejor» contra cantidad de torneos, con `EvolutionChart` portado y la serie de `REF2-3`
-- [ ] Cada categoría sin ranking, **dentro de su card**
+- [x] La portada usa `portada.webp`, optimizada en `REF2-2`
+- [x] **La explicación sigue al modo elegido**, con un ejemplo con números en «Mejor de 2»
+- [x] «Emes» pasa a **«M»**
+- [x] **Gráfico de evolución** portado, midiendo **porcentaje** y no puntaje bruto
+- [x] Cada categoría dentro de su tarjeta, no sólo las vacías
 
 **WAFL**
-- [ ] Logo de la Liga y del CBA en el login
-- [ ] Blancos **coloreados por modalidad, con ícono**
+- [x] Logo de la Liga y del CBA en el login
+- [x] Blancos con su chip de modalidad, y **una cuarta copia de las etiquetas dada de baja**
 
 **DoD:** cambiar de modo cambia la explicación · un arquero con un solo torneo no rompe el gráfico · el E2E offline sigue verde.
 **Tests:** la explicación de cada modo · el gráfico con 0, 1 y n torneos · presupuesto de la landing.
 **Mutaciones:** mostrar siempre la misma explicación.
 
 > **WAFL se toca al final y con el E2E andando.** Es la app que decide si el sistema sirve el día del torneo, y el color de los blancos entra en la pantalla que el líder mira caminando.
+>
+> **Cerrada el 2026-08-13. Última tanda de `ref-2`.**
+>
+> **El gráfico mide porcentaje, no puntaje.** El brief pedía «Mejor vs cantidad de torneos», pero los puntajes brutos de dos fechas **no se comparan**: cada torneo tiene un máximo distinto. Es la misma razón por la que el ranking usa `normalizedPct`, y graficar puntajes habría dibujado una mejora donde sólo hubo un recorrido más largo.
+>
+> **La explicación del ranking va abierta, no plegada.** La primera vez que alguien ve esa pantalla necesita saber qué significan los números, no descubrir que hay una explicación escondida.
+>
+> **Dos hallazgos de tests viejos.** El mock de la landing servía `mode=score` —un modo que `REF-2` eliminó— y no tenía `best_two`: el test que conmuta de modo sólo verificaba que cambiara la URL, no lo que volvía. Y `CircuitPage` tenía **una cuarta copia** de las etiquetas de modalidad escritas a mano, después de las tres de estados que unificó `REF2-1`.
+>
+> **Y una mutación sobreviviente, otra vez sobre un test mío.** «La escala no se adapta a la serie» comparaba dos series entre sí — y con escala adaptativa también dan distinto. Ahora se mide contra una posición absoluta.
+>
+> 1094 tests, 8 de 8 E2E. **4 controles de mutación, murieron 4** —uno recién después de arreglar el test—.
 
 ---
 

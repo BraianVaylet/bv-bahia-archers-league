@@ -14,6 +14,42 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-7` — landing y WAFL. Cierra `ref-2`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Última tanda del segundo refactor.
+
+### El gráfico mide porcentaje, no puntaje
+
+El brief pedía «evolución del campo *Mejor* vs cantidad de torneos». Graficar el puntaje bruto habría estado mal: **cada torneo tiene un máximo distinto**, así que una fecha de 14 blancos y una de 8 no se comparan. Una línea que sube podría ser sólo un recorrido más largo.
+
+Va con `normalizedPct`, que es la misma razón por la que el ranking lo usa. Y la escala es **fija de 0 a 100**: adaptarla al máximo de la serie haría que una temporada de 40% y 45% se viera igual de buena que una de 90% y 95%.
+
+Con un solo torneo no dibuja nada. Una línea de un punto es un punto, y el número ya está en la ficha.
+
+### La explicación del ranking va abierta
+
+Estaba detrás de un `<details>` que **no dependía del modo**: con «Mejor de 2» elegido, lo único que se ofrecía explicar era el reparto de puntos del podio, que en ese modo no ordena nada. La columna que se estaba mirando quedaba sin explicar, y la que se explicaba no estaba en pantalla.
+
+Ahora sigue al modo, va abierta —la primera vez que alguien ve esa pantalla necesita saber qué significan los números, no descubrir que hay una explicación escondida— y la de «Mejor de 2» lleva un ejemplo con números: el promedio de dos porcentajes se entiende en un renglón y se explica mal en un párrafo.
+
+### Dos cosas viejas que aparecieron
+
+**El mock de la landing servía `mode=score`**, un modo que `REF-2` eliminó, y no tenía `best_two`. Nadie lo notó porque el test que conmuta de modo sólo verificaba que **cambiara la URL**, no lo que volvía. Al escribir un test que sí mira el contenido, saltó.
+
+**`CircuitPage` tenía una cuarta copia** de las etiquetas de modalidad escritas a mano, después de las tres de estados que unificó `REF2-1`. Dada de baja: los nombres salen de `SCORING`.
+
+### Y otra mutación sobre un test mío
+
+«La escala no se adapta a la serie» comparaba las polilíneas de dos series distintas y afirmaba que fueran distintas — y **con escala adaptativa también lo son**, porque los ratios internos difieren. Pasaba con la mutación puesta. Ahora se mide contra una posición absoluta: un 50% cae exactamente en el medio.
+
+> Tercera tanda seguida en que un control de mutación corrige un test que yo había dado por bueno. Las tres veces el test miraba algo que cambiaba por otro motivo.
+
+**Tests:** 5 del gráfico, 2 de la landing. 1094 en verde, 8 de 8 E2E. **Controles de mutación: 4, murieron 4** —uno recién después de arreglar el test—.
+
+---
+
 ## 2026-08-13 · `REF2-6` — la presentación de WAFA
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -7,17 +7,32 @@
  * Ver `docs/FUNCTIONAL.md` §5.1.
  */
 
-import ilustracion from '@bal/shared/assets/arqueria.svg';
+import portada from '@bal/shared/assets/portada.webp';
 import { Link } from 'react-router-dom';
 import { Screen } from '../components/ui.js';
 
 export function HomePage() {
   return (
     <Screen>
-      {/* Dibujada, no fotografiada: la CSP prohíbe pedidos externos y una foto
-          que entrara en el presupuesto de la landing se vería mal. Pesa 2 KB y
-          acompaña el tema. */}
-      <img src={ilustracion} alt="" className="w-full max-w-md mx-auto pt-6 text-[var(--ink)]" />
+      {/*
+        La foto de portada, ya optimizada por `scripts/imagenes.mjs`: el
+        original pesa 2,7 MB y esto 131 KB.
+
+        `alt` vacío porque es decorativa: el título de abajo dice de qué liga se
+        trata. Con `alt` describiéndola, un lector de pantalla leería una
+        descripción de la foto antes del nombre de la liga.
+
+        Carga **eager** y con `width`/`height`: es lo primero que se ve, y sin
+        dimensiones el texto salta cuando la imagen llega — en un celular con
+        señal mala eso pasa siempre.
+      */}
+      <img
+        src={portada}
+        alt=""
+        width={1120}
+        height={630}
+        className="w-full rounded-[var(--radius-lg)] mt-6 aspect-[16/9] object-cover"
+      />
 
       <div>
         <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Footer } from './Footer.js';
+import { GraficoDeEvolucion } from './GraficoDeEvolucion.js';
 import { Logo } from './Logo.js';
 
 /**
@@ -90,5 +91,79 @@ describe('Footer', () => {
   it('no se imprime', () => {
     const { container } = render(<Footer />);
     expect(container.querySelector('footer')?.className).toContain('print:hidden');
+  });
+});
+
+// ── REF2-7 · Gráfico de evolución ────────────────────────────────────────────
+
+describe('GraficoDeEvolucion', () => {
+  const punto = (name: string, normalizedPct: number) => ({ name, normalizedPct });
+
+  /**
+   * **Con un solo torneo no hay evolución.** Una línea de un punto es un punto,
+   * y el número ya está escrito en la ficha.
+   */
+  it('no dibuja nada con menos de dos torneos', () => {
+    expect(render(<GraficoDeEvolucion puntos={[]} />).container.firstChild).toBeNull();
+    cleanup();
+    expect(
+      render(<GraficoDeEvolucion puntos={[punto('1ª', 80)]} />).container.firstChild,
+    ).toBeNull();
+  });
+
+  /**
+   * Quien no ve el gráfico **escucha la serie entera**. Un `<svg>` con
+   * `role="img"` y sin descripción es un agujero en la página.
+   */
+  it('describe la serie completa para un lector de pantalla', () => {
+    render(<GraficoDeEvolucion puntos={[punto('1ª fecha', 78), punto('2ª fecha', 85)]} />);
+
+    const svg = screen.getByRole('img');
+    expect(svg.getAttribute('aria-label')).toMatch(/1ª fecha: 78%/);
+    expect(svg.getAttribute('aria-label')).toMatch(/2ª fecha: 85%/);
+  });
+
+  it('escribe el valor de cada punto, sin depender del mouse', () => {
+    render(<GraficoDeEvolucion puntos={[punto('a', 78), punto('b', 85)]} />);
+
+    expect(screen.getByText('78%')).toBeInTheDocument();
+    expect(screen.getByText('85%')).toBeInTheDocument();
+  });
+
+  /**
+   * **La escala es siempre 0-100.** Escalarla al máximo de la serie haría que
+   * una temporada de 40% y 45% se viera igual de buena que una de 90% y 95%:
+   * la línea subiría igual en las dos.
+   */
+  it('la escala no se adapta a la serie', () => {
+    /**
+     * Se mide contra una posición **absoluta**, no comparando dos series.
+     *
+     * Una primera versión comparaba las polilíneas de 40/45 y 90/95 y afirmaba
+     * que fueran distintas — y con escala adaptativa **también** lo son, porque
+     * los ratios internos difieren. Pasaba con la mutación puesta. Lo destapó
+     * el control, no la corrida en verde.
+     *
+     * Con escala fija, un 100% toca el borde de arriba del área y un 0% el de
+     * abajo, y el punto medio cae exactamente en el medio.
+     */
+    const yDe = (pct: number) => {
+      cleanup();
+      const { container } = render(
+        <GraficoDeEvolucion puntos={[punto('a', pct), punto('b', pct)]} />,
+      );
+      const [primero] = (container.querySelector('polyline')?.getAttribute('points') ?? '').split(
+        ' ',
+      );
+      return Number((primero ?? '').split(',')[1]);
+    };
+
+    const arriba = yDe(100);
+    const medio = yDe(50);
+    const abajo = yDe(0);
+
+    expect(medio).toBeCloseTo((arriba + abajo) / 2, 5);
+    // Y una serie floja se dibuja abajo, no estirada hasta arriba.
+    expect(yDe(45)).toBeGreaterThan(medio);
   });
 });
