@@ -14,6 +14,7 @@ import {
   ChipCategoria,
   type Icono,
   IconoArchivar,
+  IconoAviso,
   IconoEditar,
   IconoEliminar,
   IconoRestaurar,
@@ -241,13 +242,29 @@ function Fila({
         />
       </div>
 
-      {/* La explicación va siempre que el botón esté deshabilitado: un botón gris
-          sin motivo es una pared, no una respuesta. */}
+      {/*
+        La explicación se despliega al tocarla.
+        
+        Antes estaba **siempre visible**, con este razonamiento: un botón gris
+        sin motivo es una pared, no una respuesta. Sigue siendo cierto, y por
+        eso el aviso está: lo que cambió es que en un padrón de cuarenta
+        arqueros, treinta de los cuales participaron, el mismo párrafo repetido
+        treinta veces tapa la lista y deja de leerse.
+        
+        Un `<details>` y no un estado propio: se abre con teclado, lo anuncia un
+        lector de pantalla y no hace falta escribir nada de eso.
+      */}
       {arquero.participated && (
-        <p className="text-sm text-[var(--ink-muted)]">
-          Ya participó de un torneo, así que no se puede eliminar sin romper su histórico y los
-          rankings. Archivalo: deja de aparecer al armar torneos nuevos y conserva todo.
-        </p>
+        <details className="text-sm text-[var(--ink-muted)]">
+          <summary className="min-h-[44px] flex items-center gap-1.5 cursor-pointer">
+            <IconoAviso size={16} />
+            Por qué no se puede eliminar
+          </summary>
+          <p className="pb-2">
+            Ya participó de un torneo, así que no se puede eliminar sin romper su histórico y los
+            rankings. Archivalo: deja de aparecer al armar torneos nuevos y conserva todo.
+          </p>
+        </details>
       )}
     </li>
   );

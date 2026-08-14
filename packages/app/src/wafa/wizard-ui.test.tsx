@@ -221,8 +221,16 @@ describe('paso 3 · participantes', () => {
     await elegirCuatro();
 
     expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('4 arqueros elegidos');
-    expect(screen.getByText('Razo: 2')).toBeDefined();
-    expect(screen.getByText('Longbow: 2')).toBeDefined();
+
+    /**
+     * El conteo por categoría pasó de un texto suelto —«Razo: 2»— a un chip con
+     * su ícono y su color más el número al lado (`REF2-6`). La información es la
+     * misma; el nodo de texto no. Se busca la lista entera para no atarse a cómo
+     * quedan repartidos los `<span>`.
+     */
+    const conteo = screen.getByTestId('conteo-elegidos').parentElement?.textContent ?? '';
+    expect(conteo).toMatch(/Razo\s*2/);
+    expect(conteo).toMatch(/Longbow\s*2/);
   });
 
   it('frena si la composición dejaría arqueros sin patrulla, y dice quiénes', async () => {
@@ -265,7 +273,9 @@ describe('paso 3 · participantes', () => {
     await waitFor(() => {
       expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
     });
-    expect(screen.getByText('Recurvo olímpico: 1')).toBeDefined();
+    expect(screen.getByTestId('conteo-elegidos').parentElement?.textContent ?? '').toMatch(
+      /Recurvo olímpico\s*1/,
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import { ETIQUETA_DE_MODO } from '@bal/shared';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RankingPage } from './pages/Ranking.js';
@@ -151,5 +152,76 @@ describe('RankingPage de WAFA', () => {
     renderRanking();
 
     expect(await screen.findByRole('alert')).toBeDefined();
+  });
+});
+
+// ── REF2-6 · Compartir ───────────────────────────────────────────────────────
+
+describe('compartir el ranking', () => {
+  /**
+   * **Comparte el modo que está elegido.** Los dos modos ordenan distinto y dan
+   * podios distintos: mandar «el ranking» sin decir cuál es mandar una lista de
+   * números sin unidad.
+   */
+  it('manda el modo elegido, no siempre el mismo', async () => {
+    const compartido: string[] = [];
+    Object.defineProperty(navigator, 'share', {
+      value: (d: { text: string }) => {
+        compartido.push(d.text);
+        return Promise.resolve();
+      },
+      configurable: true,
+    });
+
+    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    renderRanking();
+    await screen.findByTestId('cat-razo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
+    await waitFor(() => expect(compartido).toHaveLength(1));
+
+    // El VALOR, no sólo la unidad. Una primera versión de este test comprobaba
+    // que apareciera «pts» y «%», y pasaba con la pantalla mandando siempre los
+    // puntos de liga: la unidad la pone el texto compartido según el modo, así
+    // que cambiaba igual. Lo destapó la mutación.
+    expect(compartido[0]).toMatch(/12 pts/);
+
+    // Se cambia de modo y se vuelve a compartir: el texto tiene que cambiar.
+    fireEvent.click(screen.getByRole('button', { name: ETIQUETA_DE_MODO.best_two }));
+    await waitFor(() => expect(screen.getByTestId('cat-razo')).toBeDefined());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
+    await waitFor(() => expect(compartido).toHaveLength(2));
+
+    expect(compartido[1]).toMatch(/81\.2 %/);
+    expect(compartido[1]).not.toMatch(/12 /);
+  });
+
+  /**
+   * Sin `navigator.share` —un escritorio— se copia. Un botón que no hace nada
+   * en la mitad de los dispositivos no es una opción.
+   */
+  it('sin share, copia al portapapeles', async () => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+
+    const copiado: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: (t: string) => {
+          copiado.push(t);
+          return Promise.resolve();
+        },
+      },
+      configurable: true,
+    });
+
+    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    renderRanking();
+    await screen.findByTestId('cat-razo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
+
+    await waitFor(() => expect(copiado).toHaveLength(1));
+    expect(await screen.findByRole('button', { name: 'Copiado' })).toBeDefined();
   });
 });

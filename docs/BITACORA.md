@@ -14,6 +14,38 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-13 · `REF2-6` — la presentación de WAFA
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Recaudación de la temporada, compartir el ranking, porcentajes en la revisión y el aviso plegable. Y la deuda de `REF2-5`.
+
+### El selector de arqueros salió del asistente
+
+Era el trabajo que faltaba para editar participantes: **200 líneas atrapadas dentro de un archivo de 675**. Ahora lo usan la creación y la edición, y la pantalla de edición avisa antes: cambiar quiénes participan **rearma las patrullas y les cambia el PIN**, así que si ya imprimiste las planillas hay que reimprimirlas.
+
+Va en su propio panel, aparte del formulario de nombre y fecha, justo por eso: meterlo en el mismo «Guardar cambios» haría que corregir una tilde reimprima las planillas.
+
+### Una mutación destapó un test débil, y era mío
+
+El test «comparte el modo elegido» verificaba que el texto tuviera «pts» en un caso y «%» en el otro. **Pasaba con la pantalla mandando siempre los puntos de liga**: la unidad la pone el texto compartido según el modo, así que cambiaba igual aunque el número estuviera mal.
+
+Ahora se afirma el valor —`12 pts` contra `81.2 %`— y la mutación muere.
+
+> Es la segunda vez en dos tandas que la mutación dice algo que la corrida en verde no. La otra fue código de más; esta, una aserción que miraba al costado.
+
+### El texto del ranking no se lee del DOM
+
+`textoDeRanking` vive en `@bal/shared`. Lo que se comparte tiene que ser exactamente lo publicado, y armarlo en el componente lo dejaría sin test y atado a cómo esté maquetada la tabla ese día. Sin markdown ni tablas: se pega en WhatsApp, donde una tabla se desarma.
+
+### La recaudación se pide al abrirla
+
+Con cinco temporadas, cargarla con la lista serían cinco consultas para un número que casi nunca se mira: a esta pantalla se entra a cerrar una temporada, no a revisar la caja.
+
+**Tests:** 8 del texto compartido, 2 de la pantalla. 1088 en verde, 8 de 8 E2E. **Controles de mutación: 5, murieron 5** —uno recién después de arreglar el test que dejaba pasar—.
+
+---
+
 ## 2026-08-13 · `REF2-5` — el flujo de WAFA
 
 **Autor:** Claude Opus 5 · **Estado:** entregada, menos un ítem

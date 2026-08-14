@@ -9,9 +9,8 @@
  */
 
 import {
-  BOW_CATEGORIES,
-  type BowCategory,
-  CATEGORY_INFO,
+  distribucionDeCategorias,
+  distribucionDeModalidades,
   formatearFecha,
   formatearMonto,
   MAX_ARROWS_PER_TARGET,
@@ -20,18 +19,16 @@ import {
   type Modality,
   SCORING,
 } from '@bal/shared';
-import { IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { ChipCategoria, ChipModalidad, IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui';
+import { useEffect, useState } from 'react';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
+import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
-  type ArqueroElegible,
   agregarBlanco,
-  avisoDeComposicion,
   type BorradorTorneo,
   borradorVacio,
   conModalidad,
-  conteoPorCategoria,
   cuerpoDeCreacion,
   eliminarBlanco,
   maximoDelRecorrido,
@@ -291,83 +288,6 @@ function PasoRecorrido({
 
 // ── Paso 3 · Participantes ───────────────────────────────────────────────────
 
-function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => void }) {
-  const [abierto, setAbierto] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [category, setCategory] = useState<BowCategory>('razo');
-  const [error, setError] = useState<string>();
-
-  const crear = async () => {
-    try {
-      const r = await api.post<{ archer: ArqueroElegible }>('/admin/archers', {
-        firstName,
-        lastName,
-        category,
-      });
-      onCreado(r.archer);
-      setFirstName('');
-      setLastName('');
-      setAbierto(false);
-      setError(undefined);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear el arquero.');
-    }
-  };
-
-  if (!abierto) {
-    return (
-      <Button variante="secundario" ancho onClick={() => setAbierto(true)}>
-        Arquero nuevo
-      </Button>
-    );
-  }
-
-  return (
-    <div className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-3 bg-[var(--surface)]">
-      {/* Se crea sin salir del wizard: mandar al admin al padrón y de vuelta le
-          haría perder todo lo cargado. */}
-      <h3 className="font-semibold">Arquero nuevo</h3>
-
-      <Field label="Apellido" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      <Field label="Nombre" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="categoria-nueva" className="text-sm font-medium">
-          Categoría
-        </label>
-        <select
-          id="categoria-nueva"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as BowCategory)}
-          className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-        >
-          {BOW_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_INFO[c].label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && (
-        <p role="alert" className="text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <Button variante="secundario" onClick={() => setAbierto(false)}>
-          Cancelar
-        </Button>
-        <Button ancho disabled={!firstName.trim() || !lastName.trim()} onClick={() => void crear()}>
-          Crear y sumar
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function PasoParticipantes({
   borrador,
   onCambio,
@@ -375,125 +295,12 @@ function PasoParticipantes({
   readonly borrador: BorradorTorneo;
   readonly onCambio: (b: Partial<BorradorTorneo>) => void;
 }) {
-  const [padron, setPadron] = useState<ArqueroElegible[]>();
-  const [busqueda, setBusqueda] = useState('');
-
-  const cargar = useCallback(async () => {
-    const params = busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : '';
-    try {
-      const r = await api.get<{ archers: ArqueroElegible[] }>(`/admin/archers${params}`);
-      setPadron(r.archers);
-    } catch {
-      setPadron([]);
-    }
-  }, [busqueda]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
-
-  const elegidos = new Set(borrador.elegidos.map((a) => a.id));
-
-  const alternar = (a: ArqueroElegible) => {
-    onCambio({
-      elegidos: elegidos.has(a.id)
-        ? borrador.elegidos.filter((x) => x.id !== a.id)
-        : [...borrador.elegidos, a],
-    });
-  };
-
-  const aviso = avisoDeComposicion(borrador.elegidos, borrador.blancos.length);
-  const conteo = conteoPorCategoria(borrador.elegidos);
-
-  /**
-   * Agrega los que se están viendo, sin sacar ninguno de los ya elegidos.
-   *
-   * Con la búsqueda vacía es todo el padrón; con una búsqueda escrita, sólo lo
-   * filtrado. Es lo que hace usable inscribir a los 30 de la fecha sin 30
-   * toques, que es el caso normal.
-   */
-  const agregarTodos = () => {
-    const nuevos = (padron ?? []).filter((a) => !elegidos.has(a.id));
-    if (nuevos.length > 0) onCambio({ elegidos: [...borrador.elegidos, ...nuevos] });
-  };
-
-  const faltanPorAgregar = (padron ?? []).filter((a) => !elegidos.has(a.id)).length;
-
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-[var(--ink-muted)]" data-testid="conteo-elegidos">
-        {borrador.elegidos.length} arqueros elegidos
-      </p>
-
-      <div className="flex gap-2 flex-wrap">
-        <Button variante="secundario" disabled={faltanPorAgregar === 0} onClick={agregarTodos}>
-          {busqueda.trim() ? 'Agregar los filtrados' : 'Agregar todos'}
-          {faltanPorAgregar > 0 && ` (${faltanPorAgregar})`}
-        </Button>
-
-        {borrador.elegidos.length > 0 && (
-          <Button variante="secundario" onClick={() => onCambio({ elegidos: [] })}>
-            Quitar todos
-          </Button>
-        )}
-      </div>
-
-      {conteo.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {conteo.map((c) => (
-            <li
-              key={c.category}
-              className="h-7 px-2.5 rounded-full bg-[var(--surface-2)] text-sm flex items-center"
-            >
-              {CATEGORY_INFO[c.category].label}: {c.cantidad}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* El aviso corre el MISMO algoritmo que el servidor, así que no adivina. */}
-      {aviso.nivel !== 'ok' && (
-        <p
-          role={aviso.nivel === 'error' ? 'alert' : 'status'}
-          className={cn(
-            'text-sm rounded-[var(--radius-md)] border p-3',
-            aviso.nivel === 'error' ? 'text-[var(--danger)]' : 'text-[var(--warn)]',
-          )}
-        >
-          {aviso.mensaje}
-        </p>
-      )}
-
-      <AltaRapida onCreado={(a) => onCambio({ elegidos: [...borrador.elegidos, a] })} />
-
-      <Field
-        label="Buscar en el padrón"
-        type="search"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-      />
-
-      <ul className="flex flex-col gap-1.5">
-        {padron?.map((a) => (
-          <li key={a.id}>
-            <label className="flex items-center gap-3 min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]">
-              <input
-                type="checkbox"
-                checked={elegidos.has(a.id)}
-                onChange={() => alternar(a)}
-                className="w-5 h-5"
-              />
-              <span className="flex-1">
-                {a.lastName}, {a.firstName}
-              </span>
-              <span className="text-sm text-[var(--ink-muted)]">
-                {CATEGORY_INFO[a.category].label}
-              </span>
-            </label>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <SelectorDeArqueros
+      elegidos={borrador.elegidos}
+      blancos={borrador.blancos.length}
+      onCambio={(elegidos) => onCambio({ elegidos })}
+    />
   );
 }
 
@@ -541,6 +348,17 @@ function PasoRevision({
           <p>
             {borrador.blancos.length} blancos · máximo {maximoDelRecorrido(borrador.blancos)}
           </p>
+          {/* De qué está hecho el recorrido, antes de la lista blanco por
+              blanco: es lo que se mira para decidir si el torneo es el que se
+              quiso armar. */}
+          <ul className="pt-1 flex flex-wrap gap-1.5" data-testid="reparto-modalidades">
+            {distribucionDeModalidades(borrador.blancos.map((b) => b.modality)).map((m) => (
+              <li key={m.modality}>
+                <ChipModalidad modality={m.modality} pct={m.pct} compacto />
+              </li>
+            ))}
+          </ul>
+
           <ol className="pt-1 flex flex-wrap gap-1.5">
             {borrador.blancos.map((b) => (
               <li
@@ -559,13 +377,15 @@ function PasoRevision({
         3,
         <div className="text-sm text-[var(--ink-muted)]">
           <p>{borrador.elegidos.length} arqueros</p>
-          <ul className="pt-1 flex flex-wrap gap-1.5">
-            {conteoPorCategoria(borrador.elegidos).map((c) => (
-              <li
-                key={c.category}
-                className="px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)]"
-              >
-                {CATEGORY_INFO[c.category].label}: {c.cantidad}
+          {/* Con el porcentaje, no sólo el conteo: «6 compuestos» dice poco
+              sin saber si son 6 de 8 o 6 de 40. */}
+          <ul className="pt-1 flex flex-wrap gap-1.5" data-testid="reparto-categorias">
+            {distribucionDeCategorias(borrador.elegidos.map((a) => a.category)).map((c) => (
+              <li key={c.category} className="flex items-center gap-1">
+                <ChipCategoria category={c.category} compacto />
+                <span>
+                  {c.count} · {c.pct}%
+                </span>
               </li>
             ))}
           </ul>
