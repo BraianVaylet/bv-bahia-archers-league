@@ -268,19 +268,30 @@ Lo que cambia lo que el admin **puede hacer**, no cómo se ve.
 
 ---
 
-### `[ ] REF2-6` · WAFA · presentación · **P1**
+### `[x] REF2-6` · WAFA · presentación · **P1**
 
 **Archivos:** `wafa/pages/{Ranking,Archers,TournamentCreate,Home}.tsx`
 
-- [ ] **Sección «Recaudación»**: por torneo y total de la temporada
-- [ ] **Compartir el ranking** por WhatsApp, mail y lo que ofrezca el dispositivo. Comparte **el modo que está elegido**
-- [ ] **Paso «Revisión»** de crear torneo: distribución de modalidades en «Recorrido» y de categorías en «Participantes»
-- [ ] **Arqueros**: el aviso de «ya participó de un torneo…» deja de estar siempre visible; se despliega al tocar
+- [x] **Sección «Recaudación»** en Temporadas: por torneo y total, desplegable
+- [x] **Compartir el ranking** con `navigator.share`, o copiando donde no exista. Comparte **el modo elegido**
+- [x] **Paso «Revisión»**: distribución de modalidades y de categorías, con porcentaje
+- [x] **Arqueros**: el aviso se despliega al tocar
+- [x] **La edición de arqueros del torneo** — la deuda de `REF2-5`
 
 **DoD:** el total de recaudación coincide con la suma de los torneos · compartir «por puntos» no manda «mejor de 2» · el aviso arranca plegado y se abre con teclado.
 **Tests:** el texto compartido incluye el modo elegido · el aviso es un `<details>` o equivalente accesible.
 
 > **Compartir** se resuelve con `navigator.share` donde exista y con un texto copiable donde no. Nada de SDKs externos: la CSP prohíbe pedidos a otros hosts.
+>
+> **Cerrada el 2026-08-13**, con la deuda de `REF2-5` saldada.
+>
+> **El selector de arqueros salió del asistente**, que era exactamente el trabajo que faltaba: 200 líneas atrapadas dentro de un archivo de 675. Ahora lo usan la creación del torneo y la edición de participantes, y la pantalla de edición avisa que rearmar cambia los PIN.
+>
+> **Una mutación destapó un test débil, y era mío.** «Comparte el modo elegido» verificaba que apareciera «pts» y «%» — y pasaba con la pantalla mandando **siempre** los puntos de liga, porque la unidad la pone el texto compartido según el modo y cambiaba igual. Ahora se afirma el valor: `12 pts` contra `81.2 %`.
+>
+> El texto del ranking vive en `@bal/shared` y no en el componente: lo que se comparte tiene que ser lo publicado, no una lectura del DOM.
+>
+> 1088 tests, 8 de 8 E2E. **5 controles de mutación, murieron 5** —uno recién después de arreglar el test que dejaba pasar.
 
 ---
 

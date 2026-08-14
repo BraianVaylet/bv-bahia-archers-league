@@ -9,6 +9,7 @@
  * Ver `docs/DOMAIN_WA.md`.
  */
 
+export * from './compartir.js';
 export * from './constants.js';
 export * from './distribucion.js';
 export * from './domain.js';

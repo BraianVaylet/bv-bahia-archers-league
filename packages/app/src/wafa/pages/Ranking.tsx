@@ -21,9 +21,11 @@ import {
   MIN_TOURNAMENTS_FOR_RANKING,
   medallaDe,
   type StandingsMode,
+  textoDeRanking,
 } from '@bal/shared';
+import { IconoCompartir } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { cn, Encabezado, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 interface Temporada {
@@ -67,6 +69,41 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   const [modo, setModo] = useState<StandingsMode>('position');
   const [categorias, setCategorias] = useState<CategoriaRankeada[]>();
   const [error, setError] = useState<string>();
+  const [copiado, setCopiado] = useState(false);
+
+  /**
+   * Manda el ranking como texto.
+   *
+   * El texto lo arma `@bal/shared`, que es donde está probado: lo que se
+   * comparte tiene que ser exactamente lo publicado, no una lectura del DOM.
+   */
+  const compartir = async () => {
+    const texto = textoDeRanking({
+      temporada: (temporadas ?? []).find((t) => t.id === elegida)?.name ?? 'Liga Bahiense',
+      modo,
+      categorias: (categorias ?? []).map((c) => ({
+        category: c.category,
+        ranked: c.ranked.map((e, i) => ({
+          position: e.position ?? i + 1,
+          firstName: e.firstName,
+          lastName: e.lastName,
+          valor: modo === 'position' ? e.leaguePoints : e.bestTwoAvgPct,
+        })),
+      })),
+    });
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: texto });
+        return;
+      }
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+    } catch {
+      // Cancelar el diálogo de compartir tira igual que un fallo. No es un
+      // error del que haya que avisar: el usuario decidió no compartir.
+    }
+  };
 
   useEffect(() => {
     api
@@ -154,6 +191,23 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
           <p role="alert" className="text-sm text-[var(--danger)]">
             {error}
           </p>
+        )}
+
+        {/*
+          Compartir el ranking **del modo que está elegido**.
+
+          `navigator.share` donde exista —en el celular abre WhatsApp, mail y lo
+          que el sistema ofrezca—; donde no, se copia al portapapeles. Nada de
+          SDKs: la CSP prohíbe pedidos a otros hosts, y un botón de WhatsApp que
+          no carga es peor que uno que copia.
+        */}
+        {categorias !== undefined && categorias.length > 0 && (
+          <Button variante="secundario" onClick={() => void compartir()}>
+            <span className="flex items-center justify-center gap-2">
+              <IconoCompartir />
+              {copiado ? 'Copiado' : 'Compartir'}
+            </span>
+          </Button>
         )}
 
         {/* La columna «Puntos» es un número sin origen si no se dice de dónde

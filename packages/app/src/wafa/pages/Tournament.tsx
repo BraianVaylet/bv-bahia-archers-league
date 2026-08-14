@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
+import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
   type AvanceDePatrulla,
   avanceDePatrullas,
@@ -20,6 +21,7 @@ import {
   type PatrullaSeguimiento,
   type ResultadoParticipante,
 } from '../torneo.js';
+import type { ArqueroElegible } from '../wizard.js';
 
 interface Torneo {
   readonly id: string;
@@ -167,6 +169,8 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
   const [error, setError] = useState<string>();
   const [iniciando, setIniciando] = useState(false);
   const [confirmandoInicio, setConfirmandoInicio] = useState(false);
+  /** Los participantes en edición. `undefined` = el panel está cerrado. */
+  const [editandoArqueros, setEditandoArqueros] = useState<ArqueroElegible[]>();
   const [eliminando, setEliminando] = useState(false);
 
   /**
@@ -243,6 +247,27 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
       await cargar();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudieron guardar los cambios.');
+    }
+  };
+
+  /**
+   * Cambiar quiénes participan.
+   *
+   * **Rearma las patrullas**, y eso lo hace el servidor: las patrullas se
+   * derivan de la lista de arqueros y de las restricciones del dominio, así que
+   * agregar a alguien sin rehacerlas daría una patrulla de cinco o una 100%
+   * escuela. Los PIN cambian, y por eso se avisa antes.
+   */
+  const guardarArqueros = async () => {
+    if (!editandoArqueros) return;
+    try {
+      await api.patch(`/admin/tournaments/${id}`, {
+        archerIds: editandoArqueros.map((a) => a.id),
+      });
+      setEditandoArqueros(undefined);
+      await cargar();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar los participantes.');
     }
   };
 
@@ -419,6 +444,63 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                     Guardar cambios
                   </Button>
                 </form>
+              )}
+
+              {/*
+                Los participantes, en su propio panel.
+                
+                Van aparte del formulario de datos porque **tienen otra
+                consecuencia**: cambiar la lista rearma las patrullas y les
+                cambia el PIN. Meterlo en el mismo «Guardar cambios» que el
+                nombre haría que corregir una tilde reimprima las planillas.
+              */}
+              {torneo.status === 'sin_iniciar' && (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variante="secundario"
+                    ancho
+                    onClick={() =>
+                      setEditandoArqueros(
+                        editandoArqueros
+                          ? undefined
+                          : participantes.map((p) => ({
+                              id: p.archerId,
+                              firstName: p.firstName,
+                              lastName: p.lastName,
+                              category: p.category,
+                            })),
+                      )
+                    }
+                  >
+                    {editandoArqueros ? 'Cancelar' : 'Editar participantes'}
+                  </Button>
+
+                  {editandoArqueros && (
+                    <div
+                      className="flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+                      data-testid="editar-participantes"
+                    >
+                      <p className="text-sm text-[var(--warn)]">
+                        Cambiar quiénes participan <strong>rearma las patrullas</strong> y les
+                        cambia el PIN. Si ya imprimiste las planillas, hay que reimprimirlas.
+                      </p>
+
+                      <SelectorDeArqueros
+                        elegidos={editandoArqueros}
+                        blancos={torneo.targets.length}
+                        onCambio={setEditandoArqueros}
+                      />
+
+                      <Button
+                        ancho
+                        disabled={editandoArqueros.length < 2}
+                        onClick={() => void guardarArqueros()}
+                      >
+                        Guardar participantes
+                      </Button>
+                    </div>
+                  )}
+                </div>
               )}
             </nav>
 
