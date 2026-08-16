@@ -94,3 +94,30 @@ export async function countOpen(tournamentId: ObjectId, session?: ClientSession)
     session ? { session } : {},
   );
 }
+
+/**
+ * Cambia el número de la patrulla **y su usuario**, que se deriva de él.
+ *
+ * Los dos juntos y en una sola función: el usuario del líder es `patrulla` más
+ * el número, y renumerar sin actualizarlo dejaría un usuario que la botonera
+ * del login ya no ofrece.
+ *
+ * El PIN **no se toca**: viaja con el grupo de arqueros, no con el número.
+ */
+export async function setNumber(
+  id: ObjectId,
+  number: number,
+  session?: ClientSession,
+): Promise<void> {
+  await patrols().updateOne(
+    { _id: id },
+    { $set: { number, username: `patrulla${number}`, updatedAt: new Date() } },
+    session ? { session } : {},
+  );
+}
+
+/** Borra patrullas por id. Sólo se usa con el torneo `sin_iniciar`. */
+export async function removeMany(ids: readonly ObjectId[], session?: ClientSession): Promise<void> {
+  if (ids.length === 0) return;
+  await patrols().deleteMany({ _id: { $in: [...ids] } }, session ? { session } : {});
+}

@@ -312,6 +312,9 @@ describe('PatrolDistributionSchema', () => {
   const valida = {
     patrols: [
       {
+        // El id identifica la patrulla; el número es editable y lo renumera
+        // eliminar una. Ver `REF3-1`.
+        id: 'c'.repeat(24),
         number: 1,
         startTargetIndex: 1,
         units: [{ label: 'A', members: [OID, 'b'.repeat(24)] }],
@@ -327,6 +330,7 @@ describe('PatrolDistributionSchema', () => {
     const conTres = {
       patrols: [
         {
+          id: 'c'.repeat(24),
           number: 1,
           startTargetIndex: 1,
           units: [{ label: 'A', members: [OID, 'b'.repeat(24), 'c'.repeat(24)] }],
@@ -340,6 +344,7 @@ describe('PatrolDistributionSchema', () => {
     const conTres = {
       patrols: [
         {
+          id: 'c'.repeat(24),
           number: 1,
           startTargetIndex: 1,
           units: [

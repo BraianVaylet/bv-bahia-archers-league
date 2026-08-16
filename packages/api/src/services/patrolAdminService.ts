@@ -207,8 +207,19 @@ export async function unlockSignature(
  * completa de participantes del torneo. Uno que quede sin patrulla no aparece en
  * ninguna planilla, y nadie se entera hasta que ya se está tirando.
  *
- * No crea ni borra patrullas: las credenciales pueden estar repartidas en papel.
- * Una patrulla que queda sin nadie queda **vacía**, y el validador lo informa.
+ * **Borra las patrullas que no vengan en la distribución, y renumera.** Hasta
+ * `REF3-1` no borraba ninguna, con este razonamiento: las credenciales pueden
+ * estar repartidas en papel, así que una patrulla que quedaba sin nadie quedaba
+ * vacía y el validador lo informaba.
+ *
+ * Eso dejó de funcionar cuando `REF2-5` agregó un botón de eliminar en la
+ * pantalla —que sólo la sacaba de la vista— y la regla de que una patrulla
+ * vacía frena el guardado: se guardaba, el servidor dejaba la patrulla donde
+ * estaba, la pantalla recargaba y volvía a frenar. **Un bloqueo del que no se
+ * salía.**
+ *
+ * El papel sigue importando, y por eso **cada patrulla conserva su PIN** al
+ * renumerarse: el PIN viaja con el grupo de arqueros, no con el número.
  */
 export async function redistribute(
   tournamentId: ObjectId,
@@ -232,11 +243,36 @@ export async function redistribute(
     tournamentRepo.listParticipants(tournamentId),
   ]);
 
-  const porNumero = new Map(patrullas.map((p) => [p.number, p]));
+  /**
+   * Por **id**, no por número.
+   *
+   * El cliente renumera al eliminar una patrulla, así que el número que manda
+   * no identifica nada: mapeando por número, los arqueros de la vieja patrulla
+   * 3 terminaban en el documento de la 2 —con el PIN de la 2, que puede estar
+   * impreso—.
+   */
+  const porPatrullaId = new Map(patrullas.map((p) => [p._id.toHexString(), p]));
   const porId = new Map(miembros.map((m) => [m._id.toHexString(), m]));
 
+  /**
+   * **La numeración tiene que ser 1..N, sin huecos ni repetidos.**
+   *
+   * Antes esto se verificaba solo, porque el número identificaba a la patrulla
+   * y tenía que existir. Ahora el número es un dato editable —eliminar una
+   * renumera al resto— y hay que exigirlo explícitamente: el usuario del líder
+   * es `patrulla` más el número, así que un hueco deja un usuario que la
+   * botonera del login no ofrece, y un 99 crea un `patrulla99` suelto.
+   */
+  const numeros = [...input.patrols.map((p) => p.number)].sort((a, b) => a - b);
+  const esperados = numeros.map((_, i) => i + 1);
+  if (numeros.join(',') !== esperados.join(',')) {
+    throw new AppError('VALIDATION_ERROR', {
+      message: `Las patrullas tienen que numerarse de 1 a ${input.patrols.length}, sin huecos ni repetidos.`,
+    });
+  }
+
   for (const p of input.patrols) {
-    if (!porNumero.has(p.number)) {
+    if (!porPatrullaId.has(p.id)) {
       throw new AppError('VALIDATION_ERROR', {
         message: `La patrulla ${p.number} no existe en este torneo.`,
       });
@@ -268,11 +304,31 @@ export async function redistribute(
     });
   }
 
+  /**
+   * Las que no vinieron se borran.
+   *
+   * La distribución es **completa**: describe cómo queda el torneo, no un
+   * parche. Una patrulla que no está en ella es una que el admin eliminó, y ya
+   * se verificó arriba que ningún arquero quedó sin patrulla.
+   */
+  const mencionadas = new Set(input.patrols.map((p) => p.id));
+  const aBorrar = patrullas.filter((p) => !mencionadas.has(p._id.toHexString()));
+
   await conTransaccion(async (session) => {
+    await patrolRepo.removeMany(
+      aBorrar.map((p) => p._id),
+      session,
+    );
+
     for (const planeada of input.patrols) {
       // biome-ignore lint/style/noNonNullAssertion: verificado arriba
-      const patrulla = porNumero.get(planeada.number)!;
+      const patrulla = porPatrullaId.get(planeada.id)!;
       await patrolRepo.setStartTargetIndex(patrulla._id, planeada.startTargetIndex, session);
+
+      // El número y el usuario, juntos. Ver `patrolRepo.setNumber`.
+      if (patrulla.number !== planeada.number) {
+        await patrolRepo.setNumber(patrulla._id, planeada.number, session);
+      }
 
       for (const unidad of planeada.units) {
         for (const [i, participantId] of unidad.members.entries()) {
