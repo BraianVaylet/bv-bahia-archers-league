@@ -45,6 +45,15 @@ export interface PatrullaVista {
 
 /** El estado editable: qué arqueros tiene cada patrulla y desde dónde arranca. */
 export interface Borrador {
+  /**
+   * **Cuál patrulla es.**
+   *
+   * El número es editable —eliminar una renumera al resto— así que no
+   * identifica nada. El servidor mapea por acá; mapeando por número, los
+   * arqueros de la vieja patrulla 3 terminaban en el documento de la 2, con el
+   * PIN de la 2. Ver `BITACORA.md`, entrada de `REF3-1`.
+   */
+  readonly id: string;
   readonly numero: number;
   readonly startTargetIndex: number;
   /** En orden. La unidad y la posición se derivan de acá. */
@@ -53,6 +62,7 @@ export interface Borrador {
 
 export function borradorDe(patrullas: readonly PatrullaVista[]): Borrador[] {
   return patrullas.map((p) => ({
+    id: p.id,
     numero: p.number,
     startTargetIndex: p.startTargetIndex,
     // Se ordena por unidad y posición para que el borrador arranque igual a como
@@ -281,10 +291,21 @@ export function problemaDelBorrador(borrador: readonly Borrador[]): string | und
 export function cuerpoDeDistribucion(borrador: readonly Borrador[]) {
   return {
     patrols: borrador
-      // Una patrulla sin nadie no se manda: el schema exige al menos una unidad.
-      // Al no mencionarla, queda vacía, que es exactamente lo que se quiere.
+      /**
+       * Una patrulla sin nadie no se manda, y **desde `REF3-1` eso la borra**.
+       *
+       * Antes el comentario acá decía «al no mencionarla, queda vacía, que es
+       * exactamente lo que se quiere» — y era cierto hasta que `REF2-5` agregó
+       * que una patrulla vacía frena el guardado. Entre las dos cosas, el
+       * torneo quedaba imposible de guardar.
+       *
+       * En la práctica este filtro ya no se usa: `problemaDelBorrador` frena
+       * antes con una patrulla vacía. Queda como red.
+       */
       .filter((p) => p.miembros.length > 0)
       .map((p) => ({
+        // El id, no el número: el número lo renumera eliminar una patrulla.
+        id: p.id,
         number: p.numero,
         startTargetIndex: p.startTargetIndex,
         units: unidadesDe(p.miembros).map((u) => ({

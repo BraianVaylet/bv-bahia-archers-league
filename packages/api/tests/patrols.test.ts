@@ -170,6 +170,8 @@ function enUnidades(lista: readonly string[]) {
 function talCual(patrullas: readonly Patrulla[]) {
   return {
     patrols: patrullas.map((p) => ({
+      // El id identifica la patrulla desde `REF3-1`: el número es editable.
+      id: p.id,
       number: p.number,
       startTargetIndex: p.startTargetIndex,
       units: enUnidades(p.members.map((m) => m.id)),
@@ -190,6 +192,7 @@ function conUnidadMezclada(patrols: Patrulla[]) {
   return {
     patrols: [
       {
+        id: p1.id,
         number: p1.number,
         startTargetIndex: p1.startTargetIndex,
         units: enUnidades([
@@ -200,6 +203,7 @@ function conUnidadMezclada(patrols: Patrulla[]) {
         ]),
       },
       {
+        id: p2.id,
         number: p2.number,
         startTargetIndex: p2.startTargetIndex,
         units: enUnidades([razo[2]?.id as string, longbow[2]?.id as string]),
@@ -222,11 +226,13 @@ describe('redistribución de patrullas', () => {
     const res = await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, {
       patrols: [
         {
+          id: p1.id,
           number: p1.number,
           startTargetIndex: p1.startTargetIndex,
           units: enUnidades(ids(p1).slice(1)),
         },
         {
+          id: p2.id,
           number: p2.number,
           startTargetIndex: p2.startTargetIndex,
           units: enUnidades([...ids(p2), mudado]),
@@ -260,6 +266,7 @@ describe('redistribución de patrullas', () => {
     await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, {
       patrols: [
         {
+          id: p1.id,
           number: p1.number,
           startTargetIndex: p1.startTargetIndex,
           // Invertidos respecto de como estaban.
@@ -304,11 +311,13 @@ describe('redistribución de patrullas', () => {
     const res = await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, {
       patrols: [
         {
+          id: p1.id,
           number: p1.number,
           startTargetIndex: p1.startTargetIndex,
           units: enUnidades(ids(p1)),
         },
         {
+          id: p2.id,
           number: p2.number,
           startTargetIndex: p2.startTargetIndex,
           units: enUnidades(ids(p2).slice(1)),
@@ -348,7 +357,20 @@ describe('redistribución de patrullas', () => {
     );
   });
 
-  it('rechaza un número de patrulla que no existe en el torneo', async () => {
+  /**
+   * **Esto cambió en `REF3-1`.**
+   *
+   * Antes decía «rechaza un número de patrulla que no existe»: el número
+   * identificaba a la patrulla, así que uno inexistente era un error. Ahora la
+   * identidad es el `id` y el número es un dato editable —eliminar una patrulla
+   * renumera al resto—, así que lo que hay que exigir es otra cosa: que la
+   * numeración sea 1..N.
+   *
+   * No es cosmético. El usuario del líder es `patrulla` más el número: un hueco
+   * deja un usuario que la botonera del login no ofrece, y un 99 crea un
+   * `patrulla99` suelto.
+   */
+  it('rechaza una numeración con huecos', async () => {
     const c = await adminListo();
     const { tournamentId } = await torneoConPatrullas(c);
     const { patrols } = await leerPatrullas(c, tournamentId);
@@ -361,8 +383,21 @@ describe('redistribución de patrullas', () => {
 
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(
-      /La patrulla 99 no existe/,
+      /sin huecos/,
     );
+  });
+
+  it('rechaza dos patrullas con el mismo número', async () => {
+    const c = await adminListo();
+    const { tournamentId } = await torneoConPatrullas(c);
+    const { patrols } = await leerPatrullas(c, tournamentId);
+
+    const distribucion = talCual(patrols);
+    const primera = distribucion.patrols[0];
+    if (primera) Object.assign(primera, { number: 2 });
+
+    const res = await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, distribucion);
+    expect(res.status).toBe(400);
   });
 
   it('rechaza un blanco de inicio que no existe en el recorrido', async () => {
@@ -480,11 +515,13 @@ describe('redistribución de patrullas', () => {
     await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, {
       patrols: [
         {
+          id: p1.id,
           number: p1.number,
           startTargetIndex: p1.startTargetIndex,
           units: enUnidades([...ids(p1).slice(1), ids(p2)[0] as string]),
         },
         {
+          id: p2.id,
           number: p2.number,
           startTargetIndex: p2.startTargetIndex,
           units: enUnidades(ids(p2).slice(1)),

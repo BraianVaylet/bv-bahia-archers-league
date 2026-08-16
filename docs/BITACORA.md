@@ -14,6 +14,51 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-16 · `REF3-1` — el bug de las patrullas, que introduje yo
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Reportado con el detalle exacto: una patrulla de 2, mover sus arqueros uno a cada una de las de 3, eliminar la que quedó vacía, guardar — y el error *«La patrulla 4 no tiene arqueros»* volviendo una y otra vez, sin forma de avanzar.
+
+### Dos cambios míos que por separado estaban bien
+
+`patrolAdminService.redistribute` decía en su cabecera, desde `BE-6`:
+
+> *«No crea ni borra patrullas: las credenciales pueden estar repartidas en papel. Una patrulla que queda sin nadie queda vacía, y el validador lo informa.»*
+
+Coherente. Hasta que en `REF2-5` agregué **dos cosas**:
+
+- un botón de eliminar, que sólo sacaba la patrulla **de la pantalla**;
+- y la regla de que una patrulla vacía **frena el guardado**.
+
+Juntas dan un bloqueo cerrado: se guarda, el servidor deja la patrulla donde estaba, la pantalla recarga, la patrulla vuelve, y el guardado se traba. Repetir no cambia nada.
+
+> Antes de `REF2-5` esto se guardaba mal en silencio —quedaba una patrulla fantasma— y **yo lo convertí en imposible de guardar**. El plan de `ref-2` anotaba que esta era la pantalla más delicada del proyecto. No alcanzó con anotarlo.
+
+### Y un segundo defecto que nadie reportó
+
+El cliente renumera al eliminar, y el servidor mapeaba **por número**. Eliminar una patrulla **del medio** escribía los arqueros de la vieja 3 en el documento de la 2 — con su `username` y su PIN, que pueden estar impresos y repartidos.
+
+No se notó porque el caso reportado eliminaba la última, donde ningún número cambia. Ahora la patrulla se identifica por su **`id`**: el número es un dato editable, la identidad no.
+
+### Un test viejo que dejó de significar lo que decía
+
+«Rechaza un número de patrulla que no existe en el torneo» tenía sentido cuando el número **era** la identidad. Con el modelo nuevo pasa cualquier número, porque el servidor renumera a lo que se le pida.
+
+Se reescribió como la guarda que ahora hace falta: **la numeración tiene que ser 1..N**, sin huecos ni repetidos. No es cosmético — el usuario del líder es `patrulla` más el número, así que un hueco deja un usuario que la botonera del login no ofrece.
+
+### Y otro test vacuo, destapado por una mutación
+
+«El usuario acompaña al número nuevo» eliminaba la **última** patrulla. Con {1,2,3,4} menos la 4 queda {1,2,3}: **ningún número cambia**, el renumerado nunca corre, y el test pasaba sin ejercitar nada. Una mutación que borraba la actualización del `username` no lo rompía.
+
+Ahora elimina la primera y verifica, antes que nada, que algún número haya cambiado de verdad.
+
+> Cuarta tanda seguida en que un control de mutación corrige un test que yo había dado por bueno.
+
+**Tests:** 6 del caso reportado, 2 del cliente, 1 de numeración. 1103 en verde. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-13 · `REF2-7` — landing y WAFL. Cierra `ref-2`
 
 **Autor:** Claude Opus 5 · **Estado:** completado

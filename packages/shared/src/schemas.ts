@@ -203,6 +203,15 @@ const PlannedUnitSchema = z.strictObject({
 });
 
 const PlannedPatrolSchema = z.strictObject({
+  /**
+   * **Cuál patrulla es.**
+   *
+   * Antes se mapeaba por `number`, y el cliente renumera al eliminar una: los
+   * arqueros de la vieja patrulla 3 terminaban en el documento de la 2, con el
+   * PIN de la 2 —que puede estar impreso—. El número es un dato editable; la
+   * identidad es el id.
+   */
+  id: ObjectIdSchema,
   number: z.number().int().min(1).max(MAX_PARTICIPANTS),
   startTargetIndex: z.number().int().min(1).max(MAX_TARGETS),
   /** Una patrulla tiene una o dos unidades: `A` y `B`. */
