@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-16 · `REF3-3` — las patrullas en un celular. Cierra `ref-3`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### Lo que estaba apretado no era lo que parecía
+
+El pedido decía «la información se ve muy apretada» y «cada patrulla debe mostrar la unidad A y B». Lo segundo **ya estaba** desde `FE-13`: el encabezado `Unidad A · tira primero` está ahí desde entonces.
+
+Lo apretado era la **ficha del arquero**: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px de ancho el nombre se cortaba con `truncate` y los botones quedaban pegados contra el borde. Los tres botones los agregué yo en `REF2-5` —antes había uno solo— y ahí se terminó de romper.
+
+### Cada renglón responde una pregunta
+
+- **Quién es**: nombre completo. En una planilla impresa el apellido solo no alcanza para desempatar dos hermanos.
+- **Con qué tira**: categoría y estaca **juntas**. Son las dos que deciden desde dónde tira y contra quién compite; separadas hay que emparejarlas con la vista.
+- **Qué se puede hacer**: el lado y las acciones.
+
+El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado — es lo mismo que hace el servidor al recibir la distribución. Así la pantalla no puede mostrar algo distinto de lo que se va a registrar.
+
+**Tests:** 4 de la ficha. 1113 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+Con esta tanda cierra `ref-3`.
+
+---
+
 ## 2026-08-16 · `REF3-2` — el header y el pie que se iban con el scroll
 
 **Autor:** Claude Opus 5 · **Estado:** completado
