@@ -557,3 +557,57 @@ describe('patrullas vacías', () => {
     expect(screen.queryByRole('button', { name: 'Eliminar la patrulla 1' })).toBeNull();
   });
 });
+
+// ── REF3-3 · Legible en un celular ───────────────────────────────────────────
+
+describe('la ficha del arquero en la patrulla', () => {
+  /**
+   * **Tres renglones, no una fila.**
+   *
+   * Estaba todo en una: nombre y categoría a la izquierda, estaca y tres
+   * botones a la derecha. En 360px de ancho el nombre se cortaba y los botones
+   * quedaban pegados contra el borde.
+   */
+  it('muestra el nombre completo, no sólo el apellido', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    // En una planilla impresa, el apellido solo no alcanza para desempatar.
+    expect(screen.getByTestId('miembro-Pérez').textContent).toMatch(/Pérez, /);
+  });
+
+  it('la categoría y la estaca van juntas, en su propio renglón', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    const ficha = screen.getByTestId('miembro-Pérez');
+    expect(ficha.textContent).toMatch(/Estaca/);
+    expect(ficha.textContent).toMatch(/Razo|Recurvo|Compuesto|Longbow|Tradicional|Escuela/);
+  });
+
+  /**
+   * El lado sale del **orden dentro de la unidad**, no de un dato guardado: es
+   * lo mismo que hace el servidor al recibir la distribución.
+   */
+  it('dice de qué lado se para cada uno', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    const primero = screen.getByTestId('miembro-Pérez');
+    expect(primero.textContent).toMatch(/Izquierda/);
+  });
+
+  /**
+   * **Las unidades se ven como tales.** `A` y `B` no son un detalle de
+   * implementación: la `A` tira primero, y el líder necesita saber a quién le
+   * toca antes de llamar a nadie.
+   */
+  it('cada unidad lleva su letra, y la A dice que tira primero', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    const patrulla = screen.getByTestId('patrulla-1');
+    expect(patrulla.textContent).toMatch(/Unidad A/);
+    expect(patrulla.textContent).toMatch(/tira primero/);
+  });
+});

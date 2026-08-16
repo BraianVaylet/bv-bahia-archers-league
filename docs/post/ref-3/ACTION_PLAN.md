@@ -118,15 +118,25 @@ Y su tinta es oscura. Sobre `--bg` claro se ve; sobre el oscuro desaparece. Es e
 
 ---
 
-### `[ ] REF3-3` · Patrullas legibles en el celular · **P1**
+### `[x] REF3-3` · Patrullas legibles en el celular · **P1**
 
 **Archivos:** `app/src/wafa/pages/Patrols.tsx`
 
-- [ ] Cada patrulla muestra sus **unidades `A` y `B`** como tales
-- [ ] Dentro de cada unidad, **tres renglones**: nombre completo · categoría y estaca · lado de tiro y acciones
-- [ ] Los objetivos táctiles de 44px se mantienen
+- [x] Cada patrulla muestra sus **unidades `A` y `B`** como tales, y la `A` dice que tira primero
+- [x] Dentro de cada unidad, **tres renglones**: nombre completo · categoría y estaca · lado de tiro y acciones
+- [x] Los objetivos táctiles de 44px se mantienen
 
 **DoD:** en 360px de ancho no hay scroll horizontal y ningún texto se corta.
+
+> **Cerrada el 2026-08-16. Cierra `ref-3`.**
+>
+> El encabezado de unidad **ya estaba** —`Unidad A · tira primero`— desde `FE-13`. Lo que estaba apretado era la ficha del arquero: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px el nombre se cortaba con `truncate` y los botones quedaban contra el borde.
+>
+> Ahora cada renglón responde una pregunta: **quién es** (nombre completo, porque en una planilla impresa el apellido solo no desempata), **con qué tira** (categoría y estaca juntas, que son las dos que deciden desde dónde y contra quién compite), y **qué se puede hacer** (el lado y las acciones).
+>
+> El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado: es lo mismo que hace el servidor al recibir la distribución, así que la pantalla no puede mostrar algo distinto de lo que se va a registrar.
+>
+> 1113 tests, 8 de 8 E2E. **3 controles de mutación, murieron 3.**
 
 ---
 

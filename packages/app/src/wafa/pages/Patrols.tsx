@@ -317,23 +317,44 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                         {u.members.map((m, i) => (
                           <div
                             key={m.id}
-                            className="flex items-center justify-between gap-2 rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2"
+                            /*
+                              **Tres renglones, no una fila.**
+
+                              Estaba todo en una: nombre y categoría a la
+                              izquierda, estaca y tres botones a la derecha. En
+                              360px de ancho el nombre se cortaba y los botones
+                              quedaban pegados contra el borde.
+
+                              Ahora cada renglón responde una pregunta: quién
+                              es, con qué tira, y qué se puede hacer con él.
+                            */
+                            className="flex flex-col gap-1.5 rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2"
                             data-testid={`miembro-${m.lastName}`}
                           >
-                            <div className="min-w-0">
-                              <p className="truncate">
-                                {m.lastName}, {m.firstName}
-                              </p>
-                              <p className="text-sm text-[var(--ink-muted)]">
-                                <ChipCategoria category={m.category} compacto /> ·{' '}
-                                {i === 0 ? 'izquierda' : 'derecha'}
-                              </p>
+                            {/* 1 · Quién es. Completo: en una planilla impresa
+                                el apellido solo no alcanza para desempatar. */}
+                            <p className="font-medium">
+                              {m.lastName}, {m.firstName}
+                            </p>
+
+                            {/* 2 · Con qué tira: categoría y estaca. Las dos
+                                deciden desde dónde y contra quién compite. */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <ChipCategoria category={m.category} compacto />
+                              <StakeChip stake={m.stake} compacto />
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              <StakeChip stake={m.stake} />
+                            {/* 3 · Dónde se para, y qué se puede hacer.
+                                El lado sale del ORDEN dentro de la unidad, no de
+                                un dato guardado: es lo mismo que hace el
+                                servidor al recibir la distribución. */}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-[var(--ink-muted)]">
+                                {i === 0 ? 'Izquierda' : 'Derecha'}
+                              </span>
+
                               {editable && (
-                                <>
+                                <div className="flex items-center gap-2 shrink-0 print:hidden">
                                   {/*
                                     Subir y bajar **dentro** de la patrulla. No es
                                     cosmético: los dos primeros son la unidad `A`
@@ -365,7 +386,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
                                       setMoviendo(moviendo === m.id ? undefined : m.id)
                                     }
                                   />
-                                </>
+                                </div>
                               )}
                             </div>
                           </div>
