@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Pantalla, Screen } from '../components/ui.js';
 import { ArchersPage } from './pages/Archers.js';
 import { ChangePasswordPage, validarPassword } from './pages/ChangePassword.js';
 import { HomePage, type TournamentRow } from './pages/Home.js';
@@ -651,5 +652,72 @@ describe('SeasonsPage', () => {
         expect(llamadas.some((l) => l.url.endsWith('/seasons/s1/restore'))).toBe(true);
       });
     });
+  });
+});
+
+// ── REF3-2 · El header y el pie no se van con el scroll ──────────────────────
+
+describe('Pantalla', () => {
+  /**
+   * **`h-dvh`, no `min-h-dvh`.**
+   *
+   * Con el mínimo la página crece con su contenido y el header y el pie se van
+   * con el scroll — que es exactamente lo que se reportó. Con el alto exacto y
+   * `overflow-hidden`, lo único que scrollea es el medio.
+   */
+  it('mide el alto de la ventana, no un mínimo', () => {
+    const { container } = render(
+      <Pantalla>
+        <Screen>contenido</Screen>
+      </Pantalla>,
+    );
+
+    const cascara = container.firstElementChild as HTMLElement;
+    expect(cascara.className).toMatch(/\bh-dvh\b/);
+    expect(cascara.className).not.toMatch(/min-h-dvh/);
+    expect(cascara.className).toMatch(/overflow-hidden/);
+  });
+
+  /**
+   * **El scroll vive en el medio, no en el documento.** Si el contenedor del
+   * contenido no puede achicarse —le falta `min-h-0`— el scroll se escapa al
+   * documento y el pie vuelve a irse.
+   */
+  it('el contenido es lo único que scrollea', () => {
+    const { container } = render(
+      <Pantalla>
+        <Screen>contenido</Screen>
+      </Pantalla>,
+    );
+
+    const scrollable = container.querySelector('.overflow-y-auto') as HTMLElement;
+    expect(scrollable, 'no hay ningún contenedor con scroll').not.toBeNull();
+    expect(scrollable.className).toMatch(/flex-1/);
+    expect(scrollable.className).toMatch(/min-h-0/);
+  });
+
+  // En una pantalla que termina en barra de acción el pie no entra: se come el
+  // alto del contenido en un celular chico.
+  it('con barra fija no hay pie', () => {
+    const { container } = render(
+      <Pantalla>
+        <Screen conBarraFija>contenido</Screen>
+      </Pantalla>,
+    );
+
+    expect(container.querySelector('footer')).toBeNull();
+  });
+
+  it('sin barra fija el pie está, y no scrollea con el contenido', () => {
+    const { container } = render(
+      <Pantalla>
+        <Screen>contenido</Screen>
+      </Pantalla>,
+    );
+
+    const pie = container.querySelector('footer');
+    expect(pie).not.toBeNull();
+    // Hermano del contenedor con scroll, no hijo: si estuviera adentro se iría.
+    expect(pie?.closest('.overflow-y-auto')).toBeNull();
   });
 });

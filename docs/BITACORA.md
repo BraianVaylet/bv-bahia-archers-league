@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-16 · `REF3-2` — el header y el pie que se iban con el scroll
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### El problema no era que las barras no fueran fijas
+
+Lo primero que revisé fue eso, y ya eran `sticky`. Estaba una capa más arriba: **`min-h-dvh`** en la envoltura de cada pantalla.
+
+Con un alto **mínimo**, la página crece con su contenido, el scroll se va al documento, y el header y el pie se van con él. Con `h-dvh` y `overflow-hidden` lo único que scrollea es el medio — y las barras de acción **dejan de necesitar `sticky`**: son hermanas en la columna y quedan abajo solas.
+
+`dvh` y no `vh`, además: en un celular `vh` mide la ventana con la barra del navegador retraída, así que una pantalla de `100vh` queda más alta que lo que se ve y esconde justo la barra de abajo, que es donde está el botón de continuar.
+
+### La misma envoltura estaba escrita doce veces
+
+`<div className="flex flex-col min-h-dvh">`, literal, en las doce pantallas. Corregir el alto habría sido corregirlo doce veces y esperar no saltearse ninguna, así que primero se extrajo `Pantalla`. Es la misma razón por la que `REF-4` extrajo `Encabezado`: van dos veces que la lección aparece con la misma forma.
+
+> Un tropiezo mío en el camino: la primera conversión emparejó los `</div>` con una expresión regular y cerró etiquetas de **otros** componentes en los archivos que tienen más de uno. El typecheck lo dijo enseguida. Lo rehice contando profundidad, que es lo que había que hacer desde el principio.
+
+### El pie sigue afuera donde hay barra de acción, por otro motivo
+
+La regla venía de `REF2-2` y era por **superposición**: un pie debajo de una barra fija empujaba el último elemento fuera de alcance. Con la columna nueva ya no se pisan.
+
+Se mantiene igual, pero ahora por **alto útil**: en un celular chico, un pie de 5rem debajo de la barra se come el contenido. Una pantalla que termina en una acción no necesita además el crédito institucional — y el teclado de scoring gana siempre.
+
+### El logo del CBA
+
+Es el único asset del proyecto que **depende del fondo**: un PNG con fondo transparente y tinta oscura. El resto es SVG con `currentColor`, y el de la Liga trae su propia placa.
+
+Va sobre una placa **blanca literal, no un token**: si siguiera al tema volvería a desaparecer en oscuro, que es exactamente lo que se está arreglando.
+
+**Tests:** 4 de la cáscara, 2 de la placa. 1100 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-13 · `REF2-7` — landing y WAFL. Cierra `ref-2`
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -36,10 +36,20 @@ export function Footer({ className, anchoMaximo = 'max-w-3xl' }: FooterProps) {
 
         <span className="flex items-center gap-2">
           {/*
-            El logo del CBA es de un club, no del proyecto: se usa tal cual,
-            sin reinterpretarlo. `alt` vacío porque el nombre va al lado.
+            **Sobre una placa blanca, fija en los dos temas.**
+
+            Es un PNG con fondo transparente y tinta oscura: sobre el fondo
+            claro se ve, sobre el oscuro desaparece. Es el único asset del
+            proyecto que depende del fondo —el resto es SVG con `currentColor` o
+            trae su propia placa— y no se puede recolorear sin reinterpretar un
+            logo que es de un club, no del proyecto.
+
+            La placa es blanca literal, no un token: si siguiera al tema volvería
+            a desaparecer, que es justo lo que se está arreglando.
           */}
-          <img src={cba} alt="" width={28} height={28} className="shrink-0" />
+          <span className="shrink-0 rounded-[var(--radius-sm)] bg-white p-1 flex items-center">
+            <img src={cba} alt="" width={24} height={24} />
+          </span>
           <span>Círculo Bahiense de Arquería</span>
         </span>
       </div>

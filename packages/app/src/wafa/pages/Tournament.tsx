@@ -11,7 +11,7 @@ import { formatearFecha, type SCORING, type TournamentStatus } from '@bal/shared
 import { BadgeEstado, ChipCategoria, ChipModalidad, IconoCandado } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
@@ -292,7 +292,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
   const avances = torneo ? avanceDePatrullas(patrullas, participantes, torneo.targets.length) : [];
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Torneo" onVolver={onVolver} />
 
       <Screen>
@@ -589,6 +589,6 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
           </>
         )}
       </Screen>
-    </div>
+    </Pantalla>
   );
 }

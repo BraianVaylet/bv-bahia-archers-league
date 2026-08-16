@@ -97,6 +97,27 @@ export function Field({ label, error, hint, id, className, ...props }: FieldProp
   );
 }
 
+/**
+ * La cáscara de una pantalla: **alto exacto de la ventana**, no mínimo.
+ *
+ * `min-h-dvh` dejaba que la página creciera y que el header y el pie se fueran
+ * con el scroll. Con `h-dvh` y `overflow-hidden`, lo único que scrollea es el
+ * medio: el header queda arriba y la barra de acción —o el pie— abajo, sin
+ * moverse.
+ *
+ * **Es `dvh` y no `vh` a propósito.** En un celular, `vh` mide la ventana con
+ * la barra del navegador retraída, así que una pantalla de `100vh` queda más
+ * alta que lo que se ve y esconde justo la barra de abajo, que es donde está el
+ * botón de continuar.
+ *
+ * Estaba escrito igual en doce pantallas. Extraerlo es lo que permite corregir
+ * el alto **una vez** en lugar de doce — la misma razón por la que `REF-4`
+ * extrajo `Encabezado`.
+ */
+export function Pantalla({ children }: { readonly children: ReactNode }) {
+  return <div className="flex flex-col h-dvh overflow-hidden">{children}</div>;
+}
+
 // ── Contenedor ───────────────────────────────────────────────────────────────
 
 export interface ScreenProps {
@@ -115,26 +136,31 @@ export interface ScreenProps {
 export function Screen({ children, conBarraFija }: ScreenProps) {
   return (
     <>
-      <div
-        className={cn(
-          'mx-auto w-full max-w-lg px-4 flex flex-col gap-4',
-          conBarraFija ? 'pb-28' : 'pb-8',
-        )}
-      >
-        {children}
+      {/*
+        **Lo único que scrollea.** `flex-1` para ocupar lo que sobra entre el
+        header y el pie, y `min-h-0` porque sin eso un hijo flex no se deja
+        achicar por debajo de su contenido y el scroll se va al documento —que
+        es exactamente lo que se está sacando.
+      */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className={cn('mx-auto w-full max-w-lg px-4 flex flex-col gap-4', 'pb-8')}>
+          {children}
+        </div>
       </div>
 
       {/*
-        **El pie va donde no hay barra fija**, y eso no es una lista de
-        excepciones: una pantalla que termina en una barra de acción no tiene
-        lugar para un pie, y meterlo empujaría el último elemento debajo de la
-        barra. Es el mismo problema que `conBarraFija` ya resuelve con el
-        `padding`, y que el E2E encontró en Resultados con el último arquero.
+        **El pie va donde no hay barra fija.**
 
-        En la práctica esto deja el pie fuera del recorrido y del teclado de
+        Ya no es por superposición —desde `REF3-2` los dos son hermanos en la
+        columna y no se pisan— sino por **alto útil**: en un celular chico, un
+        pie de 5rem debajo de la barra de acción se come el espacio del
+        contenido. Una pantalla que termina en una acción no necesita además el
+        crédito institucional.
+
+        En la práctica esto lo deja fuera del recorrido y del teclado de
         scoring, que es exactamente donde no se lo quiere.
       */}
-      {!conBarraFija && <Footer anchoMaximo="max-w-lg" />}
+      {!conBarraFija && <Footer anchoMaximo="max-w-lg" className="shrink-0 mt-0" />}
     </>
   );
 }

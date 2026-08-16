@@ -21,7 +21,7 @@ import {
 } from '@bal/shared';
 import { ChipCategoria, ChipModalidad, IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui';
 import { useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
@@ -435,7 +435,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
   };
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Crear torneo" onVolver={onVolver} />
 
       <Screen conBarraFija>
@@ -468,7 +468,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
         )}
       </Screen>
 
-      <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
+      <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
         {problema && paso !== 4 && (
           <p className="text-sm text-[var(--ink-muted)] text-center">{problema}</p>
         )}
@@ -491,6 +491,6 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
           )}
         </div>
       </div>
-    </div>
+    </Pantalla>
   );
 }

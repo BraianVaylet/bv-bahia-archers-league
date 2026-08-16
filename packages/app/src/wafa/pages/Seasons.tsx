@@ -7,7 +7,7 @@
 
 import { formatearMonto, formatearRango } from '@bal/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, Encabezado, Field, Screen } from '../../components/ui.js';
+import { Button, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface SeasonRow {
@@ -154,7 +154,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
   };
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Temporadas" onVolver={onVolver} />
 
       <Screen>
@@ -247,6 +247,6 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
           ))}
         </ul>
       </Screen>
-    </div>
+    </Pantalla>
   );
 }

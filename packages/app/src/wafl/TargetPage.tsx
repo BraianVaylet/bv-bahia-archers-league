@@ -9,7 +9,7 @@
 
 import type { Modality } from '@bal/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Encabezado, Screen } from '../components/ui.js';
+import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
 import { readScore, readScores, readSignatures } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
@@ -134,7 +134,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
   const puedeContinuar = faltantes.length === 0;
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado onVolver={onVolver} textoVolver="← Blancos">
         <SyncBadge />
       </Encabezado>
@@ -182,7 +182,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         </div>
       </Screen>
 
-      <div className="sticky bottom-0 mt-auto flex flex-col gap-2">
+      <div className="shrink-0 px-4 pb-4 flex flex-col gap-2">
         <ScoreKeypad
           modality={target.modality}
           bloqueado={firmados.has(seleccionado)}
@@ -204,6 +204,6 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
           )}
         </div>
       </div>
-    </div>
+    </Pantalla>
   );
 }

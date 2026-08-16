@@ -18,7 +18,7 @@ import {
 } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Encabezado, Screen, StakeChip } from '../../components/ui.js';
+import { Button, Encabezado, Pantalla, Screen, StakeChip } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type Borrador,
@@ -197,7 +197,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
   };
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Patrullas" onVolver={onVolver} />
 
       <Screen conBarraFija>
@@ -405,7 +405,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
 
       {editable && (
         <div
-          className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2 print:hidden"
+          className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2 print:hidden"
           data-testid="barra-acciones"
         >
           {problema && <p className="text-sm text-[var(--danger)] text-center">{problema}</p>}
@@ -445,6 +445,6 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
           )}
         </div>
       )}
-    </div>
+    </Pantalla>
   );
 }

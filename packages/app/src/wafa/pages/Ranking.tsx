@@ -25,7 +25,7 @@ import {
 } from '@bal/shared';
 import { IconoCompartir } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 interface Temporada {
@@ -135,7 +135,7 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   }, [cargar]);
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Ranking" onVolver={onVolver} />
 
       <Screen>
@@ -299,6 +299,6 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
           </section>
         ))}
       </Screen>
-    </div>
+    </Pantalla>
   );
 }
