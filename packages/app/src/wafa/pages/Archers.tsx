@@ -20,7 +20,7 @@ import {
   IconoRestaurar,
 } from '@bal/ui';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Field, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ArcherRow {
@@ -321,7 +321,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   };
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Arqueros" onVolver={onVolver} />
 
       <Screen>
@@ -418,6 +418,6 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           ))}
         </ul>
       </Screen>
-    </div>
+    </Pantalla>
   );
 }

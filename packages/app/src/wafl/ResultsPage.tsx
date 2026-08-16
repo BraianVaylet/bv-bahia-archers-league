@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Screen } from '../components/ui.js';
+import { Button, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
 import { readScores, readSignatures } from '../offline/db.js';
 import { requestClose, writeSignature } from '../offline/outbox.js';
@@ -103,7 +103,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
   }
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado onVolver={onVolver} textoVolver="← Blancos">
         <SyncBadge />
       </Encabezado>
@@ -174,7 +174,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
         </div>
       </Screen>
 
-      <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t">
+      <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t">
         <Button ancho disabled={faltanFirmas.length > 0} onClick={() => void cerrar()}>
           Finalizar torneo
         </Button>
@@ -185,6 +185,6 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
           </p>
         )}
       </div>
-    </div>
+    </Pantalla>
   );
 }

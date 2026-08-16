@@ -11,7 +11,7 @@
 import type { TournamentStatus } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Screen, StakeChip } from '../../components/ui.js';
+import { Button, cn, Encabezado, Pantalla, Screen, StakeChip } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   avisosDePublicacion,
@@ -142,7 +142,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const publicado = torneo?.status === 'publicado';
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo={publicado ? 'Resultados' : 'Publicar'} onVolver={onVolver} />
 
       <Screen conBarraFija>
@@ -234,7 +234,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
         )}
       </Screen>
 
-      <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
+      <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
         {publicado ? (
           <Despublicar id={id} onHecho={() => void cargar()} />
         ) : confirmando ? (
@@ -262,6 +262,6 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
           </Button>
         )}
       </div>
-    </div>
+    </Pantalla>
   );
 }

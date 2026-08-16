@@ -167,3 +167,33 @@ describe('GraficoDeEvolucion', () => {
     expect(yDe(45)).toBeGreaterThan(medio);
   });
 });
+
+// ── REF3-2 · El logo del CBA no depende del tema ─────────────────────────────
+
+describe('el logo del CBA en modo oscuro', () => {
+  /**
+   * **Es el único asset del proyecto que depende del fondo.**
+   *
+   * Un PNG con fondo transparente y tinta oscura: sobre el fondo claro se ve,
+   * sobre el oscuro desaparece. El resto de la iconografía es SVG con
+   * `currentColor`, y el logo de la Liga trae su propia placa.
+   */
+  it('va sobre una placa blanca', () => {
+    const { container } = render(<Footer />);
+    const img = container.querySelector('img');
+
+    expect(img?.parentElement?.className, 'el logo del CBA no tiene placa').toMatch(/bg-white/);
+  });
+
+  /**
+   * **Blanco literal, no un token.** Si la placa siguiera al tema volvería a
+   * desaparecer en oscuro, que es justo lo que se está arreglando.
+   */
+  it('la placa no sigue al tema', () => {
+    const { container } = render(<Footer />);
+    const placa = container.querySelector('img')?.parentElement;
+
+    // El radio sí sale de un token —eso no cambia con el tema—; el FONDO no.
+    expect(placa?.className).not.toMatch(/bg-\[var\(--/);
+  });
+});

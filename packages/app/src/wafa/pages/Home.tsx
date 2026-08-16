@@ -16,7 +16,7 @@ import {
 import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Encabezado, Screen } from '../../components/ui.js';
+import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 export interface TournamentRow {
@@ -85,7 +85,7 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="WAFA">
         <button type="button" onClick={onSalir} className="min-h-[44px] px-2 text-sm">
           Salir
@@ -150,6 +150,6 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
             );
           })}
       </Screen>
-    </div>
+    </Pantalla>
   );
 }

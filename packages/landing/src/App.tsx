@@ -18,18 +18,32 @@ import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 export function App() {
   return (
     <BrowserRouter>
-      <Encabezado />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/ranking" element={<RankingPage />} />
-        <Route path="/torneos" element={<TournamentsPage />} />
-        <Route path="/torneos/:id" element={<TournamentPage />} />
-        <Route path="/arqueros/:id" element={<ArcherPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      {/* Uno solo para todo el sitio: es una app de lectura con una sola
-          columna, y el pie es el mismo en las cinco páginas. */}
-      <Footer />
+      {/*
+        Header arriba, pie abajo, y **sólo el medio scrollea**.
+
+        `h-dvh` y no `min-h-dvh`: con el mínimo, la página crece y los dos se
+        van con el scroll. Y `dvh` y no `vh` porque en un celular `vh` mide la
+        ventana con la barra del navegador retraída, así que sobra alto justo
+        abajo, que es donde está el pie.
+      */}
+      <div className="flex flex-col h-dvh overflow-hidden">
+        <Encabezado />
+
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/ranking" element={<RankingPage />} />
+            <Route path="/torneos" element={<TournamentsPage />} />
+            <Route path="/torneos/:id" element={<TournamentPage />} />
+            <Route path="/arqueros/:id" element={<ArcherPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+
+        {/* Uno solo para todo el sitio: es una app de lectura con una sola
+            columna, y el pie es el mismo en las cinco páginas. */}
+        <Footer className="shrink-0 mt-0" />
+      </div>
     </BrowserRouter>
   );
 }

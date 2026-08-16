@@ -10,7 +10,7 @@
 
 import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Screen } from '../components/ui.js';
+import { Button, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
 import { readScores } from '../offline/db.js';
 import { SyncBadge } from './SyncBadge.js';
@@ -62,7 +62,7 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
     bundle.tournament.targets.length > 0 && completos.size === bundle.tournament.targets.length;
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo={`Patrulla ${bundle.patrol.number}`}>
         <SyncBadge />
       </Encabezado>
@@ -135,7 +135,7 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
         </ul>
       </Screen>
 
-      <div className="sticky bottom-0 mt-auto px-4 py-4 bg-[var(--bg)] border-t">
+      <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t">
         <Button ancho disabled={!recorridoCompleto} onClick={onResultados}>
           Resultados finales
         </Button>
@@ -146,7 +146,7 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
           </p>
         )}
       </div>
-    </div>
+    </Pantalla>
   );
 }
 

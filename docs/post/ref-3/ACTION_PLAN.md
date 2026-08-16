@@ -90,19 +90,31 @@ Y su tinta es oscura. Sobre `--bg` claro se ve; sobre el oscuro desaparece. Es e
 
 ---
 
-### `[ ] REF3-2` · Header y pie fijos, y el logo del CBA · **P1**
+### `[x] REF3-2` · Header y pie fijos, y el logo del CBA · **P1**
 
 **Archivos:** `packages/ui/src/Footer.tsx`, `app/src/components/ui.tsx`, `landing/src/components/ui.tsx`, `landing/src/App.tsx`
 
-- [ ] **Header arriba y pie abajo, fijos**, en las tres apps. El contenido scrollea entre los dos
-- [ ] El **teclado de scoring y las barras de acción** no pueden quedar tapados: WAFL ya tiene barras fijas propias y hay que resolver la convivencia
-- [ ] `env(safe-area-inset-bottom)` sigue respetado: la barra de gestos de iOS no puede tapar nada
-- [ ] El **logo del CBA** va sobre una placa blanca fija, para que no dependa del tema
+- [x] **Header arriba y pie abajo**, en las tres apps. El contenido scrollea entre los dos
+- [x] Componente `Pantalla`: la envoltura estaba escrita igual en **doce** pantallas
+- [x] Las barras de acción dejan de ser `sticky` y pasan a ser hermanas en la columna
+- [x] El **logo del CBA** sobre una placa blanca fija
 
 **DoD:** con el teclado abierto en un celular no se tapa ninguna acción · el pie no roba alto a la pantalla de scoring · el logo del CBA se ve en los dos temas.
 **Tests:** que el pie no se renderice donde hay barra fija —la regla de `REF2-2`— sigue valiendo.
 
 > **El riesgo es el alto útil.** Un pie fijo en un celular chico se come el espacio del teclado de scoring, que es la pantalla que decide si la app sirve. Si no entra, gana el teclado.
+>
+> **Cerrada el 2026-08-16.**
+>
+> **Las barras ya eran `sticky`, no `fixed`.** El problema estaba una capa más arriba: `min-h-dvh` en la envoltura. Con un alto **mínimo** la página crece con su contenido y el scroll se va al documento, así que el header y el pie se van con él. Con `h-dvh` y `overflow-hidden` lo único que scrollea es el medio — y las barras dejan de necesitar `sticky`: son hermanas en la columna y quedan abajo solas.
+>
+> **La misma envoltura estaba escrita en doce pantallas.** Corregir el alto habría sido corregirlo doce veces, así que primero se extrajo `Pantalla`. Es la misma razón por la que `REF-4` extrajo `Encabezado`.
+>
+> **El pie sigue afuera donde hay barra de acción, por otro motivo.** Ya no por superposición —ahora no se pisan— sino por **alto útil**: en un celular chico un pie debajo de la barra se come el contenido, y el teclado de scoring gana.
+>
+> La placa del logo del CBA es **blanca literal, no un token**: si siguiera al tema volvería a desaparecer en oscuro.
+>
+> 1100 tests, 8 de 8 E2E. **3 controles de mutación, murieron 3.**
 
 ---
 

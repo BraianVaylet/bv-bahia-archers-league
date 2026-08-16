@@ -13,7 +13,7 @@ import { type BowCategory, formatearMonto } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Screen } from '../../components/ui.js';
+import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ResumenDePagos {
@@ -148,9 +148,9 @@ export function PaymentsPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
 
   return (
-    <div className="flex flex-col min-h-dvh">
+    <Pantalla>
       <Encabezado titulo="Arqueros y pagos" onVolver={onVolver} />
       <PaymentsPanel tournamentId={id} />
-    </div>
+    </Pantalla>
   );
 }
