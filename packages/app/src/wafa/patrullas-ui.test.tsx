@@ -326,8 +326,19 @@ describe('edición manual', () => {
       const put = llamadas.find((l) => l.method === 'PUT');
       expect(put?.body).toEqual({
         patrols: [
-          { number: 1, startTargetIndex: 1, units: [{ label: 'A', members: ['a', 'b'] }] },
-          { number: 2, startTargetIndex: 3, units: [{ label: 'A', members: ['c', 'd'] }] },
+          // Con el id: es lo que identifica la patrulla desde REF3-1.
+          {
+            id: 'x1',
+            number: 1,
+            startTargetIndex: 1,
+            units: [{ label: 'A', members: ['a', 'b'] }],
+          },
+          {
+            id: 'x2',
+            number: 2,
+            startTargetIndex: 3,
+            units: [{ label: 'A', members: ['c', 'd'] }],
+          },
         ],
       });
     });

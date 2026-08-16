@@ -90,6 +90,7 @@ export function cliente() {
     post: (p: string, body?: unknown) =>
       pedir(p, { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }),
     patch: (p: string, body: unknown) => pedir(p, { method: 'PATCH', body: JSON.stringify(body) }),
+    put: (p: string, body: unknown) => pedir(p, { method: 'PUT', body: JSON.stringify(body) }),
     del: (p: string) => pedir(p, { method: 'DELETE' }),
   };
 }

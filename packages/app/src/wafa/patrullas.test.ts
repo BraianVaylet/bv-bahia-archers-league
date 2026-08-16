@@ -287,6 +287,8 @@ describe('cuerpoDeDistribucion', () => {
     );
 
     expect(cuerpo.patrols[0]).toEqual({
+      // El id identifica la patrulla; el número es editable (REF3-1).
+      id: 'x1',
       number: 1,
       startTargetIndex: 1,
       units: [
@@ -462,5 +464,48 @@ describe('problemaDelBorrador con patrullas vacías', () => {
   it('sin patrullas vacías no se queja', () => {
     const b = borradorDe([patrulla(1, [miembro(), miembro()])]);
     expect(problemaDelBorrador(b)).toBeUndefined();
+  });
+});
+
+// ── REF3-1 · La patrulla se identifica por su id ─────────────────────────────
+
+describe('cuerpoDeDistribucion identifica por id', () => {
+  /**
+   * **El número es editable; el id no.**
+   *
+   * Eliminar una patrulla renumera al resto, así que el número que viaja no
+   * identifica nada. Sin el id, el servidor mapeaba por número y los arqueros
+   * de la vieja patrulla 3 terminaban en el documento de la 2 — con el PIN de
+   * la 2, que puede estar impreso.
+   */
+  it('cada patrulla manda su id', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+    const cuerpo = cuerpoDeDistribucion(b);
+
+    expect(cuerpo.patrols.map((p) => p.id)).toEqual(['x1', 'x2']);
+  });
+
+  /**
+   * **Y la eliminada no viaja, que es lo que ahora la borra.**
+   *
+   * Antes tampoco viajaba, pero el servidor la dejaba donde estaba: volvía a
+   * aparecer vacía al recargar y frenaba el guardado para siempre.
+   */
+  it('la patrulla eliminada no aparece, y las que quedan van renumeradas', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, []),
+      patrulla(3, [miembro(), miembro()]),
+    ]);
+
+    const cuerpo = cuerpoDeDistribucion(eliminarPatrulla(b, 2));
+
+    expect(cuerpo.patrols).toHaveLength(2);
+    // El id sigue siendo el de la patrulla original, aunque su número cambió.
+    expect(cuerpo.patrols.map((p) => p.id)).toEqual(['x1', 'x3']);
+    expect(cuerpo.patrols.map((p) => p.number)).toEqual([1, 2]);
   });
 });
