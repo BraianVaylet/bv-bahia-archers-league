@@ -12,6 +12,10 @@
 import {
   type BowCategory,
   CATEGORY_INFO,
+  COLOR_DE_CATEGORIA,
+  COLOR_DE_MODALIDAD,
+  distribucionDeCategorias,
+  distribucionDeModalidades,
   formatearFecha,
   formatearFechaCorta,
   formatearMonto,
@@ -21,7 +25,7 @@ import {
   SCORING,
   type TournamentStatus,
 } from '@bal/shared';
-import { BadgeEstado, ChipModalidad } from '@bal/ui';
+import { BadgeEstado, ChipModalidad, GraficoDeTorta } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import { Cargando, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
@@ -290,7 +294,64 @@ export function TournamentPage() {
       </section>
 
       <DiagramaDelRecorrido targets={t.targets} />
+
+      <DeQueEstuvoHecho torneo={t} />
     </Screen>
+  );
+}
+
+/**
+ * De qué estuvo hecho el torneo: modalidades y categorías, en dos donas.
+ *
+ * Va **al final**, después del recorrido. La ficha es larga y arranca por lo
+ * que se busca —los resultados—; esto es la mirada de conjunto, que se lee
+ * cuando ya se vio el detalle.
+ *
+ * Los dos repartos salen de datos que **ya vienen en la respuesta**: los
+ * blancos con su modalidad y los miembros de cada patrulla con su categoría.
+ * No hizo falta tocar el backend.
+ */
+function DeQueEstuvoHecho({ torneo }: { readonly torneo: TorneoDetalle }) {
+  const modalidades = distribucionDeModalidades(torneo.targets.map((b) => b.modality));
+
+  // Las categorías salen de las patrullas: es donde está cada arquero con la
+  // suya, y viene igual en un torneo en proceso que en uno publicado.
+  const categorias = distribucionDeCategorias(
+    torneo.patrols.flatMap((p) => p.members.map((m) => m.category)),
+  );
+
+  if (modalidades.length === 0 && categorias.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="font-semibold">De qué estuvo hecho</h2>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <GraficoDeTorta
+          titulo="Modalidades"
+          unidad="blancos"
+          partes={modalidades.map((m) => ({
+            clave: m.modality,
+            etiqueta: SCORING[m.modality].label,
+            pct: m.pct,
+            count: m.count,
+            color: COLOR_DE_MODALIDAD[m.modality],
+          }))}
+        />
+
+        <GraficoDeTorta
+          titulo="Categorías"
+          unidad="arqueros"
+          partes={categorias.map((c) => ({
+            clave: c.category,
+            etiqueta: CATEGORY_INFO[c.category].label,
+            pct: c.pct,
+            count: c.count,
+            color: COLOR_DE_CATEGORIA[c.category],
+          }))}
+        />
+      </div>
+    </section>
   );
 }
 

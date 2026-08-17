@@ -495,6 +495,50 @@ describe('TournamentPage', () => {
     expect(await screen.findByTestId('estado-torneo')).toHaveTextContent(/Resultados oficiales/);
   });
 
+  /**
+   * **De qué estuvo hecho el torneo**, al final de la ficha.
+   *
+   * Los dos repartos salen de datos que ya venían en la respuesta —los blancos
+   * con su modalidad y los miembros de cada patrulla con su categoría— así que
+   * no hizo falta tocar el backend.
+   */
+  it('muestra las dos donas: modalidades y categorías', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    expect(await screen.findByTestId('torta-modalidades')).toBeDefined();
+    expect(screen.getByTestId('torta-categorías')).toBeDefined();
+  });
+
+  /**
+   * **El color no va solo.** Cada porción figura escrita con su nombre y su
+   * porcentaje: un color sin nombre no dice nada a quien no distingue dos
+   * verdes ni a quien no conoce el código de colores del proyecto.
+   */
+  it('cada porción lleva su nombre y su porcentaje', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    // Un blanco 3D y uno de sala: mitad y mitad.
+    const torta = await screen.findByTestId('torta-modalidades');
+    const bloque = torta.parentElement?.parentElement?.textContent ?? '';
+
+    expect(bloque).toMatch(/3D/);
+    expect(bloque).toMatch(/Sala/);
+    expect(bloque).toMatch(/50%/);
+  });
+
+  it('los porcentajes de cada dona suman 100', async () => {
+    servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
+    renderDetalle();
+
+    const torta = await screen.findByTestId('torta-modalidades');
+    const bloque = torta.parentElement?.parentElement?.textContent ?? '';
+    const pcts = [...bloque.matchAll(/(\d+)%/g)].map((m) => Number(m[1]));
+
+    expect(pcts.reduce((n, x) => n + x, 0)).toBe(100);
+  });
+
   it('muestra el valor de la inscripción formateado', async () => {
     servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
     renderDetalle();

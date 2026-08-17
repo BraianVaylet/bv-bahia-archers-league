@@ -32,6 +32,12 @@ export {
   type GraficoDeEvolucionProps,
   type PuntoDeEvolucion,
 } from './GraficoDeEvolucion.js';
+export {
+  type ColorDeParte,
+  GraficoDeTorta,
+  type GraficoDeTortaProps,
+  type ParteDeTorta,
+} from './GraficoDeTorta.js';
 export * from './iconos/acciones.js';
 export type { Icono, IconoProps } from './iconos/base.js';
 export { Svg } from './iconos/base.js';
