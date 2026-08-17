@@ -10,9 +10,11 @@
 
 import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
+import { CerrarSesion } from '../components/CerrarSesion.js';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
 import { readScores } from '../offline/db.js';
+import { useSyncStatus } from '../offline/useSyncStatus.js';
 import { SyncBadge } from './SyncBadge.js';
 
 /*
@@ -26,10 +28,17 @@ export interface CircuitPageProps {
   readonly bundle: StoredBundle;
   readonly onAbrirBlanco: (target: BundleTarget) => void;
   readonly onResultados: () => void;
+  readonly onCerrarSesion?: () => void;
 }
 
-export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPageProps) {
+export function CircuitPage({
+  bundle,
+  onAbrirBlanco,
+  onResultados,
+  onCerrarSesion,
+}: CircuitPageProps) {
   const [scores, setScores] = useState<StoredScore[]>([]);
+  const { pending } = useSyncStatus();
 
   useEffect(() => {
     void readScores().then(setScores);
@@ -146,6 +155,14 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
             );
           })}
         </ul>
+        {/*
+          **Al final del contenido, no en el header.**
+
+          Es la única salida de la app y borra los datos locales: un botón junto
+          al indicador de sincronización se toca sin querer con guantes. Acá hay
+          que buscarlo.
+        */}
+        {onCerrarSesion && <CerrarSesion onCerrar={onCerrarSesion} pendientes={pending} />}
       </Screen>
 
       <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t">

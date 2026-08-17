@@ -16,6 +16,7 @@ import {
 import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CerrarSesion } from '../../components/CerrarSesion.js';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
@@ -86,11 +87,7 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="WAFA">
-        <button type="button" onClick={onSalir} className="min-h-[44px] px-2 text-sm">
-          Salir
-        </button>
-      </Encabezado>
+      <Encabezado titulo="WAFA" />
 
       <Screen>
         <nav className="pt-4 flex flex-col gap-2">
@@ -149,6 +146,16 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
               </section>
             );
           })}
+
+        {/*
+          **La única salida de WAFA.**
+
+          Estaba en el header, como un «Salir» de un toque. Desde que Atrás ya
+          no saca de la app, ésta es la puerta — y una puerta que se toca sin
+          querer al lado del título es peor que ninguna. Pide dos toques, igual
+          que eliminar un torneo.
+        */}
+        <CerrarSesion onCerrar={onSalir} />
       </Screen>
     </Pantalla>
   );

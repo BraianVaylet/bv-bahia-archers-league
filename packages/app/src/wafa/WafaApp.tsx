@@ -8,8 +8,9 @@
  * Ver `docs/FUNCTIONAL.md` §6 · `docs/SECURITY.md` §3.1.
  */
 
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/ui.js';
+import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import { ArchersPage } from './pages/Archers.js';
 import { ChangePasswordPage } from './pages/ChangePassword.js';
 import { HomePage } from './pages/Home.js';
@@ -26,6 +27,17 @@ import { useSesionAdmin } from './sesion.js';
 export function WafaApp() {
   const { sesion, refrescar, salir } = useSesionAdmin();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  /**
+   * **Atrás no saca de WAFA, pero sí navega dentro.**
+   *
+   * A diferencia de WAFL, acá la navegación son rutas: Atrás desde Arqueros
+   * tiene que volver al inicio, y eso se conserva. Lo que se bloquea es salir
+   * **desde la raíz** a la pantalla de elección — que es donde un toque de más
+   * obligaba a loguearse otra vez.
+   */
+  useSalidaBloqueada(sesion.estado === 'autenticado' && pathname === '/');
 
   // Sin esto la primera pintada mandaría al login a alguien que ya tiene sesión.
   if (sesion.estado === 'cargando') {

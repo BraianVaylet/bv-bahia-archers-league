@@ -14,27 +14,33 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
-## 2026-08-16 · `REF3-3` — las patrullas en un celular. Cierra `ref-3`
+## 2026-08-17 · Salir de la app sólo a propósito
 
 **Autor:** Claude Opus 5 · **Estado:** completado
 
-### Lo que estaba apretado no era lo que parecía
+Un toque de más en Atrás sacaba al líder de WAFL —o al admin de WAFA— a la pantalla de elección, y volver significaba loguearse de nuevo: con guantes, al sol, y con el PIN en la planilla del bolsillo.
 
-El pedido decía «la información se ve muy apretada» y «cada patrulla debe mostrar la unidad A y B». Lo segundo **ya estaba** desde `FE-13`: el encabezado `Unidad A · tira primero` está ahí desde entonces.
+### Las dos apps se escapaban por motivos distintos
 
-Lo apretado era la **ficha del arquero**: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px de ancho el nombre se cortaba con `truncate` y los botones quedaban pegados contra el borde. Los tres botones los agregué yo en `REF2-5` —antes había uno solo— y ahí se terminó de romper.
+**WAFL navega con estado local, no con rutas.** La cabecera de `WaflApp` lo dice desde `FE-4`: *«el botón Atrás del navegador no debería poder sacar al líder del medio de una carga»*. Pero al no empujar entradas de historia, **un solo Atrás salía de la app** — el razonamiento era correcto y le faltaba la mitad.
 
-### Cada renglón responde una pregunta
+**WAFA sí usa rutas**, así que Atrás navega bien adentro. Lo que había que bloquear es sólo la salida **desde la raíz**, no toda la navegación.
 
-- **Quién es**: nombre completo. En una planilla impresa el apellido solo no alcanza para desempatar dos hermanos.
-- **Con qué tira**: categoría y estaca **juntas**. Son las dos que deciden desde dónde tira y contra quién compite; separadas hay que emparejarlas con la vista.
-- **Qué se puede hacer**: el lado y las acciones.
+Se resuelve empujando una entrada centinela y reponiéndola en `popstate`. Sin `beforeunload`: ese aviso lo dispara también recargar, que es lo que uno hace cuando algo se ve raro, y un diálogo del navegador ahí asusta más de lo que evita.
 
-El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado — es lo mismo que hace el servidor al recibir la distribución. Así la pantalla no puede mostrar algo distinto de lo que se va a registrar.
+### Y WAFL no tenía cierre de sesión
 
-**Tests:** 4 de la ficha. 1113 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+WAFA tenía un «Salir» de un toque en el header. WAFL **no tenía ninguno** hasta terminar el circuito: la única forma de salir era el Atrás que ahora se bloquea. Sin agregarlo, esto habría dejado al líder encerrado.
 
-Con esta tanda cierra `ref-3`.
+**En WAFL cerrar sesión borra el IndexedDB, outbox incluido.** Si hay trabajo sin sincronizar, eso es **perder puntajes cargados**. Se dice cuántos y con esas palabras: la app nunca descarta trabajo en silencio, y que el usuario lo haga a propósito es otra cosa — ahí lo que corresponde es que sepa exactamente qué está tirando.
+
+Los dos botones piden **dos toques** y están **al final del contenido**, no en el header. Es la única puerta de la app: una que se toca de refilón al lado del indicador de sincronización es peor que ninguna.
+
+### Un flake propio, encontrado en el camino
+
+Dos tests del hook fallaban por acumulación de espías: `vi.spyOn` sobre un método ya espiado devuelve **el mismo espía, con su historial**. Un test que afirma «no se llamó» veía las llamadas del test anterior. Se restauran en el `afterEach`, junto con el estado del historial.
+
+**Tests:** 10 de la salida. 1124 en verde, 8 de 8 E2E. **Controles de mutación: 4, murieron 4.**
 
 ---
 
@@ -62,6 +68,30 @@ Lo que faltaba es otra cosa: **`readScores()` devuelve el almacén entero**, y e
 > El síntoma era idéntico al de `REF-1`, y la causa no. Fue tentador dar por hecho que el guard se había roto; estaba intacto. Lo que había cambiado era el supuesto de que el almacén tiene datos de un solo torneo.
 
 **Tests:** 2 del conteo, 3 de la limpieza. 1118 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
+## 2026-08-16 · `REF3-3` — las patrullas en un celular. Cierra `ref-3`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### Lo que estaba apretado no era lo que parecía
+
+El pedido decía «la información se ve muy apretada» y «cada patrulla debe mostrar la unidad A y B». Lo segundo **ya estaba** desde `FE-13`: el encabezado `Unidad A · tira primero` está ahí desde entonces.
+
+Lo apretado era la **ficha del arquero**: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px de ancho el nombre se cortaba con `truncate` y los botones quedaban pegados contra el borde. Los tres botones los agregué yo en `REF2-5` —antes había uno solo— y ahí se terminó de romper.
+
+### Cada renglón responde una pregunta
+
+- **Quién es**: nombre completo. En una planilla impresa el apellido solo no alcanza para desempatar dos hermanos.
+- **Con qué tira**: categoría y estaca **juntas**. Son las dos que deciden desde dónde tira y contra quién compite; separadas hay que emparejarlas con la vista.
+- **Qué se puede hacer**: el lado y las acciones.
+
+El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado — es lo mismo que hace el servidor al recibir la distribución. Así la pantalla no puede mostrar algo distinto de lo que se va a registrar.
+
+**Tests:** 4 de la ficha. 1113 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+Con esta tanda cierra `ref-3`.
 
 ---
 
