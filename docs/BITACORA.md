@@ -38,6 +38,33 @@ Con esta tanda cierra `ref-3`.
 
 ---
 
+## 2026-08-17 · Todos los blancos figuraban completos, con puntajes de otro torneo
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Reportado con captura: «Mega Copa · 5 de 5 blancos», los cinco en **Completo**, sin haber cargado nada.
+
+### El guard de `REF-1` estaba, y no alcanzaba
+
+`REF-1` arregló este mismo síntoma con un guard de `total > 0`: con un bundle sin arqueros, `delBlanco.length >= total` era verdadero por vacuidad. Ese guard sigue en su lugar y funciona.
+
+Lo que faltaba es otra cosa: **`readScores()` devuelve el almacén entero**, y el conteo filtraba **sólo por número de blanco**. Los números de blanco se repiten entre torneos, así que un líder que ya usó la app en otro torneo —y entró al siguiente sin cerrar sesión— arrastra esos puntajes y llenan la cuenta con arqueros que no son de su patrulla.
+
+`total` es mayor que cero, así que el guard no dice nada. El recorrido aparece completo y **«Resultados finales» se habilita**: se puede llegar a firmar un torneo en el que nadie tiró.
+
+### Dos correcciones, en dos capas
+
+- **El conteo mira de quién es cada puntaje.** Es la que hace que la pantalla no mienta, pase lo que pase con lo que haya guardado.
+- **Entrar a otro torneo limpia lo del anterior.** `descargarBundle` pisaba el bundle pero dejaba puntajes y firmas.
+
+**Con trabajo sin sincronizar no se limpia nada.** Son puntajes que alguien cargó y que todavía no llegaron al servidor: borrarlos los pierde, y eso no se hace ni para arreglar una pantalla. En ese caso la primera corrección ya alcanza — el recorrido se muestra bien igual.
+
+> El síntoma era idéntico al de `REF-1`, y la causa no. Fue tentador dar por hecho que el guard se había roto; estaba intacto. Lo que había cambiado era el supuesto de que el almacén tiene datos de un solo torneo.
+
+**Tests:** 2 del conteo, 3 de la limpieza. 1118 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-16 · `REF3-2` — el header y el pie que se iban con el scroll
 
 **Autor:** Claude Opus 5 · **Estado:** completado
