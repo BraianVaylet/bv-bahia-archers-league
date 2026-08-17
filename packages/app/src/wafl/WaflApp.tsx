@@ -8,6 +8,7 @@
  * Ver `docs/FUNCTIONAL.md` §7.
  */
 
+import { enlaceEntreApps } from '@bal/shared';
 import { useEffect, useState } from 'react';
 import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import type { BundleTarget, StoredBundle } from '../offline/db.js';
@@ -17,6 +18,12 @@ import { LoginPage } from './LoginPage.js';
 import { ResultsPage } from './ResultsPage.js';
 import { logout } from './sesion.js';
 import { TargetPage } from './TargetPage.js';
+
+/**
+ * Se resuelve una sola vez, al cargar el módulo: el origen no cambia mientras
+ * la app está abierta.
+ */
+const A_LA_LANDING = enlaceEntreApps('landing', import.meta.env.DEV, window.location.href);
 
 type Vista =
   | { readonly nombre: 'circuito' }
@@ -89,9 +96,13 @@ export function WaflApp() {
 
           {/* La app de la patrulla no tiene nada más que ofrecer: de acá en
               adelante lo que importa son los resultados, que están en la
-              landing. Sin salida, la pantalla es un callejón. */}
+              landing. Sin salida, la pantalla es un callejón.
+
+              El enlace no puede ser `/` a secas: en producción sí es la
+              landing, pero con `pnpm dev` son dos Vite en puertos distintos y
+              se quedaba dentro de la propia PWA. Ver `enlaceEntreApps`. */}
           <a
-            href="/"
+            href={A_LA_LANDING}
             className="min-h-[52px] px-5 rounded-[var(--radius-md)] bg-[var(--nock)] text-[var(--nock-ink)] font-semibold flex items-center justify-center"
           >
             Ver los resultados de la liga

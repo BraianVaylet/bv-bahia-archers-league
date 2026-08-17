@@ -80,7 +80,7 @@ Sin autenticación. Optimizada para móvil y para carga rápida.
 
 ### 5.1 Sección Introducción
 - Título, descripción de la liga.
-- Accesos directos a **WAFA** y **WAFL**.
+- **Un solo acceso, «Ingresar»**, a la raíz de la PWA. Quién es el que entra —líder de patrulla o administrador— lo pregunta la app, que ya tiene esa pantalla. La landing no repite la división por rol: hacerlo obliga a mantener el nombre de cada uno en dos lugares, y se habían separado.
 - Si hay un torneo en curso, un banner con su estado.
 
 ### 5.2 Sección Ranking

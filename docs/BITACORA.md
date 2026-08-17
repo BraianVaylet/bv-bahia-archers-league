@@ -14,6 +14,42 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-17 · Una sola puerta de entrada, y la vuelta a la landing
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### El enlace que sólo estaba roto en desarrollo
+
+El botón «Ver los resultados de la liga», al terminar el torneo, no llevaba a ningún lado. El enlace era `/` y **en producción eso es correcto**: un solo contenedor sirve la landing en `/` y la PWA en `/app/`.
+
+Con `pnpm dev` son dos Vite en puertos distintos, así que un `/` desde la PWA se queda dentro de la PWA. La ruta relativa mentía sólo ahí.
+
+`enlaceEntreApps` resuelve el destino según `import.meta.env.DEV`. **En producción sigue devolviendo la ruta relativa, y tiene que seguir siendo relativa**: una URL absoluta en el build ataría la imagen a un dominio, y el mismo contenedor se sirve desde donde lo pongan.
+
+Vive en `@bal/shared` y no copiado en cada frontend: los puertos son un dato único del despliegue y las dos aplicaciones lo necesitan, cada una apuntando a la otra. Se descartó proxyear un Vite dentro del otro —que habría dejado el código con `/` a secas— porque rompe el HMR.
+
+### Una sola puerta
+
+«Anotar puntajes (líder de patrulla)» y «Administración» se reemplazan por **«Ingresar»**, que va a la raíz de la PWA. La elección de rol **ya existía ahí** desde siempre.
+
+Dos botones en la landing obligaban a mantener el nombre de cada rol en dos lugares, y ya se habían separado del que usa la app: la landing decía «Anotar puntajes» donde la app dice «Soy líder de patrulla».
+
+**El costo es un toque más para el líder el día del torneo**, y contradice lo que decía `Home.tsx` — *«el líder de patrulla entra por acá, con guantes y apurado»*. Se acepta porque entra una vez y después la PWA queda instalada, que abre directo en `/app/`. Si el toque de más molesta en el campo, la vuelta atrás es una línea.
+
+`FUNCTIONAL.md` §5.1 pedía «accesos directos a WAFA y WAFL»: se actualizó, porque cambió la decisión y no la implementación.
+
+### Se verifica donde importa
+
+Los dos cambios cruzan de una aplicación a la otra, y son **dos builds distintos**. Un test de componente ve el `href` y no si del otro lado hay algo, así que el cruce se prueba en E2E, donde un solo origen sirve las dos igual que en producción.
+
+Las aserciones comparan el `pathname` resuelto y no el atributo: en desarrollo el enlace es absoluto y en producción relativo, y lo que tiene que valer en los dos casos es a dónde apunta.
+
+> **4 controles de mutación, murieron 4**: ignorar el flag de desarrollo, intercambiar los puertos, no limpiar la query del origen, y reponer un segundo acceso por rol en la landing.
+>
+> Dos de los ocho tests de `enlaceEntreApps` **pasaron contra el stub vacío**, porque esperaban `/` y el stub devolvía `/`. Es el mismo accidente que ya apareció en `REF-6` y en `REF2-6`; acá lo cubrió la mutación que ignora el flag.
+
+---
+
 ## 2026-08-17 · Dos donas al final de la ficha del torneo
 
 **Autor:** Claude Opus 5 · **Estado:** completado
