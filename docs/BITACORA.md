@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-17 · Dos donas al final de la ficha del torneo
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Reparto de modalidades y de categorías, después del recorrido.
+
+### No hizo falta tocar el backend
+
+Los dos repartos salen de datos que **ya venían en la respuesta**: los blancos con su modalidad, y los miembros de cada patrulla con su categoría. Y las dos funciones que los calculan existen desde `REF2-4`, con su barrido de 30 totales × 7 repartos: los porcentajes suman 100 sin que haya que volver a pensarlo.
+
+La paleta también estaba, de `REF2-1`. La dona engancha la misma regla de `tokens.css` que los chips —`--chip` / `--chip-oscuro`— así que el color lo elige el CSS y no hay un frame con el color anterior al conmutar el tema.
+
+> Tres tandas después, el pedido se resolvió casi enteramente con piezas que ya estaban. Es lo que compra haber puesto el reparto porcentual en el dominio en vez de en un componente.
+
+### Dona y no torta
+
+El agujero del medio deja lugar al total, que es el dato que contesta «¿de qué tamaño era este torneo?» sin sumar las porciones a ojo.
+
+### La leyenda no es opcional
+
+Cada porción figura **escrita**, con su nombre, su porcentaje y su conteo. Un color sin nombre no dice nada —ni a quien no distingue dos verdes, ni a quien no conoce el código de colores del proyecto— y el `aria-label` del SVG lleva el reparto entero para quien no lo ve.
+
+SVG puro, sin dependencias: una librería de gráficos para dos donas de cuatro y siete porciones costaría más que toda la landing, que tiene 120 KB de presupuesto. Quedó en **99,37 KB**.
+
+**Tests:** 7 de la dona, 3 de la ficha. 1138 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-17 · Cerrar sesión también desde el header
 
 **Autor:** Claude Opus 5 · **Estado:** completado
