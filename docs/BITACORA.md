@@ -14,30 +14,6 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
-## 2026-08-16 · `REF3-3` — las patrullas en un celular. Cierra `ref-3`
-
-**Autor:** Claude Opus 5 · **Estado:** completado
-
-### Lo que estaba apretado no era lo que parecía
-
-El pedido decía «la información se ve muy apretada» y «cada patrulla debe mostrar la unidad A y B». Lo segundo **ya estaba** desde `FE-13`: el encabezado `Unidad A · tira primero` está ahí desde entonces.
-
-Lo apretado era la **ficha del arquero**: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px de ancho el nombre se cortaba con `truncate` y los botones quedaban pegados contra el borde. Los tres botones los agregué yo en `REF2-5` —antes había uno solo— y ahí se terminó de romper.
-
-### Cada renglón responde una pregunta
-
-- **Quién es**: nombre completo. En una planilla impresa el apellido solo no alcanza para desempatar dos hermanos.
-- **Con qué tira**: categoría y estaca **juntas**. Son las dos que deciden desde dónde tira y contra quién compite; separadas hay que emparejarlas con la vista.
-- **Qué se puede hacer**: el lado y las acciones.
-
-El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado — es lo mismo que hace el servidor al recibir la distribución. Así la pantalla no puede mostrar algo distinto de lo que se va a registrar.
-
-**Tests:** 4 de la ficha. 1113 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
-
-Con esta tanda cierra `ref-3`.
-
----
-
 ## 2026-08-17 · Salir de la app sólo a propósito
 
 **Autor:** Claude Opus 5 · **Estado:** completado
@@ -65,6 +41,57 @@ Los dos botones piden **dos toques** y están **al final del contenido**, no en 
 Dos tests del hook fallaban por acumulación de espías: `vi.spyOn` sobre un método ya espiado devuelve **el mismo espía, con su historial**. Un test que afirma «no se llamó» veía las llamadas del test anterior. Se restauran en el `afterEach`, junto con el estado del historial.
 
 **Tests:** 10 de la salida. 1124 en verde, 8 de 8 E2E. **Controles de mutación: 4, murieron 4.**
+
+---
+
+## 2026-08-17 · Todos los blancos figuraban completos, con puntajes de otro torneo
+
+**Autor:** Claude Opus 5 · **Estado:** corregido
+
+Reportado con captura: «Mega Copa · 5 de 5 blancos», los cinco en **Completo**, sin haber cargado nada.
+
+### El guard de `REF-1` estaba, y no alcanzaba
+
+`REF-1` arregló este mismo síntoma con un guard de `total > 0`: con un bundle sin arqueros, `delBlanco.length >= total` era verdadero por vacuidad. Ese guard sigue en su lugar y funciona.
+
+Lo que faltaba es otra cosa: **`readScores()` devuelve el almacén entero**, y el conteo filtraba **sólo por número de blanco**. Los números de blanco se repiten entre torneos, así que un líder que ya usó la app en otro torneo —y entró al siguiente sin cerrar sesión— arrastra esos puntajes y llenan la cuenta con arqueros que no son de su patrulla.
+
+`total` es mayor que cero, así que el guard no dice nada. El recorrido aparece completo y **«Resultados finales» se habilita**: se puede llegar a firmar un torneo en el que nadie tiró.
+
+### Dos correcciones, en dos capas
+
+- **El conteo mira de quién es cada puntaje.** Es la que hace que la pantalla no mienta, pase lo que pase con lo que haya guardado.
+- **Entrar a otro torneo limpia lo del anterior.** `descargarBundle` pisaba el bundle pero dejaba puntajes y firmas.
+
+**Con trabajo sin sincronizar no se limpia nada.** Son puntajes que alguien cargó y que todavía no llegaron al servidor: borrarlos los pierde, y eso no se hace ni para arreglar una pantalla. En ese caso la primera corrección ya alcanza — el recorrido se muestra bien igual.
+
+> El síntoma era idéntico al de `REF-1`, y la causa no. Fue tentador dar por hecho que el guard se había roto; estaba intacto. Lo que había cambiado era el supuesto de que el almacén tiene datos de un solo torneo.
+
+**Tests:** 2 del conteo, 3 de la limpieza. 1118 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
+## 2026-08-16 · `REF3-3` — las patrullas en un celular. Cierra `ref-3`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+### Lo que estaba apretado no era lo que parecía
+
+El pedido decía «la información se ve muy apretada» y «cada patrulla debe mostrar la unidad A y B». Lo segundo **ya estaba** desde `FE-13`: el encabezado `Unidad A · tira primero` está ahí desde entonces.
+
+Lo apretado era la **ficha del arquero**: nombre y categoría a la izquierda, estaca y tres botones a la derecha, todo en una fila. En 360px de ancho el nombre se cortaba con `truncate` y los botones quedaban pegados contra el borde. Los tres botones los agregué yo en `REF2-5` —antes había uno solo— y ahí se terminó de romper.
+
+### Cada renglón responde una pregunta
+
+- **Quién es**: nombre completo. En una planilla impresa el apellido solo no alcanza para desempatar dos hermanos.
+- **Con qué tira**: categoría y estaca **juntas**. Son las dos que deciden desde dónde tira y contra quién compite; separadas hay que emparejarlas con la vista.
+- **Qué se puede hacer**: el lado y las acciones.
+
+El lado de tiro sale del **orden dentro de la unidad**, no de un dato guardado — es lo mismo que hace el servidor al recibir la distribución. Así la pantalla no puede mostrar algo distinto de lo que se va a registrar.
+
+**Tests:** 4 de la ficha. 1113 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+Con esta tanda cierra `ref-3`.
 
 ---
 
