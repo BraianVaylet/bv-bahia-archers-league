@@ -9,11 +9,13 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import type { BundleTarget, StoredBundle } from '../offline/db.js';
 import { startSyncWorker } from '../offline/syncWorker.js';
 import { CircuitPage } from './CircuitPage.js';
 import { LoginPage } from './LoginPage.js';
 import { ResultsPage } from './ResultsPage.js';
+import { logout } from './sesion.js';
 import { TargetPage } from './TargetPage.js';
 
 type Vista =
@@ -35,7 +37,23 @@ export function WaflApp() {
    */
   useEffect(() => startSyncWorker(), []);
 
+  /**
+   * **Con sesión, Atrás no saca de la app.**
+   *
+   * La navegación de WAFL es estado local, así que un solo toque de Atrás
+   * mandaba a la pantalla de elección — y volver significaba loguearse otra
+   * vez, con el PIN de la planilla, en medio del recorrido. La única salida es
+   * cerrar sesión.
+   */
+  useSalidaBloqueada(bundle !== undefined);
+
   if (!bundle) return <LoginPage onEntro={setBundle} />;
+
+  const cerrarSesion = async () => {
+    await logout();
+    setBundle(undefined);
+    setVista({ nombre: 'circuito' });
+  };
 
   const alCircuito = () => setVista({ nombre: 'circuito' });
 
@@ -87,6 +105,7 @@ export function WaflApp() {
           bundle={bundle}
           onAbrirBlanco={(target) => setVista({ nombre: 'blanco', target })}
           onResultados={() => setVista({ nombre: 'resultados' })}
+          onCerrarSesion={() => void cerrarSesion()}
         />
       );
   }

@@ -38,6 +38,36 @@ Con esta tanda cierra `ref-3`.
 
 ---
 
+## 2026-08-17 · Salir de la app sólo a propósito
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Un toque de más en Atrás sacaba al líder de WAFL —o al admin de WAFA— a la pantalla de elección, y volver significaba loguearse de nuevo: con guantes, al sol, y con el PIN en la planilla del bolsillo.
+
+### Las dos apps se escapaban por motivos distintos
+
+**WAFL navega con estado local, no con rutas.** La cabecera de `WaflApp` lo dice desde `FE-4`: *«el botón Atrás del navegador no debería poder sacar al líder del medio de una carga»*. Pero al no empujar entradas de historia, **un solo Atrás salía de la app** — el razonamiento era correcto y le faltaba la mitad.
+
+**WAFA sí usa rutas**, así que Atrás navega bien adentro. Lo que había que bloquear es sólo la salida **desde la raíz**, no toda la navegación.
+
+Se resuelve empujando una entrada centinela y reponiéndola en `popstate`. Sin `beforeunload`: ese aviso lo dispara también recargar, que es lo que uno hace cuando algo se ve raro, y un diálogo del navegador ahí asusta más de lo que evita.
+
+### Y WAFL no tenía cierre de sesión
+
+WAFA tenía un «Salir» de un toque en el header. WAFL **no tenía ninguno** hasta terminar el circuito: la única forma de salir era el Atrás que ahora se bloquea. Sin agregarlo, esto habría dejado al líder encerrado.
+
+**En WAFL cerrar sesión borra el IndexedDB, outbox incluido.** Si hay trabajo sin sincronizar, eso es **perder puntajes cargados**. Se dice cuántos y con esas palabras: la app nunca descarta trabajo en silencio, y que el usuario lo haga a propósito es otra cosa — ahí lo que corresponde es que sepa exactamente qué está tirando.
+
+Los dos botones piden **dos toques** y están **al final del contenido**, no en el header. Es la única puerta de la app: una que se toca de refilón al lado del indicador de sincronización es peor que ninguna.
+
+### Un flake propio, encontrado en el camino
+
+Dos tests del hook fallaban por acumulación de espías: `vi.spyOn` sobre un método ya espiado devuelve **el mismo espía, con su historial**. Un test que afirma «no se llamó» veía las llamadas del test anterior. Se restauran en el `afterEach`, junto con el estado del historial.
+
+**Tests:** 10 de la salida. 1124 en verde, 8 de 8 E2E. **Controles de mutación: 4, murieron 4.**
+
+---
+
 ## 2026-08-16 · `REF3-2` — el header y el pie que se iban con el scroll
 
 **Autor:** Claude Opus 5 · **Estado:** completado
