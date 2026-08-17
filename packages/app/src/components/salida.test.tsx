@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CerrarSesion } from './CerrarSesion.js';
+import { Encabezado } from './ui.js';
 import { useSalidaBloqueada } from './useSalidaBloqueada.js';
 
 /**
@@ -136,5 +138,77 @@ describe('CerrarSesion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
 
     expect(screen.getByTestId('aviso-cerrar-sesion').textContent).toMatch(/1 cambio sin enviar/);
+  });
+});
+
+// ── El ícono del header ──────────────────────────────────────────────────────
+
+describe('cerrar sesión desde el header', () => {
+  /**
+   * **Hay dos controles con el mismo nombre, y está bien.**
+   *
+   * El del header y el del final del contenido hacen exactamente lo mismo:
+   * abrir la confirmación. Llamarlos distinto para que el test los distinga
+   * sería mentirle al lector de pantalla sobre una diferencia que no existe.
+   * El primero en el DOM es el del header.
+   */
+  const iconoDelHeader = () => screen.getAllByRole('button', { name: 'Cerrar sesión' })[0];
+
+  function ConHeader({ onCerrar }: { readonly onCerrar: () => void }) {
+    const [abierto, setAbierto] = useState(false);
+    return (
+      <>
+        <Encabezado titulo="Prueba" onCerrarSesion={() => setAbierto(true)} />
+        <CerrarSesion onCerrar={onCerrar} abierto={abierto} onAbiertoChange={setAbierto} />
+      </>
+    );
+  }
+
+  /**
+   * **El ícono abre la confirmación, no cierra la sesión.**
+   *
+   * Es la única salida de la app y en WAFL borra los datos locales. Un ícono en
+   * el header —donde el pulgar pasa todo el tiempo, con guantes— no puede ser
+   * el disparo final.
+   */
+  it('el ícono NO cierra: abre la confirmación', () => {
+    const onCerrar = vi.fn();
+    render(<ConHeader onCerrar={onCerrar} />);
+
+    fireEvent.click(iconoDelHeader() as HTMLElement);
+
+    expect(onCerrar).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Sí, cerrar sesión' })).toBeDefined();
+  });
+
+  /**
+   * **Una sola confirmación, no dos.** Duplicarla para el header habría
+   * duplicado el texto de cuántos cambios se pierden, y dos textos que dicen lo
+   * mismo terminan diciendo cosas distintas.
+   */
+  it('abre la MISMA confirmación que el botón de abajo', () => {
+    render(<ConHeader onCerrar={vi.fn()} />);
+
+    fireEvent.click(iconoDelHeader() as HTMLElement);
+
+    expect(screen.getAllByTestId('aviso-cerrar-sesion')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Sí, cerrar sesión' })).toHaveLength(1);
+  });
+
+  it('desde el header también se puede volver atrás', () => {
+    const onCerrar = vi.fn();
+    render(<ConHeader onCerrar={onCerrar} />);
+
+    fireEvent.click(iconoDelHeader() as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir en el torneo' }));
+
+    expect(onCerrar).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('aviso-cerrar-sesion')).toBeNull();
+  });
+
+  // Sin la prop no hay ícono: el login no tiene sesión que cerrar.
+  it('sin sesión el header no lo muestra', () => {
+    render(<Encabezado titulo="Prueba" />);
+    expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).toBeNull();
   });
 });

@@ -38,6 +38,7 @@ export function CircuitPage({
   onCerrarSesion,
 }: CircuitPageProps) {
   const [scores, setScores] = useState<StoredScore[]>([]);
+  const [cerrando, setCerrando] = useState(false);
   const { pending } = useSyncStatus();
 
   useEffect(() => {
@@ -85,7 +86,10 @@ export function CircuitPage({
 
   return (
     <Pantalla>
-      <Encabezado titulo={`Patrulla ${bundle.patrol.number}`}>
+      <Encabezado
+        titulo={`Patrulla ${bundle.patrol.number}`}
+        {...(onCerrarSesion ? { onCerrarSesion: () => setCerrando(true) } : {})}
+      >
         <SyncBadge />
       </Encabezado>
 
@@ -162,7 +166,14 @@ export function CircuitPage({
           al indicador de sincronización se toca sin querer con guantes. Acá hay
           que buscarlo.
         */}
-        {onCerrarSesion && <CerrarSesion onCerrar={onCerrarSesion} pendientes={pending} />}
+        {onCerrarSesion && (
+          <CerrarSesion
+            onCerrar={onCerrarSesion}
+            pendientes={pending}
+            abierto={cerrando}
+            onAbiertoChange={setCerrando}
+          />
+        )}
       </Screen>
 
       <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t">

@@ -13,7 +13,7 @@
  * sepa exactamente qué está tirando.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui.js';
 
 export interface CerrarSesionProps {
@@ -23,13 +23,59 @@ export interface CerrarSesionProps {
    * outbox y cerrar sesión no pierde nada.
    */
   readonly pendientes?: number;
+  /**
+   * Abierto desde afuera — el ícono del header.
+   *
+   * **Hay una sola confirmación, no dos.** Duplicarla para el header habría
+   * duplicado también el texto de cuántos cambios se pierden, y dos textos que
+   * dicen lo mismo terminan diciendo cosas distintas.
+   *
+   * Sin esta prop el componente se maneja solo, que es como lo usa el botón de
+   * abajo.
+   */
+  readonly abierto?: boolean;
+  readonly onAbiertoChange?: (abierto: boolean) => void;
 }
 
-export function CerrarSesion({ onCerrar, pendientes = 0 }: CerrarSesionProps) {
-  const [confirmando, setConfirmando] = useState(false);
+export function CerrarSesion({
+  onCerrar,
+  pendientes = 0,
+  abierto,
+  onAbiertoChange,
+}: CerrarSesionProps) {
+  const [propio, setPropio] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+
+  const confirmando = abierto ?? propio;
+  const setConfirmando = (v: boolean) => {
+    setPropio(v);
+    onAbiertoChange?.(v);
+  };
+
+  /**
+   * Si lo abrió el header, hay que traerlo a la vista.
+   *
+   * El bloque vive al final del contenido —a propósito: es la única salida de
+   * la app y no puede tocarse de refilón— así que abrirlo desde arriba dejaría
+   * al usuario mirando una pantalla que no cambió.
+   */
+  useEffect(() => {
+    if (!confirmando) return;
+
+    /**
+     * `scrollIntoView` puede no existir: jsdom no lo implementa, y navegadores
+     * viejos tampoco. Traer el bloque a la vista es una comodidad — si no se
+     * puede, la confirmación igual está ahí y se llega bajando. Que falte no
+     * puede romper la única salida de la app.
+     *
+     * Es la misma lección que `matchMedia` en `REF-4`, donde una API ausente
+     * dejó una pantalla entera en blanco.
+     */
+    caja.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, [confirmando]);
 
   return (
-    <div className="flex flex-col gap-2 pt-2 print:hidden">
+    <div ref={caja} className="flex flex-col gap-2 pt-2 print:hidden">
       {confirmando && (
         <p role="status" className="text-sm text-[var(--warn)]" data-testid="aviso-cerrar-sesion">
           {pendientes > 0 ? (
