@@ -70,11 +70,35 @@ export async function descargarBundle(): Promise<StoredBundle> {
     clockSkewMs,
   };
 
+  await limpiarSiCambioDeTorneo(res.tournament.id);
   await saveBundle(bundle);
   await sembrarPuntajes(res, clockSkewMs);
   await pedirAlmacenamientoPersistente();
 
   return bundle;
+}
+
+/**
+ * Borra lo que quedó de **otro** torneo.
+ *
+ * El bundle se pisaba pero los puntajes y las firmas no: quedaban en el almacén
+ * y, como los números de blanco se repiten entre torneos, el recorrido nuevo
+ * aparecía completo sin haber cargado nada. Ver `BITACORA.md`, entrada del
+ * 2026-08-17.
+ *
+ * **Nunca se descartan ops pendientes.** Si el outbox todavía tiene trabajo sin
+ * enviar, no se limpia nada: es trabajo del líder anterior y se pierde si se
+ * borra. En ese caso el recorrido igual se muestra bien, porque el conteo mira
+ * de quién es cada puntaje.
+ */
+async function limpiarSiCambioDeTorneo(tournamentId: string): Promise<void> {
+  const anterior = await readBundle();
+  if (!anterior || anterior.tournament.id === tournamentId) return;
+
+  const db = await getDb();
+  if ((await db.count('outbox')) > 0) return;
+
+  await Promise.all([db.clear('scores'), db.clear('signatures')]);
 }
 
 /**

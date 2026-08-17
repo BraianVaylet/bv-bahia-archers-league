@@ -38,6 +38,19 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
   const total = bundle.participants.length;
 
   /**
+   * **Sólo los puntajes de esta patrulla.**
+   *
+   * `readScores()` devuelve el almacén entero, y los números de blanco se
+   * repiten entre torneos: un líder que ya usó la app en otro torneo y entró al
+   * siguiente sin cerrar sesión arrastraba esos puntajes, y el recorrido
+   * aparecía completo sin haber cargado nada. El guard de abajo no alcanzaba
+   * —`total` es mayor que cero— porque la cuenta se llenaba con arqueros que no
+   * son de acá.
+   */
+  const mios = new Set(bundle.participants.map((p) => p.id));
+  const propios = scores.filter((s) => mios.has(s.participantId));
+
+  /**
    * Un blanco está completo cuando TODOS los arqueros tienen su puntaje.
    *
    * Con `total === 0` la comparación sería verdadera para todos los blancos:
@@ -50,7 +63,7 @@ export function CircuitPage({ bundle, onAbrirBlanco, onResultados }: CircuitPage
       : bundle.tournament.targets
           .map((t) => t.index)
           .filter((index) => {
-            const delBlanco = scores.filter(
+            const delBlanco = propios.filter(
               (s) => s.targetIndex === index && s.arrows.length === arrowsDe(bundle, index),
             );
             return delBlanco.length >= total;

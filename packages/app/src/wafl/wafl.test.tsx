@@ -15,7 +15,7 @@ import { writeScore, writeSignature } from '../offline/outbox.js';
 import { configureSync, flush, resetSyncWorker } from '../offline/syncWorker.js';
 import { CircuitPage } from './CircuitPage.js';
 import { ResultsPage } from './ResultsPage.js';
-import { entrarConBundleLocal, logout } from './sesion.js';
+import { descargarBundle, entrarConBundleLocal, logout } from './sesion.js';
 
 /**
  * Circuito, resultados, firma y cierre (FE-4, FE-5, FE-7, FE-8).
@@ -421,5 +421,135 @@ describe('ResultsPage', () => {
       expect(await screen.findByText('Resultados')).toBeDefined();
       expect(await readSignatures()).toEqual([]);
     });
+  });
+});
+
+// ── Puntajes de OTRO torneo ──────────────────────────────────────────────────
+
+describe('un blanco no se completa con puntajes ajenos', () => {
+  /**
+   * **El bug reportado: todos los blancos en «Completo» sin haber cargado nada.**
+   *
+   * `readScores()` devuelve **todo** el almacén, y `CircuitPage` contaba
+   * filtrando sólo por número de blanco. Un líder que ya usó la app en otro
+   * torneo —y entró al siguiente sin cerrar sesión— arrastra esos puntajes: los
+   * números de blanco se repiten entre torneos, así que cuentan.
+   *
+   * `descargarBundle` pisa el bundle pero **no limpia los puntajes viejos**, y
+   * el guard de `REF-1` no alcanza: `total` es mayor que cero, y la comparación
+   * se cumple con arqueros que no son de esta patrulla.
+   */
+  it('los puntajes de otro torneo no cuentan', async () => {
+    const db = await getDb();
+
+    // Mismo número de blanco, arqueros de otro torneo.
+    for (const ajeno of ['zzzzzzzzzzzzzzzzzzzzzzz1', 'zzzzzzzzzzzzzzzzzzzzzzz2']) {
+      for (const targetIndex of [1, 2, 3]) {
+        await db.put('scores', {
+          participantId: ajeno,
+          targetIndex,
+          arrows: ['X', '10', '9'],
+          total: 29,
+          innerCount: 1,
+          xCount: 1,
+          tenCount: 2,
+          mCount: 0,
+          clientUpdatedAt: Date.now(),
+          syncState: 'synced',
+        });
+      }
+    }
+
+    render(<CircuitPage bundle={bundle} onAbrirBlanco={vi.fn()} onResultados={vi.fn()} />);
+
+    expect(await screen.findByText(/^0 de 3 blancos/)).toBeDefined();
+    expect(screen.queryAllByText('Completo')).toHaveLength(0);
+  });
+
+  // Y los propios sí, para que el test de arriba no pase por no contar nunca.
+  it('los de la propia patrulla sí cuentan', async () => {
+    for (const pid of [P1, P2]) await writeScore(pid, 2, ['X', '10', '9']);
+
+    render(<CircuitPage bundle={bundle} onAbrirBlanco={vi.fn()} onResultados={vi.fn()} />);
+
+    expect(await screen.findByText(/^1 de 3 blancos/)).toBeDefined();
+  });
+});
+
+// ── Entrar a otro torneo ─────────────────────────────────────────────────────
+
+describe('descargarBundle al cambiar de torneo', () => {
+  const respuesta = (tournamentId: string) => ({
+    tournament: {
+      id: tournamentId,
+      name: 'Mega Copa',
+      date: '2026-09-01',
+      maxPossibleScore: 74,
+      targets: [{ index: 1, modality: '3d', arrows: 2, description: null }],
+    },
+    patrol: {
+      id: 'p9',
+      number: 2,
+      startTargetIndex: 1,
+      status: 'en_curso',
+      targetsCompleted: 0,
+    },
+    participants: [],
+    scores: [],
+    signatures: [],
+    serverTime: new Date().toISOString(),
+  });
+
+  const conServidor = (tournamentId: string) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify(respuesta(tournamentId)), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+  };
+
+  /**
+   * **Lo del torneo anterior no se queda.** Los números de blanco se repiten
+   * entre torneos: dejarlos hacía que el recorrido nuevo apareciera completo.
+   */
+  it('borra los puntajes del torneo anterior', async () => {
+    await writeScore(P1, 2, ['X', '10', '9']);
+    await sincronizarTodo();
+    expect((await readScores()).length).toBeGreaterThan(0);
+
+    conServidor('otro-torneo');
+    await descargarBundle();
+
+    expect(await readScores()).toEqual([]);
+  });
+
+  it('entrar al MISMO torneo no borra nada', async () => {
+    await writeScore(P1, 2, ['X', '10', '9']);
+    await sincronizarTodo();
+
+    conServidor('t1');
+    await descargarBundle();
+
+    expect((await readScores()).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * **Con trabajo sin sincronizar no se borra nada.**
+   *
+   * Son puntajes que el líder anterior cargó y que todavía no llegaron al
+   * servidor: borrarlos los pierde. La pantalla igual muestra bien el recorrido,
+   * porque el conteo mira de quién es cada puntaje.
+   */
+  it('NO borra si el outbox todavía tiene trabajo', async () => {
+    await writeScore(P1, 2, ['X', '10', '9']);
+    expect(await countOutbox()).toBeGreaterThan(0);
+
+    conServidor('otro-torneo');
+    await descargarBundle();
+
+    expect((await readScores()).length).toBeGreaterThan(0);
+    expect(await countOutbox()).toBeGreaterThan(0);
   });
 });
