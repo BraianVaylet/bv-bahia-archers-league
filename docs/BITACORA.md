@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-17 · Cerrar sesión también desde el header
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+En la entrada anterior dejé el cierre de sesión **al final del contenido** y argumenté por qué: es la única puerta de la app, y una que se toca de refilón al lado del indicador de sincronización es peor que ninguna. Pedido explícito de tenerlo también en el header, así que va — **sin perder lo que protegía ese razonamiento**.
+
+### El ícono abre la confirmación, no cierra la sesión
+
+Los dos toques siguen. El ícono del header es un **atajo al mismo panel**, no un disparo directo: el riesgo que me preocupaba era el toque accidental, y la confirmación es lo que lo cubre. Puesto así, el acceso rápido y la protección no se pisan.
+
+### Una sola confirmación, no dos
+
+El panel vive al final del contenido y se **abre desde arriba**. Duplicarlo para el header habría duplicado también el texto de cuántos cambios se pierden, y dos textos que dicen lo mismo terminan diciendo cosas distintas.
+
+Como el bloque está abajo, abrirlo desde el header dejaría al usuario mirando una pantalla que no cambió: se lo trae a la vista con `scrollIntoView`. **Con `?.`**: jsdom no lo implementa y los navegadores viejos tampoco, y que falte una comodidad no puede romper la única salida de la app. Es la misma lección que `matchMedia` en `REF-4`, donde una API ausente dejó una pantalla entera en blanco — y esta vez el test la encontró antes que un usuario.
+
+### Dos botones con el mismo nombre, y está bien
+
+El del header y el del final hacen exactamente lo mismo. Llamarlos distinto para que el test los distinga sería mentirle al lector de pantalla sobre una diferencia que no existe; el test desambigua por orden en el DOM.
+
+**Tests:** 4 del acceso desde el header. 1133 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-17 · Salir de la app sólo a propósito
 
 **Autor:** Claude Opus 5 · **Estado:** completado

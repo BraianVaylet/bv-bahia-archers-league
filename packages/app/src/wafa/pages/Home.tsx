@@ -76,6 +76,7 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
 
 export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
   const [torneos, setTorneos] = useState<TournamentRow[]>();
+  const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="WAFA" />
+      <Encabezado titulo="WAFA" onCerrarSesion={() => setCerrando(true)} />
 
       <Screen>
         <nav className="pt-4 flex flex-col gap-2">
@@ -155,7 +156,7 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
           querer al lado del título es peor que ninguna. Pide dos toques, igual
           que eliminar un torneo.
         */}
-        <CerrarSesion onCerrar={onSalir} />
+        <CerrarSesion onCerrar={onSalir} abierto={cerrando} onAbiertoChange={setCerrando} />
       </Screen>
     </Pantalla>
   );

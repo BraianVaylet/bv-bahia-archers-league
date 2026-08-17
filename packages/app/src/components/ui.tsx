@@ -18,7 +18,7 @@ const VARIANTES: Record<Variante, string> = {
   peligro: 'bg-[var(--danger)] text-white font-semibold',
 };
 
-import { BotonTema, cn, Footer, Logo, StakeChip } from '@bal/ui';
+import { BotonTema, cn, Footer, IconoSalir, Logo, StakeChip } from '@bal/ui';
 
 /**
  * `cn`, `StakeChip` y `BotonTema` **se mudaron a `@bal/ui`**: estaban escritos
@@ -179,6 +179,7 @@ export function Encabezado({
   onVolver,
   textoVolver = '← Inicio',
   children,
+  onCerrarSesion,
 }: {
   readonly titulo?: string;
   readonly onVolver?: () => void;
@@ -186,6 +187,15 @@ export function Encabezado({
   readonly textoVolver?: string;
   /** A la derecha, antes del conmutador. Es donde va el `SyncBadge` de WAFL. */
   readonly children?: ReactNode;
+  /**
+   * Cerrar sesión, a mano.
+   *
+   * **No cierra: abre la confirmación**, que sigue siendo de dos toques. Es la
+   * única salida de la app y en WAFL borra los datos locales, así que un ícono
+   * en el header —donde el pulgar pasa todo el tiempo— no puede ser el disparo
+   * final. Ver `CerrarSesion`.
+   */
+  readonly onCerrarSesion?: () => void;
 }) {
   return (
     <header className="sticky top-0 z-10 bg-[var(--bg)] border-b px-4 py-2 flex items-center gap-3 print:hidden">
@@ -210,6 +220,19 @@ export function Encabezado({
       <div className="ml-auto flex items-center gap-2">
         {children}
         <BotonTema />
+
+        {onCerrarSesion && (
+          <button
+            type="button"
+            onClick={onCerrarSesion}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border
+              flex items-center justify-center shrink-0 print:hidden"
+          >
+            <IconoSalir />
+          </button>
+        )}
       </div>
     </header>
   );
