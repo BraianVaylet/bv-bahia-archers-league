@@ -66,6 +66,32 @@ El del header y el del final hacen exactamente lo mismo. Llamarlos distinto para
 
 ---
 
+## 2026-08-17 · Copiar el PIN de la patrulla
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Un botón al lado del código de acceso de cada patrulla.
+
+**Seis dígitos se transcriben mal**, y un PIN mal transcripto es un líder que no entra con el torneo ya empezado — con la patrulla esperando en el primer blanco.
+
+### Dice lo que pasó, incluso cuando falla
+
+`navigator.clipboard` **no existe fuera de un contexto seguro**. Un botón que no hace nada y tampoco avisa deja al admin creyendo que copió, y el PIN se pasa mal igual: el problema aparece recién en el monte, lejos de su causa.
+
+Cuando no puede, lo dice — «No se pudo copiar: anotalo a mano» — que es lo único que queda por hacer.
+
+El acuse es **visible y con `role="status"`**, no sólo un cambio de ícono: un ícono que cambia no lo anuncia nadie, y «copiado» es justo lo que hay que confirmar. Vuelve solo a los dos segundos y medio, porque es un acuse y no un estado de la pantalla.
+
+### Copia el PIN de ESA patrulla
+
+Con seis patrullas en pantalla, un botón que copie el de otra le da al líder un código que no abre nada. El test lo verifica contra el PIN mostrado en esa misma tarjeta, no contra un valor fijo.
+
+> Un test que fallaba de arranque: el temporizador del acuse dispara el cambio de estado, pero sin `act` React no repinta y el acuse seguía en el DOM. No era el componente.
+
+**Tests:** 5 del botón, 2 de la pantalla. 1141 en verde, 8 de 8 E2E. **Controles de mutación: 3, murieron 3.**
+
+---
+
 ## 2026-08-17 · Salir de la app sólo a propósito
 
 **Autor:** Claude Opus 5 · **Estado:** completado

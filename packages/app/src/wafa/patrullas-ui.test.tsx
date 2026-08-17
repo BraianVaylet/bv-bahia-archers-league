@@ -611,3 +611,40 @@ describe('la ficha del arquero en la patrulla', () => {
     expect(patrulla.textContent).toMatch(/tira primero/);
   });
 });
+
+// ── Copiar el PIN ────────────────────────────────────────────────────────────
+
+describe('el código de acceso de cada patrulla', () => {
+  it('cada patrulla tiene su botón de copiar, con su número', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    expect(screen.getByRole('button', { name: 'Copiar el PIN de la patrulla 1' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Copiar el PIN de la patrulla 2' })).toBeDefined();
+  });
+
+  /**
+   * **Copia el PIN de ESA patrulla.** Con varias en pantalla, un botón que
+   * copie el de otra le da al líder un código que no abre nada — y el error
+   * aparece recién en el monte.
+   */
+  it('copia el PIN de la patrulla que corresponde', async () => {
+    const copiado: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: async (t: string) => {
+          copiado.push(t);
+        },
+      },
+      configurable: true,
+    });
+
+    renderPatrullas();
+    await screen.findByTestId('patrulla-2');
+
+    const pin = screen.getByTestId('pin-2').textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar el PIN de la patrulla 2' }));
+
+    await waitFor(() => expect(copiado).toEqual([pin]));
+  });
+});

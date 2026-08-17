@@ -18,6 +18,7 @@ import {
 } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { BotonCopiar } from '../../components/BotonCopiar.js';
 import { Button, Encabezado, Pantalla, Screen, StakeChip } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
@@ -79,9 +80,15 @@ function Credencial({
         </p>
       </div>
 
-      <Button variante="secundario" disabled={regenerando} onClick={() => void regenerar()}>
-        Regenerar
-      </Button>
+      <div className="flex items-start gap-2 shrink-0">
+        {/* Seis dígitos se transcriben mal, y un PIN mal transcripto es un
+            líder que no entra con el torneo ya empezado. */}
+        <BotonCopiar valor={patrulla.pin} queEs={`el PIN de la patrulla ${patrulla.number}`} />
+
+        <Button variante="secundario" disabled={regenerando} onClick={() => void regenerar()}>
+          Regenerar
+        </Button>
+      </div>
     </div>
   );
 }
