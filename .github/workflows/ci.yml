@@ -51,6 +51,11 @@ jobs:
       - name: Precargar MongoDB
         run: node scripts/precargar-mongo.mjs
 
+      # Los scripts de la raíz nombran paquete por paquete. `@bal/ui` quedó fuera
+      # de esa lista dos veces seguidas, así que ahora lo mira alguien más.
+      - name: Coherencia del workspace
+        run: node scripts/verificar-workspace.mjs
+
       # `biome check` incluye formato y lint. Falla si algo no está formateado.
       - name: Lint
         run: pnpm lint
@@ -102,7 +107,22 @@ jobs:
           path: ~/.cache/mongodb-binaries
           key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
 
+      # El navegador pesa y no cambia salvo que cambie la versión de Playwright,
+      # que está clavada en el lockfile.
+      - name: Caché del navegador de Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # `--with-deps` dispara un `apt-get` contra los mirrors de Ubuntu, que es
+      # infraestructura de terceros y **se cuelga**: el 2026-08-17 se quedó 13
+      # minutos en silencio en una sola línea y se comió el job entero.
+      #
+      # El timeout no lo evita; lo convierte en un fallo de 6 minutos que se
+      # relanza, en vez de uno de 30 que hay que ir a cancelar a mano.
       - name: Instalar Chromium
+        timeout-minutes: 6
         run: pnpm exec playwright install --with-deps chromium
 
       # El servidor de E2E levanta su propio MongoDB en memoria y construye los

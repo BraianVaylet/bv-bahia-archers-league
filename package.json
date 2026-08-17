@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm --filter @bal/shared build && concurrently -n shared,api,app,landing -c gray,blue,magenta,green \"pnpm --filter @bal/shared dev\" \"pnpm --filter @bal/api dev\" \"pnpm --filter @bal/app dev\" \"pnpm --filter @bal/landing dev\"",
+    "dev": "pnpm run build:libs && concurrently -n shared,ui,api,app,landing -c gray,cyan,blue,magenta,green \"pnpm --filter @bal/shared dev\" \"pnpm --filter @bal/ui dev\" \"pnpm --filter @bal/api dev\" \"pnpm --filter @bal/app dev\" \"pnpm --filter @bal/landing dev\"",
     "dev:api": "pnpm --filter @bal/api dev",
     "dev:app": "pnpm --filter @bal/app dev",
     "dev:landing": "pnpm --filter @bal/landing dev",
