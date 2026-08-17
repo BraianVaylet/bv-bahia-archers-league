@@ -168,3 +168,19 @@ export function IconoTilde(p: IconoProps) {
     </Svg>
   );
 }
+
+/**
+ * Cerrar sesión: una puerta con una flecha que sale.
+ *
+ * La flecha apunta **hacia afuera**. Con la flecha hacia adentro el mismo dibujo
+ * significa entrar, y es el error clásico de este ícono.
+ */
+export function IconoSalir(p: IconoProps) {
+  return (
+    <Svg {...p}>
+      <path d="M14 4H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8" />
+      <path d="M17 8.5 20.5 12 17 15.5" />
+      <path d="M20.5 12H10" />
+    </Svg>
+  );
+}
