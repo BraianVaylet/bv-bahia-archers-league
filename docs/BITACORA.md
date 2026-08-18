@@ -47,6 +47,37 @@ Las aserciones comparan el `pathname` resuelto y no el atributo: en desarrollo e
 > **4 controles de mutación, murieron 4**: ignorar el flag de desarrollo, intercambiar los puertos, no limpiar la query del origen, y reponer un segundo acceso por rol en la landing.
 >
 > Dos de los ocho tests de `enlaceEntreApps` **pasaron contra el stub vacío**, porque esperaban `/` y el stub devolvía `/`. Es el mismo accidente que ya apareció en `REF-6` y en `REF2-6`; acá lo cubrió la mutación que ignora el flag.
+## 2026-08-17 · `dev` servía un `@bal/ui` viejo, y CI se colgaba en `apt`
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Dos fallas de infraestructura que aparecieron el mismo día, ninguna del producto.
+
+### El botón que estaba y no se veía
+
+Mergeado `#56`, el botón de copiar el PIN no aparecía. No era el merge: `pnpm dev` construía `@bal/shared` y **no** `@bal/ui`, así que los frontends resolvían un `dist/` de una build anterior, sin el ícono nuevo.
+
+Es la segunda vez que el mismo olvido muerde. `@bal/ui` nació en `REF2-1` y las listas de la raíz siguieron nombrando sólo a `@bal/shared`; cuando CI falló con `Failed to resolve import "@bal/ui"` se arreglaron `build`, `test` y `typecheck`, y quedó `dev` sin tocar.
+
+**El síntoma en `dev` es peor que en CI.** CI rompe y se ve. `dev` no rompe: sirve lo viejo, la pantalla se ve igual que antes, y lo que parece es que el código nuevo no se aplicó. Se pierde el rato buscando en el lugar equivocado — que es exactamente lo que pasó.
+
+### La guarda no lleva una lista
+
+`scripts/verificar-workspace.mjs` **descubre** los paquetes leyendo el workspace: los que se consumen desde `dist/` y alguien importa. Escribir la lista a mano habría sido repetir el error que se está corrigiendo. Un `@bal/loquesea` nuevo rompe el chequeo hasta entrar en los scripts.
+
+Corre en el job de calidad, antes del lint.
+
+### CI: 13 minutos de silencio en `apt`
+
+El mismo día, el job de E2E se colgó 12 minutos en `Instalar Chromium`. No era la descarga del navegador: `--with-deps` dispara un `apt-get`, el mirror `azure.archive.ubuntu.com` dejó de responder y apt se quedó mudo en una sola línea hasta que se canceló a mano.
+
+Se cachea `~/.cache/ms-playwright` y se le pone **`timeout-minutes: 6`** al paso. El timeout no evita el cuelgue —es infraestructura de terceros— pero lo convierte en un fallo de 6 minutos que se relanza, en vez de uno de 30 que hay que ir a cancelar.
+
+**No se sacó `--with-deps`**, que es lo que eliminaría el `apt` del camino. Sería apostar a que la imagen `ubuntu-latest` trae las libs de Chromium, y de eso no hay evidencia acá: todas las corridas verdes las instalaron ellas mismas.
+
+> **3 controles de mutación, murieron 3**: `build:libs` sin `@bal/ui`, `test` sin `build:libs`, y un paquete que depende de algo inexistente.
+>
+> El patrón que se repite en toda esta bitácora: **un archivo de configuración que existe no prueba que algo lo lea**. Acá fue un script que existe y no cubre todo lo que debería.
 
 ---
 
