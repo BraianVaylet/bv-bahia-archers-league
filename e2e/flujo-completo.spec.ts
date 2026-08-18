@@ -153,6 +153,16 @@ async function firmarYCerrar(page: Page) {
   await expect(cerrar).toBeEnabled();
   await cerrar.click();
   await expect(page.getByText('Torneo finalizado')).toBeVisible();
+
+  /**
+   * La única salida de esa pantalla tiene que llevar a la landing, no a otra
+   * vista de la PWA. Se compara el `pathname` resuelto y no el atributo: en
+   * desarrollo el enlace es absoluto y acá —un solo origen, como en producción—
+   * es relativo.
+   */
+  const aLaLanding = page.getByRole('link', { name: 'Ver los resultados de la liga' });
+  const href = await aLaLanding.getAttribute('href');
+  expect(new URL(href ?? '', page.url()).pathname, 'la salida no va a la landing').toBe('/');
 }
 
 // ── El flujo ─────────────────────────────────────────────────────────────────

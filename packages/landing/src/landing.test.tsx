@@ -83,18 +83,36 @@ function renderEn(elemento: React.ReactNode, ruta = '/', patron = '/') {
 // ── FE-18 · Introducción ─────────────────────────────────────────────────────
 
 describe('HomePage', () => {
-  it('el acceso para anotar puntajes está primero y va a WAFL', () => {
+  /**
+   * Se compara el `pathname` y no el `href` entero: en desarrollo el enlace es
+   * absoluto —los dos frontends corren en puertos distintos— y en producción es
+   * relativo. Lo que tiene que valer en los dos casos es a dónde apunta.
+   */
+  const destino = (a: Element | null | undefined) =>
+    new URL(a?.getAttribute('href') ?? '', window.location.href).pathname;
+
+  it('el acceso a la app está primero y entra por la raíz de la PWA', () => {
     renderEn(<HomePage />);
 
     const accesos = screen.getAllByRole('link');
-    // Lo primero que hace falta el día del torneo es entrar a anotar.
-    expect(accesos[0]?.getAttribute('href')).toBe('/app/wafl');
-    expect(accesos[0]?.textContent).toMatch(/Anotar puntajes/);
+    // Lo primero que hace falta el día del torneo es entrar.
+    expect(accesos[0]?.textContent).toMatch(/Ingresar/);
+    expect(destino(accesos[0])).toBe('/app/');
   });
 
-  it('también ofrece la administración', () => {
+  /**
+   * **Una sola puerta.** Los dos accesos por rol se fueron: quién sos lo
+   * pregunta la app, que ya tiene esa pantalla. Si vuelven, la landing vuelve a
+   * tener que mantener el nombre de cada rol en un segundo lugar.
+   */
+  it('no ofrece un acceso por rol', () => {
     renderEn(<HomePage />);
-    expect(screen.getByText('Administración').getAttribute('href')).toBe('/app/wafa');
+
+    expect(screen.queryByText('Administración')).toBeNull();
+    expect(screen.queryByText(/Anotar puntajes/)).toBeNull();
+
+    const aLaApp = screen.getAllByRole('link').filter((a) => destino(a).startsWith('/app'));
+    expect(aLaApp).toHaveLength(1);
   });
 });
 
