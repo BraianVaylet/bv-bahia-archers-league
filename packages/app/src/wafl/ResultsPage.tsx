@@ -24,12 +24,21 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [firmas, setFirmas] = useState<StoredSignature[]>([]);
   const [firmando, setFirmando] = useState<string>();
+  /**
+   * Si la primera lectura de IndexedDB ya terminó.
+   *
+   * **No es un spinner de guardado.** Los puntajes ya están guardados desde la
+   * primera flecha; esto es la lectura para *mostrarlos*, y hasta que termine
+   * los totales valen 0 porque no hay de dónde sacarlos.
+   */
+  const [leido, setLeido] = useState(false);
   const [aviso, setAviso] = useState<string>();
 
   const recargar = useCallback(async () => {
     const [s, f] = await Promise.all([readScores(), readSignatures()]);
     setScores(s);
     setFirmas(f);
+    setLeido(true);
   }, []);
 
   useEffect(() => {
@@ -119,58 +128,74 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
           </p>
         )}
 
+        {/*
+          **Nada de la lista se muestra hasta haber leído.**
+
+          Los botones de firmar salen del bundle, que está en memoria desde que
+          se entra; los totales salen de IndexedDB. Pintar la lista antes de la
+          lectura mostraba a todos en 0 **con el botón ya vivo**, y un toque ahí
+          abría el pad de firma con un 0 adentro. Se firma lo que se está
+          viendo: esa ventana no puede existir.
+
+          No es un spinner de guardado —los puntajes están guardados desde la
+          primera flecha— sino la espera de una lectura local, que es de
+          milisegundos salvo justo cuando no lo es.
+        */}
+        {!leido && <p className="text-[var(--ink-muted)]">Leyendo los puntajes guardados…</p>}
+
         <div className="flex flex-col gap-3">
-          {resumen.map((r) => (
-            <article
-              key={r.id}
-              className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
-              data-testid={`resultado-${r.lastName}`}
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-semibold">
-                  {r.lastName}, {r.firstName}
-                </span>
-                <span className="font-[var(--font-display)] text-3xl font-bold tabular-nums">
-                  {r.total}
-                </span>
-              </div>
-
-              <dl className="flex gap-4 text-sm text-[var(--ink-muted)]">
-                <div className="flex gap-1">
-                  <dt>Inner</dt>
-                  <dd className="tabular-nums">{r.inner}</dd>
+          {leido &&
+            resumen.map((r) => (
+              <article
+                key={r.id}
+                className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+                data-testid={`resultado-${r.lastName}`}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold">
+                    {r.lastName}, {r.firstName}
+                  </span>
+                  <span className="font-[var(--font-display)] text-3xl font-bold tabular-nums">
+                    {r.total}
+                  </span>
                 </div>
-                <div className="flex gap-1">
-                  <dt>10</dt>
-                  <dd className="tabular-nums">{r.dieces}</dd>
-                </div>
-                <div className="flex gap-1">
-                  <dt>M</dt>
-                  <dd className="tabular-nums">{r.emes}</dd>
-                </div>
-              </dl>
 
-              <ol className="flex gap-1.5 flex-wrap">
-                {r.porBlanco.map((s) => (
-                  <li
-                    key={s.targetIndex}
-                    className="min-w-[44px] px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-center"
-                  >
-                    <span className="block text-xs text-[var(--ink-muted)]">{s.targetIndex}</span>
-                    <span className="block tabular-nums font-medium">{s.total}</span>
-                  </li>
-                ))}
-              </ol>
+                <dl className="flex gap-4 text-sm text-[var(--ink-muted)]">
+                  <div className="flex gap-1">
+                    <dt>Inner</dt>
+                    <dd className="tabular-nums">{r.inner}</dd>
+                  </div>
+                  <div className="flex gap-1">
+                    <dt>10</dt>
+                    <dd className="tabular-nums">{r.dieces}</dd>
+                  </div>
+                  <div className="flex gap-1">
+                    <dt>M</dt>
+                    <dd className="tabular-nums">{r.emes}</dd>
+                  </div>
+                </dl>
 
-              {r.firmado ? (
-                <p className={cn('text-sm text-[var(--ok)]')}>Firmado</p>
-              ) : (
-                <Button ancho onClick={() => setFirmando(r.id)}>
-                  Firmar
-                </Button>
-              )}
-            </article>
-          ))}
+                <ol className="flex gap-1.5 flex-wrap">
+                  {r.porBlanco.map((s) => (
+                    <li
+                      key={s.targetIndex}
+                      className="min-w-[44px] px-2 py-1 rounded-[var(--radius-sm)] bg-[var(--surface-2)] text-center"
+                    >
+                      <span className="block text-xs text-[var(--ink-muted)]">{s.targetIndex}</span>
+                      <span className="block tabular-nums font-medium">{s.total}</span>
+                    </li>
+                  ))}
+                </ol>
+
+                {r.firmado ? (
+                  <p className={cn('text-sm text-[var(--ok)]')}>Firmado</p>
+                ) : (
+                  <Button ancho onClick={() => setFirmando(r.id)}>
+                    Firmar
+                  </Button>
+                )}
+              </article>
+            ))}
         </div>
       </Screen>
 
