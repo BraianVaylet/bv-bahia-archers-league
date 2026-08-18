@@ -26,9 +26,15 @@ const raiz = fileURLToPath(new URL('..', import.meta.url));
 
 const leer = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
-const paquetes = readdirSync(join(raiz, 'packages'), { withFileTypes: true })
+const carpetas = readdirSync(join(raiz, 'packages'), { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(raiz, 'packages', d.name, 'package.json')))
-  .map((d) => leer(join(raiz, 'packages', d.name, 'package.json')));
+  .map((d) => d.name);
+
+const paquetes = carpetas.map((c) => leer(join(raiz, 'packages', c, 'package.json')));
+
+/** La carpeta en la que vive un paquete, que no tiene por qué llamarse igual. */
+const directorioDe = (nombre) =>
+  carpetas.find((c) => leer(join(raiz, 'packages', c, 'package.json')).name === nombre);
 
 const porNombre = new Map(paquetes.map((p) => [p.name, p]));
 
@@ -97,6 +103,28 @@ for (const guion of ['build', 'test', 'typecheck']) {
   exigir(
     /\bbuild:libs\b/.test(scripts[guion] ?? ''),
     `\`${guion}\` no corre \`build:libs\`. Depende de que alguien haya construido antes.`,
+  );
+}
+
+/**
+ * **La imagen tiene que conocer todos los paquetes.**
+ *
+ * El Dockerfile copia los manifiestos uno por uno —a propósito: así la capa de
+ * dependencias se reusa mientras no cambien— y esa lista es otro lugar donde
+ * hay que acordarse de un paquete nuevo. `@bal/ui` quedó afuera, y con un
+ * importer en el lockfile sin su directorio, `pnpm install --frozen-lockfile`
+ * no pasa: la imagen **no se construye**.
+ *
+ * Es la tercera vez que el mismo olvido muerde. La primera fue CI, la segunda
+ * `dev`, esta el Dockerfile.
+ */
+const dockerfile = readFileSync(join(raiz, 'Dockerfile'), 'utf8');
+
+for (const p of paquetes) {
+  const dir = directorioDe(p.name);
+  exigir(
+    new RegExp(String.raw`^COPY packages/${dir}/package.json`, 'm').test(dockerfile),
+    `el Dockerfile no copia el manifiesto de ${p.name} (packages/${dir}/package.json). La imagen no va a construir.`,
   );
 }
 
