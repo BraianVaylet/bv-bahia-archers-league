@@ -14,6 +14,43 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-17 · Se podía firmar un puntaje de 0
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+**Lo destapó un test que falló en CI y pasaba en la máquina**, en un PR que no tocaba nada de esto. La reacción fácil era relanzar el job y seguir.
+
+### El defecto
+
+En `ResultsPage`, los botones de firmar salen del **bundle**, que está en memoria desde que se entra. Los totales salen de **IndexedDB**, que se lee en un efecto. Entre el primer pintado y esa lectura, `scores` está vacío: todos los totales valen `0` **y los botones ya están vivos**.
+
+Un toque en esa ventana abre el pad mostrando:
+
+```
+Pérez, Juan
+0
+Firmá para validar este puntaje
+```
+
+Y lo que se firma es lo que se está viendo. Es exactamente la línea que esa pantalla existe para sostener.
+
+La ventana es de milisegundos en una máquina de escritorio. En un celular barato, al sol, con la app recién abierta, es la clase de ventana que se abre.
+
+### El arreglo, y por qué no fue un `waitFor`
+
+La lista no se pinta hasta que la primera lectura terminó. **Corregir el producto arregló el test de raíz**: si hay un botón «Firmar», los puntajes ya están leídos. Meterle una espera al test habría dejado el defecto intacto y la carrera escondida.
+
+**No es un spinner de guardado**, que sería una violación de la regla: los puntajes están guardados desde la primera flecha. Es la espera de una lectura local para poder *mostrarlos*.
+
+### `CircuitPage` tiene el mismo patrón y no tiene el problema
+
+Ahí el estado vacío **subestima**: ningún blanco figura completo y `recorridoCompleto` queda en `false`. Falla hacia el lado seguro.
+
+La diferencia no es el patrón sino qué produce el estado vacío. En el circuito produce «todavía no hiciste nada». En resultados produce **un número**, y ese número se firma.
+
+> **2 controles de mutación, murieron 2**: sacar la guarda de la lista, y arrancar creyendo que ya se leyó.
+>
+> El patrón de esta bitácora otra vez, con una vuelta más: un test verde en la máquina no prueba nada sobre otra máquina. Y **un test que falla donde no tocaste puede estar señalando algo tuyo que no es**: acá señalaba un defecto de hace tiempo.
 ## 2026-08-17 · `dev` servía un `@bal/ui` viejo, y CI se colgaba en `apt`
 
 **Autor:** Claude Opus 5 · **Estado:** completado

@@ -250,6 +250,34 @@ describe('ResultsPage', () => {
     return { onCerrado };
   };
 
+  /**
+   * **No se firma antes de haber leído los puntajes.**
+   *
+   * Los botones de firmar salen del bundle, que está en memoria desde que se
+   * entra; los totales salen de IndexedDB, que se lee en un efecto. Entre el
+   * primer pintado y esa lectura, `scores` está vacío y **todos los totales
+   * valen 0** — con los botones ya vivos.
+   *
+   * Un toque en esa ventana abre el pad de firma mostrando `0`, y lo que se
+   * firma es lo que se está viendo. Es la línea que esta pantalla existe para
+   * sostener.
+   *
+   * Se mira el primer pintado a propósito, sin `await` en el medio: es el
+   * único momento en el que el defecto se ve, y cualquier espera lo tapa.
+   */
+  it('no ofrece firmar hasta haber leído los puntajes', async () => {
+    await cargarTodo();
+    renderResultados();
+
+    expect(screen.queryAllByRole('button', { name: 'Firmar' })).toHaveLength(0);
+
+    // Y cuando la lectura termina, aparecen con su total de verdad.
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Firmar' })).toHaveLength(2);
+    });
+    expect(screen.getAllByText('66')).toHaveLength(2);
+  });
+
   it('suma el total de cada arquero y lo desglosa por blanco', async () => {
     await cargarTodo();
     renderResultados();
