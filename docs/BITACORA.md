@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-18 · La imagen de producción no construía, y nadie lo sabía
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `INF-3`
+
+Preparando el repo para Railway apareció que **el Dockerfile no construye**. La etapa de dependencias copia los manifiestos uno por uno —a propósito, para reusar la capa— y `packages/ui/package.json` no estaba: `@bal/ui` nació en `REF2-1`, después de escribirse el Dockerfile.
+
+`packages/ui` **es un importer del lockfile**, así que `pnpm install --frozen-lockfile` sin ese directorio falla. No es una suposición: está en `pnpm-lock.yaml`.
+
+### Tercera vez, mismo olvido
+
+Las listas de la raíz nombran paquete por paquete, y `@bal/ui` se cayó de tres:
+
+| Dónde | Cómo se notó |
+|---|---|
+| `build`, `test`, `typecheck` | CI en rojo: `Failed to resolve import "@bal/ui"` |
+| `dev` | No rompía: servía un `dist/` viejo y parecía que el código nuevo no se aplicaba |
+| `Dockerfile` | **No se notó nunca**: la imagen jamás se había construido |
+
+`scripts/verificar-workspace.mjs` ahora también mira el Dockerfile. Sigue sin llevar lista: descubre los paquetes leyendo el workspace.
+
+### La causa real era que nadie la construía
+
+El Dockerfile existía desde `INF-3` y estaba en `[~]` con la nota «no se pudo correr `docker build`: no hay Docker en la máquina de desarrollo». Esa nota era honesta y **la deuda se cobró sola**: un archivo que nadie ejecuta se pudre en silencio.
+
+Se agregó el job `imagen` al CI. Construye, verifica el `uid` **corriendo el contenedor** y comprueba que sin configuración falle ruidosamente —humo mínimo que prueba que el entrypoint existe y que la validación de entorno corre antes de abrir el puerto—.
+
+Eso cierra además un ítem de [`SECURITY.md`](SECURITY.md) §13 que estaba abierto por el mismo motivo: «el contenedor corre como no root». `USER node` declarado no prueba nada mientras nadie lo construya. El checklist pasa de 36 a **37 de 38**.
+
+> **2 controles de mutación, murieron 2**: sacar el manifiesto de `@bal/api` y el de `@bal/landing` del Dockerfile.
+>
+> Un quinto job es costo real en cada PR. Se acepta porque el que falta cuesta un deploy caído la noche del torneo, que es cuando no hay nadie para arreglarlo.
+
+### Lo que sigue sin verificarse
+
+`INF-4` no se movió. El deploy necesita la cuenta de Railway y el cluster de Atlas, que son del dueño del proyecto, y el checklist de [`CONFIG.md`](CONFIG.md) §10 sigue sin correr. Lo que cambia es que ahora el repo **está en condiciones** de desplegarse; antes no lo estaba y no había forma de saberlo.
+
+---
+
 ## 2026-08-17 · Una sola puerta de entrada, y la vuelta a la landing
 
 **Autor:** Claude Opus 5 · **Estado:** completado

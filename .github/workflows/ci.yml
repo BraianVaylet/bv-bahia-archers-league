@@ -139,6 +139,45 @@ jobs:
             test-results/
           retention-days: 7
 
+  # La imagen de producción, construida de verdad.
+  #
+  # El Dockerfile existía desde `INF-3` y **nunca se había construido**: no hay
+  # Docker en la máquina de desarrollo. Así se le pasó que no copiaba el
+  # manifiesto de `@bal/ui`, que nació después — y con un importer en el
+  # lockfile sin su directorio, la imagen no construye.
+  #
+  # Un Dockerfile que nadie construye es un deploy que falla la noche del
+  # torneo, que es cuando no hay nadie para arreglarlo.
+  imagen:
+    name: Imagen de producción
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir
+        run: docker build -t bal:ci .
+
+      # `SECURITY.md` §13 lo pedía y estaba sin verificar por el mismo motivo:
+      # `USER node` declarado en el Dockerfile no prueba nada hasta que alguien
+      # corre el contenedor.
+      - name: El contenedor NO corre como root
+        run: |
+          uid=$(docker run --rm --entrypoint id bal:ci -u)
+          echo "uid=$uid"
+          test "$uid" != "0"
+
+      # Humo mínimo sin base de datos: prueba que el entrypoint existe, que node
+      # lo encuentra y que la validación de configuración corre **antes** de
+      # abrir el puerto. Un contenedor que levanta con secretos de desarrollo es
+      # peor que uno que no levanta.
+      - name: Sin configuración, falla ruidosamente
+        run: |
+          salida=$(docker run --rm -e NODE_ENV=production bal:ci 2>&1 || true)
+          echo "$salida"
+          echo "$salida" | grep -q 'MONGODB_URI'
+
   audit:
     name: Auditoría de dependencias
     runs-on: ubuntu-latest

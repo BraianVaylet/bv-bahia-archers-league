@@ -270,6 +270,7 @@ docker run -p 8787:8787 -e MONGODB_URI="mongodb+srv://..." -e SESSION_SECRET="..
 | `e2e` | Playwright (Chromium) contra el stack real con Mongo efímero | **Sí** |
 | `audit` | `pnpm audit --audit-level=high` | **Sí** ante crítico o alto |
 | `budget` | Verifica los presupuestos de tamaño de bundle de `TECHNICAL.md` §5 | **Sí** |
+| `imagen` | `docker build` de la imagen de producción, verifica que **no corre como root** y que sin configuración falla ruidosamente | **Sí** |
 
 Los tests de integración usan `mongodb-memory-server` en modo replica set. Los E2E levantan un Mongo en Docker dentro del runner.
 

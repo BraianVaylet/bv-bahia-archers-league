@@ -307,7 +307,7 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 ### Dependencias
 - [x] `pnpm audit` sin vulnerabilidades críticas ni altas. — job `audit` del CI, bloqueante
 - [ ] Sin secretos en el repositorio (`aikido:scan` limpio). — **pendiente**: el escaneo exige iniciar sesión en Aikido desde el navegador, que es del dueño del proyecto
-- [ ] El contenedor corre como usuario no root. — el `Dockerfile` declara `USER node`, pero **la imagen nunca se construyó**: no hay Docker en la máquina de desarrollo. Ver `INF-3`
+- [x] El contenedor corre como usuario no root. — job `imagen` del CI, bloqueante: construye la imagen y verifica el `uid` **corriendo el contenedor**. `USER node` declarado en el `Dockerfile` no probaba nada mientras nadie lo construyera, y de hecho la imagen **no construía**
 
 ---
 
