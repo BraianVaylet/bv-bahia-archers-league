@@ -14,6 +14,36 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-18 · `REF4-2` — se firmaba en un lugar mirando otro
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-2`
+
+El pedido lo describía como «la sección de firma se puede mejorar». Es un bug.
+
+### Un canvas tiene dos tamaños
+
+El buffer es fijo —900×600, elegido en `REF-6` para que firmar con el dedo no salga tembloroso— y CSS lo muestra al ancho que entre. `clientX` y `getBoundingClientRect` hablan en píxeles **CSS**; `moveTo` y `lineTo` hablan en píxeles del **buffer**. El código restaba el offset y usaba el resultado sin convertir.
+
+En un celular de 360 px el factor es 2,5: tocar el centro dibujaba al 20 % del ancho. **El trazo aparecía arriba y a la izquierda del dedo.**
+
+### La dirección la corrigió el test, no yo
+
+El plan decía «corrido hacia abajo y a la derecha». Es al revés, y me di cuenta recién al ver la aserción fallar: en el centro dibujaba en `180,120` donde correspondía `450,300`. Se corrigió el plan.
+
+> Es la razón de escribir el test antes: la explicación que uno tiene en la cabeza puede estar dada vuelta y el código funcionar igual de mal.
+
+### El stub fue el defecto
+
+La primera versión de `puntoEnElCanvas` era **exactamente el comportamiento viejo**. Así las aserciones no fallaron por un import roto ni por un `undefined`, sino reproduciendo el bug con números concretos. Cinco de trece rojas, y las cinco decían qué píxel estaba mal.
+
+### La guarda del recuadro sin tamaño
+
+Un recuadro de ancho cero —jsdom, o el instante previo al primer layout— daría `NaN`. Y `moveTo(NaN, NaN)` no rompe sólo ese punto: **deja el trazo entero sin dibujar**, sin error visible. Devolver el origen es peor gráficamente y mucho mejor operativamente.
+
+> **5 controles de mutación, murieron 5**: no escalar, invertir la razón, usar la escala de X también para Y, olvidar el offset, y sacar la guarda del recuadro sin tamaño.
+
+---
+
 ## 2026-08-18 · `REF4-1` — etiquetas más cortas, y una copia que las contradecía
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-1`

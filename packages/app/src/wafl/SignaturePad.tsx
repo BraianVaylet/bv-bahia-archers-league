@@ -66,6 +66,53 @@ export interface SignaturePadProps {
   readonly onCancelar: () => void;
 }
 
+export interface Punto {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Lo que hace falta del `getBoundingClientRect` del canvas. */
+export interface Recuadro {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** El tamaño del buffer del canvas, que NO es el tamaño en pantalla. */
+export interface Buffer {
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * El punto del evento, en coordenadas del **buffer** del canvas.
+ *
+ * **Un canvas tiene dos tamaños y no son el mismo.** El buffer es fijo —900×600,
+ * elegido en `REF-6` para que firmar con el dedo no salga tembloroso— y CSS lo
+ * muestra al ancho que entre en la pantalla. `clientX`/`clientY` y
+ * `getBoundingClientRect` hablan en píxeles CSS; `moveTo`/`lineTo` hablan en
+ * píxeles del buffer.
+ *
+ * Sin convertir, el trazo aparecía **arriba y a la izquierda del dedo**: en un
+ * celular de 360 px el factor es 2,5, así que tocar el centro dibujaba al 20 %
+ * del ancho. El arquero firmaba en un lugar mirando otro.
+ *
+ * Cada eje usa **su propia** razón: el recuadro no tiene por qué conservar la
+ * proporción del buffer.
+ */
+export function puntoEnElCanvas(cliente: Punto, rect: Recuadro, buffer: Buffer): Punto {
+  // Un recuadro sin tamaño —jsdom, o el instante previo al primer layout— no
+  // puede dividir. `NaN` sería peor que un cero: `moveTo(NaN, NaN)` deja el
+  // trazo entero sin dibujar, y el usuario no tendría forma de firmar.
+  if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+
+  return {
+    x: (cliente.x - rect.left) * (buffer.width / rect.width),
+    y: (cliente.y - rect.top) * (buffer.height / rect.height),
+  };
+}
+
 export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dibujando = useRef(false);
@@ -74,8 +121,11 @@ export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignatureP
   const contexto = () => canvasRef.current?.getContext('2d') ?? null;
 
   const puntoDe = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const canvas = e.currentTarget;
+    return puntoEnElCanvas({ x: e.clientX, y: e.clientY }, canvas.getBoundingClientRect(), {
+      width: canvas.width,
+      height: canvas.height,
+    });
   };
 
   const empezar = (e: React.PointerEvent<HTMLCanvasElement>) => {
