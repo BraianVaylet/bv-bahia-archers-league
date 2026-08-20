@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · El pie, en todas las pantallas y con los dos escudos
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Corrección de lo que `REF4-5` había hecho con el header, más un pedido nuevo.
+
+- **Header:** sólo el logo de la liga. El del CBA que yo había puesto ahí se va — duplicaba la marca del club en la misma pantalla y comía el ancho que la navegación necesita en un celular.
+- **Pie:** los dos escudos juntos a la izquierda, «Liga Bahiense» a la derecha.
+- **Pie en todas las pantallas**, también en las seis que terminan en barra de acción.
+
+### Esto cruza una decisión de `REF3-2`, y el motivo sigue siendo cierto
+
+`REF3-2` había sacado el pie de esas pantallas por **alto útil**: un pie de 5 rem debajo de la barra se come el espacio del contenido, y la regla del proyecto es que **gana el teclado de scoring**.
+
+No se dio de baja esa regla: se hizo que **ceda el pie**. Donde hay barra de acción va una versión compacta de una línea —escudos chicos y el nombre—, unos 34 px contra los ~80 de la completa.
+
+Si en el campo esos 34 px molestan en el teclado, la vuelta atrás es una prop.
+
+### El `alt` del escudo del club dejó de ser decorativo
+
+Era vacío **a propósito**: el nombre del CBA iba escrito al lado y un `alt` con el nombre haría que un lector de pantalla lo dijera dos veces. Ahora el único texto visible es «Liga Bahiense», así que con el `alt` vacío **el club no existiría** para un lector de pantalla.
+
+Es lo que queda de la regla que este archivo documenta —cada logo con su nombre— después de mover el club al lado de la liga. **El nombre del CBA ya no se ve escrito**, y eso es una pérdida real frente a lo que decía el diseño original.
+
+> **4 controles de mutación, murieron 4**: el escudo del club con `alt` vacío, el compacto dejando de serlo, volver a esconder el pie con barra fija, y reponer el CBA en el header.
+
+---
+
 ## 2026-08-20 · Un E2E que se muestreaba una vez, y una mutación que no probaba nada
 
 **Autor:** Claude Opus 5 · **Estado:** completado

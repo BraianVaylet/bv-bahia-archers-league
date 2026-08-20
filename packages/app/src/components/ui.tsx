@@ -149,18 +149,23 @@ export function Screen({ children, conBarraFija }: ScreenProps) {
       </div>
 
       {/*
-        **El pie va donde no hay barra fija.**
+        **El pie va en todas las pantallas, y donde hay barra de acción va
+        compacto.**
 
-        Ya no es por superposición —desde `REF3-2` los dos son hermanos en la
-        columna y no se pisan— sino por **alto útil**: en un celular chico, un
-        pie de 5rem debajo de la barra de acción se come el espacio del
-        contenido. Una pantalla que termina en una acción no necesita además el
-        crédito institucional.
+        `REF3-2` lo había sacado de esas pantallas por **alto útil**: un pie de
+        5 rem debajo de la barra se come el espacio del contenido, y el teclado
+        de scoring gana. Sigue siendo cierto — por eso lo que cede es el pie y
+        no el teclado.
 
-        En la práctica esto lo deja fuera del recorrido y del teclado de
-        scoring, que es exactamente donde no se lo quiere.
+        La versión compacta es una línea: los dos escudos chicos y el nombre.
+        Cuesta unos 34 px contra los ~80 de la completa.
       */}
-      {!conBarraFija && <Footer anchoMaximo="max-w-lg" className="shrink-0 mt-0" />}
+      {/* `mt-0`: en una columna flex el margen del pie sería un hueco. */}
+      <Footer
+        anchoMaximo="max-w-lg"
+        className="shrink-0 mt-0"
+        {...(conBarraFija ? { compacto: true } : {})}
+      />
     </>
   );
 }

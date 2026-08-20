@@ -681,15 +681,15 @@ describe('ArcherPage', () => {
 
 describe('Encabezado', () => {
   /**
-   * **Los dos escudos, nombrados.** Un logo sin texto alternativo no existe
-   * para un lector de pantalla, y el del CBA es de un club: tiene que decir de
-   * quién es.
+   * **En el header va sólo el logo de la liga.**
+   *
+   * El del CBA vive en el pie, junto al de la liga. Tenerlo también acá arriba
+   * duplicaba la marca del club en la misma pantalla y comía el ancho que la
+   * navegación necesita en un celular.
    */
-  it('muestra el escudo del CBA con su nombre', () => {
+  it('no lleva el escudo del CBA: ese vive en el pie', () => {
     renderEn(<Encabezado />);
-
-    const cba = screen.getByAltText(/Círculo Bahiense/i);
-    expect(cba).toBeDefined();
+    expect(screen.queryByAltText(/Círculo Bahiense/i)).toBeNull();
   });
 
   it('el nombre de la liga sigue estando escrito', () => {
