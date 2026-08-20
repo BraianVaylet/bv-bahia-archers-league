@@ -7,7 +7,9 @@
  * Ver `docs/ARCHITECTURE.md` §2.
  */
 
+import { enlaceEntreApps } from '@bal/shared';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { InstalarApp } from './components/InstalarApp.js';
 import { RegistroDeVersion } from './components/registroDeVersion.js';
 import { Button, Screen } from './components/ui.js';
 import { WafaApp } from './wafa/WafaApp.js';
@@ -15,6 +17,9 @@ import { WaflApp } from './wafl/WaflApp.js';
 
 /** El service worker está montado en `/app/`, así que el router también. */
 const BASENAME = '/app';
+
+/** En producción es la raíz; con `pnpm dev`, el Vite de la landing. */
+const A_LA_LANDING = enlaceEntreApps('landing', import.meta.env.DEV, window.location.href);
 
 function Elegir() {
   return (
@@ -34,6 +39,25 @@ function Elegir() {
           Soy administrador
         </Button>
       </Link>
+
+      {/*
+        La salida al sitio público.
+
+        Va **después** de los dos roles: quien abre `/app/` viene a entrar, no a
+        mirar resultados. Pero sin esto la pantalla es un callejón para el que
+        llegó por error — y desde `ref-3` el botón Atrás ya no saca de la app.
+
+        `enlaceEntreApps` porque en producción la landing es `/` y con
+        `pnpm dev` es otro puerto.
+      */}
+      <a
+        href={A_LA_LANDING}
+        className="min-h-[44px] flex items-center justify-center text-[var(--ink-muted)] underline"
+      >
+        Ver resultados y rankings
+      </a>
+
+      <InstalarApp />
     </Screen>
   );
 }

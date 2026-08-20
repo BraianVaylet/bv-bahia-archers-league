@@ -14,6 +14,36 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-18 · `REF4-4` — la puerta de entrada deja salir, y recomienda instalar
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-4`
+
+La pantalla de elección de rol suma una salida al sitio público y una recomendación de instalar la app.
+
+La salida va **después** de los dos roles: quien abre `/app/` viene a entrar, no a mirar resultados. Pero sin ella la pantalla es un callejón para el que llegó por error — y desde `ref-3` el botón Atrás ya no saca de la app.
+
+### Un botón que no hace nada es peor que no ofrecer nada
+
+Chrome dispara `beforeinstallprompt` y da un diálogo nativo. **iOS no tiene ese evento ni ninguna API equivalente**: instalar es «Compartir → Agregar a inicio», a mano.
+
+Ofrecer «Instalar ahora» en un iPhone daría un botón que se toca, no pasa nada, y el usuario concluye que la app está rota. Así que la decisión es explícita y pura: `instalada` gana sobre todo, después el prompt nativo, después las instrucciones de iOS, y si no, nada.
+
+La ausencia de `beforeinstallprompt` **no distingue** un iPhone de un Firefox de escritorio, así que iOS se detecta por user agent. El iPad moderno se declara «Macintosh»: se lo separa por tener pantalla táctil.
+
+### Acá sí es un modal, y en `REF4-3` no
+
+Parece contradictorio y no lo es. Esto pasa en la puerta de entrada, con el usuario parado y sin nada que perder por interrumpir. El aviso de versión pasa **a mitad de un recorrido**, que es exactamente lo que la regla 7 protege.
+
+### El lint tenía razón sobre el diálogo
+
+La primera versión cerraba al tocar el fondo, con el manejador sobre un `div` sin rol interactivo. Biome lo marcó y la corrección no fue silenciarlo: **un fondo que se comporta como botón no se anuncia a un lector de pantalla y quien navega con teclado nunca llega**. Quedó el botón «Cerrar» como salida accesible y Escape a nivel documento como atajo.
+
+> **5 controles de mutación, murieron 5**: ignorar que ya está instalada, ofrecer el botón nativo en iOS, ofrecer instalar sin evento —el botón muerto—, tirar la guarda de `matchMedia`, y que la pantalla deje de montar la salida a la landing.
+
+> La guarda de `matchMedia` es la lección de `REF-4`, donde una API ausente dejó una pantalla entera en blanco. Acá lo peor que puede pasar es ofrecer instalar algo ya instalado; romper la puerta de entrada, no.
+
+---
+
 ## 2026-08-18 · `REF4-3` — la regla 7 estaba a medias
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-3`

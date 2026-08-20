@@ -110,13 +110,13 @@ Las claves del dominio **ya son cortas** (`recurvo`, `compuesto`, `cazador`). Lo
 
 ---
 
-### `[ ] REF4-3` · Avisar que hay versión nueva · **P0**
+### `[x] REF4-3` · Avisar que hay versión nueva · **P0**
 
 **Archivos:** `app/src/main.tsx` o `App.tsx`, componente nuevo, `vite.config.ts` si hace falta
 
-- [ ] `virtual:pwa-register/react`, con `onNeedRefresh`
-- [ ] **Barra, no modal.** Con «Actualizar» y con «Ahora no»
-- [ ] «Ahora no» no vuelve a preguntar en esa sesión
+- [x] `virtual:pwa-register/react`, con `onNeedRefresh`
+- [x] **Barra, no modal.** Con «Actualizar» y con «Ahora no»
+- [x] «Ahora no» no vuelve a preguntar en esa sesión
 
 **DoD:** con una versión nueva servida, aparece el aviso; al aceptar, la app queda en la nueva; al rechazar, sigue en la vieja **sin perder nada**.
 **Tests:** el aviso aparece con `onNeedRefresh` y no antes · aceptar llama a `updateServiceWorker`.
@@ -126,14 +126,14 @@ Las claves del dominio **ya son cortas** (`recurvo`, `compuesto`, `cazador`). Lo
 
 ---
 
-### `[ ] REF4-4` · La puerta de entrada · **P1**
+### `[x] REF4-4` · La puerta de entrada · **P1**
 
 **Archivos:** `app/src/App.tsx`, componente nuevo
 
-- [ ] Botón **«Ver la liga»** a la landing, con `enlaceEntreApps`
-- [ ] Recomendación de **instalar la app**, con accionable
-- [ ] Donde no hay `beforeinstallprompt` —iOS— se explican los pasos, no se ofrece un botón muerto
-- [ ] Si ya está instalada (`display-mode: standalone`), no se ofrece nada
+- [x] Botón **«Ver la liga»** a la landing, con `enlaceEntreApps`
+- [x] Recomendación de **instalar la app**, con accionable
+- [x] Donde no hay `beforeinstallprompt` —iOS— se explican los pasos, no se ofrece un botón muerto
+- [x] Si ya está instalada (`display-mode: standalone`), no se ofrece nada
 
 **DoD:** en Android aparece el botón y llama al prompt nativo · en iOS aparecen los pasos · instalada, no aparece nada.
 **Tests:** los tres estados · el enlace a la landing sale de `/app`.
