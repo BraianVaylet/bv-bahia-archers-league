@@ -7,7 +7,7 @@
  * Ver `docs/FUNCTIONAL.md` §7.3 y `docs/OFFLINE_SYNC.md` §1.
  */
 
-import type { Modality } from '@bal/shared';
+import { SCORING } from '@bal/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
@@ -24,13 +24,6 @@ export interface TargetPageProps {
   readonly onContinuar: () => void;
   readonly onVolver: () => void;
 }
-
-const ETIQUETA_MODALIDAD: Record<Modality, string> = {
-  sala: 'Sala 18 m',
-  aire_libre: 'Aire libre',
-  campo: 'Juego de campo',
-  '3d': '3D',
-};
 
 export function TargetPage({ target, participants, onContinuar, onVolver }: TargetPageProps) {
   const [scores, setScores] = useState<StoredScore[]>([]);
@@ -145,7 +138,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
             Blanco {target.index}
           </h1>
           <p className="text-[var(--ink-muted)]">
-            {ETIQUETA_MODALIDAD[target.modality]} · {target.arrows}{' '}
+            {SCORING[target.modality].label} · {target.arrows}{' '}
             {target.arrows === 1 ? 'flecha' : 'flechas'}
           </p>
         </div>

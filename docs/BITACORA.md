@@ -14,6 +14,32 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-18 · `REF4-1` — etiquetas más cortas, y una copia que las contradecía
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-1`
+
+Arranca [`ref-4`](post/ref-4/ACTION_PLAN.md). Las etiquetas de categoría y modalidad se acortan según el diccionario del pedido: «Compuesto cazador» pasa a «Cazador», «Sala 18 m» a «18 m», «Juego de campo» a «Campo».
+
+**Ninguna clave cambia.** `recurvo`, `compuesto`, `campo` viajan en la base, en las URLs y en los `data-testid`. Lo que cambia es sólo lo que lee un humano.
+
+El ancho del celular es el recurso escaso de este proyecto, y dos de los tres «la UI se rompe» del pedido son consecuencia de estas etiquetas: «Compuesto cazador» al lado de un nombre y una estaca no entra en 360 px. Por eso esta tanda va primero — las que siguen gastan el ancho que ésta gana.
+
+### La etiqueta estaba escrita dos veces
+
+`TargetPage` tenía su propio `ETIQUETA_MODALIDAD`, copia de `SCORING[*].label`. Cambiar sólo el catálogo habría dejado a WAFL —la app del monte— diciendo «Juego de campo» mientras las otras dos decían «Campo». Ahora lee del catálogo.
+
+### Dos tests se rompieron, y estuvo bien
+
+Uno en el wizard de WAFA y otro en las donas de la landing, los dos afirmando sobre el literal («Recurvo olímpico», «Sala»). **Es la señal correcta**: se estaba usando la etiqueta como identidad.
+
+Se corrigieron leyendo la etiqueta del catálogo, no pegándoles el texto nuevo. Lo que tienen que verificar es que **la categoría se muestre**, no con qué palabra — si no, el próximo cambio de etiqueta los vuelve a romper por nada.
+
+> **3 controles de mutación, murieron 3**: reponer una etiqueta larga, vaciar una, y repetir una entre dos categorías.
+
+> El test de largo máximo es 11 y no 9: `Tradicional` mide 11 y el pedido no lo acorta. El plan decía 9 y se corrigió el plan, no el test.
+
+---
+
 ## 2026-08-18 · La imagen de producción no construía, y nadie lo sabía
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `INF-3`

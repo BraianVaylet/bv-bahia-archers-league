@@ -1,3 +1,4 @@
+import { CATEGORY_INFO } from '@bal/shared';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TournamentCreatePage } from './pages/TournamentCreate.js';
@@ -273,8 +274,16 @@ describe('paso 3 · participantes', () => {
     await waitFor(() => {
       expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
     });
+    /*
+      La etiqueta se lee del catálogo, no se escribe acá.
+
+      Estaba puesta a mano como «Recurvo olímpico» y `REF4-1` la acortó: el test
+      se rompió, que es la señal correcta — se estaba usando la etiqueta como
+      identidad. Lo que hay que verificar es que **se muestre la categoría**, no
+      que diga un string en particular; la identidad es la clave, no el texto.
+    */
     expect(screen.getByTestId('conteo-elegidos').parentElement?.textContent ?? '').toMatch(
-      /Recurvo olímpico\s*1/,
+      new RegExp(`${CATEGORY_INFO.recurvo.label}\\s*1`),
     );
   });
 });

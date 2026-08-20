@@ -74,7 +74,7 @@ const DIEZ_ANILLOS_SET = [
 export const SCORING: Readonly<Record<Modality, ModalityConfig>> = {
   sala: {
     key: 'sala',
-    label: 'Sala 18 m',
+    label: '18 m',
     defaultArrows: 3,
     maxPerArrow: 10,
     scoringSet: DIEZ_ANILLOS_SET,
@@ -98,7 +98,7 @@ export const SCORING: Readonly<Record<Modality, ModalityConfig>> = {
 
   campo: {
     key: 'campo',
-    label: 'Juego de campo',
+    label: 'Campo',
     defaultArrows: 3,
     maxPerArrow: 6,
     scoringSet: [X6_TOKEN, '6', '5', '4', '3', '2', '1', MISS_TOKEN],
@@ -159,9 +159,9 @@ export interface CategoryInfo {
 }
 
 export const CATEGORY_INFO: Readonly<Record<BowCategory, CategoryInfo>> = {
-  recurvo: { key: 'recurvo', label: 'Recurvo olímpico', sort: 1, senior: true },
-  compuesto: { key: 'compuesto', label: 'Compuesto libre', sort: 2, senior: true },
-  cazador: { key: 'cazador', label: 'Compuesto cazador', sort: 3, senior: true },
+  recurvo: { key: 'recurvo', label: 'Recurvo', sort: 1, senior: true },
+  compuesto: { key: 'compuesto', label: 'Compuesto', sort: 2, senior: true },
+  cazador: { key: 'cazador', label: 'Cazador', sort: 3, senior: true },
   razo: { key: 'razo', label: 'Razo', sort: 4, senior: true },
   tradicional: { key: 'tradicional', label: 'Tradicional', sort: 5, senior: true },
   longbow: { key: 'longbow', label: 'Longbow', sort: 6, senior: true },
