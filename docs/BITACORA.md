@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-18 · `REF4-3` — la regla 7 estaba a medias
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-3`
+
+`registerType: prompt` estaba bien puesto en `vite.config.ts` desde siempre. **Lo que faltaba era alguien que escuchara.**
+
+`registerSW.js` se inyecta solo y registra el service worker. Al haber versión nueva, `sw.js` la descarga y queda en `waiting` esperando un mensaje `SKIP_WAITING` que **ningún código de la página mandaba**: no había un solo `useRegisterSW` ni `onNeedRefresh` en todo `packages/app/src`. En una PWA instalada, que casi no se cierra, el usuario se quedaba con su versión para siempre.
+
+> Los dos E2E de PWA pasaban y decían la verdad: el SW se registra, y no se auto-actualiza. Ninguno verificaba que el usuario **pudiera** actualizar.
+
+### Una barra, nunca un modal
+
+Recargar a mitad de recorrido es lo que la regla 7 prohíbe, así que el aviso no puede tapar la pantalla ni robar el foco. «Ahora no» va primero y con el mismo peso visual: en medio de un torneo esa es casi siempre la respuesta correcta, y la que se toca sin mirar tiene que ser la que no interrumpe.
+
+La barra queda en `z-10`, **por debajo** del pad de firma (`z-20`): ofrecerle una actualización a alguien que está firmando es el peor momento posible. A cambio puede tapar una barra de acción, y se acepta — aparece sólo con versión nueva y se va con un toque.
+
+### El router no renderiza nada si el basename no coincide
+
+El aviso estaba dentro de `BrowserRouter` y el test no lo encontraba. **`BrowserRouter` con un `basename` que no matchea la URL no renderiza absolutamente nada**, ni siquiera los hijos que no son rutas.
+
+Se movió afuera. En producción la PWA siempre se sirve bajo `/app/` y habría funcionado igual, pero atar el aviso de actualización a que el routing esté bien configurado es acoplar dos cosas que no tienen nada que ver.
+
+### El build encontró lo que los tests tapaban
+
+`virtual:pwa-register/react` sólo existe dentro de Vite, así que en los tests se resuelve contra un doble aliaseado en `vitest.config.ts`. Ese doble es lo que permite probar que el aviso está **conectado** — no sólo escrito.
+
+Pero también tapaba un problema real: `workbox-window` **no resolvía** desde `@bal/app` bajo pnpm estricto, y el build fallaba. Los 1184 tests pasaban igual. Se agregó como dependencia directa; cuesta 2,9 KB gz y la PWA queda en 123,76 de 150.
+
+El E2E nuevo mira lo que el navegador **cargó de verdad**, no el código fuente: que un componente importe el módulo virtual no prueba que el chunk llegue al bundle. No llegaba.
+
+> **4 controles de mutación, murieron 4**: que `App` no monte el aviso —el defecto original—, mostrarlo siempre, que «Ahora no» también actualice, y actualizar sin recargar.
+
+### Deuda que quedó abierta
+
+`scripts/presupuesto.mjs` mide el `dist/` que encuentra **sin saber si el build falló**. Con el build roto me dijo «todos los presupuestos en verde» sobre una salida vieja. En CI no engaña —son pasos separados y el job corta antes— pero a mano sí.
+
+---
+
 ## 2026-08-18 · `REF4-2` — se firmaba en un lugar mirando otro
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-2`

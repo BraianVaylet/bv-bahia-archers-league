@@ -135,3 +135,28 @@ test('el service worker NO se auto-actualiza a mitad de recorrido', async ({ req
   // Y sí precachea: sin precache, sin señal no hay app que abrir.
   expect(codigo).toMatch(/precache/i);
 });
+
+/**
+ * **La página puede hablarle al service worker.**
+ *
+ * `registerType: 'prompt'` deja el service worker nuevo en `waiting` hasta que
+ * alguien le mande `SKIP_WAITING`. Ese mensaje lo manda `workbox-window` desde
+ * la página, y hasta `REF4-3` **no estaba en el bundle**: la mitad que activa
+ * la versión nueva no existía, y el usuario se quedaba con la que tenía.
+ *
+ * Se mira lo que el navegador **cargó de verdad**, no el código fuente: que un
+ * componente importe el módulo virtual no prueba que el chunk llegue al
+ * bundle. De hecho no llegaba — `workbox-window` no resolvía bajo pnpm, y eso
+ * lo encontró el build, no los tests.
+ */
+test('el bundle trae con qué activar la versión nueva', async ({ page }) => {
+  await page.goto('/app/');
+
+  const cargoWorkboxWindow = await page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .some((r) => /workbox-window/.test((r as PerformanceResourceTiming).name)),
+  );
+
+  expect(cargoWorkboxWindow, 'la página no cargó workbox-window').toBe(true);
+});
