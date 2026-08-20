@@ -141,13 +141,13 @@ Las claves del dominio **ya son cortas** (`recurvo`, `compuesto`, `cazador`). Lo
 
 ---
 
-### `[ ] REF4-5` · Las tres pantallas que se rompen · **P1**
+### `[x] REF4-5` · Las tres pantallas que se rompen · **P1**
 
 **Archivos:** `wafa/pages/Payments.tsx`, `landing/pages/Tournaments.tsx`, `landing/components/ui.tsx`
 
-- [ ] **Pagos:** nombre y estado en la primera fila; los accionables en la segunda
-- [ ] **Torneos (landing):** nombre y categoría en la primera fila; la estaca en la segunda
-- [ ] **Header:** CBA a la izquierda, el de la Liga al lado, «Liga Bahiense» a la derecha. Una sola línea
+- [x] **Pagos:** nombre y estado en la primera fila; los accionables en la segunda
+- [x] **Torneos (landing):** nombre y categoría en la primera fila; la estaca en la segunda
+- [x] **Header:** CBA a la izquierda, el de la Liga al lado, «Liga Bahiense» a la derecha. Una sola línea
 
 **DoD:** a 320 px de ancho no hay desborde horizontal en ninguna de las tres · los objetivos táctiles siguen en 44 px.
 **Tests:** que el estado de pago siga siendo legible **sin color** · que el header nombre a los dos con `alt`.

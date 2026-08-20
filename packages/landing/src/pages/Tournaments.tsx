@@ -276,14 +276,29 @@ export function TournamentPage() {
               </div>
 
               <ul className="pt-1 flex flex-col gap-1 text-sm">
+                {/*
+                  **Dos filas, no una.**
+
+                  Nombre, categoría y estaca en línea no entran en un celular:
+                  el nombre se truncaba a dos letras para hacerle lugar al chip
+                  de estaca, y saber quién está en cada patrulla es justamente
+                  para lo que se mira esta pantalla.
+
+                  Arriba quién es y en qué categoría; abajo desde qué estaca
+                  tira. `REF4-1` acortó las etiquetas y eso ya ayudó, pero
+                  «Tradicional» más un nombre completo más el chip sigue sin
+                  entrar a 320 px.
+                */}
                 {p.members.map((m) => (
-                  <li key={`${m.lastName}-${m.firstName}`} className="flex items-center gap-2">
-                    <span className="min-w-0 truncate">
-                      {m.lastName}, {m.firstName}
-                    </span>
-                    <span className="text-[var(--ink-muted)]">
-                      {CATEGORY_INFO[m.category].label}
-                    </span>
+                  <li key={`${m.lastName}-${m.firstName}`} className="flex flex-col gap-0.5">
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <span className="min-w-0 truncate">
+                        {m.lastName}, {m.firstName}
+                      </span>
+                      <span className="text-[var(--ink-muted)] shrink-0">
+                        {CATEGORY_INFO[m.category].label}
+                      </span>
+                    </div>
                     <StakeChip stake={m.stake} compacto />
                   </li>
                 ))}

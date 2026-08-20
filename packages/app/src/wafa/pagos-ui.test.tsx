@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentsPanel } from './pages/Payments.js';
 
@@ -150,5 +150,46 @@ describe('PaymentsPanel', () => {
 
     expect(await screen.findByTestId('sin-inscripcion')).toBeDefined();
     expect(screen.queryByTestId('recaudacion')).toBeNull();
+  });
+});
+
+// ── REF4-5 · La fila en un celular ───────────────────────────────────────────
+
+/**
+ * **Dos filas, no una.**
+ *
+ * Estaba todo en línea —nombre, categoría, patrulla, estado y botón— y en un
+ * celular el nombre se truncaba a tres letras para hacerle lugar al botón. El
+ * admin no puede identificar a quién le está cobrando.
+ */
+describe('la fila de pago entra en un celular', () => {
+  it('el estado acompaña al nombre, y la acción va aparte', async () => {
+    servidor(resumen());
+    renderPagos();
+
+    const estado = await screen.findByTestId('estado-pago-Pérez');
+    const arriba = estado.parentElement as HTMLElement;
+
+    // Arriba: quién es y cómo está. Ninguna acción en esa línea.
+    expect(arriba.textContent).toMatch(/Pérez/);
+    expect(within(arriba).queryByRole('button')).toBeNull();
+
+    /*
+      Y la tarjeta apila, no alinea.
+
+      Sin esto el test pasaba con la fila vuelta a una sola línea: el
+      agrupamiento del DOM no cambia, cambia la dirección del flex. Lo destapó
+      un control de mutación.
+    */
+    expect(screen.getByTestId('pago-Pérez').className).toContain('flex-col');
+  });
+
+  /** La acción ocupa el ancho: es el objetivo táctil, y se toca con guantes. */
+  it('la acción va a lo ancho de la tarjeta', async () => {
+    servidor(resumen());
+    renderPagos();
+
+    const fila = await screen.findByTestId('pago-Pérez');
+    expect(within(fila).getByRole('button').className).toContain('w-full');
   });
 });
