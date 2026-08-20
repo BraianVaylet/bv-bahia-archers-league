@@ -160,10 +160,9 @@ export function Screen({ children, conBarraFija }: ScreenProps) {
         La versión compacta es una línea: los dos escudos chicos y el nombre.
         Cuesta unos 34 px contra los ~80 de la completa.
       */}
-      {/* `mt-0`: en una columna flex el margen del pie sería un hueco. */}
       <Footer
         anchoMaximo="max-w-lg"
-        className="shrink-0 mt-0"
+        className="shrink-0"
         {...(conBarraFija ? { compacto: true } : {})}
       />
     </>

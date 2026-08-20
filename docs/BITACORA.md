@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · El margen que todos anulaban, y un test con un retroceso adentro
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+El pie traía `mt-8` y **los dos únicos consumidores lo cancelaban con `mt-0`**. En una columna flex de alto fijo ese margen no es aire: es un hueco entre el contenido y el pie.
+
+Un valor que todo el mundo anula no es un default, es una trampa — el que agregue un consumidor nuevo se come el hueco y no sabe de dónde salió. Se fue del componente, y con él los dos `mt-0` que ya no cancelaban nada.
+
+### El test que lo fija pasaba vacío
+
+La primera versión de la aserción usaba un límite de palabra:
+
+```ts
+expect(...).not.toMatch(/mt-\d/);
+```
+
+Pero el `` quedó escrito como un **carácter de retroceso literal**, invisible al leer el archivo y al hacer `grep`. La expresión no matcheaba nunca y el test pasaba con el `mt-8` puesto.
+
+**Lo destapó el control de mutación**, no la revisión: reponer `mt-8` daba verde. Se reescribió comparando clases enteras, sin expresión regular.
+
+> Es la quinta vez en esta bitácora que una mutación corrige un test que yo ya había dado por bueno — y la primera en que el defecto era un carácter que no se ve.
+
+---
+
 ## 2026-08-20 · El pie, en todas las pantallas y con los dos escudos
 
 **Autor:** Claude Opus 5 · **Estado:** completado
