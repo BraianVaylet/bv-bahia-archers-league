@@ -24,15 +24,11 @@ Un valor que todo el mundo anula no es un default, es una trampa — el que agre
 
 ### El test que lo fija pasaba vacío
 
-La primera versión de la aserción usaba un límite de palabra:
-
-```ts
-expect(...).not.toMatch(/mt-\d/);
-```
-
-Pero el `` quedó escrito como un **carácter de retroceso literal**, invisible al leer el archivo y al hacer `grep`. La expresión no matcheaba nunca y el test pasaba con el `mt-8` puesto.
+La primera versión de la aserción usaba un límite de palabra —`\` seguido de `b`— al principio de la expresión. Ese par de caracteres quedó escrito como **un solo carácter de retroceso**, invisible al leer el archivo y al hacer `grep`: la expresión no matcheaba nunca y el test pasaba con el `mt-8` puesto.
 
 **Lo destapó el control de mutación**, no la revisión: reponer `mt-8` daba verde. Se reescribió comparando clases enteras, sin expresión regular.
+
+> Y pasó de nuevo al escribir esta entrada: el texto que describe el problema se guardó **con dos retrocesos adentro**. Se limpiaron. La herramienta que escribe archivos desde el shell interpreta esas secuencias, y no se ve al releer.
 
 > Es la quinta vez en esta bitácora que una mutación corrige un test que yo ya había dado por bueno — y la primera en que el defecto era un carácter que no se ve.
 
