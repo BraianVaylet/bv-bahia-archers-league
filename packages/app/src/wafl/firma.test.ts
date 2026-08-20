@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ESCALAS_DE_FIRMA, exportarDentroDelLimite } from './SignaturePad.js';
+import { ESCALAS_DE_FIRMA, exportarDentroDelLimite, puntoEnElCanvas } from './SignaturePad.js';
 
 /**
  * Peso del PNG de la firma.
@@ -120,5 +120,69 @@ describe('exportarDentroDelLimite', () => {
   it('las escalas van de mayor a menor y arrancan en 1', () => {
     expect(ESCALAS_DE_FIRMA[0]).toBe(1);
     expect([...ESCALAS_DE_FIRMA]).toEqual([...ESCALAS_DE_FIRMA].sort((a, b) => b - a));
+  });
+});
+
+// ── REF4-2 · Dónde cae el trazo ──────────────────────────────────────────────
+
+/**
+ * **El punto en el que se dibuja tiene que ser el punto en el que se tocó.**
+ *
+ * El canvas tiene un buffer fijo de 900×600 y CSS lo muestra al ancho que
+ * entre. Sin escalar, un píxel CSS se usaba como coordenada del buffer: en un
+ * celular de 360 px el trazo aparecía unas 2,7× corrido hacia abajo y a la
+ * derecha, y el arquero firmaba en un lugar mirando otro.
+ *
+ * La cuenta es pura y se prueba sin DOM: jsdom no tiene canvas, y el
+ * `getBoundingClientRect` de un elemento sin layout devuelve todo en cero.
+ */
+describe('puntoEnElCanvas', () => {
+  /** El caso real: buffer de 900×600 mostrado en un celular de 360 px. */
+  const CELULAR = { left: 0, top: 0, width: 360, height: 240 };
+  const BUFFER = { width: 900, height: 600 };
+
+  it('el centro del recuadro cae en el centro del buffer', () => {
+    expect(puntoEnElCanvas({ x: 180, y: 120 }, CELULAR, BUFFER)).toEqual({ x: 450, y: 300 });
+  });
+
+  it('la esquina de arriba a la izquierda es el origen', () => {
+    expect(puntoEnElCanvas({ x: 0, y: 0 }, CELULAR, BUFFER)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('la esquina de abajo a la derecha es el extremo del buffer', () => {
+    expect(puntoEnElCanvas({ x: 360, y: 240 }, CELULAR, BUFFER)).toEqual({ x: 900, y: 600 });
+  });
+
+  /** El recuadro no arranca en el origen de la ventana: hay header arriba. */
+  it('descuenta la posición del recuadro en la pantalla', () => {
+    const corrido = { left: 20, top: 100, width: 360, height: 240 };
+    expect(puntoEnElCanvas({ x: 200, y: 220 }, corrido, BUFFER)).toEqual({ x: 450, y: 300 });
+  });
+
+  /**
+   * **Cada eje con su propia razón.**
+   *
+   * Es la mutación más fácil de escribir sin darse cuenta: calcular una escala
+   * con el ancho y usarla también para el alto. Acá el recuadro no es
+   * proporcional al buffer, así que las dos razones difieren.
+   */
+  it('usa la escala de cada eje, no una sola', () => {
+    const chato = { left: 0, top: 0, width: 900, height: 300 };
+    expect(puntoEnElCanvas({ x: 450, y: 150 }, chato, BUFFER)).toEqual({ x: 450, y: 300 });
+  });
+
+  it('si el recuadro mide lo mismo que el buffer, el punto no se mueve', () => {
+    const igual = { left: 0, top: 0, width: 900, height: 600 };
+    expect(puntoEnElCanvas({ x: 123, y: 456 }, igual, BUFFER)).toEqual({ x: 123, y: 456 });
+  });
+
+  /**
+   * Un recuadro sin tamaño no puede dividir. Pasa en jsdom y en el instante
+   * anterior al primer layout; devolver `NaN` dejaría el canvas sin poder
+   * dibujar nunca más, porque `moveTo(NaN, NaN)` rompe el trazo entero.
+   */
+  it('un recuadro sin tamaño no produce NaN', () => {
+    const sinTamano = { left: 0, top: 0, width: 0, height: 0 };
+    expect(puntoEnElCanvas({ x: 10, y: 10 }, sinTamano, BUFFER)).toEqual({ x: 0, y: 0 });
   });
 });

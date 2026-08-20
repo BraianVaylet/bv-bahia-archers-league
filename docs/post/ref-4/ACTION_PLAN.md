@@ -39,7 +39,7 @@ const rect = e.currentTarget.getBoundingClientRect();
 return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 ```
 
-El canvas tiene un **buffer de 900×600** y CSS lo muestra al ancho que entre. El resultado son píxeles CSS usados como coordenadas del buffer, **sin escalar**: en un celular de 360 px el trazo aparece unas 2,7× corrido hacia abajo y a la derecha.
+El canvas tiene un **buffer de 900×600** y CSS lo muestra al ancho que entre. El resultado son píxeles CSS usados como coordenadas del buffer, **sin escalar**: en un celular de 360 px el factor es 2,5, así que tocar el centro dibuja al 20 % del ancho. El trazo aparece **arriba y a la izquierda del dedo** — la primera versión de este plan decía la dirección al revés, y lo corrigió ver fallar el test.
 
 No es un ajuste estético. Es la pantalla donde el arquero valida su puntaje, y una firma que no se parece a la suya es la que se discute después.
 
@@ -95,12 +95,12 @@ Las claves del dominio **ya son cortas** (`recurvo`, `compuesto`, `cazador`). Lo
 
 ---
 
-### `[ ] REF4-2` · La firma dibuja donde se toca · **P0** · **TDD**
+### `[x] REF4-2` · La firma dibuja donde se toca · **P0** · **TDD**
 
 **Archivos:** `app/src/wafl/SignaturePad.tsx`
 
-- [ ] El punto se escala por `canvas.width / rect.width` y `canvas.height / rect.height`
-- [ ] Función **pura** para el cálculo, testeable sin DOM
+- [x] El punto se escala por `canvas.width / rect.width` y `canvas.height / rect.height`
+- [x] Función **pura** para el cálculo, testeable sin DOM
 
 **DoD:** el trazo aparece bajo el dedo en un celular de 360 px y en un escritorio de 1280 px.
 **Tests:** el punto en el centro del rectángulo cae en el centro del buffer · una esquina cae en la esquina · con rect y buffer del mismo tamaño el punto no se mueve.
