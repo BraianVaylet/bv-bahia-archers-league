@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · `REF5-1` — las tablas dejaron de scrollear de costado
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-1`
+
+Arranca [`ref-5`](post/ref-5/ACTION_PLAN.md), la pasada de diseño. Alcance acordado: **refresh dentro de las reglas** — la dirección visual de §1 no se toca, se moderniza el acabado.
+
+### La regla la rompía un componente del propio sistema
+
+`TablaScrollable` envolvía toda tabla en `overflow-x-auto`. §7 dice *«ancho mínimo 360 px, cero scroll horizontal, en ninguna pantalla»*, y el podio tiene **ocho columnas**.
+
+La página no desbordaba —el scroll quedaba adentro del contenedor— pero para el que sostiene el celular era lo mismo: **para ver el puntaje había que arrastrar de costado**.
+
+Ahora la misma tabla cambia de forma con CSS: tarjetas hasta `sm`, tabla desde ahí. **Un solo DOM**, porque renderizar tabla más lista duplicaría cada `data-testid` y cada nombre para un lector de pantalla.
+
+Los roles explícitos (`table`, `row`, `cell`) **no son redundantes acá**, aunque el lint lo diga: con `display: block` el navegador le saca la semántica de tabla al árbol de accesibilidad. Se suprimió la regla con el motivo escrito.
+
+### Escribí una aserción que pasaba con la tabla rota
+
+La primera versión del E2E miraba `documentElement.scrollWidth`. **Pasó contra el código sin arreglar**, porque `overflow-x-auto` scrollea adentro del contenedor y el documento nunca desborda. Medía lo que no era.
+
+La segunda busca **cualquier** elemento que scrollee de costado, y falló nombrando las cinco secciones del podio. Ahí sí servía.
+
+> Salió bien de casualidad: corrí la aserción antes de implementar. Si la hubiera escrito después, se habría ido en verde sin probar nada.
+
+### Un filtro que podía tapar el problema
+
+La aserción marcaba también un `legend.sr-only` — 1 px y recortado, incapaz de producir scroll. Se lo excluyó por `clientWidth > 1`, y ese filtro **se verificó con una mutación**: revertir la tabla al comportamiento viejo tiene que volver a fallar. Falla.
+
+La primera mutación fue parcial —dejó vivo el `max-sm:block` del `<table>`— y pasó. No probaba nada.
+
+### La tarjeta correcta no era la tarjeta buena
+
+Con seis renglones etiqueta-valor apilados, cada arquero ocupaba ~210 px: veinte por categoría son un scroll interminable. Las cifras chicas —`X`, `10`, `M`, `%`, `Puntos`— pasaron a fluir **en línea**. La tarjeta bajó a ~110 px con la misma información.
+
+> Eso no lo encontró ningún test: lo encontró **mirar una captura a 360 px**. El E2E prueba que no desborda, no que se lea bien.
+
+---
+
 ## 2026-08-20 · El margen que todos anulaban, y un test con un retroceso adentro
 
 **Autor:** Claude Opus 5 · **Estado:** completado
