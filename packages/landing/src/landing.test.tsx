@@ -663,9 +663,29 @@ describe('ArcherPage', () => {
     const temporada = await screen.findByTestId('temporada-s1');
     expect(temporada).toHaveTextContent('Razo');
     expect(temporada).toHaveTextContent('12');
-    // El porcentaje primero, el bruto entre paréntesis.
-    expect(temporada).toHaveTextContent('84.5% (279)');
-    expect(temporada).toHaveTextContent('1-1-0');
+
+    /*
+      **El porcentaje y el bruto son dos datos, no uno.**
+
+      Iban juntos en un mismo valor —`84.5% (279)`— y quedaban dos números
+      peleando el mismo renglón. Ahora el que ordena el ranking es el valor y el
+      bruto va debajo, en chico.
+    */
+    expect(temporada).toHaveTextContent('84.5%');
+    expect(temporada).toHaveTextContent('279 puntos');
+
+    /*
+      **Los podios dicen cuál es cuál.**
+
+      Eran `1-1-0`: tres números sin nombre, donde había que adivinar que el
+      orden era primero-segundo-tercero. Ahora cada uno lleva su medalla, y el
+      nombre del puesto va para el lector de pantalla — la medalla sola es un
+      emoji que no todos los lectores anuncian igual.
+    */
+    const podios = within(temporada).getByText('Podios').parentElement as HTMLElement;
+    expect(podios.textContent).toContain('primeros');
+    expect(podios.textContent).toContain('segundos');
+    expect(podios.textContent).toContain('terceros');
   });
 
   // El padrón del club no se filtra hacia afuera.
