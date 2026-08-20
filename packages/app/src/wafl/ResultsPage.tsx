@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
 import { readScores, readSignatures } from '../offline/db.js';
 import { requestClose, writeSignature } from '../offline/outbox.js';
@@ -148,7 +148,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
             resumen.map((r) => (
               <article
                 key={r.id}
-                className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+                className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
                 data-testid={`resultado-${r.lastName}`}
               >
                 <div className="flex items-baseline justify-between gap-3">

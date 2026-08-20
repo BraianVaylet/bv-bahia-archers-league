@@ -15,7 +15,7 @@ import { formatearFechaCorta } from '@bal/shared';
 import cba from '@bal/shared/assets/cba.webp';
 import { Logo } from '@bal/ui';
 import { type FormEvent, useEffect, useState } from 'react';
-import { Button, cn, Field, Screen } from '../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Field, Screen } from '../components/ui.js';
 import { ApiError, api } from '../lib/apiClient.js';
 import type { StoredBundle } from '../offline/db.js';
 import { readBundle } from '../offline/db.js';
@@ -147,7 +147,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
       </div>
 
       {guardado && (
-        <section className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]">
+        <section className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}>
           <p className="font-semibold">{guardado.tournament.name}</p>
           <p className="text-sm text-[var(--ink-muted)]">
             Patrulla {guardado.patrol.number} · descargado {antiguedadDe(guardado.fetchedAt)}

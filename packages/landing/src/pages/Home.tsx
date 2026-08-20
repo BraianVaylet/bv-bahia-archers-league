@@ -10,7 +10,7 @@
 import { enlaceEntreApps } from '@bal/shared';
 import portada from '@bal/shared/assets/portada.webp';
 import { Link } from 'react-router-dom';
-import { Screen } from '../components/ui.js';
+import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
 
 /** En producción es `/app/`; con `pnpm dev`, el Vite de la PWA. */
 const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
@@ -74,20 +74,14 @@ export function HomePage() {
       </nav>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link
-          to="/ranking"
-          className="rounded-[var(--radius-lg)] border p-4 bg-[var(--surface)] block"
-        >
+        <Link to="/ranking" className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}>
           <h2 className="font-semibold">Ranking de la liga</h2>
           <p className="text-sm text-[var(--ink-muted)]">
             Por categoría, por puntos y por mejor porcentaje.
           </p>
         </Link>
 
-        <Link
-          to="/torneos"
-          className="rounded-[var(--radius-lg)] border p-4 bg-[var(--surface)] block"
-        >
+        <Link to="/torneos" className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}>
           <h2 className="font-semibold">Torneos</h2>
           <p className="text-sm text-[var(--ink-muted)]">
             Fechas disputadas, podios y estadísticas.

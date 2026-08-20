@@ -13,7 +13,7 @@
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Field } from '../../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { type ArqueroElegible, avisoDeComposicion, conteoPorCategoria } from '../wizard.js';
 
@@ -50,7 +50,7 @@ function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => v
   }
 
   return (
-    <div className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-3 bg-[var(--surface)]">
+    <div className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}>
       {/* Se crea sin salir del wizard: mandar al admin al padrón y de vuelta le
           haría perder todo lo cargado. */}
       <h3 className="font-semibold">Arquero nuevo</h3>

@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { clasesDeTarjeta, cn } from '../components/ui.js';
 import {
   type EstadoDeInstalacion,
   estadoDeInstalacion,
@@ -157,8 +158,15 @@ function Dialogo({
         aria-modal="true"
         aria-label="Instalar la app"
         data-testid="dialogo-instalar"
-        className="w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--bg)] border
-          p-4 flex flex-col gap-3"
+        /*
+          El panel del diálogo es una tarjeta: mismo radio, mismo borde, misma
+          superficie. Antes usaba `--bg` —el fondo de la página— sobre el
+          oscurecedor, que lo dejaba a un tono de distancia de todo lo demás.
+        */
+        className={cn(
+          clasesDeTarjeta({ densidad: 'amplia' }),
+          'w-full max-w-lg flex flex-col gap-3',
+        )}
       >
         {children}
       </div>

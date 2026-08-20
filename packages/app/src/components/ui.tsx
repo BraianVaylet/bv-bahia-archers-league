@@ -18,14 +18,14 @@ const VARIANTES: Record<Variante, string> = {
   peligro: 'bg-[var(--danger)] text-white font-semibold',
 };
 
-import { BotonTema, cn, Footer, IconoSalir, Logo, StakeChip } from '@bal/ui';
+import { BotonTema, clasesDeTarjeta, cn, Footer, IconoSalir, Logo, StakeChip } from '@bal/ui';
 
 /**
  * `cn`, `StakeChip` y `BotonTema` **se mudaron a `@bal/ui`**: estaban escritos
  * dos veces, uno de ellos carácter por carácter. Se reexportan desde acá para
  * que las veinte pantallas que los importan no tengan que cambiar de origen.
  */
-export { BotonTema, cn, Footer, Logo, StakeChip };
+export { BotonTema, clasesDeTarjeta, cn, Footer, Logo, StakeChip };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variante?: Variante;

@@ -82,13 +82,13 @@ Los `grid-cols-2 sm:grid-cols-5` de la ficha del arquero y las grillas de la hom
 
 ---
 
-### `[ ] REF5-2` · La primitiva `Tarjeta` y la escala de elevación · **P0**
+### `[x] REF5-2` · La primitiva `Tarjeta` y la escala de elevación · **P0**
 
-**Archivos:** `packages/ui/src/Tarjeta.tsx` (nuevo), `shared/styles/tokens.css`
+**Archivos:** `packages/ui/src/Tarjeta.tsx` (nuevo), y los 18 archivos que la copiaban
 
-- [ ] `Tarjeta` con variantes de **densidad** (`normal`, `compacta`) y **nivel** (`plana`, `elevada`)
-- [ ] Tokens de elevación por **borde y fondo**. Ninguna sombra nueva
-- [ ] Las **29 copias** migran
+- [x] `clasesDeTarjeta` con variantes de **densidad** (`normal`, `amplia`, `ninguna`) y **nivel** (`base`, `anidada`, `transparente`)
+- [x] Elevación por **borde y fondo**, sin sombras. **No hicieron falta tokens nuevos**: la escala son las variantes, y `--surface` / `--surface-2` ya existían. Un alias de un token existente no es una escala
+- [x] Las **29 copias** migran, más el panel del diálogo que estaba en `--bg`
 
 **DoD:** ninguna pantalla escribe `rounded-[var(--radius-lg)] border` a mano · el presupuesto no se mueve.
 **Tests:** que la tarjeta respete el radio y el borde del token · que la variante compacta sea efectivamente más chica.

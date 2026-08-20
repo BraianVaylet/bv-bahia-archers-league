@@ -47,3 +47,9 @@ export * from './iconos/modalidad.js';
 export { ICONO_DE_MODALIDAD } from './iconos/modalidad.js';
 export { Logo, type LogoProps } from './Logo.js';
 export { StakeChip, type StakeChipProps } from './StakeChip.js';
+export {
+  clasesDeTarjeta,
+  type DensidadDeTarjeta,
+  type NivelDeTarjeta,
+  type OpcionesDeTarjeta,
+} from './Tarjeta.js';

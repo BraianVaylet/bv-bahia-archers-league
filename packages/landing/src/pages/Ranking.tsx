@@ -24,6 +24,7 @@ import {
   Cargando,
   Celda,
   Cuerpo,
+  clasesDeTarjeta,
   cn,
   Fallo,
   Fila,
@@ -206,7 +207,10 @@ export function RankingPage() {
       */}
       {ranking.estado === 'listo' && ranking.datos.categories.length > 0 && (
         <section
-          className="text-sm rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 text-[var(--ink-muted)]"
+          className={cn(
+            clasesDeTarjeta({ nivel: 'transparente' }),
+            'text-sm flex flex-col gap-2 text-[var(--ink-muted)]',
+          )}
           data-testid={modo === 'position' ? 'puntos-por-puesto' : 'como-se-calcula-mejor-de-2'}
         >
           {modo === 'position' ? (
@@ -270,7 +274,7 @@ export function RankingPage() {
               y sobre todo las vacías, que sin tarjeta parecen un renglón
               huérfano de la categoría de arriba.
             */
-            className="flex flex-col gap-2 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+            className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
             data-testid={`cat-${c.category}`}
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
