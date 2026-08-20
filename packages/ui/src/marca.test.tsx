@@ -115,6 +115,30 @@ describe('Footer', () => {
     expect(alto(chico as unknown as HTMLElement)).toContain('py-1.5');
   });
 
+  /**
+   * **El pie no trae margen propio.**
+   *
+   * Tenía `mt-8` y los dos únicos consumidores lo cancelaban con `mt-0`: en una
+   * columna flex de alto fijo ese margen no es aire, es un hueco entre el
+   * contenido y el pie. Un valor que todo el mundo anula no es un default, es
+   * una trampa: el que agregue un consumidor nuevo se come el hueco y no sabe
+   * de dónde salió.
+   */
+  it('no trae margen propio', () => {
+    const { container } = render(<Footer />);
+    const clases = (container.querySelector('footer')?.className ?? '').split(/\s+/);
+
+    /*
+      Se comparan clases enteras en vez de buscar con una expresión regular.
+
+      La primera versión usaba un límite de palabra y quedó escrito como un
+      **carácter de retroceso literal**, invisible al leer el archivo: la
+      expresión no matcheaba nunca y el test pasaba vacío. Lo destapó el control
+      de mutación que repone el `mt-8`.
+    */
+    expect(clases.filter((c) => c.startsWith('mt-'))).toEqual([]);
+  });
+
   it('no se imprime', () => {
     const { container } = render(<Footer />);
     expect(container.querySelector('footer')?.className).toContain('print:hidden');
