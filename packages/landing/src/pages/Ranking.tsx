@@ -19,7 +19,17 @@ import {
 } from '@bal/shared';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Cargando, cn, Fallo, Screen, TablaScrollable } from '../components/ui.js';
+import {
+  Cabecera,
+  Cargando,
+  Celda,
+  Cuerpo,
+  cn,
+  Fallo,
+  Fila,
+  Screen,
+  Tabla,
+} from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
 
 interface Temporada {
@@ -70,32 +80,49 @@ type Modo = 'position' | 'best_two';
 
 function FilaDeArquero({ entrada, modo }: { readonly entrada: Entrada; readonly modo: Modo }) {
   return (
-    <tr className="border-b" data-testid={`fila-${entrada.lastName}`}>
-      <td className="py-2 pr-2 tabular-nums w-16">
+    <Fila data-testid={`fila-${entrada.lastName}`}>
+      {/*
+        Puesto y nombre encabezan la tarjeta y van sin etiqueta: son lo que
+        identifica la fila, no un dato más.
+      */}
+      <Celda className="tabular-nums w-16 max-sm:w-auto max-sm:justify-start">
         <span className="inline-flex items-center gap-1">
           {/* El número SIEMPRE va: la medalla lo acompaña, no lo reemplaza. */}
           {entrada.position}
           {entrada.tied && <span className="text-[var(--ink-muted)]">=</span>}
           <Medalla puesto={entrada.position} />
         </span>
-      </td>
-      <td className="py-2 pr-2">
+      </Celda>
+      <Celda className="max-sm:justify-start max-sm:pb-1">
         <Link to={`/arqueros/${entrada.archerId}`} className="underline">
           {entrada.lastName}, {entrada.firstName}
         </Link>
-      </td>
-      <td
-        className={cn('py-2 pr-2 text-right tabular-nums', modo === 'position' && 'font-semibold')}
+      </Celda>
+      <Celda
+        etiqueta="Puntos"
+        enLinea
+        className={cn('text-right tabular-nums', modo === 'position' && 'font-semibold')}
       >
         {entrada.leaguePoints}
-      </td>
-      <td className={cn('py-2 text-right tabular-nums', modo === 'best_two' && 'font-semibold')}>
+      </Celda>
+      <Celda
+        etiqueta="Mejor de 2"
+        enLinea
+        className={cn('text-right tabular-nums', modo === 'best_two' && 'font-semibold')}
+      >
         {entrada.bestTwoAvgPct}%
-        {/* El mejor suelto se sigue mostrando, entre paréntesis: es el récord
-            personal de la temporada, aunque ya no ordene el ranking. */}
-        <span className="text-[var(--ink-muted)]"> (mejor {entrada.bestNormalizedPct}%)</span>
-      </td>
-    </tr>
+      </Celda>
+      {/*
+        El mejor suelto sale de la celda de «Mejor de 2» y pasa a ser su propia
+        columna. Iba entre paréntesis dentro de la misma celda —«81.2% (mejor
+        84.5%)»— y era la celda más ancha de la tabla: dos números que compiten
+        por el mismo renglón. Sigue estando porque es el récord personal de la
+        temporada, aunque ya no ordene el ranking.
+      */}
+      <Celda etiqueta="Mejor" enLinea className="text-right tabular-nums text-[var(--ink-muted)]">
+        {entrada.bestNormalizedPct}%
+      </Celda>
+    </Fila>
   );
 }
 
@@ -253,21 +280,20 @@ export function RankingPage() {
                 Nadie llegó todavía al mínimo de torneos en esta categoría.
               </p>
             ) : (
-              <TablaScrollable>
-                <thead>
-                  <tr className="border-b text-left text-[var(--ink-muted)]">
-                    <th className="py-1 pr-2 font-medium">#</th>
-                    <th className="py-1 pr-2 font-medium">Arquero</th>
-                    <th className="py-1 pr-2 font-medium text-right">Puntos</th>
-                    <th className="py-1 font-medium text-right">Mejor de 2</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Tabla>
+                <Cabecera>
+                  <th className="py-1 pr-2 font-medium">#</th>
+                  <th className="py-1 pr-2 font-medium">Arquero</th>
+                  <th className="py-1 pr-2 font-medium text-right">Puntos</th>
+                  <th className="py-1 pr-2 font-medium text-right">Mejor de 2</th>
+                  <th className="py-1 font-medium text-right">Mejor</th>
+                </Cabecera>
+                <Cuerpo>
                   {c.ranked.map((e) => (
                     <FilaDeArquero key={e.archerId} entrada={e} modo={modo} />
                   ))}
-                </tbody>
-              </TablaScrollable>
+                </Cuerpo>
+              </Tabla>
             )}
 
             {/* No se ocultan: esconderlos haría creer que se perdió su resultado. */}

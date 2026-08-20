@@ -27,7 +27,17 @@ import {
 } from '@bal/shared';
 import { BadgeEstado, ChipModalidad, GraficoDeTorta } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
-import { Cargando, Fallo, Screen, StakeChip, TablaScrollable } from '../components/ui.js';
+import {
+  Cabecera,
+  Cargando,
+  Celda,
+  Cuerpo,
+  Fallo,
+  Fila,
+  Screen,
+  StakeChip,
+  Tabla,
+} from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
 
 interface TorneoResumen {
@@ -148,45 +158,62 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
         <section key={category} className="flex flex-col gap-2" data-testid={`podio-${category}`}>
           <h2 className="font-semibold">{CATEGORY_INFO[category as BowCategory].label}</h2>
 
-          <TablaScrollable>
-            <thead>
-              <tr className="border-b text-left text-[var(--ink-muted)]">
-                <th className="py-1 pr-2 font-medium">#</th>
-                <th className="py-1 pr-2 font-medium">Arquero</th>
-                <th className="py-1 pr-2 font-medium text-right">Puntaje</th>
-                <th className="py-1 pr-2 font-medium text-right">X</th>
-                <th className="py-1 pr-2 font-medium text-right">10</th>
-                <th className="py-1 pr-2 font-medium text-right">M</th>
-                <th className="py-1 pr-2 font-medium text-right">%</th>
-                <th className="py-1 font-medium text-right">Puntos</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Tabla>
+            <Cabecera>
+              <th className="py-1 pr-2 font-medium">#</th>
+              <th className="py-1 pr-2 font-medium">Arquero</th>
+              <th className="py-1 pr-2 font-medium text-right">Puntaje</th>
+              <th className="py-1 pr-2 font-medium text-right">X</th>
+              <th className="py-1 pr-2 font-medium text-right">10</th>
+              <th className="py-1 pr-2 font-medium text-right">M</th>
+              <th className="py-1 pr-2 font-medium text-right">%</th>
+              <th className="py-1 font-medium text-right">Puntos</th>
+            </Cabecera>
+            <Cuerpo>
               {(entradas ?? []).map((e) => (
-                <tr key={e.entry.participantId} className="border-b">
-                  <td className="py-2 pr-2 tabular-nums w-10">
+                <Fila key={e.entry.participantId}>
+                  {/*
+                    Puesto y nombre encabezan la tarjeta: son lo que identifica
+                    la fila. Por eso van sin etiqueta —no hace falta decir
+                    «Arquero» arriba de un apellido— y en una sola línea.
+                  */}
+                  <Celda className="tabular-nums w-10 max-sm:w-auto max-sm:font-semibold max-sm:justify-start">
                     {e.position}
                     {e.tied && <span className="text-[var(--ink-muted)]">=</span>}
-                  </td>
-                  <td className="py-2 pr-2">
+                  </Celda>
+                  <Celda className="max-sm:font-semibold max-sm:justify-start max-sm:pb-1">
                     {e.entry.lastName}, {e.entry.firstName}
-                  </td>
-                  <td className="py-2 pr-2 text-right tabular-nums font-semibold">
+                  </Celda>
+
+                  {/* Las seis cifras, cada una con su nombre al lado. */}
+                  <Celda etiqueta="Puntaje" className="text-right tabular-nums font-semibold">
                     {e.entry.total}
-                  </td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.xCount}</td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.tenCount}</td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.mCount}</td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{e.entry.normalizedPct}%</td>
+                  </Celda>
+                  <Celda etiqueta="X" enLinea className="text-right tabular-nums">
+                    {e.entry.xCount}
+                  </Celda>
+                  <Celda etiqueta="10" enLinea className="text-right tabular-nums">
+                    {e.entry.tenCount}
+                  </Celda>
+                  <Celda etiqueta="M" enLinea className="text-right tabular-nums">
+                    {e.entry.mCount}
+                  </Celda>
+                  <Celda etiqueta="%" enLinea className="text-right tabular-nums">
+                    {e.entry.normalizedPct}%
+                  </Celda>
                   {/* Lo que este torneo le suma a la liga. El mismo cálculo que
                       corre el servidor al publicar, no una copia del criterio. */}
-                  <td className="py-2 text-right tabular-nums font-semibold">
+                  <Celda
+                    etiqueta="Puntos"
+                    enLinea
+                    className="text-right tabular-nums font-semibold"
+                  >
                     {leaguePointsForPosition(e.position)}
-                  </td>
-                </tr>
+                  </Celda>
+                </Fila>
               ))}
-            </tbody>
-          </TablaScrollable>
+            </Cuerpo>
+          </Tabla>
         </section>
       ))}
     </>

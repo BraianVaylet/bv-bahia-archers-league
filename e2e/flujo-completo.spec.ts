@@ -364,6 +364,46 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
    */
   await publico.goto(`/ranking?temporada=${season.id}`);
   await expect(publico.getByRole('heading', { name: 'Razo' })).toBeVisible();
+
+  /**
+   * **Cero scroll horizontal, con datos reales y en un celular chico.**
+   *
+   * Es la regla de `DESIGN_SYSTEM.md` §7 —«ancho mínimo 360 px, cero scroll
+   * horizontal, en ninguna pantalla»— y las dos tablas de la landing la
+   * rompían: el podio tiene ocho columnas y se resolvía con `overflow-x-auto`.
+   *
+   * Se mide **acá y no en un test de componente** porque jsdom no hace layout:
+   * el único lugar donde `scrollWidth` significa algo es un navegador de
+   * verdad, con los datos que el torneo dejó publicados.
+   */
+  await publico.setViewportSize({ width: 360, height: 740 });
+
+  for (const ruta of [`/torneos/${tournament.id}`, `/ranking?temporada=${season.id}`]) {
+    await publico.goto(ruta);
+    await expect(publico.getByRole('heading', { name: 'Razo' }).first()).toBeVisible();
+
+    /**
+     * Se busca **cualquier** elemento que scrollee de costado, no el documento.
+     *
+     * La primera versión miraba `documentElement` y **pasaba con la tabla
+     * rota**: `overflow-x-auto` scrollea adentro del contenedor, así que la
+     * página nunca desborda. Medía lo que no era.
+     *
+     * Para el que sostiene el celular es lo mismo: para ver el puntaje hay que
+     * arrastrar de costado.
+     */
+    const desbordes = await publico.evaluate(() =>
+      [...document.querySelectorAll('*')]
+        // Los `sr-only` miden 1px y están recortados: su `scrollWidth` siempre
+        // supera al `clientWidth` y no pueden producir scroll de nada.
+        .filter((e) => e.clientWidth > 1)
+        .filter((e) => e.scrollWidth > e.clientWidth + 1)
+        .map((e) => `${e.tagName.toLowerCase()} — ${e.className || '(sin clase)'}`),
+    );
+
+    expect(desbordes, `${ruta} tiene algo que scrollea de costado a 360 px`).toEqual([]);
+  }
+
   await anonimo.close();
 
   // 23. Los puntos de liga se aplicaron.

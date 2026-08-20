@@ -84,11 +84,117 @@ export function Fallo({ mensaje }: { readonly mensaje: string }) {
   );
 }
 
-/** Tabla que scrollea sola. La página nunca scrollea de costado. */
-export function TablaScrollable({ children }: { readonly children: ReactNode }) {
+/**
+ * Tabla en escritorio, **tarjetas en el celular**.
+ *
+ * Antes esto era `TablaScrollable`: un `overflow-x-auto` alrededor de la tabla.
+ * La página no desbordaba —el scroll quedaba adentro del contenedor— pero para
+ * el que sostiene el celular era lo mismo: **para ver el puntaje había que
+ * arrastrar de costado**. El podio tiene ocho columnas; a 360 px el nombre solo
+ * come media pantalla.
+ *
+ * `DESIGN_SYSTEM.md` §7 lo dice sin matices: *«ancho mínimo 360 px, cero scroll
+ * horizontal, en ninguna pantalla»*.
+ *
+ * **Un solo DOM, no dos.** Renderizar una tabla y además una lista de tarjetas
+ * duplicaría cada `data-testid` y cada nombre para un lector de pantalla. Acá
+ * la misma tabla cambia de forma con CSS, y se conservan los roles explícitos
+ * para que `display: block` no le saque la semántica de tabla.
+ *
+ * La landing es la única superficie que también se ve en escritorio, así que
+ * desde `sm` vuelve a ser una tabla, que es lo correcto ahí.
+ */
+export function Tabla({ children }: { readonly children: ReactNode }) {
   return (
-    <div className="overflow-x-auto -mx-4 px-4">
-      <table className="w-full text-sm border-collapse">{children}</table>
-    </div>
+    // biome-ignore lint/a11y/noRedundantRoles: en `max-sm` la tabla pasa a `display: block` y el navegador le saca la semántica de tabla al árbol de accesibilidad. El rol deja de ser redundante justo ahí.
+    <table role="table" className="w-full text-sm border-collapse max-sm:block">
+      {children}
+    </table>
+  );
+}
+
+/** La cabecera no existe en modo tarjeta: cada celda lleva su etiqueta al lado. */
+export function Cabecera({ children }: { readonly children: ReactNode }) {
+  return (
+    <thead className="max-sm:hidden">
+      <tr className="border-b text-left text-[var(--ink-muted)]">{children}</tr>
+    </thead>
+  );
+}
+
+export function Cuerpo({ children }: { readonly children: ReactNode }) {
+  return <tbody className="max-sm:block">{children}</tbody>;
+}
+
+export interface FilaProps {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly 'data-testid'?: string;
+}
+
+/** En el celular cada fila es una tarjeta; desde `sm`, una fila de tabla. */
+export function Fila({ children, className, ...resto }: FilaProps) {
+  return (
+    <tr
+      // biome-ignore lint/a11y/noRedundantRoles: en `max-sm` la tabla pasa a `display: block` y el navegador le saca la semántica de tabla al árbol de accesibilidad. El rol deja de ser redundante justo ahí.
+      role="row"
+      className={cn(
+        'border-b',
+        'max-sm:block max-sm:rounded-[var(--radius-lg)] max-sm:border',
+        'max-sm:bg-[var(--surface)] max-sm:p-3 max-sm:mb-2',
+        className,
+      )}
+      {...resto}
+    >
+      {children}
+    </tr>
+  );
+}
+
+export interface CeldaProps {
+  readonly children: ReactNode;
+  /**
+   * El nombre de la columna. En modo tarjeta se pinta a la izquierda del valor
+   * con `::before`, porque la cabecera no está.
+   *
+   * Sin esto, un `19` suelto en una tarjeta no se sabe si es el puntaje, los
+   * dieces o el porcentaje.
+   */
+  readonly etiqueta?: string;
+  /**
+   * En modo tarjeta, esta celda fluye **en línea** con las vecinas en vez de
+   * ocupar su propio renglón.
+   *
+   * Es para las cifras chicas —`X`, `10`, `M`, `%`— que en renglones separados
+   * hacen una tarjeta de seis líneas para mostrar cinco dígitos. Con veinte
+   * arqueros por categoría eso es un scroll que no termina más.
+   *
+   * El dato que encabeza —el puntaje— se queda en su renglón: es el que se
+   * busca, y compartir línea lo volvería uno más.
+   */
+  readonly enLinea?: boolean;
+  readonly className?: string;
+}
+
+export function Celda({ children, etiqueta, enLinea, className }: CeldaProps) {
+  return (
+    <td
+      // biome-ignore lint/a11y/noRedundantRoles: en `max-sm` la tabla pasa a `display: block` y el navegador le saca la semántica de tabla al árbol de accesibilidad. El rol deja de ser redundante justo ahí.
+      role="cell"
+      data-etiqueta={etiqueta}
+      className={cn(
+        'py-2 pr-2',
+        // En tarjeta: etiqueta a la izquierda, valor a la derecha.
+        'max-sm:items-baseline max-sm:gap-1.5 max-sm:py-0.5 max-sm:text-left',
+        enLinea
+          ? 'max-sm:inline-flex max-sm:w-auto max-sm:pr-4'
+          : 'max-sm:flex max-sm:justify-between max-sm:gap-3 max-sm:pr-0',
+        etiqueta &&
+          'max-sm:before:content-[attr(data-etiqueta)] max-sm:before:text-[var(--ink-muted)]',
+        className,
+      )}
+    >
+      {children}
+    </td>
   );
 }
