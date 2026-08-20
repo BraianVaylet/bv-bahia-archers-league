@@ -90,16 +90,30 @@ test('el manifest tiene lo que hace falta para instalar', async ({ page, request
   }
 });
 
+/**
+ * **Se espera al registro, no se lo muestrea una vez.**
+ *
+ * `registerSW.js` llama a `register()` en el evento `load`, y `page.goto`
+ * resuelve **en** ese mismo evento: la promesa de registro sigue pendiente.
+ * Tomar una sola muestra ahí pasaba por suerte de timing y falló en CI, en un
+ * PR que no tocaba nada de la PWA.
+ *
+ * Que el registro sea asincrónico **no es un defecto**: nada visible depende de
+ * que sea instantáneo. Lo que estaba mal era la suposición del test.
+ */
 test('el service worker se registra y responde', async ({ page }) => {
   await page.goto('/app/');
 
-  const registrado = await page.evaluate(async () => {
-    if (!('serviceWorker' in navigator)) return false;
-    const reg = await navigator.serviceWorker.getRegistration();
-    return reg !== undefined;
-  });
-
-  expect(registrado).toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          if (!('serviceWorker' in navigator)) return false;
+          return (await navigator.serviceWorker.getRegistration()) !== undefined;
+        }),
+      { message: 'el service worker no se registró' },
+    )
+    .toBe(true);
 });
 
 /**

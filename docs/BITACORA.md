@@ -14,6 +14,37 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · Un E2E que se muestreaba una vez, y una mutación que no probaba nada
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+CI falló «el service worker se registra y responde» en el PR de `REF4-5`, que no toca nada de la PWA. Local pasaba.
+
+### El test tomaba una sola muestra
+
+```ts
+await page.goto('/app/');
+const reg = await navigator.serviceWorker.getRegistration();
+```
+
+`registerSW.js` llama a `register()` en el evento `load`, y `page.goto` resuelve **en** ese evento: la promesa de registro sigue pendiente. En un runner lento la muestra cae antes. Pasaba por suerte de timing desde que se escribió.
+
+Acá **sí** corresponde arreglar el test y no el producto: que el registro sea asincrónico es correcto y nada visible depende de que sea instantáneo. Es lo contrario del caso de `ResultsPage`, donde el estado vacío producía **un número que se firmaba**. Se pasó a `expect.poll`.
+
+### La mutación local no probaba nada
+
+Al intentar matar el test con `injectRegister: false`, pasó igual. Dos motivos, los dos míos:
+
+**`reuseExistingServer: !process.env.CI`.** Localmente Playwright reusa un servidor ya levantado y **no reconstruye**: la mutación nunca llegó al bundle servido. Cualquier control de mutación de E2E corrido a mano sin `CI=1` está midiendo el build anterior.
+
+**Y desde `REF4-3` hay dos vías de registro.** `useRegisterSW` registra el service worker por su cuenta, así que apagar `registerSW.js` ya no lo impide. La mutación era inválida, no el test.
+
+Se verificó apuntando el test a `/` —la landing no registra service worker, por diseño—: falla con su mensaje y agota los 15 s esperando, en vez de pasar de largo.
+
+> La lección no es sobre este test. Es que **una mutación que no se ve fallar no prueba más que un test que no se ve fallar**, y acá pasaron las dos cosas juntas.
+
+---
+
 ## 2026-08-18 · `REF4-5` — tres pantallas que no entraban en un celular. Cierra `ref-4`
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-5`
