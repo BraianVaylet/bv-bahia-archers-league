@@ -68,24 +68,75 @@ describe('Logo', () => {
 });
 
 describe('Footer', () => {
-  it('nombra a las dos instituciones con texto, no sólo con imágenes', () => {
-    render(<Footer />);
+  it('los dos escudos van juntos a la izquierda y el nombre a la derecha', () => {
+    const { container } = render(<Footer />);
 
-    expect(screen.getByText('Liga Bahiense de Arquería')).toBeInTheDocument();
-    expect(screen.getByText('Círculo Bahiense de Arquería')).toBeInTheDocument();
+    const fila = container.querySelector('footer > div') as HTMLElement;
+    const primero = fila.firstElementChild as HTMLElement;
+
+    // A la izquierda, las dos imágenes: el PNG del club y el SVG de la liga.
+    expect(primero.querySelector('img')).not.toBeNull();
+    expect(primero.querySelector('svg')).not.toBeNull();
+
+    // A la derecha, el nombre.
+    expect((fila.lastElementChild as HTMLElement).textContent).toBe('Liga Bahiense');
   });
 
   /**
-   * Los logos van con `alt` vacío **a propósito**: el nombre está al lado. Un
-   * `alt` con el nombre haría que un lector de pantalla lo diga dos veces.
+   * **El `alt` del escudo del club dejó de ser decorativo.**
+   *
+   * Antes el nombre del CBA iba escrito al lado y el `alt` vacío evitaba que un
+   * lector de pantalla lo dijera dos veces. Ahora el texto visible es sólo el de
+   * la liga: con el `alt` vacío, para un lector de pantalla **el club no
+   * existiría**.
    */
-  it('los logos no repiten lo que ya dice el texto', () => {
-    const { container } = render(<Footer />);
+  it('el escudo del club se anuncia, porque su nombre ya no está escrito', () => {
+    render(<Footer />);
+    expect(screen.getByAltText('Círculo Bahiense de Arquería')).toBeInTheDocument();
+  });
 
-    for (const img of container.querySelectorAll('img')) {
-      expect(img).toHaveAttribute('alt', '');
-    }
+  /** El de la liga sí es decorativo: el nombre está al lado. */
+  it('el logo de la liga no repite el nombre que ya se lee', () => {
+    const { container } = render(<Footer />);
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden');
+  });
+
+  /**
+   * La versión compacta existe para que el pie entre en las pantallas que
+   * terminan en barra de acción, sin robarle alto al teclado de scoring.
+   */
+  it('la versión compacta ocupa menos alto', () => {
+    const { container: normal } = render(<Footer />);
+    const alto = (c: HTMLElement) => (c.querySelector('footer > div') as HTMLElement).className;
+    expect(alto(normal as unknown as HTMLElement)).toContain('py-6');
+
+    cleanup();
+    const { container: chico } = render(<Footer compacto />);
+    expect(alto(chico as unknown as HTMLElement)).toContain('py-1.5');
+  });
+
+  /**
+   * **El pie no trae margen propio.**
+   *
+   * Tenía `mt-8` y los dos únicos consumidores lo cancelaban con `mt-0`: en una
+   * columna flex de alto fijo ese margen no es aire, es un hueco entre el
+   * contenido y el pie. Un valor que todo el mundo anula no es un default, es
+   * una trampa: el que agregue un consumidor nuevo se come el hueco y no sabe
+   * de dónde salió.
+   */
+  it('no trae margen propio', () => {
+    const { container } = render(<Footer />);
+    const clases = (container.querySelector('footer')?.className ?? '').split(/\s+/);
+
+    /*
+      Se comparan clases enteras en vez de buscar con una expresión regular.
+
+      La primera versión usaba un límite de palabra y quedó escrito como un
+      **carácter de retroceso literal**, invisible al leer el archivo: la
+      expresión no matcheaba nunca y el test pasaba vacío. Lo destapó el control
+      de mutación que repone el `mt-8`.
+    */
+    expect(clases.filter((c) => c.startsWith('mt-'))).toEqual([]);
   });
 
   it('no se imprime', () => {

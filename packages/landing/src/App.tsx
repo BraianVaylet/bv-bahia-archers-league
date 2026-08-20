@@ -42,7 +42,7 @@ export function App() {
 
         {/* Uno solo para todo el sitio: es una app de lectura con una sola
             columna, y el pie es el mismo en las cinco páginas. */}
-        <Footer className="shrink-0 mt-0" />
+        <Footer className="shrink-0" />
       </div>
     </BrowserRouter>
   );
