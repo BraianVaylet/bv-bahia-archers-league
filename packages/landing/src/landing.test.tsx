@@ -1,3 +1,4 @@
+import { SCORING } from '@bal/shared';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -541,8 +542,16 @@ describe('TournamentPage', () => {
     const torta = await screen.findByTestId('torta-modalidades');
     const bloque = torta.parentElement?.parentElement?.textContent ?? '';
 
-    expect(bloque).toMatch(/3D/);
-    expect(bloque).toMatch(/Sala/);
+    /*
+      Las etiquetas se leen del catálogo, no se escriben acá.
+
+      Estaba puesto a mano como «Sala» y `REF4-1` lo acortó a «18 m»: el test se
+      rompió, que es la señal correcta — se estaba usando la etiqueta como
+      identidad. Lo que importa es que **cada porción se nombre**, no con qué
+      palabra.
+    */
+    expect(bloque).toContain(SCORING['3d'].label);
+    expect(bloque).toContain(SCORING.sala.label);
     expect(bloque).toMatch(/50%/);
   });
 
