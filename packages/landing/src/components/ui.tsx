@@ -8,6 +8,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
+import cba from '@bal/shared/assets/cba.webp';
 import { BotonTema, cn, Logo, StakeChip } from '@bal/ui';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -29,16 +30,42 @@ export function Screen({ children }: { readonly children: ReactNode }) {
 export function Encabezado() {
   return (
     <header className="border-b">
-      <nav className="mx-auto w-full max-w-3xl px-4 py-3 flex items-center gap-4 flex-wrap">
-        <Link
-          to="/"
-          className="font-[var(--font-display)] font-bold min-h-[44px] flex items-center gap-2"
-        >
-          {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice
-              de qué liga se trata, ni se lee en un lector de pantalla. */}
-          <Logo size={28} className="shrink-0" />
-          Liga Bahiense
-        </Link>
+      <nav className="mx-auto w-full max-w-3xl px-4 py-2 flex flex-col gap-1">
+        {/*
+          **Los logos, en una sola línea que no se parte.**
+
+          Antes el header era un solo `flex-wrap` con logo, nombre, los dos
+          enlaces y el conmutador de tema: a 320 px se partía en tres renglones
+          y la marca terminaba abajo de la navegación.
+
+          Ahora son dos filas fijas. La de arriba es identidad —los dos escudos
+          a la izquierda, el nombre a la derecha— y no envuelve nunca; la de
+          abajo es navegación. Meter todo en una sola fila entraba justo en el
+          papel y no en un celular real.
+        */}
+        <div className="flex items-center gap-2 min-h-[44px]">
+          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Inicio">
+            {/*
+              El escudo del CBA va primero: es el club que sostiene la liga.
+
+              Sobre placa blanca literal, no un token. Es un PNG de tinta
+              oscura con fondo transparente —el único asset del proyecto que
+              depende del fondo— y sobre el tema oscuro desaparece. Misma
+              decisión que en el pie, de `REF3-2`.
+            */}
+            <span className="shrink-0 rounded-[var(--radius-sm)] bg-white p-1 flex items-center">
+              <img src={cba} alt="Círculo Bahiense de Arquería" width={22} height={22} />
+            </span>
+            <Logo size={26} className="shrink-0" />
+          </Link>
+
+          {/* A la derecha, y `truncate` porque el nombre es lo único elástico. */}
+          <span className="ml-auto font-[var(--font-display)] font-bold truncate">
+            Liga Bahiense
+          </span>
+          <BotonTema className="shrink-0" />
+        </div>
+
         <div className="flex gap-4 text-sm">
           <Link to="/ranking" className="min-h-[44px] flex items-center">
             Ranking
@@ -47,7 +74,6 @@ export function Encabezado() {
             Torneos
           </Link>
         </div>
-        <BotonTema className="ml-auto" />
       </nav>
     </header>
   );

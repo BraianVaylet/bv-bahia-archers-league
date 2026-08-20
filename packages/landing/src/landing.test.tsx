@@ -1,7 +1,8 @@
-import { SCORING } from '@bal/shared';
+import { CATEGORY_INFO, SCORING } from '@bal/shared';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
@@ -491,6 +492,43 @@ describe('TournamentPage', () => {
     expect(screen.queryByTestId('podio-razo')).toBeNull();
   });
 
+  /**
+   * **Dos filas, no una** (`REF4-5`).
+   *
+   * Nombre, categoría y estaca en línea no entran a 320 px: el nombre se
+   * truncaba a dos letras para hacerle lugar al chip de estaca, y saber quién
+   * está en cada patrulla es justamente para lo que se mira esta pantalla.
+   */
+  it('el nombre va con la categoría, y la estaca en otra fila', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: { tournament: detalle({ status: 'en_proceso', results: undefined }) },
+      }),
+    });
+    renderDetalle();
+
+    const patrulla = await screen.findByTestId('patrulla-1');
+    const nombre = within(patrulla).getByText(/Pérez/);
+    const arriba = nombre.parentElement as HTMLElement;
+    const miembro = nombre.closest('li') as HTMLElement;
+
+    // El nombre y la categoría comparten línea.
+    expect(arriba.textContent).toMatch(new RegExp(CATEGORY_INFO.razo.label));
+
+    // La estaca está en el mismo miembro, pero NO en esa línea.
+    expect(miembro.textContent ?? '').toMatch(/azul/i);
+    expect(arriba.textContent ?? '').not.toMatch(/azul/i);
+
+    /*
+      Y el miembro apila, no alinea.
+
+      Sin esto el test pasaba con la fila vuelta a una sola línea: el
+      agrupamiento del DOM no cambia, cambia la dirección del flex. Lo destapó
+      un control de mutación.
+    */
+    expect(miembro.className).toContain('flex-col');
+  });
+
   it('muestra la estaca con el nombre, no sólo el color', async () => {
     servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
     renderDetalle();
@@ -636,5 +674,34 @@ describe('ArcherPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró.');
     expect(screen.getByText('Volver al ranking')).toBeDefined();
+  });
+});
+
+// ── REF4-5 · El header ───────────────────────────────────────────────────────
+
+describe('Encabezado', () => {
+  /**
+   * **Los dos escudos, nombrados.** Un logo sin texto alternativo no existe
+   * para un lector de pantalla, y el del CBA es de un club: tiene que decir de
+   * quién es.
+   */
+  it('muestra el escudo del CBA con su nombre', () => {
+    renderEn(<Encabezado />);
+
+    const cba = screen.getByAltText(/Círculo Bahiense/i);
+    expect(cba).toBeDefined();
+  });
+
+  it('el nombre de la liga sigue estando escrito', () => {
+    renderEn(<Encabezado />);
+    expect(screen.getByText('Liga Bahiense')).toBeDefined();
+  });
+
+  /** La navegación no se pierde al reacomodar la marca. */
+  it('conserva los dos accesos', () => {
+    renderEn(<Encabezado />);
+
+    expect(screen.getByRole('link', { name: 'Ranking' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Torneos' })).toBeDefined();
   });
 });

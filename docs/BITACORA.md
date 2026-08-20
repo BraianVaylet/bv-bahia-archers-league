@@ -14,6 +14,71 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · Un E2E que se muestreaba una vez, y una mutación que no probaba nada
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+CI falló «el service worker se registra y responde» en el PR de `REF4-5`, que no toca nada de la PWA. Local pasaba.
+
+### El test tomaba una sola muestra
+
+```ts
+await page.goto('/app/');
+const reg = await navigator.serviceWorker.getRegistration();
+```
+
+`registerSW.js` llama a `register()` en el evento `load`, y `page.goto` resuelve **en** ese evento: la promesa de registro sigue pendiente. En un runner lento la muestra cae antes. Pasaba por suerte de timing desde que se escribió.
+
+Acá **sí** corresponde arreglar el test y no el producto: que el registro sea asincrónico es correcto y nada visible depende de que sea instantáneo. Es lo contrario del caso de `ResultsPage`, donde el estado vacío producía **un número que se firmaba**. Se pasó a `expect.poll`.
+
+### La mutación local no probaba nada
+
+Al intentar matar el test con `injectRegister: false`, pasó igual. Dos motivos, los dos míos:
+
+**`reuseExistingServer: !process.env.CI`.** Localmente Playwright reusa un servidor ya levantado y **no reconstruye**: la mutación nunca llegó al bundle servido. Cualquier control de mutación de E2E corrido a mano sin `CI=1` está midiendo el build anterior.
+
+**Y desde `REF4-3` hay dos vías de registro.** `useRegisterSW` registra el service worker por su cuenta, así que apagar `registerSW.js` ya no lo impide. La mutación era inválida, no el test.
+
+Se verificó apuntando el test a `/` —la landing no registra service worker, por diseño—: falla con su mensaje y agota los 15 s esperando, en vez de pasar de largo.
+
+> La lección no es sobre este test. Es que **una mutación que no se ve fallar no prueba más que un test que no se ve fallar**, y acá pasaron las dos cosas juntas.
+
+---
+
+## 2026-08-18 · `REF4-5` — tres pantallas que no entraban en un celular. Cierra `ref-4`
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-5`
+
+Los ítems 3, 4 y 6 del pedido, y con esto cierra [`ref-4`](post/ref-4/ACTION_PLAN.md).
+
+| Pantalla | Antes | Ahora |
+|---|---|---|
+| Pagos (WAFA) | nombre, categoría, patrulla, estado y botón **en una línea** | arriba quién es y cómo está; abajo la acción, a lo ancho |
+| Torneos (landing) | nombre, categoría y estaca **en una línea** | arriba nombre y categoría; abajo la estaca |
+| Header (landing) | un `flex-wrap` que a 320 px se partía en tres renglones | fila de identidad que no envuelve, más fila de navegación |
+
+En las dos primeras el síntoma era el mismo: el nombre se truncaba a dos o tres letras para hacerle lugar al accionable. Y saber **a quién** le estás cobrando, o quién está en cada patrulla, es exactamente para lo que se miran esas pantallas.
+
+### El header: los logos primero, la navegación después
+
+El pedido decía «los logos en una sola línea, el CBA a la izquierda, al lado el de la liga, y del lado derecho Liga Bahiense». Meter además los dos enlaces y el conmutador de tema en esa misma fila entra en el papel y no en un celular real, así que quedaron **dos filas fijas**: identidad arriba, navegación abajo. La de arriba no envuelve nunca.
+
+El escudo del CBA va sobre placa blanca literal, igual que en el pie: es un PNG de tinta oscura con fondo transparente y sobre el tema oscuro desaparece. Misma decisión de `REF3-2`.
+
+### Dos controles de mutación destaparon tests vacuos, otra vez míos
+
+Volver pagos a una sola fila, y la estaca a la línea del nombre, **pasaban en verde**. Los tests verificaban el agrupamiento del DOM —que no cambia— y no la dirección del flex, que es justo lo que el pedido llama «se rompe».
+
+Se agregó la aserción que faltaba sobre el layout. Es la cuarta vez en la bitácora que un control de mutación corrige un test que yo ya había dado por bueno.
+
+> **4 controles de mutación, murieron 4** — dos recién después de reforzar las aserciones: pagos en una sola fila, el botón sin ancho completo, la estaca en la línea del nombre, y el escudo del CBA sin texto alternativo.
+
+### `ref-4` cerrado
+
+Siete ítems, cinco tandas. **Dos no eran lo que el pedido decía**: «avisar cuando hay versión nueva» era la regla 7 implementada a medias —nadie podía actualizar— y «la sección de firma se puede mejorar» era un bug de coordenadas.
+
+---
+
 ## 2026-08-18 · `REF4-4` — la puerta de entrada deja salir, y recomienda instalar
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-4`

@@ -95,47 +95,66 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
         {resumen?.participants.map((p) => (
           <li
             key={p.id}
-            className="rounded-[var(--radius-lg)] border p-3 flex items-center justify-between gap-3 bg-[var(--surface)]"
+            /*
+              **Dos filas, no una.**
+
+              Estaba todo en línea —nombre, categoría, patrulla, estado y
+              botón— y en un celular el nombre se truncaba a tres letras para
+              hacerle lugar al botón. El admin no puede identificar a quién le
+              está cobrando.
+
+              Arriba lo que identifica y el estado; abajo la acción, con el
+              ancho completo.
+            */
+            className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
             data-testid={`pago-${p.lastName}`}
           >
-            <div className="min-w-0">
-              <p className="truncate font-medium">
-                {p.lastName}, {p.firstName}
-              </p>
-              <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
-                <ChipCategoria category={p.category} compacto /> · patrulla {p.patrolNumber}
-              </p>
-            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">
+                  {p.lastName}, {p.firstName}
+                </p>
+                <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
+                  <ChipCategoria category={p.category} compacto /> · patrulla {p.patrolNumber}
+                </p>
+              </div>
 
-            {/*
-              El estado va **escrito** además de coloreado: «Pagó» en gris y
-              «Pagó» en verde serían lo mismo para quien no ve el color.
-
-              Y separado del botón con aire de sobra: pegados, el pulgar que va
-              a leer el estado termina tocando el botón. `gap-4` en vez de
-              `gap-2`, que es lo que pide el brief.
-
-              Usa `--ok` y `--danger`, que ya existen y significan «bien» y
-              «mal». No son colores de estaca: la regla 8 reserva los TONOS de
-              estaca, y estos dos ya se usaban para lo mismo en toda la app.
-            */}
-            <div className="flex items-center gap-4 shrink-0">
+              {/*
+                El estado va acá arriba, con el nombre: es información sobre el
+                arquero, no una acción. Y sigue **escrito** además de coloreado
+                — «Pagó» en gris y «Pagó» en verde serían lo mismo para quien no
+                distingue el color.
+              */}
               <span
                 data-testid={`estado-pago-${p.lastName}`}
                 className={cn(
-                  'text-sm font-semibold',
+                  'text-sm font-semibold shrink-0',
                   p.paid ? 'text-[var(--ok)]' : 'text-[var(--danger)]',
                 )}
               >
                 {p.paid ? 'Pagó' : 'Debe'}
               </span>
-              <Button
-                variante={p.paid ? 'secundario' : 'primario'}
-                onClick={() => void marcar(p.id, !p.paid)}
-              >
-                {p.paid ? 'Desmarcar' : 'Marcar pagado'}
-              </Button>
             </div>
+
+            {/*
+              La acción, sola en su fila y a lo ancho.
+
+              Separarla del estado también resuelve lo que el brief pedía con
+              `gap-4`: pegados, el pulgar que va a leer el estado terminaba
+              tocando el botón. Ahora ni siquiera están en la misma línea.
+
+              El color usa `--ok` y `--danger`, que ya existen y significan
+              «bien» y «mal». No son colores de estaca: la regla 8 reserva los
+              TONOS de estaca, y estos dos ya se usaban para lo mismo en toda
+              la app.
+            */}
+            <Button
+              ancho
+              variante={p.paid ? 'secundario' : 'primario'}
+              onClick={() => void marcar(p.id, !p.paid)}
+            >
+              {p.paid ? 'Desmarcar' : 'Marcar pagado'}
+            </Button>
           </li>
         ))}
       </ul>
