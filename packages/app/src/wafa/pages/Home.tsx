@@ -17,7 +17,7 @@ import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
-import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 export interface TournamentRow {
@@ -46,7 +46,7 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
   return (
     <Link
       to={`/wafa/torneos/${torneo.id}`}
-      className="block min-h-[44px] rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+      className={cn(clasesDeTarjeta(), 'block min-h-[44px]')}
       data-testid={`torneo-${torneo.id}`}
     >
       {/* Tres renglones, uno por pregunta: cuál es, cuándo es, qué tan grande.

@@ -20,7 +20,15 @@ import {
   IconoRestaurar,
 } from '@bal/ui';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Field,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ArcherRow {
@@ -76,10 +84,7 @@ function ArcherForm({
   const completo = borrador.firstName.trim() !== '' && borrador.lastName.trim() !== '';
 
   return (
-    <form
-      onSubmit={(e) => void enviar(e)}
-      className="flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
-    >
+    <form onSubmit={(e) => void enviar(e)} className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}>
       <h2 className="font-semibold">{inicial.id ? 'Editar arquero' : 'Nuevo arquero'}</h2>
 
       <Field
@@ -187,7 +192,7 @@ function Fila({
 }) {
   return (
     <li
-      className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
       data-testid={`arquero-${arquero.lastName}`}
     >
       <div className="flex items-baseline justify-between gap-3">

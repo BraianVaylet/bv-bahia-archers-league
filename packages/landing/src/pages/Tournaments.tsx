@@ -32,6 +32,8 @@ import {
   Cargando,
   Celda,
   Cuerpo,
+  clasesDeTarjeta,
+  cn,
   Fallo,
   Fila,
   Screen,
@@ -110,7 +112,7 @@ export function TournamentsPage() {
             <li key={t.id}>
               <Link
                 to={`/torneos/${t.id}`}
-                className="block rounded-[var(--radius-lg)] border p-4 bg-[var(--surface)]"
+                className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}
                 data-testid={`torneo-${t.id}`}
               >
                 <div className="flex items-baseline justify-between gap-3">
@@ -290,11 +292,7 @@ export function TournamentPage() {
 
         <ul className="flex flex-col gap-2">
           {t.patrols.map((p) => (
-            <li
-              key={p.number}
-              className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
-              data-testid={`patrulla-${p.number}`}
-            >
+            <li key={p.number} className={clasesDeTarjeta()} data-testid={`patrulla-${p.number}`}>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-semibold">Patrulla {p.number}</span>
                 <span className="text-sm text-[var(--ink-muted)] tabular-nums">

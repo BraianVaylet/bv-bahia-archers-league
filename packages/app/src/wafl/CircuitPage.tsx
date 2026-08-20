@@ -11,7 +11,7 @@
 import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { CerrarSesion } from '../components/CerrarSesion.js';
-import { Button, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
 import { readScores } from '../offline/db.js';
 import { useSyncStatus } from '../offline/useSyncStatus.js';
@@ -117,7 +117,8 @@ export function CircuitPage({
                   type="button"
                   onClick={() => onAbrirBlanco(target)}
                   className={cn(
-                    'w-full min-h-[64px] px-4 py-3 rounded-[var(--radius-lg)] border',
+                    clasesDeTarjeta({ densidad: 'ninguna', nivel: 'transparente' }),
+                    'w-full min-h-[64px] px-4 py-3',
                     'flex items-center gap-3 text-left',
                     completo ? 'bg-[var(--surface-2)]' : 'bg-[var(--surface)]',
                   )}

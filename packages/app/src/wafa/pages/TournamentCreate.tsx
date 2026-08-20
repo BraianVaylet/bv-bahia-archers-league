@@ -21,7 +21,15 @@ import {
 } from '@bal/shared';
 import { ChipCategoria, ChipModalidad, IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui';
 import { useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Field,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
@@ -168,7 +176,7 @@ function PasoRecorrido({
       {/* El máximo posible se recalcula con cada cambio: es el número que hace
           comparable este torneo con los demás, y conviene verlo mientras se arma. */}
       <div
-        className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface-2)] flex items-baseline justify-between"
+        className={cn(clasesDeTarjeta({ nivel: 'anidada' }), 'flex items-baseline justify-between')}
         data-testid="maximo-posible"
       >
         <span className="text-sm text-[var(--ink-muted)]">Máximo posible</span>
@@ -181,7 +189,7 @@ function PasoRecorrido({
         {borrador.blancos.map((b, i) => (
           <li
             key={b.index}
-            className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+            className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
             data-testid={`blanco-${b.index}`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -314,7 +322,7 @@ function PasoRevision({
   readonly onIrA: (paso: number) => void;
 }) {
   const seccion = (titulo: string, paso: number, contenido: React.ReactNode) => (
-    <section className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]">
+    <section className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}>
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold">{titulo}</h3>
         {/* Editable: se vuelve al paso, no se rehace el torneo. */}

@@ -11,7 +11,15 @@
 import type { TournamentStatus } from '@bal/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Pantalla, Screen, StakeChip } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Pantalla,
+  Screen,
+  StakeChip,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   avisosDePublicacion,
@@ -53,7 +61,7 @@ function Despublicar({ id, onHecho }: { readonly id: string; readonly onHecho: (
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius-lg)] border p-3">
+    <div className={cn(clasesDeTarjeta({ nivel: 'transparente' }), 'flex flex-col gap-2')}>
       {/* Se dice exactamente qué revierte, no un "¿estás seguro?" genérico. */}
       <p className="text-sm text-[var(--warn)]">
         Despublicar saca este torneo de la liga: los puntos que sumó cada arquero se recalculan

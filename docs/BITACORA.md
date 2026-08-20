@@ -14,6 +14,48 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · `REF5-2` — la tarjeta estaba escrita 29 veces
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-2`
+
+`rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]` aparecía **29 veces en 18 archivos**, en las tres aplicaciones. Por eso la densidad y la jerarquía estaban desparejas: no divergieron por decisión, divergieron porque cada pantalla resolvió lo mismo por su cuenta.
+
+Es la misma historia de `cn`, `StakeChip` y `Screen` antes de `REF2-1`.
+
+### Un constructor de clases, no un componente
+
+Las tarjetas reales son `div`, `li`, `section`, `article` y `form`. Un componente sólo servía para 7 de 29, y el resto habría quedado con la copia a mano: **dos formas de hacer lo mismo**, que es justo lo que esta tanda corrige.
+
+Se escribió el componente primero y se lo tiró antes de commitear. Uno que nadie usa es peor que no tenerlo.
+
+### Las variantes que no emiten nada salieron de un defecto de `cn`
+
+`cn` es concatenación pura, **sin resolución de conflictos de Tailwind**. Una tarjeta que trae su propio `px-4 py-3` terminaría con ese Y con `p-3` en el mismo atributo, y quién gana lo decide el orden del CSS, no el del string.
+
+Por eso existen `densidad: ninguna` y `nivel: transparente`: para **poder no emitir**, en vez de pelear una clase contra otra. No es una comodidad; es la única forma de que el default no rompa a quien lo sobreescribe.
+
+### Los tokens de elevación no se hicieron, y está bien
+
+El plan pedía «tokens de elevación por borde y fondo». Al escribirlos quedó claro que serían **alias de `--surface` y `--surface-2`**, que ya existen. Un alias de un token existente no es una escala: es una capa más para mantener.
+
+La escala terminó siendo las variantes del constructor. Se corrigió el plan.
+
+### La guarda contra la próxima copia
+
+Que la primitiva exista no impide que alguien la vuelva a escribir a mano — es exactamente cómo se llegó a 29. Un test recorre el código de las tres aplicaciones y marca cualquier línea que repita el radio junto con el borde.
+
+Dos excepciones, las dos reales: el **canvas de firma**, que comparte el radio y es un área de dibujo con borde punteado; y la **fila que se vuelve tarjeta** en el celular (`REF5-1`), que usa `max-sm:` y no puede salir del constructor, porque este emite clases planas y no variantes.
+
+> **4 controles de mutación, murieron 4**: las dos densidades dando lo mismo, elevar con sombra, que la variante sin relleno igual emita `p-3`, y **reponer una tarjeta escrita a mano** — el que prueba que la guarda sirve.
+
+### El mismo error de escritura, otra vez
+
+Al escribir el test por heredoc, la secuencia de escape de salto de línea se convirtió en un salto real dentro de un string de JavaScript y el archivo dejó de parsear. Es el mismo mecanismo que el carácter de retroceso de la entrada del margen.
+
+Escribir código con barras invertidas desde el shell no es seguro. Para eso está la herramienta de edición.
+
+---
+
 ## 2026-08-20 · `REF5-1` — las tablas dejaron de scrollear de costado
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-1`

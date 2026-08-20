@@ -13,7 +13,7 @@ import { type BowCategory, formatearMonto } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface ResumenDePagos {
@@ -75,7 +75,7 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
 
       {resumen?.payment.required && (
         <div
-          className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface-2)] flex flex-col gap-1"
+          className={cn(clasesDeTarjeta({ nivel: 'anidada' }), 'flex flex-col gap-1')}
           data-testid="recaudacion"
         >
           <div className="flex items-baseline justify-between gap-3">
@@ -106,7 +106,7 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
               Arriba lo que identifica y el estado; abajo la acción, con el
               ancho completo.
             */
-            className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+            className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
             data-testid={`pago-${p.lastName}`}
           >
             <div className="flex items-baseline justify-between gap-3">

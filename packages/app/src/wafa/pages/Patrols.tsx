@@ -19,7 +19,15 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { BotonCopiar } from '../../components/BotonCopiar.js';
-import { Button, Encabezado, Pantalla, Screen, StakeChip } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Pantalla,
+  Screen,
+  StakeChip,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   type Borrador,
@@ -228,7 +236,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
         {/* Avisa pero no bloquea: el admin decide, y queda registrado. */}
         {violaciones.length > 0 && (
           <section
-            className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-1.5 text-[var(--warn)]"
+            className={cn(clasesDeTarjeta(), 'flex flex-col gap-1.5 text-[var(--warn)]')}
             data-testid="violaciones"
           >
             <p className="font-semibold text-sm">
@@ -254,7 +262,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
             return (
               <article
                 key={p.numero}
-                className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-3 bg-[var(--surface)]"
+                className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
                 data-testid={`patrulla-${p.numero}`}
               >
                 <div className="flex items-baseline justify-between gap-3">

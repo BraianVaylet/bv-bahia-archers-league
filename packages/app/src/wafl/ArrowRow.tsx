@@ -7,7 +7,7 @@
  */
 
 import { type Modality, sortArrowsDescending } from '@bal/shared';
-import { cn, StakeChip } from '../components/ui.js';
+import { clasesDeTarjeta, cn, StakeChip } from '../components/ui.js';
 
 export interface ArrowRowProps {
   readonly firstName: string;
@@ -51,7 +51,8 @@ export function ArrowRow({
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2',
+        clasesDeTarjeta({ nivel: 'transparente' }),
+        'flex flex-col gap-2',
         seleccionado
           ? 'bg-[var(--surface)] border-[var(--nock)] border-2'
           : 'bg-[var(--surface-2)]',

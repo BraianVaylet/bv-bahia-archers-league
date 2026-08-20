@@ -7,7 +7,15 @@
 
 import { formatearMonto, formatearRango } from '@bal/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Button, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Field,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 
 export interface SeasonRow {
@@ -160,7 +168,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
       <Screen>
         <form
           onSubmit={(e) => void crear(e)}
-          className="mt-4 flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+          className={cn(clasesDeTarjeta(), 'mt-4 flex flex-col gap-3')}
         >
           <h2 className="font-semibold">Nueva temporada</h2>
 
@@ -204,11 +212,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
 
         <ul className="flex flex-col gap-2">
           {temporadas?.map((t) => (
-            <li
-              key={t.id}
-              className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
-              data-testid={`temporada-${t.id}`}
-            >
+            <li key={t.id} className={clasesDeTarjeta()} data-testid={`temporada-${t.id}`}>
               <div className="flex items-baseline justify-between gap-3">
                 <p className="font-semibold">{t.name}</p>
                 {/* El estado va escrito, no sólo en el color del botón. */}

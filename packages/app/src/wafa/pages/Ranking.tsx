@@ -25,7 +25,7 @@ import {
 } from '@bal/shared';
 import { IconoCompartir } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 interface Temporada {
@@ -250,7 +250,7 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
                 {c.ranked.map((e) => (
                   <li
                     key={e.archerId}
-                    className="rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)] flex items-center justify-between gap-3"
+                    className={cn(clasesDeTarjeta(), 'flex items-center justify-between gap-3')}
                     data-testid={`fila-${e.lastName}`}
                   >
                     <span className="flex items-center gap-2 min-w-0">

@@ -8,7 +8,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { BotonTema, cn, Logo, StakeChip } from '@bal/ui';
+import { BotonTema, clasesDeTarjeta, cn, Logo, StakeChip } from '@bal/ui';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -20,7 +20,7 @@ import { Link } from 'react-router-dom';
  * una persona a mano. Lo que se duplicaba se había ido separando: el chip de
  * estaca tenía dos tamaños distintos sin que nadie lo hubiera decidido.
  */
-export { BotonTema, cn, StakeChip };
+export { BotonTema, clasesDeTarjeta, cn, StakeChip };
 
 export function Screen({ children }: { readonly children: ReactNode }) {
   return <div className="mx-auto w-full max-w-3xl px-4 pb-12 flex flex-col gap-6">{children}</div>;

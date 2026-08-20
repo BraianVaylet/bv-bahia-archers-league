@@ -11,7 +11,15 @@ import { formatearFecha, type SCORING, type TournamentStatus } from '@bal/shared
 import { BadgeEstado, ChipCategoria, ChipModalidad, IconoCandado } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, cn, Encabezado, Field, Pantalla, Screen } from '../../components/ui.js';
+import {
+  Button,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Field,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import {
@@ -119,7 +127,7 @@ function TarjetaDePatrulla({
 }) {
   return (
     <article
-      className="rounded-[var(--radius-lg)] border p-3 flex flex-col gap-2 bg-[var(--surface)]"
+      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
       data-testid={`avance-${avance.number}`}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -423,7 +431,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                     e.preventDefault();
                     void guardarDatos();
                   }}
-                  className="flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+                  className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
                   data-testid="editar-torneo"
                 >
                   <Field
@@ -477,7 +485,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
 
                   {editandoArqueros && (
                     <div
-                      className="flex flex-col gap-3 rounded-[var(--radius-lg)] border p-3 bg-[var(--surface)]"
+                      className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
                       data-testid="editar-participantes"
                     >
                       <p className="text-sm text-[var(--warn)]">
