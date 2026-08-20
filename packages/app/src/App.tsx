@@ -8,6 +8,7 @@
  */
 
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { RegistroDeVersion } from './components/registroDeVersion.js';
 import { Button, Screen } from './components/ui.js';
 import { WafaApp } from './wafa/WafaApp.js';
 import { WaflApp } from './wafl/WaflApp.js';
@@ -39,12 +40,29 @@ function Elegir() {
 
 export function App() {
   return (
-    <BrowserRouter basename={BASENAME}>
-      <Routes>
-        <Route path="/" element={<Elegir />} />
-        <Route path="/wafl/*" element={<WaflApp />} />
-        <Route path="/wafa/*" element={<WafaApp />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <BrowserRouter basename={BASENAME}>
+        <Routes>
+          <Route path="/" element={<Elegir />} />
+          <Route path="/wafl/*" element={<WaflApp />} />
+          <Route path="/wafa/*" element={<WafaApp />} />
+        </Routes>
+      </BrowserRouter>
+
+      {/*
+        **Afuera del router, y no por comodidad.**
+
+        Que haya versión nueva no depende de en qué pantalla esté el usuario, y
+        montarlo por ruta lo desmontaría al navegar — perdiendo el «ahora no»
+        que acaba de elegir.
+
+        Y hay un motivo más fuerte: `BrowserRouter` con un `basename` que no
+        coincide con la URL **no renderiza absolutamente nada**, ni siquiera los
+        hijos que no son rutas. Hoy la PWA siempre se sirve bajo `/app/`, así
+        que coincide; pero atar el aviso de actualización a que el routing esté
+        bien configurado es acoplar dos cosas que no tienen nada que ver.
+      */}
+      <RegistroDeVersion />
+    </>
   );
 }
