@@ -376,11 +376,23 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
    * el único lugar donde `scrollWidth` significa algo es un navegador de
    * verdad, con los datos que el torneo dejó publicados.
    */
-  await publico.setViewportSize({ width: 360, height: 740 });
+  /**
+   * **320 px y no 360.** El sistema declara 360 como ancho mínimo soportado,
+   * pero un iPhone SE en modo zoom de texto entrega menos: si entra a 320,
+   * entra en todo lo demás.
+   */
+  const rutasPublicas = [
+    `/torneos/${tournament.id}`,
+    `/ranking?temporada=${season.id}`,
+    // La ficha del arquero, que es la que más números por fila tiene.
+    `/arqueros/${(await api.get<{ archers: { id: string }[] }>('/api/admin/archers')).archers[0]?.id}`,
+  ];
 
-  for (const ruta of [`/torneos/${tournament.id}`, `/ranking?temporada=${season.id}`]) {
+  await publico.setViewportSize({ width: 320, height: 740 });
+
+  for (const ruta of rutasPublicas) {
     await publico.goto(ruta);
-    await expect(publico.getByRole('heading', { name: 'Razo' }).first()).toBeVisible();
+    await publico.waitForLoadState('networkidle');
 
     /**
      * Se busca **cualquier** elemento que scrollee de costado, no el documento.
@@ -401,7 +413,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
         .map((e) => `${e.tagName.toLowerCase()} — ${e.className || '(sin clase)'}`),
     );
 
-    expect(desbordes, `${ruta} tiene algo que scrollea de costado a 360 px`).toEqual([]);
+    expect(desbordes, `${ruta} tiene algo que scrollea de costado a 320 px`).toEqual([]);
   }
 
   await anonimo.close();

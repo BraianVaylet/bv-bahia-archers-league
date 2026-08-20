@@ -43,11 +43,67 @@ interface Arquero {
   readonly history?: readonly { seasonId: string; name: string; normalizedPct: number }[];
 }
 
-function Dato({ etiqueta, valor }: { readonly etiqueta: string; readonly valor: string | number }) {
+function Dato({
+  etiqueta,
+  valor,
+  detalle,
+}: {
+  readonly etiqueta: string;
+  readonly valor: string | number;
+  /**
+   * El dato de al lado, en chico y abajo.
+   *
+   * Antes esto iba metido dentro del valor —`89.39% (295)`— y quedaban dos
+   * números peleando el mismo renglón: el que ordena el ranking y el puntaje
+   * bruto. En un celular a 320 px eso además se parte.
+   */
+  readonly detalle?: string;
+}) {
   return (
     <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2">
       <dt className="text-xs text-[var(--ink-muted)]">{etiqueta}</dt>
-      <dd className="text-lg font-semibold tabular-nums">{valor}</dd>
+      <dd className="text-lg font-semibold tabular-nums">
+        {valor}
+        {detalle && (
+          <span className="block text-xs font-normal text-[var(--ink-muted)]">{detalle}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Los tres podios, cada uno con su medalla y su número.
+ *
+ * Antes era un solo valor, `1-0-2`, y no había forma de saber cuál era cuál:
+ * el que lo lee tiene que adivinar que el orden es primero-segundo-tercero.
+ *
+ * La medalla **acompaña** al número, no lo reemplaza — es la misma regla que
+ * gobierna la del ranking.
+ */
+function Podios({
+  podios,
+}: {
+  readonly podios: { readonly first: number; readonly second: number; readonly third: number };
+}) {
+  const puestos = [
+    { medalla: '🥇', nombre: 'primeros', cantidad: podios.first },
+    { medalla: '🥈', nombre: 'segundos', cantidad: podios.second },
+    { medalla: '🥉', nombre: 'terceros', cantidad: podios.third },
+  ];
+
+  return (
+    <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2 col-span-2">
+      <dt className="text-xs text-[var(--ink-muted)]">Podios</dt>
+      <dd className="flex gap-4">
+        {puestos.map((p) => (
+          <span key={p.nombre} className="flex items-baseline gap-1">
+            <span aria-hidden="true">{p.medalla}</span>
+            <span className="text-lg font-semibold tabular-nums">{p.cantidad}</span>
+            <span className="sr-only">{p.nombre}</span>
+          </span>
+        ))}
+      </dd>
     </div>
   );
 }
@@ -99,11 +155,12 @@ export function ArcherPage() {
             {/* El que ordena el ranking va primero; el mejor suelto queda al
                 lado porque es el récord que el arquero recuerda. */}
             <Dato etiqueta="Mejor de 2" valor={`${s.bestTwoAvgPct}%`} />
-            <Dato etiqueta="Mejor" valor={`${s.bestNormalizedPct}% (${s.bestRawScore})`} />
             <Dato
-              etiqueta="Podios"
-              valor={`${s.podiums.first}-${s.podiums.second}-${s.podiums.third}`}
+              etiqueta="Mejor"
+              valor={`${s.bestNormalizedPct}%`}
+              detalle={`${s.bestRawScore} puntos`}
             />
+            <Podios podios={s.podiums} />
             <Dato etiqueta="Inner" valor={s.totalX} />
             <Dato etiqueta="Dieces" valor={s.totalTens} />
             {/* «M» y no «Emes»: es como se anota en la planilla y como se dice

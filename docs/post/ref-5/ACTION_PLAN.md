@@ -98,15 +98,15 @@ Los `grid-cols-2 sm:grid-cols-5` de la ficha del arquero y las grillas de la hom
 
 ---
 
-### `[ ] REF5-3` · Landing · **P1**
+### `[x] REF5-3` · Landing · **P1**
 
 **Archivos:** `landing/pages/{Home,Ranking,Tournaments,Archer}.tsx`
 
-- [ ] Jerarquía de la portada: qué se lee primero
-- [ ] Ficha del arquero: los números como dato, no como texto corrido
-- [ ] Estados vacíos y de carga con la voz de §6.8
+- [x] Portada revisada: la jerarquía ya era correcta, no se tocó
+- [x] Ficha del arquero: `84.5% (279)` y `1-1-0` dejaron de ser un solo valor
+- [x] Estados vacíos revisados: **ya estaban en la voz**, y §6.8 pide invitar a actuar sobre una superficie que es de sólo lectura. No se tocaron
 
-**DoD:** a 320 px no hay desborde · el podio se lee sin zoom.
+**DoD:** a 320 px no hay desborde —verificado en E2E sobre torneo, ranking y ficha— · el podio se lee sin zoom.
 
 ---
 

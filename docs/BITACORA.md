@@ -14,6 +14,35 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · `REF5-3` — los números de la ficha dejaron de ser texto corrido
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-3`
+
+Dos datos de la ficha del arquero venían apretados dentro de un mismo valor:
+
+| Antes | Problema |
+|---|---|
+| `84.5% (279)` | Dos números distintos peleando el mismo renglón: el que ordena el ranking y el puntaje bruto |
+| `1-1-0` | Tres números **sin nombre**. Había que adivinar que el orden era primero-segundo-tercero |
+
+Ahora el porcentaje es el valor y el bruto va debajo en chico; los podios llevan cada uno su medalla, con el nombre del puesto para el lector de pantalla — la medalla sola es un emoji que no todos anuncian igual.
+
+### Los estados vacíos no se tocaron, a propósito
+
+El plan pedía «estados vacíos y de carga con la voz de §6.8». Al revisarlos ya estaban en la voz del proyecto —*«Todavía no participó de ningún torneo publicado»*— y §6.8 pide que **inviten a actuar**, con ejemplos de WAFL: *«Empezá por el 10»*.
+
+La landing es de sólo lectura: **no hay acción que invitar**. Inventarle un llamado habría sido mover cosas para llenar un ítem del plan. Se dejaron como estaban.
+
+### El DoD se midió a 320, no a 360
+
+El sistema declara 360 px como ancho mínimo soportado. La verificación va a **320**: un iPhone SE con el zoom de texto activado entrega menos, y si entra a 320 entra en todo lo demás.
+
+Se sumó la ficha del arquero a la comprobación, que es la pantalla con más números por fila.
+
+> **2 controles de mutación, murieron 2**: quitarle el nombre del puesto a los podios, y que el detalle secundario deje de mostrarse.
+
+---
+
 ## 2026-08-20 · `REF5-2` — la tarjeta estaba escrita 29 veces
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-2`
