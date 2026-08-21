@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · Indicador de conexión en el header de WAFA
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Un punto verde o rojo en el header, con el estado escrito para el lector de pantalla.
+
+**Va sólo donde faltaba.** WAFL ya tenía el `SyncBadge`, que dice lo mismo y además cuántos cambios quedan sin enviar; el header lo agrega únicamente cuando la pantalla no trae el suyo. Dos indicadores de red en la misma barra son dos cosas que pueden contradecirse.
+
+WAFA no tenía ninguno, y es la app que **sí** depende de la red: puede leer de la caché sin señal, pero no crear ni editar. Sin indicador, el admin se enteraba de que estaba sin conexión recién cuando fallaba el guardado.
+
+### `navigator.onLine` no dice que el servidor esté vivo
+
+Dice que hay una interfaz de red levantada. En el monte se tiene señal y no pasa un byte. Por eso el texto habla de la conexión **del dispositivo** y no promete que la app vaya a poder guardar: eso lo sabe el intento real.
+
+Y ante la ausencia de la API se responde **con conexión**: es mejor no avisar nada que teñir de rojo una app que anda bien. Misma lección que `matchMedia` en `REF-4`.
+
+### Agregar un `role="status"` rompió un test de otra pantalla
+
+Un test de publicación buscaba su aviso con `findByRole("status")`, asumiendo que había **una sola** región anunciada en la pantalla. Con el indicador en el header pasaron a ser dos.
+
+Y el modo de fallar fue peor que un simple choque: `findBy*` se resuelve con **el primero que aparezca**, así que el indicador satisfacía la espera al instante y el test dejaba de aguardar al aviso — pasaba a comparar contra una cadena vacía.
+
+Se corrigió esperando **el texto** del aviso y verificando después que esté dentro de una región anunciada. Prueba las dos cosas sin depender de cuántas haya.
+
+> **4 controles de mutación, murieron 4**: quedarse siempre en verde, sacar el nombre accesible y dejar sólo el color, marcar desconectado cuando falta la API, y duplicar el indicador en pantallas que ya traen el suyo.
+
+---
+
 ## 2026-08-20 · Recuperar el acceso del admin cambiando la variable de entorno
 
 **Autor:** Claude Opus 5 · **Estado:** completado

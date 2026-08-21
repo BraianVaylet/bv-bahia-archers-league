@@ -7,6 +7,7 @@
  */
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { IndicadorDeConexion } from './IndicadorDeConexion.js';
 
 // ── Botón ────────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,18 @@ export function Encabezado({
 
       <div className="ml-auto flex items-center gap-2">
         {children}
+
+        {/*
+          El estado de la red, para las pantallas que no traen su propio
+          indicador.
+
+          WAFL pasa su `SyncBadge` por `children`, que dice lo mismo y además
+          cuántos cambios quedan sin enviar: ahí este punto sobraría y podría
+          contradecirlo. WAFA no traía nada, y es la app que **sí** depende de
+          la red — puede leer de la caché, pero no crear ni editar.
+        */}
+        {!children && <IndicadorDeConexion />}
+
         <BotonTema />
 
         {onCerrarSesion && (
