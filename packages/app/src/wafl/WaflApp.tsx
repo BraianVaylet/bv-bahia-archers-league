@@ -8,9 +8,9 @@
  * Ver `docs/FUNCTIONAL.md` §7.
  */
 
-import { enlaceEntreApps } from '@bal/shared';
 import { useEffect, useState } from 'react';
 import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
+import { A_LA_LANDING } from '../components/VolverALaLiga.js';
 import type { BundleTarget, StoredBundle } from '../offline/db.js';
 import { startSyncWorker } from '../offline/syncWorker.js';
 import { CircuitPage } from './CircuitPage.js';
@@ -18,12 +18,6 @@ import { LoginPage } from './LoginPage.js';
 import { ResultsPage } from './ResultsPage.js';
 import { logout } from './sesion.js';
 import { TargetPage } from './TargetPage.js';
-
-/**
- * Se resuelve una sola vez, al cargar el módulo: el origen no cambia mientras
- * la app está abierta.
- */
-const A_LA_LANDING = enlaceEntreApps('landing', import.meta.env.DEV, window.location.href);
 
 type Vista =
   | { readonly nombre: 'circuito' }
