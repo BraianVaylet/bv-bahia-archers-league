@@ -260,7 +260,21 @@ describe('PublishPage', () => {
     });
     renderPantalla(PublishPage, '/wafa/torneos/t1/publicar');
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/firmas desbloqueadas/);
+    /*
+      Se espera **el texto** del aviso, no un rol.
+
+      Antes esto era `findByRole('status')`, que asumía una sola región
+      anunciada en la pantalla. Desde que el header tiene el indicador de
+      conexión —que también es un `status`, y con razón: su cambio tiene que
+      anunciarse— esa suposición dejó de valer, y peor: `findBy*` se resuelve
+      con el primero que aparezca, así que el indicador satisfacía la espera y
+      el test dejaba de aguardar al aviso.
+
+      Esperar el contenido y después verificar que esté dentro de una región
+      anunciada prueba las dos cosas sin depender de cuántas haya.
+    */
+    const aviso = await screen.findByText(/firmas desbloqueadas/);
+    expect(aviso.closest('[role="status"]')).not.toBeNull();
     expect((screen.getByRole('button', { name: 'Publicar' }) as HTMLButtonElement).disabled).toBe(
       false,
     );
