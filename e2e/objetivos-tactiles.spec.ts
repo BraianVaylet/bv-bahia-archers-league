@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { adminApi, PASSWORD_NUEVO, torneoIniciado } from './ayudas.js';
+import { adminApi, entrarComoLider, PASSWORD_NUEVO, torneoIniciado } from './ayudas.js';
 
 /**
  * Los objetivos táctiles, **medidos**.
@@ -152,4 +152,105 @@ test('el foco se ve al navegar con teclado', async ({ page, request }) => {
     Number.parseFloat(foco?.ancho ?? '0'),
     'el anillo de foco es más fino que los 3px que declara el sistema',
   ).toBeGreaterThanOrEqual(3);
+});
+
+/**
+ * **El teclado de scoring, medido en 56 px.**
+ *
+ * `DESIGN_SYSTEM.md` §5 lo llama «la regla que manda»: 56 px no es un número
+ * redondo elegido al azar, es lo que hace falta para acertar con guante de tiro,
+ * caminando, sin mirar de cerca. *«Si un componente no llega, se rediseña el
+ * componente, no se baja el número.»*
+ *
+ * Hasta ahora el número vivía en una clase de Tailwind y nadie lo comprobaba
+ * contra la pantalla.
+ */
+test('las teclas del scoring miden 56 px', async ({ page, request }) => {
+  const api = await adminApi(request);
+  const { tournamentId, patrols } = await torneoIniciado(api, { nombre: 'teclas' });
+
+  const lider = patrols[0];
+  if (!lider) throw new Error('el torneo no dejó patrullas');
+
+  await page.setViewportSize(CELULAR);
+  await entrarComoLider(page, tournamentId, 'teclas', lider.username, lider.pin);
+
+  // Al primer blanco del recorrido, que es donde vive el teclado.
+  await page.getByTestId('numero-blanco').first().click();
+  await expect(page.getByRole('button', { name: /^Puntaje / }).first()).toBeVisible();
+
+  const teclasChicas = await page.evaluate(() => {
+    const teclas = [...document.querySelectorAll<HTMLElement>('button[aria-label^="Puntaje "]')];
+
+    return teclas
+      .map((t) => ({ caja: t.getBoundingClientRect(), nombre: t.getAttribute('aria-label') ?? '' }))
+      .filter(({ caja }) => caja.width > 0 && caja.height > 0)
+      .filter(({ caja }) => caja.height < 56 || caja.width < 56)
+      .map(({ caja, nombre }) => `${nombre}: ${Math.round(caja.width)}×${Math.round(caja.height)}`);
+  });
+
+  expect(teclasChicas, 'hay teclas por debajo de los 56 px de la regla 9').toEqual([]);
+});
+
+/**
+ * **Contraste AAA en la pantalla de scoring.**
+ *
+ * §2.4: mínimo AA en todo texto, **AAA (7:1) en la pantalla de scoring y en los
+ * números de puntaje** — es la que se lee bajo el sol.
+ *
+ * Se calcula sobre los colores **computados**, que es la única forma de saber
+ * qué salió: los tokens se combinan en tiempo de ejecución y un par que nadie
+ * verificó puede quedar por debajo sin que ningún test lo note.
+ */
+test('el scoring cumple AAA de contraste', async ({ page, request }) => {
+  const api = await adminApi(request);
+  const { tournamentId, patrols } = await torneoIniciado(api, { nombre: 'contraste' });
+
+  const lider = patrols[0];
+  if (!lider) throw new Error('el torneo no dejó patrullas');
+
+  await page.setViewportSize(CELULAR);
+  await entrarComoLider(page, tournamentId, 'contraste', lider.username, lider.pin);
+  await page.getByTestId('numero-blanco').first().click();
+  await expect(page.getByRole('button', { name: /^Puntaje / }).first()).toBeVisible();
+
+  const flojos = await page.evaluate(() => {
+    /** Luminancia relativa, según la definición de WCAG. */
+    const luminancia = (rgb: number[]): number => {
+      const [r = 0, g = 0, b = 0] = rgb.map((v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+
+    const leerRgb = (color: string): number[] =>
+      (color.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+
+    /** El primer ancestro con fondo opaco: el que de verdad se ve detrás. */
+    const fondoDe = (e: Element): number[] => {
+      let actual: Element | null = e;
+      while (actual) {
+        const c = getComputedStyle(actual).backgroundColor;
+        const rgb = leerRgb(c);
+        const opaco = !c.includes('rgba') || !/,\s*0\s*\)/.test(c);
+        if (rgb.length === 3 && opaco) return rgb;
+        actual = actual.parentElement;
+      }
+      return [255, 255, 255];
+    };
+
+    const razon = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+
+    return [...document.querySelectorAll<HTMLElement>('button[aria-label^="Puntaje "]')]
+      .map((e) => {
+        const estilo = getComputedStyle(e);
+        const r = razon(luminancia(leerRgb(estilo.color)), luminancia(fondoDe(e)));
+        return { nombre: e.getAttribute('aria-label') ?? '', razon: Math.round(r * 100) / 100 };
+      })
+      .filter((x) => x.razon < 7)
+      .map((x) => `${x.nombre}: ${x.razon}:1`);
+  });
+
+  expect(flojos, 'hay texto del scoring por debajo de AAA (7:1)').toEqual([]);
 });
