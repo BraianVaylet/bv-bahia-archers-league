@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · Recuperar el acceso del admin cambiando la variable de entorno
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Si el administrador se olvida el password no había salida: no hay recupero por mail —la liga no guarda mails de nadie— ni un segundo administrador que pueda rescatarlo. La única opción era entrar a la base a mano.
+
+Ahora **cambiar `ADMIN_INITIAL_PASSWORD` y reiniciar** resetea el password y vuelve a exigir uno nuevo.
+
+### El problema era saber si la variable cambió
+
+El seed no puede comparar la variable contra el password del usuario: después de que el admin elige el suyo, dejan de tener relación. Y comparar contra el valor en claro exigiría guardarlo.
+
+Se guarda un **hash argon2id del valor aplicado por última vez**, aparte del password. En cada arranque se verifica con `verifySecret`:
+
+| Resultado | Qué pasa |
+|---|---|
+| Coincide | No se toca nada — **redesplegar no pisa el password que el admin eligió** |
+| No coincide | Reset, `mustChangePassword: true`, y se levanta el bloqueo por intentos fallidos |
+| Sin huella guardada | Se escribe la huella **sin resetear**: no se puede saber, y ante la duda no se pisa nada |
+
+Es un hash y no el valor: si la base se filtra, no entrega la credencial de rescate. Y es argon2id, el mismo del password, para que compararlo no abra una vía de fuerza bruta más barata que la del login.
+
+### El bloqueo se levanta a propósito
+
+Estar bloqueado por intentos fallidos es **justo el escenario previo típico** a que el dueño busque cómo recuperar la cuenta. Si el reset no levantara el bloqueo, el operador cambia la variable, reinicia, y sigue afuera.
+
+### Lo que dejó la revisión de seguridad
+
+`/security-review` no encontró vulnerabilidades. Sí un **supuesto que no estaba escrito**: quien puede editar las variables del proyecto puede tomar la cuenta de administrador reiniciando el servicio.
+
+No es superficie nueva —el primer arranque ya siembra el admin desde esa misma variable— pero ahora está explícito en `SECURITY.md` §3.1, con la consecuencia operativa: ese permiso se trata con el mismo cuidado que la credencial del admin.
+
+> **4 controles de mutación, murieron 4**: resetear en todo arranque, no resetear nunca, no levantar el bloqueo, y **meter el password en el audit log**.
+
+> Ese último control importaba especialmente: el test que verifica que el audit no guarde la credencial **pasaba antes de implementar nada**, porque sin entrada no hay nada que contenga el password. Recién con la mutación se supo que servía.
+
+---
+
 ## 2026-08-20 · Salir a la landing desde los dos logins
 
 **Autor:** Claude Opus 5 · **Estado:** completado

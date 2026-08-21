@@ -13,7 +13,7 @@ export interface AuditInput {
   readonly actorType: SubjectType | 'system';
   readonly actorId: ObjectId | null;
   readonly action: AuditAction;
-  readonly entity: 'tournament' | 'patrol' | 'participant';
+  readonly entity: 'tournament' | 'patrol' | 'participant' | 'user';
   readonly entityId: ObjectId;
   readonly meta?: Record<string, unknown>;
   readonly ip?: string | null;

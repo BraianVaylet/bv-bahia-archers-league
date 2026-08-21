@@ -50,6 +50,24 @@ Sin esto, falsear un puntaje sería tan simple como editar un JSON en devtools.
 - **Lookup timing-safe**: si el usuario no existe, se compara igual contra un `DUMMY_HASH` para que el tiempo de respuesta no revele la existencia de la cuenta.
 - Bloqueo temporal tras 5 intentos fallidos (15 minutos, escalando).
 
+#### Recuperación del acceso
+
+**Cambiar `ADMIN_INITIAL_PASSWORD` y reiniciar resetea el password del administrador.** Es la única vía de recuperación: no hay recupero por mail —la liga no guarda mails de nadie— ni un segundo administrador que pueda rescatar al primero.
+
+Cómo funciona:
+
+- Se guarda un **hash argon2id del valor de la variable que se aplicó por última vez** (`initialPasswordHash`), aparte del password del usuario. El valor en claro no se guarda en ningún lado.
+- En cada arranque se verifica contra ese hash. Si coincide, no se toca nada — **redesplegar con la misma variable no pisa el password que el admin eligió**.
+- Si no coincide, se resetea el password, se vuelve a exigir uno nuevo (`mustChangePassword: true`) y **se levanta el bloqueo por intentos fallidos**: estar bloqueado por fuerza bruta es justo el escenario previo típico a una recuperación.
+- Queda registrado en el audit log como `admin.password_reset`, con `actorType: 'system'`. En `meta` no va el password ni su hash.
+- El arranque lo anuncia en el log, que es donde mira el operador que acaba de cambiar la variable.
+
+> **El acceso al panel de variables del proveedor es equivalente al acceso de administrador.** Quien pueda editar `ADMIN_INITIAL_PASSWORD` puede tomar la cuenta reiniciando el servicio.
+>
+> No es una superficie nueva —el primer arranque ya siembra el admin desde esa misma variable— pero conviene tenerlo explícito: ese permiso se trata con el mismo cuidado que la credencial del administrador, y se restringe a quien corresponda en el proyecto de Railway.
+>
+> Salió de la revisión de seguridad de este cambio, que no encontró vulnerabilidades pero sí este supuesto sin escribir.
+
 > **Cambio respecto del brief.** El brief especifica `admin` / `CBA2026` fijo. Un password conocido y presente en el repositorio compromete la totalidad del sistema: crear, borrar y publicar torneos. `CBA2026` queda **solo como default de desarrollo local**; en producción es obligatorio setear la variable de entorno.
 
 ### 3.2 Líder de patrulla

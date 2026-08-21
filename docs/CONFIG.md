@@ -30,7 +30,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `SESSION_SECRET` | **sí** | — | ≥ 32 caracteres. `openssl rand -hex 32` |
 | `PIN_ENC_KEY` | **sí** | — | Clave AES-256 en hex (64 caracteres = 32 bytes). `openssl rand -hex 32`. Ver [`SECURITY.md`](SECURITY.md) §9 |
 | `ADMIN_USERNAME` | no | `admin` | Usuario del administrador inicial |
-| `ADMIN_INITIAL_PASSWORD` | **sí en prod** | `CBA2026` (solo dev) | Password del seed. **El arranque falla en producción si no está** |
+| `ADMIN_INITIAL_PASSWORD` | **sí en prod** | `CBA2026` (solo dev) | Password del seed. **El arranque falla en producción si no está.** Cambiarla y reiniciar **resetea el password del admin** — ver §7.1 |
 | `SESSION_COOKIE_NAME` | no | `bal_session` | Nombre de la cookie de sesión |
 | `CSRF_COOKIE_NAME` | no | `bal_csrf` | Nombre de la cookie CSRF |
 | `COOKIE_SECURE` | no | `false` dev / `true` prod | Flag `Secure` de las cookies |
@@ -236,6 +236,29 @@ docker run -p 8787:8787 -e MONGODB_URI="mongodb+srv://..." -e SESSION_SECRET="..
 4. **Healthcheck**: ya configurado en `railway.json` apuntando a `/api/health`.
 
 5. **Primer arranque**: los índices se crean automáticamente y el usuario administrador se siembra con `ADMIN_INITIAL_PASSWORD`. **Entrar de inmediato y cambiar el password** — la app lo va a exigir.
+
+### 7.1 Si el administrador se olvida el password
+
+No hay recupero por mail ni un segundo administrador: **la vía es la variable de entorno.**
+
+1. Generar un password nuevo, de 12 caracteres o más:
+
+   ```bash
+   openssl rand -base64 18
+   ```
+
+2. Cambiar `ADMIN_INITIAL_PASSWORD` en Railway con ese valor.
+3. Reiniciar el servicio. En el log del arranque aparece el aviso de que el password quedó reseteado.
+4. Entrar con el valor nuevo. **La app va a exigir cambiarlo de inmediato**: el de rescate es de paso, no permanente.
+
+Detalles que conviene saber:
+
+- **Redesplegar sin cambiar la variable no toca nada.** Se compara contra un hash del último valor aplicado, así que el password que eligió el admin sobrevive a cualquier deploy.
+- **Volver a un valor anterior también cuenta como cambio** y dispara otro reset: se compara contra el último aplicado, no contra un historial.
+- El reset **levanta el bloqueo por intentos fallidos**, que es lo que suele haber pasado antes de buscar cómo recuperar la cuenta.
+- Queda registrado en el audit log como `admin.password_reset`.
+
+> Ver [`SECURITY.md`](SECURITY.md) §3.1: **quien puede editar las variables del proyecto puede tomar la cuenta de administrador.**
 
 6. **Verificación post-deploy**:
    ```bash
