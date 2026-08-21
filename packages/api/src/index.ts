@@ -19,7 +19,25 @@ async function main(): Promise<void> {
 
   const db = await connect();
   await ensureIndexes(db);
-  await seed(db, cfg);
+  const siembra = await seed(db, cfg);
+
+  /*
+    El reset se anuncia en el log del arranque.
+
+    Es donde mira el operador que acaba de cambiar la variable en Railway, y es
+    la confirmación de que el cambio surtió efecto: sin esto tendría que
+    probar el login para saber si funcionó.
+
+    También es la señal si el reset ocurre **sin que nadie lo pidiera** —una
+    variable mal copiada en un redeploy— porque el password del admin habría
+    cambiado sin aviso.
+  */
+  if (siembra.adminReset) {
+    console.warn(
+      `ADMIN_INITIAL_PASSWORD cambió: el password de «${siembra.adminUsername}» quedó reseteado ` +
+        'y se va a exigir uno nuevo en el próximo ingreso.',
+    );
+  }
 
   const app = createApp();
 
