@@ -30,14 +30,18 @@ Lo que se evita deliberadamente: fondo crema con serif de alto contraste, negro 
 | `--ink-muted` | `#5A5F4E` | `#A8AD99` | Texto secundario, etiquetas |
 | `--line` | `#DEDDD2` | `#333629` | Bordes, divisores |
 | `--nock` | `#8FA800` | `#C6F000` | **Acción primaria** |
-| `--nock-ink` | `#FFFFFF` | `#16170F` | Texto sobre `--nock` |
+| `--nock-ink` | `#0D0E05` | `#16170F` | Texto sobre `--nock`. **Oscuro en los dos temas** |
 | `--danger` | `#B3200E` | `#F06449` | Errores, acciones destructivas |
 | `--warn` | `#8A5A00` | `#E8A33D` | Pendiente de sincronizar, advertencias |
 | `--ok` | `#2F6B2F` | `#7CC47C` | Sincronizado, completo |
 
 El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de la cara de campo y la sombra del monte. El papel no es crema: `#FBFAF5` es claro y casi neutro, para exprimir la luminancia máxima de la pantalla bajo el sol.
 
-`--nock` cambia de tono entre temas a propósito. El chartreuse fluorescente `#C6F000` es glorioso sobre fondo oscuro e ilegible sobre blanco; en tema claro se oscurece a `#8FA800` para llegar a contraste AA.
+`--nock` cambia de tono entre temas a propósito. El chartreuse fluorescente `#C6F000` es glorioso sobre fondo oscuro e ilegible sobre blanco; en tema claro se oscurece a `#8FA800`.
+
+> **La tinta encima es oscura en los dos temas, y esto estuvo mal escrito hasta `REF5-5`.** Este párrafo afirmaba que `#8FA800` «llega a contraste AA», pero la tinta que tenía al lado era blanca y el par daba **2.70:1** — ni AA ni cerca. Afectaba a todo botón primario de las tres apps, en el tema claro, que es el default de WAFL. Con `#0D0E05` el par llega a **7.18:1**, que es el AAA que §2.4 exige en scoring.
+>
+> Se cambió la tinta y **no** el verde: `--nock` también dibuja el anillo de foco sobre el fondo claro, y aclararlo lo habría empeorado. Lo verifica `packages/shared/tests/accion-primaria.test.ts`, que lee `tokens.css`.
 
 ### 2.2 Colores de estaca — reservados
 

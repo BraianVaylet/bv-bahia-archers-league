@@ -40,9 +40,22 @@
   --ink-muted: #5a5f4e;
   --line: #deddd2;
 
-  /* Acción primaria. En claro se oscurece para llegar a contraste AA. */
+  /*
+    Acción primaria.
+
+    La tinta es OSCURA, no blanca. Blanco sobre este verde daba **2.70:1**: por
+    debajo de AA, y muy por debajo del AAA que §2.4 exige en la pantalla de
+    scoring. Afectaba a todos los botones primarios de las tres apps, en el tema
+    claro — que es el default de WAFL porque es el que gana bajo el sol.
+
+    Se cambió la tinta y NO el verde a propósito: `--nock` también dibuja el
+    anillo de foco sobre el fondo claro, y aclararlo habría empeorado eso.
+
+    `#0d0e05` es el negro oliva del proyecto un paso más profundo que `--ink`;
+    llega a 7.18:1, con margen sobre el 7 de AAA.
+  */
   --nock: #8fa800;
-  --nock-ink: #ffffff;
+  --nock-ink: #0d0e05;
 
   --danger: #b3200e;
   --warn: #8a5a00;

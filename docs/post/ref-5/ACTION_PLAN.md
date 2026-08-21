@@ -122,15 +122,15 @@ Los `grid-cols-2 sm:grid-cols-5` de la ficha del arquero y las grillas de la hom
 
 ---
 
-### `[ ] REF5-5` · WAFL · **P1**
+### `[x] REF5-5` · WAFL · **P1**
 
-**Archivos:** `wafl/*.tsx`
+**Archivos:** `shared/styles/tokens.css`, `shared/tests/accion-primaria.test.ts` (nuevo), `e2e/objetivos-tactiles.spec.ts`, `docs/DESIGN_SYSTEM.md`
 
-- [ ] Acabado del recorrido y de resultados
-- [ ] **El teclado no cambia de geometría.** Ni tamaño de tecla, ni disposición, ni orden
-- [ ] **La firma no se toca**
+- [x] Se midió antes de tocar, y apareció un defecto de contraste que valía más que el acabado: **el botón primario daba 2.70:1 en tema claro**, en toda la app
+- [x] **El teclado no cambió de geometría.** Se verificó que las teclas midan 56 px en un navegador real
+- [x] **La firma no se tocó**
 
-**DoD:** los 11 E2E en verde · el teclado sigue en 56 px medidos · contraste AAA en la pantalla de scoring.
+**DoD:** **15 E2E** en verde · el teclado en 56 px **medidos** · contraste AAA en scoring, que **no se cumplía**: pasó de 2.70:1 a 7.18:1.
 
 > **Va última y es la de mayor riesgo.** Es la app que decide si el sistema sirve el día del torneo. Si algo de acabado entra en conflicto con legibilidad al sol, gana la legibilidad.
 

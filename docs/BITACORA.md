@@ -14,6 +14,52 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · `REF5-5` — el botón primario fallaba AA en toda la app. Cierra `ref-5`
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-5`
+
+La tanda de WAFL empezó midiendo, siguiendo lo aprendido en `REF5-4`. El teclado cumplía los 56 px sin problema. **El contraste no.**
+
+### La tecla del inner tenía 2.70:1
+
+La tecla del `11` usa `--nock` con `--nock-ink`, que en tema claro eran verde oliva `#8FA800` con tinta **blanca**. El par da **2.70:1**: por debajo de AA (4.5), muy por debajo del AAA (7) que §2.4 exige en la pantalla de scoring.
+
+Y no era un detalle de una tecla: **ese par es todo botón primario de las tres aplicaciones**. En el tema claro, que es el default de WAFL porque es el que gana bajo el sol.
+
+### El documento afirmaba lo contrario
+
+§2.1 decía, textual, que en tema claro el verde *«se oscurece a `#8FA800` para llegar a contraste AA»*. Es falso con la tinta que tenía al lado. El párrafo se corrigió.
+
+El par **no tenía test**, y por eso pudo derivar de lo que el documento prometía. Ahora hay uno que lee `tokens.css` —no una copia en TypeScript— y exige AAA en los dos temas.
+
+### Se cambió la tinta y no el verde, a propósito
+
+`--nock` también dibuja el anillo de foco sobre el fondo claro. Aclararlo para ganar contraste con la tinta habría **empeorado** el anillo:
+
+| Opción | Tecla | Anillo de foco sobre `--bg` |
+|---|---|---|
+| Hoy: blanco sobre `#8FA800` | 2.70 ❌ | 2.59 |
+| Aclarar a `#9CB800` con tinta oscura | 7.97 ✅ | **2.17** — peor |
+| **Elegida**: tinta `#0D0E05` sobre `#8FA800` | **7.18** ✅ | 2.59 — igual |
+
+`#0D0E05` es el negro oliva del proyecto un paso más profundo que `--ink`. No es negro puro.
+
+### Deuda abierta: el anillo de foco
+
+`--nock` sobre `--bg` da **2.59:1**, y WCAG pide **3:1** para componentes no textuales. Ya fallaba antes de esta tanda y **sigue fallando**.
+
+No se arregló acá porque el único arreglo por esta vía —oscurecer `--nock`— entra en conflicto directo con el contraste de la tecla, que es lo que esta tanda vino a resolver. Un token propio para el anillo es una decisión de diseño, no una corrección: queda planteada.
+
+> **1 control de mutación, murió 1**: reponer la tinta blanca, que es el defecto original.
+
+### `ref-5` cerrado
+
+Cinco tandas. Las dos primeras cambiaron código; las tres últimas encontraron que **lo que faltaba casi siempre era la medición**, no el arreglo: las pantallas ya cumplían la mayoría de las reglas escritas, y nadie las estaba comprobando contra el navegador.
+
+Las excepciones fueron las dos que sí eran defectos: las tablas que obligaban a arrastrar de costado, y este par de contraste.
+
+---
+
 ## 2026-08-20 · `REF5-4` — WAFA ya cumplía; lo que faltaba era la medición
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-4`
