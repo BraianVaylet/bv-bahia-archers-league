@@ -4,12 +4,14 @@
  * Ver `docs/SECURITY.md` §3.1 y §8.
  */
 
-import type { AdminLoginInput, ChangePasswordInput } from '@bal/shared';
+import { timingSafeEqual } from 'node:crypto';
+import type { AdminLoginInput, ChangePasswordInput, RecoverAdminInput } from '@bal/shared';
 import type { Context } from 'hono';
 import { env } from '../env.js';
-import { getDummyHash, hashSecret, verifySecret } from '../lib/crypto.js';
+import { getDummyHash, hashSecret, sha256, verifySecret } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
 import { endAllSessionsFor, startSession } from '../lib/session.js';
+import * as auditRepo from '../repositories/auditRepo.js';
 import * as userRepo from '../repositories/userRepo.js';
 
 export interface AdminSessionInfo {
@@ -107,3 +109,66 @@ export const LOCK_POLICY = { maxAttempts: MAX_INTENTOS, lockMs: BLOQUEO_MS } as 
 
 /** Ventana de rate limit del login, en milisegundos. */
 export const loginWindowMs = (): number => env().RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000;
+
+/**
+ * Recupera el password del admin con el código de `ADMIN_INITIAL_PASSWORD`.
+ *
+ * **La estrategia anterior resetear al arrancar— era inútil el día del torneo**,
+ * que es el único momento en que esto hace falta: exigía un redeploy. Ahora la
+ * variable funciona como código de recuperación y se ingresa desde el login.
+ *
+ * Es la **única ruta sin sesión que cambia una credencial**, así que:
+ *
+ * - La comparación del código es de **tiempo constante**. Un `===` sobre strings
+ *   corta en el primer carácter distinto, y esa diferencia deja adivinar el
+ *   código de a un carácter por vez contra el servidor.
+ * - El error es **el mismo** para código incorrecto que para password inválido:
+ *   distinguirlos convierte el endpoint en un oráculo.
+ * - Se cierran **todas** las sesiones del admin. Si el motivo de recuperar es
+ *   que alguien más entró, dejar su sesión viva no arregla nada.
+ * - Se levanta el bloqueo por intentos fallidos: es justo lo que puede haber
+ *   pasado antes de que el dueño busque cómo recuperar la cuenta.
+ */
+export async function recoverAdminPassword(input: RecoverAdminInput): Promise<void> {
+  const cfg = env();
+  const esperado = Buffer.from(sha256(cfg.ADMIN_INITIAL_PASSWORD), 'hex');
+  const recibido = Buffer.from(sha256(input.recoverySecret), 'hex');
+
+  /*
+    Se comparan los digest y no los valores: `timingSafeEqual` exige largos
+    iguales, y dos secretos de largo distinto lo harían tirar — con lo cual el
+    largo del código quedaría expuesto por la forma de fallar.
+  */
+  const correcto = timingSafeEqual(esperado, recibido);
+
+  const admin = await userRepo.findByUsername(cfg.ADMIN_USERNAME.toLowerCase());
+
+  if (!correcto || !admin) {
+    if (admin) {
+      await auditRepo.record({
+        actorType: 'system',
+        actorId: null,
+        action: 'admin.recovery_failed',
+        entity: 'user',
+        entityId: admin._id,
+        meta: { username: admin.username },
+      });
+    }
+
+    // El mismo mensaje que un login fallido: no dice qué dato estuvo mal.
+    throw credencialesInvalidas();
+  }
+
+  await userRepo.recoverPassword(admin._id, await hashSecret(input.newPassword));
+  await endAllSessionsFor('admin', admin._id);
+
+  await auditRepo.record({
+    actorType: 'system',
+    actorId: null,
+    action: 'admin.password_recovered',
+    entity: 'user',
+    entityId: admin._id,
+    // Nunca el código ni el password: `SECURITY.md` §11.
+    meta: { username: admin.username },
+  });
+}

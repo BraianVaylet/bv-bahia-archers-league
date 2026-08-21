@@ -38,21 +38,6 @@ export interface UserDoc {
   _id: ObjectId;
   username: string;
   passwordHash: string;
-  /**
-   * Hash argon2id del `ADMIN_INITIAL_PASSWORD` **que se aplicó por última vez**.
-   *
-   * No es el password del usuario: es la huella de la variable de entorno, para
-   * saber en cada arranque si el operador la cambió. Cambiarla es la forma de
-   * recuperar el acceso cuando el admin se olvidó su clave.
-   *
-   * Es un hash y no el valor: si la base se filtra, no entrega la credencial de
-   * rescate. Y es argon2id, el mismo que el password, para que compararlo no
-   * abra una vía de fuerza bruta más barata que la del login.
-   *
-   * Opcional porque las bases anteriores a este cambio no lo tienen; ahí se
-   * escribe sin resetear, que es lo único seguro cuando no se sabe si cambió.
-   */
-  initialPasswordHash?: string;
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
   failedAttempts: number;
@@ -296,7 +281,10 @@ export type AuditAction =
   | 'sync.conflict'
   | 'sync.forbidden'
   /** El operador cambió `ADMIN_INITIAL_PASSWORD` y el admin quedó reseteado. */
-  | 'admin.password_reset';
+  /** Se recuperó el password con el código de `ADMIN_INITIAL_PASSWORD`. */
+  | 'admin.password_recovered'
+  /** Alguien probó un código de recuperación equivocado. */
+  | 'admin.recovery_failed';
 
 export interface AuditLogDoc {
   _id: ObjectId;

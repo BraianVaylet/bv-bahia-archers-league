@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-21 · Recuperar el password del admin sin redesplegar
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+La estrategia anterior —resetear al arrancar cuando cambiaba `ADMIN_INITIAL_PASSWORD`— **era inútil en el único momento en que hace falta**: el día del torneo. Exigía un redeploy, que es justo lo que nadie va a hacer con la patrulla esperando.
+
+Ahora la variable es un **código de recuperación**: se ingresa desde el login de WAFA y habilita elegir un password nuevo, sin tocar el deploy.
+
+### Es la única ruta sin sesión que cambia una credencial
+
+Eso define todo el diseño:
+
+- **Comparación de tiempo constante.** Un `===` sobre strings corta en el primer carácter distinto, y esa diferencia deja adivinar el código de a un carácter contra el servidor.
+- **Se comparan digest, no valores.** `timingSafeEqual` exige largos iguales: pasarle los secretos crudos expondría el largo del código por la forma de fallar.
+- **El error es el mismo que el de un login fallido.** Distinguir «código incorrecto» de «password inválido» convierte el endpoint en un oráculo.
+- **Se cierran todas las sesiones.** Si el motivo de recuperar es que alguien más entró, dejar su sesión viva no arregla nada.
+- **Los intentos fallidos también se auditan.** Alguien probando el código contra el servidor es exactamente lo que hay que poder ver después.
+
+Hereda el rate limit de `/api/auth/*` y la protección CSRF de `/api/*`, sin agregar nada nuevo.
+
+### La revisión encontró que habían quedado dos caminos
+
+El reset al arrancar seguía en pie. Con la recuperación por interfaz eso dejó de ser redundante y pasó a ser **dañino**: rotar el código de recuperación habría borrado el password del admin en el próximo deploy, **sin que nadie lo pidiera**.
+
+Se sacó. El seed volvió a ser lo que era: idempotente, y nunca pisa un password que el usuario ya cambió.
+
+### Lo que cambia de supuesto
+
+Antes `ADMIN_INITIAL_PASSWORD` sólo se usaba al sembrar y **no era alcanzable desde afuera**. Ahora está expuesto a internet.
+
+Queda escrito en `SECURITY.md`: el código tiene que ser **aleatorio, no memorable**. Un valor elegido a mano convierte la recuperación en la puerta más débil del sistema.
+
+> **5 controles de mutación, murieron 5**: aceptar cualquier código, no cerrar las sesiones vivas, no levantar el bloqueo, guardar el código en el audit log, y que el login deje de ofrecer la salida.
+
+> Uno de esos cinco **no probaba nada la primera vez**: el reemplazo de texto no coincidía porque el formateador había reindentado el archivo, así que la mutación nunca se aplicó y el test pasó «bien». Se detectó comparando el archivo antes y después.
+
+---
+
 ## 2026-08-20 · Indicador de conexión en el header de WAFA
 
 **Autor:** Claude Opus 5 · **Estado:** completado

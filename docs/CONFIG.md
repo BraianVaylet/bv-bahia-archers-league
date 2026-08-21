@@ -239,49 +239,21 @@ docker run -p 8787:8787 -e MONGODB_URI="mongodb+srv://..." -e SESSION_SECRET="..
 
 ### 7.1 Si el administrador se olvida el password
 
-No hay recupero por mail ni un segundo administrador: **la vía es la variable de entorno.**
+**No hace falta redesplegar.** Se recupera desde la misma pantalla de ingreso:
 
-1. Generar un password nuevo, de 12 caracteres o más:
-
-   ```bash
-   openssl rand -base64 18
-   ```
-
-2. Cambiar `ADMIN_INITIAL_PASSWORD` en Railway con ese valor.
-3. Reiniciar el servicio. En el log del arranque aparece el aviso de que el password quedó reseteado.
-4. Entrar con el valor nuevo. **La app va a exigir cambiarlo de inmediato**: el de rescate es de paso, no permanente.
+1. En el login de WAFA, tocar **«Olvidé mi password»**.
+2. Ingresar el **código de recuperación** — es el valor de `ADMIN_INITIAL_PASSWORD` en Railway. Lo tiene quien administra el despliegue.
+3. Elegir el password nuevo, de 12 caracteres o más.
+4. Entrar con él. **No se exige cambiarlo de nuevo**: lo eligió el admin, no es uno de paso.
 
 Detalles que conviene saber:
 
-- **Redesplegar sin cambiar la variable no toca nada.** Se compara contra un hash del último valor aplicado, así que el password que eligió el admin sobrevive a cualquier deploy.
-- **Volver a un valor anterior también cuenta como cambio** y dispara otro reset: se compara contra el último aplicado, no contra un historial.
-- El reset **levanta el bloqueo por intentos fallidos**, que es lo que suele haber pasado antes de buscar cómo recuperar la cuenta.
-- Queda registrado en el audit log como `admin.password_reset`.
+- **Se cierran todas las sesiones abiertas del admin**, incluida la de quien haya entrado con el password viejo.
+- **Se levanta el bloqueo** por intentos fallidos, que suele ser lo que pasó antes de buscar cómo recuperar.
+- Queda registrado en el audit log, y **los intentos fallidos también**.
+- El código **no cambia** al recuperar: sigue siendo el valor de la variable. Para rotarlo se cambia en Railway, y toma efecto en el próximo arranque.
 
-> Ver [`SECURITY.md`](SECURITY.md) §3.1: **quien puede editar las variables del proyecto puede tomar la cuenta de administrador.**
-
-6. **Verificación post-deploy**:
-   ```bash
-   curl -i https://<tu-dominio>/api/health
-   ```
-   Debe responder 200 con `db: "ok"` y traer las cabeceras de seguridad de [`SECURITY.md`](SECURITY.md) §10.
-
-`railway.json`:
-
-```json
-{
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
-  "deploy": {
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 120,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
-}
-```
-
----
+> **El código tiene que ser aleatorio.** Está expuesto a internet: se genera con `openssl rand -base64 18` y se trata como una credencial de administrador. Ver [`SECURITY.md`](SECURITY.md) §3.1.
 
 ## 8. CI
 

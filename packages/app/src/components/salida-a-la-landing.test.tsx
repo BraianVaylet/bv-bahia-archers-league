@@ -1,7 +1,7 @@
 // El login de WAFL consulta el bundle local al montar: sin esto queda un
 // error sin manejar que tapa los de verdad.
 import 'fake-indexeddb/auto';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage as LoginWafa } from '../wafa/pages/Login.js';
 import { LoginPage as LoginWafl } from '../wafl/LoginPage.js';
@@ -66,5 +66,43 @@ describe('el login de WAFL', () => {
 
     const salida = screen.getByRole('link', { name: /resultados/i });
     expect(destino(salida)).toBe('/');
+  });
+});
+
+/**
+ * La recuperación del password, desde el login de WAFA (`ref-6`).
+ *
+ * **Que el endpoint exista no sirve si no hay por dónde llegar.** El admin que
+ * se olvidó la clave no puede entrar a pedirla: el camino tiene que estar en la
+ * única pantalla que ve.
+ */
+describe('recuperar el password desde el login', () => {
+  it('el login ofrece la salida para el que se olvidó', () => {
+    render(<LoginWafa onEntro={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /olvidé mi password/i })).toBeDefined();
+  });
+
+  it('lleva a un formulario que pide el código y el password nuevo', () => {
+    render(<LoginWafa onEntro={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /olvidé mi password/i }));
+
+    expect(screen.getByLabelText('Código de recuperación')).toBeDefined();
+    expect(screen.getByLabelText('Password nuevo')).toBeDefined();
+  });
+
+  /** El código es un secreto: no puede quedar a la vista de quien mira al lado. */
+  it('el código se escribe enmascarado', () => {
+    render(<LoginWafa onEntro={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /olvidé mi password/i }));
+
+    expect(screen.getByLabelText('Código de recuperación').getAttribute('type')).toBe('password');
+  });
+
+  it('se puede volver al ingreso sin recuperar nada', () => {
+    render(<LoginWafa onEntro={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /olvidé mi password/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Volver al ingreso' }));
+
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeDefined();
   });
 });
