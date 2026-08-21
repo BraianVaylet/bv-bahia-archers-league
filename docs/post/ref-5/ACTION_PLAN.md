@@ -110,15 +110,15 @@ Los `grid-cols-2 sm:grid-cols-5` de la ficha del arquero y las grillas de la hom
 
 ---
 
-### `[ ] REF5-4` · WAFA · **P1**
+### `[x] REF5-4` · WAFA · **P1**
 
-**Archivos:** `wafa/pages/*.tsx`
+**Archivos:** `e2e/objetivos-tactiles.spec.ts` (nuevo)
 
-- [ ] Densidad pareja en las once pantallas
-- [ ] Las listas largas —arqueros, patrullas— con jerarquía clara entre identidad, estado y acción
-- [ ] Foco visible y navegación por teclado, que el admin usa en notebook
+- [x] Densidad pareja: **ya la unificó `REF5-2`** al migrar las 29 tarjetas
+- [x] Jerarquía en listas largas: **ya resuelta** por `ref-3` y `ref-4`
+- [x] Foco visible: la regla ya existía; **lo que faltaba era verificar que llegue al elemento**
 
-**DoD:** objetivos táctiles de §5 medidos sobre estilos computados · nada por debajo de 44 px.
+**DoD:** objetivos táctiles de §5 medidos sobre estilos computados · nada por debajo de 44 px. **Cumplido con dos E2E nuevos** — la tanda no cambió pantallas, agregó la medición que faltaba.
 
 ---
 

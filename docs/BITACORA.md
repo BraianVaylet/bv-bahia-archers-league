@@ -14,6 +14,38 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · `REF5-4` — WAFA ya cumplía; lo que faltaba era la medición
+
+**Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-4`
+
+La tanda pedía densidad pareja, jerarquía en las listas largas y foco visible. Al revisarlo, **las tres cosas ya estaban**:
+
+| Ítem | Estado real |
+|---|---|
+| Densidad | La unificó `REF5-2` al migrar las 29 tarjetas |
+| Jerarquía en listas | La resolvieron `ref-3` y `ref-4`: identidad y categoría arriba, estado abajo, acciones después |
+| Foco visible | `tokens.css` ya tenía la regla de §10, con el anillo de 3 px |
+
+Lo que **no** existía era la prueba. §11 pide medir los objetivos táctiles *«sobre estilos computados, no a ojo»*, y nadie lo hacía: un `min-h-[44px]` escrito en el código no prueba que el elemento mida 44 en la pantalla — un `flex` que encoge, un contenedor con `overflow` o una clase que gana por orden lo dejan más chico sin que nada avise.
+
+Entonces esta tanda no cambió pantallas: **agregó la medición**. Dos E2E nuevos, en un navegador de verdad porque en jsdom todo mide cero y el test pasaría siempre.
+
+### El primer test medía el elemento equivocado
+
+Marcó como defecto los checkboxes de 20 px de la pantalla de arqueros. Están dentro de un `<label>` de 44: **tocar cualquier punto del label activa el control**, así que el objetivo real es el label y el patrón está bien.
+
+Se corrigió midiendo `e.closest("label") ?? e` — lo que el dedo toca de verdad. No es un atajo para que pase: es la diferencia entre medir el control y medir el objetivo.
+
+### Los dos pasaron a la primera, así que hubo que probar que muerden
+
+Un test que pasa la primera vez no prueba nada. Achicar el botón primario a 30 px hace que el primero nombre cada control con su alto real; apagar el `outline` del `:focus-visible` hace que el segundo falle diciendo que el elemento enfocado no dibuja contorno.
+
+> **2 controles de mutación, murieron 2.**
+
+> El foco se prueba **tabulando**, no con `focus()`: `:focus-visible` distingue el teclado del mouse y un enfoque programático puede no activarlo.
+
+---
+
 ## 2026-08-20 · `REF5-3` — los números de la ficha dejaron de ser texto corrido
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-3`
