@@ -7,6 +7,7 @@
 import { Logo } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Button, Field, Screen } from '../../components/ui.js';
+import { VolverALaLiga } from '../../components/VolverALaLiga.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { login } from '../sesion.js';
 
@@ -76,6 +77,16 @@ export function LoginPage({ onEntro }: LoginPageProps) {
           {enviando ? 'Entrando…' : 'Entrar'}
         </Button>
       </form>
+
+      {/*
+        La salida al sitio público, desde el login.
+
+        Quien abre la PWA sin credenciales —o se equivocó de app— quedaba
+        encerrado en un formulario que no puede completar. Va **después** del
+        botón de entrar: el que vino a entrar entra, y el que se perdió tiene
+        por dónde salir.
+      */}
+      <VolverALaLiga />
     </Screen>
   );
 }

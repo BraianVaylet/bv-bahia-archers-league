@@ -16,6 +16,7 @@ import cba from '@bal/shared/assets/cba.webp';
 import { Logo } from '@bal/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field, Screen } from '../components/ui.js';
+import { VolverALaLiga } from '../components/VolverALaLiga.js';
 import { ApiError, api } from '../lib/apiClient.js';
 import type { StoredBundle } from '../offline/db.js';
 import { readBundle } from '../offline/db.js';
@@ -252,6 +253,16 @@ export function LoginPage({ onEntro }: LoginPageProps) {
           {enviando ? 'Descargando el recorrido…' : 'Entrar'}
         </Button>
       </form>
+
+      {/*
+        La salida al sitio público, desde el login.
+
+        Quien abre la PWA sin credenciales —o se equivocó de app— quedaba
+        encerrado en un formulario que no puede completar. Va **después** del
+        botón de entrar: el que vino a entrar entra, y el que se perdió tiene
+        por dónde salir.
+      */}
+      <VolverALaLiga />
     </Screen>
   );
 }

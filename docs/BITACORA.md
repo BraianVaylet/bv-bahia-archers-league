@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-08-20 · Salir a la landing desde los dos logins
+
+**Autor:** Claude Opus 5 · **Estado:** completado
+
+Quien abría la PWA sin credenciales **quedaba encerrado**: WAFA pide usuario y password, WAFL pide torneo, patrulla y un PIN de seis dígitos, y desde `ref-3` el botón Atrás ya no saca de la app. La única salida era cerrar la pestaña.
+
+Ahora los dos logins ofrecen volver al sitio público, **después** del botón de entrar: el que vino a entrar entra, y el que se perdió tiene por dónde salir.
+
+### Se extrajo antes de sumar
+
+El enlace ya estaba escrito **dos veces** —en la elección de rol y en la pantalla de torneo finalizado— y con los dos logins iban a ser cuatro. Es exactamente cómo empezó la tarjeta que `REF5-2` tuvo que deshacer 29 veces.
+
+Se extrajo `VolverALaLiga` primero, y las dos copias existentes pasaron a usarlo.
+
+### El password del admin ya estaba por variable de entorno
+
+El pedido lo listaba como pendiente y **ya estaba resuelto**: `ADMIN_INITIAL_PASSWORD` es obligatoria, sin default; el seed es idempotente y nunca pisa un password existente; el usuario se crea con `mustChangePassword: true`.
+
+`CBA2026` aparece en el código **sólo como valor prohibido**, no como default. Y hay tres tests que lo sostienen: falla si falta la variable, si sigue siendo la de desarrollo, y si tiene menos de 12 caracteres en producción.
+
+No se tocó nada. Se verificó y se dijo.
+
+> **3 controles de mutación, murieron 3**: que WAFA deje de montarlo, que WAFL deje de montarlo, y que el enlace pierda el objetivo táctil de 44 px.
+
+> El test importa `fake-indexeddb/auto`: el login de WAFL consulta el bundle local al montar, y sin eso quedaba un error sin manejar en la corrida — ruido que tapa los de verdad.
+
+---
+
 ## 2026-08-20 · `REF5-5` — el botón primario fallaba AA en toda la app. Cierra `ref-5`
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF5-5`
