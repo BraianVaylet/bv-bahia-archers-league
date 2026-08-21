@@ -69,3 +69,26 @@ export async function updatePassword(id: ObjectId, passwordHash: string): Promis
     { $set: { passwordHash, mustChangePassword: false, updatedAt: new Date() } },
   );
 }
+
+/**
+ * Password nuevo por recuperación, con el código de `ADMIN_INITIAL_PASSWORD`.
+ *
+ * Hace lo mismo que `updatePassword` y además **levanta el bloqueo**: estar
+ * bloqueado por intentos fallidos es justo el escenario previo típico a que
+ * alguien busque recuperar la cuenta. Si el reset no lo levantara, el dueño
+ * recupera el password y sigue sin poder entrar durante quince minutos.
+ */
+export async function recoverPassword(id: ObjectId, passwordHash: string): Promise<void> {
+  await users().updateOne(
+    { _id: id },
+    {
+      $set: {
+        passwordHash,
+        mustChangePassword: false,
+        failedAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date(),
+      },
+    },
+  );
+}

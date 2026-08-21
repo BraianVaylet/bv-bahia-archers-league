@@ -10,6 +10,7 @@ import { Button, Field, Screen } from '../../components/ui.js';
 import { VolverALaLiga } from '../../components/VolverALaLiga.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { login } from '../sesion.js';
+import { RecuperarPassword } from './RecuperarPassword.js';
 
 export interface LoginPageProps {
   readonly onEntro: () => void | Promise<void>;
@@ -20,6 +21,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);
+  const [recuperando, setRecuperando] = useState(false);
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
@@ -37,6 +39,20 @@ export function LoginPage({ onEntro }: LoginPageProps) {
       setEnviando(false);
     }
   };
+
+  if (recuperando) {
+    return (
+      <RecuperarPassword
+        onVolver={() => setRecuperando(false)}
+        onRecuperado={() => {
+          setRecuperando(false);
+          // No se entra solo: el que recuperó acaba de elegir el password y
+          // tiene que probarlo. Entrar por él escondería un error de tipeo.
+          setError(undefined);
+        }}
+      />
+    );
+  }
 
   return (
     <Screen>
@@ -75,6 +91,17 @@ export function LoginPage({ onEntro }: LoginPageProps) {
 
         <Button type="submit" ancho disabled={enviando || !username || !password}>
           {enviando ? 'Entrando…' : 'Entrar'}
+        </Button>
+
+        {/*
+          La salida para el que se olvidó la clave.
+
+          Discreta y debajo del botón: no es el camino normal. Pero tiene que
+          estar acá — no hay recupero por mail ni un segundo administrador, y
+          descubrirlo el día del torneo sin esto significa quedarse afuera.
+        */}
+        <Button variante="secundario" ancho onClick={() => setRecuperando(true)}>
+          Olvidé mi password
         </Button>
       </form>
 

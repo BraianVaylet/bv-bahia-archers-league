@@ -52,23 +52,28 @@ Sin esto, falsear un puntaje sería tan simple como editar un JSON en devtools.
 
 #### Recuperación del acceso
 
-**Cambiar `ADMIN_INITIAL_PASSWORD` y reiniciar resetea el password del administrador.** Es la única vía de recuperación: no hay recupero por mail —la liga no guarda mails de nadie— ni un segundo administrador que pueda rescatar al primero.
+**Se recupera desde el login, con el código de `ADMIN_INITIAL_PASSWORD`.** Es la única vía: no hay recupero por mail —la liga no guarda mails de nadie— ni un segundo administrador que pueda rescatar al primero.
 
-Cómo funciona:
+`POST /api/auth/admin/recover` recibe el código y el password nuevo. Es la **única ruta sin sesión que cambia una credencial**, y por eso:
 
-- Se guarda un **hash argon2id del valor de la variable que se aplicó por última vez** (`initialPasswordHash`), aparte del password del usuario. El valor en claro no se guarda en ningún lado.
-- En cada arranque se verifica contra ese hash. Si coincide, no se toca nada — **redesplegar con la misma variable no pisa el password que el admin eligió**.
-- Si no coincide, se resetea el password, se vuelve a exigir uno nuevo (`mustChangePassword: true`) y **se levanta el bloqueo por intentos fallidos**: estar bloqueado por fuerza bruta es justo el escenario previo típico a una recuperación.
-- Queda registrado en el audit log como `admin.password_reset`, con `actorType: 'system'`. En `meta` no va el password ni su hash.
-- El arranque lo anuncia en el log, que es donde mira el operador que acaba de cambiar la variable.
+- La comparación del código es de **tiempo constante** (`timingSafeEqual` sobre los digest). Un `===` sobre strings corta en el primer carácter distinto, y esa diferencia deja adivinar el código de a un carácter por vez contra el servidor.
+- Se comparan **digest y no valores**: `timingSafeEqual` exige largos iguales, y pasarle los secretos crudos expondría el largo del código por la forma de fallar.
+- El error es **el mismo** que el de un login fallido. Distinguir «código incorrecto» de «password inválido» convierte el endpoint en un oráculo.
+- Se cierran **todas** las sesiones del admin. Si el motivo de recuperar es que alguien más entró, dejar su sesión viva no arregla nada.
+- Se levanta el bloqueo por intentos fallidos: es justo el escenario previo típico a una recuperación.
+- Hereda el rate limit de `/api/auth/*` —el mismo que frena la fuerza bruta contra el login— y la protección CSRF de `/api/*`.
+- Los intentos **fallidos también se auditan** (`admin.recovery_failed`): alguien probando el código contra el servidor es exactamente lo que hay que poder ver después.
+- Ni el código ni el password quedan en el audit log.
 
-> **El acceso al panel de variables del proveedor es equivalente al acceso de administrador.** Quien pueda editar `ADMIN_INITIAL_PASSWORD` puede tomar la cuenta reiniciando el servicio.
+> **El código de recuperación tiene que ser aleatorio, no memorable.**
 >
-> No es una superficie nueva —el primer arranque ya siembra el admin desde esa misma variable— pero conviene tenerlo explícito: ese permiso se trata con el mismo cuidado que la credencial del administrador, y se restringe a quien corresponda en el proyecto de Railway.
+> Antes de esto, `ADMIN_INITIAL_PASSWORD` sólo se usaba al sembrar y no era alcanzable desde afuera. Ahora **está expuesto a internet**: un valor elegido a mano y adivinable convierte la recuperación en la puerta más débil del sistema.
 >
-> Salió de la revisión de seguridad de este cambio, que no encontró vulnerabilidades pero sí este supuesto sin escribir.
+> Se genera con `openssl rand -base64 18` y se trata como lo que es: una credencial de administrador.
 
-> **Cambio respecto del brief.** El brief especifica `admin` / `CBA2026` fijo. Un password conocido y presente en el repositorio compromete la totalidad del sistema: crear, borrar y publicar torneos. `CBA2026` queda **solo como default de desarrollo local**; en producción es obligatorio setear la variable de entorno.
+> **El acceso al panel de variables del proveedor sigue siendo equivalente al acceso de administrador**, ahora sin necesidad de redesplegar.
+
+> **Lo que se sacó, y por qué.** Una versión anterior reseteaba el password **al arrancar**, cuando cambiaba la variable. Era inútil el día del torneo —exigía un redeploy, que es justo lo que nadie va a hacer con la patrulla esperando— y con la recuperación por interfaz pasó a ser **dañino**: rotar el código habría borrado el password del admin en el próximo deploy, sin que nadie lo pidiera.
 
 ### 3.2 Líder de patrulla
 

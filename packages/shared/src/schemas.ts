@@ -62,6 +62,22 @@ export const ChangePasswordSchema = z
     path: ['newPassword'],
   });
 
+/**
+ * Recuperar el password del admin con el código de `ADMIN_INITIAL_PASSWORD`.
+ *
+ * **Es la única ruta sin sesión que cambia una credencial.** El código lo conoce
+ * quien tenga acceso al panel del proveedor, y reemplaza a la estrategia
+ * anterior —resetear al arrancar— que exigía un redeploy: inútil el día del
+ * torneo, que es el único momento en que esto hace falta.
+ *
+ * `.strictObject()` como todo lo que entra: nada que no esté acá llega a un
+ * filtro de Mongo. Es la regla 5.
+ */
+export const RecoverAdminSchema = z.strictObject({
+  recoverySecret: z.string().min(1).max(MAX_PASSWORD_LENGTH),
+  newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
+});
+
 export const PatrolLoginSchema = z.strictObject({
   tournamentId: ObjectIdSchema,
   /** `patrulla` + número. Ver `docs/DOMAIN_WA.md` §6. */
@@ -294,6 +310,7 @@ export const SyncBatchSchema = z
 
 export type AdminLoginInput = z.infer<typeof AdminLoginSchema>;
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
+export type RecoverAdminInput = z.infer<typeof RecoverAdminSchema>;
 export type PatrolLoginInput = z.infer<typeof PatrolLoginSchema>;
 export type ArcherInput = z.infer<typeof ArcherInputSchema>;
 export type SeasonInput = z.infer<typeof SeasonInputSchema>;

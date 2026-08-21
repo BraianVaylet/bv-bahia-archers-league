@@ -4,7 +4,12 @@
  * Ver `docs/TECHNICAL.md` §3.1.
  */
 
-import { AdminLoginSchema, ChangePasswordSchema, PatrolLoginSchema } from '@bal/shared';
+import {
+  AdminLoginSchema,
+  ChangePasswordSchema,
+  PatrolLoginSchema,
+  RecoverAdminSchema,
+} from '@bal/shared';
 import { Hono } from 'hono';
 import { endSession } from '../lib/session.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
@@ -29,6 +34,20 @@ export const auth = new Hono()
   .post('/admin/password', requireAdmin({ allowWhileMustChangePassword: true }), async (c) => {
     const input = await parseJsonBody(c, ChangePasswordSchema);
     await authService.changeAdminPassword(c, currentAdminId(c), input);
+    return c.json({ ok: true });
+  })
+
+  /**
+   * Recuperación del password del admin con el código de entorno.
+   *
+   * **Sin sesión, a propósito**: quien la usa es justamente el que no puede
+   * entrar. Lo que la protege es el código —que sólo conoce quien tenga acceso
+   * al panel del proveedor— más el rate limit de `/api/auth/*`, que es el mismo
+   * que frena la fuerza bruta contra el login.
+   */
+  .post('/admin/recover', async (c) => {
+    const input = await parseJsonBody(c, RecoverAdminSchema);
+    await authService.recoverAdminPassword(input);
     return c.json({ ok: true });
   })
 
