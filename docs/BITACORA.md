@@ -14,6 +14,36 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-24 · Sexo y DNI reales en el padrón (BE-19)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado — backend únicamente: la base ya guarda y propaga `sex`/`dni`, pero ninguna pantalla los pide todavía (`FE-29`) ni hay alta pública (`BE-20`).
+
+### Por qué `sex`/`dni` quedaron opcionales contra lo que decía el plan
+
+El `ACTION_PLAN.md` original decía «nuevos registros los exigen (schema)». Al sentarse a escribir el schema quedó claro que eso **rompería el único alta que existe hoy**: `FE-12` (el formulario de arqueros en WAFA) manda `{ firstName, lastName, category }` desde hace semanas, y nadie lo tocó todavía para pedir sexo o DNI. Si `ArcherInputSchema` los exigiera, cada `POST /admin/archers` del formulario actual empezaría a devolver 400 el día de este deploy, sin que ninguna pantalla supiera por qué.
+
+La resolución: `sex`/`dni` opcionales en `ArcherInputSchema` (con default `null`), y la obligatoriedad real queda para el esquema del autoregistro público (`BE-20`, `ArcherSelfRegisterSchema`), que es un formulario nuevo escrito desde cero para pedir exactamente estos datos. `FE-29` tiene que actualizar el formulario de WAFA para pedirlos ahí también, pero eso es tarea de UI, no de validación del lado del servidor. Quedó anotado en `ACTION_PLAN.md` para que no se lea como si el plan original se hubiera cumplido al pie de la letra.
+
+### Probado de punta a punta, no sólo por capas
+
+En vez de confiar en que cada capa (`ArcherDoc` → `ParticipantDoc` → `StandingDoc`) propagaba bien por separado, el test nuevo en `ciclo.test.ts` crea un arquero con sexo y otro sin, los suma a un torneo real, lo completa y lo publica, y verifica el campo en las tres colecciones. Encontró lo que un test por capas no habría encontrado: nada, en este caso —pasó al primer intento— pero es la única forma de confiar en que el snapshot y el merge `entry.sex ?? actual.sex` de `SH-9`/`SH-10` realmente se activan con datos reales y no sólo con los fixtures de `league.test.ts`.
+
+### `db:reconcile` no necesitó cambios
+
+El DoD pedía que `db:reconcile` recalculara `standings` «con el sex vigente». Ya lo hacía: `reconcileStandings()` llama a `recalcularTemporada`, que llama a `applyTournamentToStandings`, que ya tiene la lógica de merge de `sex` desde `SH-9`. No hay una ruta separada para `sex` que reconciliar — es el mismo camino que `category` y `firstName`, y ya estaba bien.
+
+### Índice único parcial: `$type`, no `$exists`
+
+`{ dni: { $exists: true } }` como filtro parcial también matchea documentos con `dni: null` —la clave existe, sólo que vale `null`— así que dos arqueros viejos con `dni: null` chocarían contra el índice único apenas alguien lo creara. `{ dni: { $type: 'string' } }` excluye tanto la clave ausente como el valor `null`, que es lo que hace falta acá.
+
+### Deuda / lo que sigue
+
+- `FE-29`: el formulario de WAFA sigue sin pedir sexo ni DNI. Mientras no se haga, todo arquero nuevo nace con `profileIncomplete: true`.
+- `BE-20`/`BE-22`: el autoregistro público y su cola de aprobación siguen sin escribirse. `archerRepo.create` ya acepta un `registrationStatus` opcional (default `'aprobado'`) pensado para que `BE-20` lo use con `'pendiente'` sin tocar la firma otra vez.
+- `BE-21`/`FE-28`: el split General/Femenino/Masculino en el ranking público sigue bloqueado — ya hay dato real de `sex` en la base para alimentarlo.
+
+---
+
 ## 2026-10-24 · Ranking de liga por sexo: General / Femenino / Masculino (SH-10)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado — sólo el dominio puro; sin dato real de `sexo` todavía (eso es `BE-19`).

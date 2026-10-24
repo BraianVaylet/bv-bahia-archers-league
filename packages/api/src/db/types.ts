@@ -10,6 +10,7 @@ import type {
   Modality,
   PatrolStatus,
   Position,
+  Sex,
   Stake,
   TournamentStatus,
   Unit,
@@ -73,11 +74,19 @@ export interface SeasonDoc {
   updatedAt: Date;
 }
 
+/** `aprobado` de entrada si lo crea el admin; `pendiente` si se autoregistró (`BE-20`). */
+export type ArcherRegistrationStatus = 'pendiente' | 'aprobado';
+
 export interface ArcherDoc {
   _id: ObjectId;
   firstName: string;
   lastName: string;
   category: BowCategory;
+  /** `null`: el padrón anterior a este campo no lo tenía cargado. No se inventa el valor. */
+  sex: Sex | null;
+  /** 7-8 dígitos, sin puntos. `null` en el padrón viejo. Único entre los no nulos. */
+  dni: string | null;
+  registrationStatus: ArcherRegistrationStatus;
   /** Apellido y nombre normalizados, sin acentos, para buscar. */
   searchKey: string;
   archivedAt: Date | null;
@@ -169,6 +178,8 @@ export interface ParticipantDoc {
   firstName: string;
   lastName: string;
   category: BowCategory;
+  /** `null` si el arquero no tenía `sex` cargado al crearse el torneo. */
+  sex: Sex | null;
 
   stake: Stake;
   unit: Unit;
@@ -247,6 +258,8 @@ export interface StandingDoc {
   archerId: ObjectId;
   firstName: string;
   lastName: string;
+  /** Snapshot del arquero, para el ranking por sexo (`SH-10`). `null`: no cargado. */
+  sex: Sex | null;
 
   tournamentsPlayed: number;
 

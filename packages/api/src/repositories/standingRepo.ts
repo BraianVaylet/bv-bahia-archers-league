@@ -25,6 +25,8 @@ export const toDomain = (doc: StandingDoc): ArcherStanding => ({
   firstName: doc.firstName,
   lastName: doc.lastName,
   category: doc.category,
+  // `exactOptionalPropertyTypes`: la clave se omite en vez de llevar `undefined`.
+  ...(doc.sex ? { sex: doc.sex } : {}),
   tournamentsPlayed: doc.tournamentsPlayed,
   bestNormalizedPct: doc.bestNormalizedPct,
   bestRawScore: doc.bestRawScore,
@@ -54,6 +56,7 @@ export async function replaceSeason(
       archerId: new ObjectId(s.archerId),
       firstName: s.firstName,
       lastName: s.lastName,
+      sex: s.sex ?? null,
       tournamentsPlayed: s.tournamentsPlayed,
       bestNormalizedPct: s.bestNormalizedPct,
       bestRawScore: s.bestRawScore,

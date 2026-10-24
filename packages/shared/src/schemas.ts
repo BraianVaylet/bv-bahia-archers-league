@@ -16,7 +16,7 @@ import {
   MIN_ARROWS_PER_TARGET,
   MIN_PATROL_SIZE,
 } from './constants.js';
-import { BOW_CATEGORIES, MODALITIES, UNITS } from './domain.js';
+import { BOW_CATEGORIES, MODALITIES, SEXES, UNITS } from './domain.js';
 
 // ── Primitivos ───────────────────────────────────────────────────────────────
 
@@ -44,6 +44,12 @@ export const MIN_PASSWORD_LENGTH = 12;
 
 const CategorySchema = z.enum(BOW_CATEGORIES);
 const ModalitySchema = z.enum(MODALITIES);
+const SexSchema = z.enum(SEXES);
+
+/** DNI argentino: 7 u 8 dígitos, sin puntos. */
+const DniSchema = z
+  .string()
+  .regex(/^\d{7,8}$/, 'El DNI tiene que ser de 7 u 8 dígitos, sin puntos.');
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -92,6 +98,14 @@ export const ArcherInputSchema = z.strictObject({
   firstName: texto(1, 60),
   lastName: texto(1, 60),
   category: CategorySchema,
+  /**
+   * Opcionales: el padrón anterior a este campo no los tenía, y el alta del
+   * admin todavía no los manda (`FE-29` sigue pendiente). El autoregistro
+   * público (`BE-20`) usa su propio esquema, que sí los exige — es ahí donde
+   * importa de verdad tenerlos desde el alta. Ver `docs/DOMAIN_WA.md` §9.
+   */
+  sex: SexSchema.nullable().default(null),
+  dni: DniSchema.nullable().default(null),
 });
 
 export const SeasonInputSchema = z

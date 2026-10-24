@@ -494,14 +494,15 @@ _(Hecho como parte de `SH-9` — ver esa entrada. `entero(2)` con `.positive()` 
 **Contenido:** `LEAGUE_BEST_N: entero(2)`, con `min(1)`. Todo el código de `@bal/api` que hoy importaría `MIN_TOURNAMENTS_FOR_RANKING` pasa a leer `env().LEAGUE_BEST_N` y lo inyecta donde `SH-9` pide el parámetro `bestN`.
 **DoD:** cambiar `LEAGUE_BEST_N=3` sin tocar código cambia el ranking en `/api/public/rankings` y en `pnpm --filter @bal/api db:reconcile` · con `LEAGUE_BEST_N=0` el arranque falla (Zod) con mensaje claro.
 
-### `[ ] BE-19` · Padrón: campos `sexo` y `dni`, propagados a participante y standing
+### `[x] BE-19` · Padrón: campos `sexo` y `dni`, propagados a participante y standing
+_(Hecho. `ArcherInputSchema.sex`/`.dni` **opcionales** —no obligatorios como decía el plan original— porque el alta del admin (`FE-12`, ya en producción) todavía no manda estos campos; exigirlos habría roto el único flujo de alta que existe hoy, antes de que `FE-29` actualice ese formulario. El autoregistro público (`BE-20`) va a tener su propio esquema, que sí los exige desde el vamos. Probado de punta a punta en `ciclo.test.ts`: `ArcherDoc.sex` → snapshot en `ParticipantDoc` → acumulado en `StandingDoc`, con un arquero sin sexo cargado en el medio sin que nada se rompa. `db:reconcile` no necesitó tocarse: ya recalculaba desde los snapshots con la lógica de merge que dejó `SH-9`/`SH-10`, que es exactamente lo que pedía el DoD. Índice único parcial `uk_dni` con `$type: 'string'` —no `$exists`, que también matchea `null`.)_
 > **Parcial ya hecho en `SH-9`:** `StandingDoc` perdió `leaguePoints`/`podiums`, `topTwoPcts` → `topNPcts`, `standingRepo.ts`/`indexes.ts` al día. Lo que queda es todo lo de `sexo`/`dni`/`registrationStatus`: `ArcherDoc`, `ParticipantDoc`, `ArcherInputSchema`, `archerRepo.ts`, `archerService.ts`, snapshot en `tournamentService.ts`.
 **Objetivo:** el dato nace en el arquero y viaja congelado por snapshot, igual que `category`.
 **Cómo:** actualizar `TECHNICAL.md` §2 (`archers`, `participants`, `standings`) y §3.2 primero.
 **Archivos:** `packages/api/src/db/{types,indexes,seed,reconcile}.ts`, `packages/api/src/repositories/{archerRepo,standingRepo}.ts`, `packages/api/src/services/archerService.ts`, `packages/shared/src/schemas.ts` (`ArcherInputSchema` +`sex`+`dni`), `tournamentService.ts` (snapshot)
 **Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §2, §3.2 (actualizar primero) · decisiones 3 y 6
 **Contenido:**
-- `ArcherDoc`: `+ sex: 'femenino' | 'masculino' | null` · `+ dni: string | null`. Nuevos registros los exigen (schema), los viejos quedan en `null` hasta que el admin los completa.
+- `ArcherDoc`: `+ sex: 'femenino' | 'masculino' | null` · `+ dni: string | null`. En el esquema (`ArcherInputSchema`) son **opcionales**: el alta del admin todavía no los manda (`FE-29` pendiente) y exigirlos la habría roto. Los viejos —y los nuevos hasta que alguien los complete— quedan en `null`.
 - `dni`: formato argentino, 7–8 dígitos, sin puntos. Índice **único parcial** (sólo sobre documentos con `dni` no nulo) en `indexes.ts`, idempotente.
 - `ParticipantDoc` y `StandingDoc`: `+ sex` (snapshot, igual que `firstName`/`lastName`/`category`). `StandingDoc` pierde `leaguePoints` **y** `podiums` (decisión 3, `SH-9`) — `standingRepo.toDomain`/`fromDomain` se actualizan junto.
 - `indexes.ts`: se borra `ix_ranking_posicion` (`{seasonId, category, leaguePoints: -1}`), que ordenaba un campo que deja de existir.

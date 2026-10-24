@@ -29,7 +29,7 @@ import {
   MIN_PATROL_SIZE,
   stakeForCategory,
 } from './constants.js';
-import type { BowCategory, Position, Stake, StakeMap, Unit } from './domain.js';
+import type { BowCategory, Position, Sex, Stake, StakeMap, Unit } from './domain.js';
 import { comparePersonName, compareText } from './text.js';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -40,6 +40,8 @@ export interface ParticipantInput {
   readonly firstName: string;
   readonly lastName: string;
   readonly category: BowCategory;
+  /** Ausente en el padrón viejo. El armado no lo usa: sólo viaja hasta el snapshot del participante. */
+  readonly sex?: Sex;
 }
 
 export interface PlannedMember extends ParticipantInput {

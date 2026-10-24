@@ -96,13 +96,20 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   firstName: "Juan",
   lastName: "Pérez",
   category: "razo",                     // ver DOMAIN_WA.md §3
+  sex: "masculino" | "femenino" | null, // null: padrón viejo, no se inventa el valor
+  dni: "30123456" | null,               // 7-8 dígitos, sin puntos. null: padrón viejo
+  registrationStatus: "pendiente" | "aprobado",   // ver decisión 7 de ACTION_PLAN.md Fase 8
   searchKey: "perez juan",              // normalizado sin acentos, para buscar
   archivedAt: Date | null,
   createdAt: Date,
   updatedAt: Date
 }
 ```
-Índices: `{ archivedAt: 1, lastName: 1, firstName: 1 }` · `{ searchKey: 1 }` · `{ category: 1 }`.
+Índices: `{ archivedAt: 1, lastName: 1, firstName: 1 }` · `{ searchKey: 1 }` · `{ category: 1 }` · `{ dni: 1 }` **unique, parcial** (sólo `dni: { $ne: null }` — dos arqueros viejos con `dni: null` no chocan entre sí).
+
+Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoregistro público (`BE-20`) lo crea `"pendiente"`, y sólo entra al padrón que usa el wizard de torneo (`archerRepo.list` con el filtro por defecto) una vez que `BE-22` lo aprueba.
+
+`sex`/`dni` en `null` no bloquean nada: el arquero sigue participando de torneos igual. `archerService.ArcherView` expone `profileIncomplete: true` cuando falta alguno de los dos, para que WAFA lo señale sin que nadie tenga que adivinarlo.
 
 ### 2.5 `tournaments`
 
@@ -183,6 +190,7 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   firstName: "Juan",
   lastName: "Pérez",
   category: "razo",
+  sex: "masculino" | "femenino" | null,  // null si el arquero no lo tenía cargado
 
   // asignación
   stake: "azul",
@@ -271,26 +279,25 @@ Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert`
   archerId: ObjectId,
   firstName: "Juan",                    // desnormalizado para render directo
   lastName: "Pérez",
+  sex: "masculino" | "femenino" | null,  // snapshot del arquero, para el ranking por sexo
 
-  leaguePoints: 12,
   tournamentsPlayed: 3,
-  podiums: { first: 1, second: 1, third: 0 },
 
   bestNormalizedPct: 78.4,              // el mejor SUELTO de la temporada
   bestRawScore: 259,
   bestTournamentId: ObjectId,
 
-  topTwoPcts: [82.1, 78.4],             // los dos mejores, de mayor a menor
+  topNPcts: [82.1, 78.4, 71.0],         // los `bestN` mejores, de mayor a menor
 
   totalX: 14, totalTens: 22, totalM: 3,
   updatedAt: Date
 }
 ```
-Índices: `{ seasonId: 1, category: 1, leaguePoints: -1 }` · `{ seasonId: 1, archerId: 1, category: 1 }` **unique** · `{ archerId: 1 }`.
+Índices: `{ seasonId: 1, archerId: 1, category: 1 }` **unique** · `{ archerId: 1 }`.
 
-`topTwoPcts` guarda los dos mejores porcentajes y **no** su promedio: el acumulado se construye de forma incremental, torneo por torneo, y para saber si el que llega desplaza a alguno hay que conocer a los dos que están. El promedio lo deriva `bestTwoAvgPct` al serializar, así que no hay dos copias del mismo número que puedan separarse.
+`topNPcts` guarda los `bestN` mejores porcentajes y **no** su promedio: el acumulado se construye de forma incremental, torneo por torneo, y para saber si el que llega desplaza a alguno hay que conocer a los que están. El promedio lo deriva `bestNAvgPct` al serializar, así que no hay dos copias del mismo número que puedan separarse. `bestN` es `LEAGUE_BEST_N` (`BE-18`), no una constante — por eso no hay un `2` fijo en ningún lado de este documento.
 
-> **Baja de `ix_ranking_puntaje`.** Existía un índice sobre `bestNormalizedPct` para «el otro modo de ranking». Nunca lo usó ninguna consulta: la landing trae la temporada entera con `find({ seasonId })` y la ordena en memoria con `sortStandings` —son cientos de documentos, no millones— así que el índice que sirve es el del prefijo `seasonId`. Con «mejor de 2» el campo además dejó de ordenar ningún ranking.
+> **Baja de `ix_ranking_puntaje` e `ix_ranking_posicion` (2026-10-24).** Existían índices sobre `bestNormalizedPct` y `leaguePoints` para los modos de ranking que se fueron retirando. Ninguno lo usó nunca ninguna consulta: la landing trae la temporada entera con `find({ seasonId })` y la ordena en memoria con `sortStandings`/`sortStandingsByGender` —son cientos de documentos, no millones— así que el índice que sirve es el del prefijo `seasonId`. El segundo retiro, además, borró los campos que el índice indexaba: `leaguePoints` y `podiums` ya no existen en este documento (ver `BITACORA.md`, entrada del 2026-10-24 sobre `SH-9`). **En cualquier Mongo donde `ix_ranking_posicion` ya se haya creado, queda huérfano** — este proyecto no tiene un mecanismo para dropear índices de un entorno ya desplegado; hay que borrarlo a mano.
 
 ### 2.11 `auditLog`
 
@@ -342,13 +349,17 @@ Base `/api`. JSON. Errores con forma uniforme:
 
 | Método | Ruta | Notas |
 |---|---|---|
-| `GET` | `/api/admin/archers?archived=false&q=` | Listado con búsqueda |
-| `POST` | `/api/admin/archers` | `{ firstName, lastName, category }` |
+| `GET` | `/api/admin/archers?archived=false&q=&status=` | Listado con búsqueda. Sin `status`, excluye `pendiente` (no se puede sumar a un torneo un arquero sin aprobar) |
+| `POST` | `/api/admin/archers` | `{ firstName, lastName, category, sex, dni }` — nace `registrationStatus: "aprobado"` |
 | `PATCH` | `/api/admin/archers/:id` | Edición |
 | `POST` | `/api/admin/archers/:id/archive` | Archivar |
 | `POST` | `/api/admin/archers/:id/restore` | Restaurar |
+| `POST` | `/api/admin/archers/:id/approve` | `pendiente` → `aprobado` (`BE-22`) |
+| `POST` | `/api/admin/archers/:id/reject` | Borra un `pendiente` (`BE-22`) |
 | `DELETE` | `/api/admin/archers/:id` | **409** si participó de algún torneo |
 | `GET` `POST` `PATCH` | `/api/admin/seasons[/:id]` | CRUD de temporadas |
+
+Un DNI repetido en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`.
 
 ### 3.3 Admin — torneos
 

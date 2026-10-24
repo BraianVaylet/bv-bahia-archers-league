@@ -30,6 +30,8 @@ const aRankable = (p: ParticipantDoc): Rankable => ({
   firstName: p.firstName,
   lastName: p.lastName,
   category: p.category,
+  // `exactOptionalPropertyTypes`: la clave se omite en vez de llevar `undefined`.
+  ...(p.sex ? { sex: p.sex } : {}),
   stake: p.stake,
   total: p.total,
   innerCount: p.innerCount,

@@ -530,6 +530,53 @@ describe('ArcherInputSchema', () => {
         .success,
     ).toBe(false);
   });
+
+  // Decisión del 2026-10-24 (Fase 8): opcionales para no romper el alta del
+  // admin, que todavía no manda estos campos (FE-29 sigue pendiente).
+  it('sexo y DNI son opcionales, y por defecto quedan en null', () => {
+    const r = ArcherInputSchema.parse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo' });
+    expect(r.sex).toBeNull();
+    expect(r.dni).toBeNull();
+  });
+
+  it('acepta un arquero con sexo y DNI', () => {
+    const r = ArcherInputSchema.safeParse({
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      sex: 'masculino',
+      dni: '30123456',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rechaza un sexo que no sea femenino o masculino', () => {
+    expect(
+      ArcherInputSchema.safeParse({
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        category: 'razo',
+        sex: 'otro',
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each(['3012345', '1234567', '12345678'])('acepta un DNI de 7 u 8 dígitos (%s)', (dni) => {
+    expect(
+      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each(['123456', '123456789', '30.123.456', 'abcdefgh'])(
+    'rechaza un DNI mal formado (%s)',
+    (dni) => {
+      expect(
+        ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+          .success,
+      ).toBe(false);
+    },
+  );
 });
 
 describe('SeasonInputSchema', () => {

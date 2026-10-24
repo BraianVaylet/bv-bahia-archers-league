@@ -33,6 +33,14 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { key: { archivedAt: 1, lastName: 1, firstName: 1 }, name: 'ix_activos_nombre' },
       { key: { searchKey: 1 }, name: 'ix_searchKey' },
       { key: { category: 1 }, name: 'ix_category' },
+      // Parcial: dos arqueros del padrón viejo con dni: null no chocan entre
+      // sí. $type excluye null Y la clave ausente, a diferencia de $exists.
+      {
+        key: { dni: 1 },
+        unique: true,
+        partialFilterExpression: { dni: { $type: 'string' } },
+        name: 'uk_dni',
+      },
     ]),
 
     db.collection(COLLECTIONS.tournaments).createIndexes([

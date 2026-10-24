@@ -893,6 +893,66 @@ describe('ranking mejor de N', () => {
   });
 });
 
+// ── BE-19 · Sexo, de punta a punta ───────────────────────────────────────────
+
+/**
+ * El sexo nace en el arquero y viaja congelado por el torneo igual que
+ * `category`: `ArcherDoc` → snapshot en `ParticipantDoc` → acumulado en
+ * `StandingDoc`. Un arquero sin sexo cargado no rompe nada en el camino.
+ */
+describe('sexo: del arquero al standing', () => {
+  it('viaja de punta a punta, y un arquero sin sexo no rompe nada', async () => {
+    const c = await admin();
+    const s = await c.post('/api/admin/seasons', {
+      name: 'Liga 2026',
+      startsAt: '2026-01-01',
+      endsAt: '2026-12-31',
+    });
+    const seasonId = ((await s.json()) as { season: { id: string } }).season.id;
+
+    const conSexo = await c.post('/api/admin/archers', {
+      firstName: 'Ana',
+      lastName: 'Arquera',
+      category: 'razo',
+      sex: 'femenino',
+    });
+    const sinSexo = await c.post('/api/admin/archers', {
+      firstName: 'Beto',
+      lastName: 'Arquero',
+      category: 'razo',
+    });
+    const archerIds = [
+      ((await conSexo.json()) as { archer: { id: string } }).archer.id,
+      ((await sinSexo.json()) as { archer: { id: string } }).archer.id,
+    ];
+
+    const t = await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo',
+      date: '2026-08-08',
+      targets: TARGETS,
+      archerIds,
+    });
+    const tournamentId = ((await t.json()) as { tournament: { id: string } }).tournament.id;
+
+    const miembros = await participants()
+      .find({ tournamentId: new ObjectId(tournamentId) })
+      .toArray();
+    expect(miembros.find((m) => m.lastName === 'Arquera')?.sex).toBe('femenino');
+    expect(miembros.find((m) => m.lastName === 'Arquero')?.sex).toBeNull();
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    const acumulados = await standings()
+      .find({ seasonId: new ObjectId(seasonId) })
+      .toArray();
+    expect(acumulados.find((a) => a.lastName === 'Arquera')?.sex).toBe('femenino');
+    expect(acumulados.find((a) => a.lastName === 'Arquero')?.sex).toBeNull();
+  });
+});
+
 // ── REF-2 · Pago de inscripción ──────────────────────────────────────────────
 
 /**

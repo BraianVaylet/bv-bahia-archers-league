@@ -163,6 +163,9 @@ export function aParticipantInput(arqueros: readonly ArcherDoc[]): ParticipantIn
     firstName: a.firstName,
     lastName: a.lastName,
     category: a.category,
+    // `exactOptionalPropertyTypes`: sin sexo cargado, la clave se omite en vez
+    // de escribirse como `undefined`.
+    ...(a.sex ? { sex: a.sex } : {}),
   }));
 }
 
@@ -220,6 +223,7 @@ export async function materializar(
           firstName: miembro.firstName,
           lastName: miembro.lastName,
           category: miembro.category,
+          sex: miembro.sex ?? null,
           stake: miembro.stake,
           unit: unidad.label,
           position: miembro.position,

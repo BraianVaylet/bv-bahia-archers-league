@@ -7,18 +7,26 @@
 import type { ArcherInput } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { archers, participants } from '../db/client.js';
-import type { ArcherDoc } from '../db/types.js';
+import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { searchKey } from '../lib/crypto.js';
+import { AppError } from '../lib/errors.js';
 
 export interface ListOptions {
   readonly archived?: boolean;
   /** Texto libre. Se normaliza igual que `searchKey` antes de buscar. */
   readonly query?: string;
+  /**
+   * Sin esto, la lista **excluye** `pendiente`: es la que alimenta el wizard
+   * de torneo (`FE-11`), y un arquero sin aprobar no se puede sumar a uno.
+   * `BE-22` pide `'pendiente'` explícito para su cola de aprobación.
+   */
+  readonly status?: ArcherRegistrationStatus;
 }
 
 export function list(options: ListOptions = {}): Promise<ArcherDoc[]> {
   const filtro: Record<string, unknown> = {
     archivedAt: options.archived ? { $ne: null } : null,
+    registrationStatus: options.status ?? 'aprobado',
   };
 
   if (options.query) {
@@ -41,36 +49,69 @@ export function findManyByIds(ids: readonly ObjectId[]): Promise<ArcherDoc[]> {
     .toArray();
 }
 
-export async function create(input: ArcherInput): Promise<ArcherDoc> {
+/**
+ * Crea un arquero.
+ *
+ * `registrationStatus` por defecto es `'aprobado'`: un arquero creado por el
+ * admin lo vale de entrada. El autoregistro público (`BE-20`) pasa
+ * `'pendiente'` explícito.
+ *
+ * @throws {AppError} `ARCHER_DNI_DUPLICATE` si el DNI ya está en uso.
+ */
+export async function create(
+  input: ArcherInput,
+  registrationStatus: ArcherRegistrationStatus = 'aprobado',
+): Promise<ArcherDoc> {
   const ahora = new Date();
   const doc = {
     firstName: input.firstName,
     lastName: input.lastName,
     category: input.category,
+    sex: input.sex,
+    dni: input.dni,
+    registrationStatus,
     searchKey: searchKey(input.lastName, input.firstName),
     archivedAt: null,
     createdAt: ahora,
     updatedAt: ahora,
   } as ArcherDoc;
 
-  const { insertedId } = await archers().insertOne(doc);
-  return { ...doc, _id: insertedId };
+  try {
+    const { insertedId } = await archers().insertOne(doc);
+    return { ...doc, _id: insertedId };
+  } catch (error) {
+    // Dedup por el índice único parcial de `dni`: sin `findOne` previo, igual
+    // que el resto de los índices únicos de este proyecto.
+    if (error instanceof Error && error.message.includes('E11000')) {
+      throw new AppError('ARCHER_DNI_DUPLICATE');
+    }
+    throw error;
+  }
 }
 
 export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherDoc | null> {
-  return archers().findOneAndUpdate(
-    { _id: id },
-    {
-      $set: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        category: input.category,
-        searchKey: searchKey(input.lastName, input.firstName),
-        updatedAt: new Date(),
+  try {
+    return await archers().findOneAndUpdate(
+      { _id: id },
+      {
+        $set: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          category: input.category,
+          sex: input.sex,
+          dni: input.dni,
+          searchKey: searchKey(input.lastName, input.firstName),
+          updatedAt: new Date(),
+        },
       },
-    },
-    { returnDocument: 'after' },
-  );
+      { returnDocument: 'after' },
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('E11000')) {
+      throw new AppError('ARCHER_DNI_DUPLICATE');
+    }
+    throw error;
+  }
 }
 
 export async function setArchived(id: ObjectId, archived: boolean): Promise<ArcherDoc | null> {

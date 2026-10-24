@@ -4,9 +4,9 @@
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
-import type { ArcherInput } from '@bal/shared';
+import type { ArcherInput, Sex } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
-import type { ArcherDoc } from '../db/types.js';
+import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
 
@@ -15,6 +15,11 @@ export interface ArcherView {
   readonly firstName: string;
   readonly lastName: string;
   readonly category: string;
+  readonly sex: Sex | null;
+  readonly dni: string | null;
+  readonly registrationStatus: ArcherRegistrationStatus;
+  /** `true` si falta `sex` o `dni` (padrón viejo). WAFA lo señala sin que nadie adivine. */
+  readonly profileIncomplete: boolean;
   readonly archived: boolean;
   /**
    * `true` si participó de algún torneo, y por lo tanto **no se puede borrar**.
@@ -33,6 +38,12 @@ export const toView = (doc: ArcherDoc, tournamentCount = 0): ArcherView => ({
   firstName: doc.firstName,
   lastName: doc.lastName,
   category: doc.category,
+  sex: doc.sex,
+  dni: doc.dni,
+  registrationStatus: doc.registrationStatus,
+  // Se deriva de los dos campos en vez de guardarse aparte: dos fuentes para
+  // el mismo hecho son dos que pueden decir cosas distintas.
+  profileIncomplete: doc.sex === null || doc.dni === null,
   archived: doc.archivedAt !== null,
   // Se deriva del conteo en vez de guardarse aparte: dos fuentes para el mismo
   // hecho son dos que pueden decir cosas distintas.
