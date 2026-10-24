@@ -7,6 +7,7 @@ import {
   normalizedPct,
   type Rankable,
   sortStandings,
+  sortStandingsByGender,
   type TournamentContribution,
 } from '../src/index.js';
 
@@ -170,6 +171,36 @@ describe('applyTournamentToStandings', () => {
     // Cada uno gana su categoría: a los dos les queda un solo porcentaje guardado.
     const r = applyTournamentToStandings([], mixto, BEST_N);
     expect(r.every((s) => s.topNPcts.length === 1)).toBe(true);
+  });
+
+  it('guarda el sexo del arquero, para el ranking por sexo', () => {
+    const r = applyTournamentToStandings(
+      [],
+      { ...torneo, participants: [arquero({ archerId: 'ana', sex: 'femenino', total: 100 })] },
+      BEST_N,
+    );
+    expect(r[0]?.sex).toBe('femenino');
+  });
+
+  it('un arquero sin sexo cargado no rompe nada: queda `undefined`, no un throw', () => {
+    const r = applyTournamentToStandings(
+      [],
+      { ...torneo, participants: [arquero({ archerId: 'viejo', total: 100 })] },
+      BEST_N,
+    );
+    expect(r[0]?.sex).toBeUndefined();
+  });
+
+  it('no pisa un sexo ya conocido con uno desconocido de un snapshot más viejo', () => {
+    const previo = [standing({ archerId: 'a1', sex: 'masculino' })];
+    const sinSexo: TournamentContribution = {
+      tournamentId: 't2',
+      maxPossibleScore: 330,
+      participants: [arquero({ archerId: 'a1', total: 100 })],
+    };
+
+    const r = applyTournamentToStandings(previo, sinSexo, BEST_N);
+    expect(r[0]?.sex).toBe('masculino');
   });
 
   it('escuela y principiantes acumulan como cualquier otra categoría', () => {
@@ -448,5 +479,78 @@ describe('sortStandings', () => {
     const copia = [...entrada];
     sortStandings(entrada, 2);
     expect(entrada).toEqual(copia);
+  });
+});
+
+/**
+ * Ranking General / Femenino / Masculino (SH-10).
+ *
+ * Las tres vistas se calculan filtrando **antes** de ordenar, no filtrando un
+ * ranking ya ordenado: el puesto compartido y el salto de posición dependen de
+ * la pool exacta que se está rankeando, y una mujer que es 4ª en el general
+ * puede ser 1ª en el femenino.
+ */
+describe('sortStandingsByGender', () => {
+  const conDosTorneos = (o: Partial<ArcherStanding>) => standing({ tournamentsPlayed: 2, ...o });
+
+  it('cada sexo tiene su propia numeración, no un subconjunto del general', () => {
+    const mujeres = ['f1', 'f2', 'f3'].map((id) =>
+      conDosTorneos({ archerId: id, sex: 'femenino' }),
+    );
+    const varones = ['m1', 'm2', 'm3', 'm4', 'm5'].map((id) =>
+      conDosTorneos({ archerId: id, sex: 'masculino' }),
+    );
+
+    const r = sortStandingsByGender([...mujeres, ...varones], 2);
+
+    expect(r.general.ranked).toHaveLength(8);
+    expect(r.femenino.ranked).toHaveLength(3);
+    expect(r.masculino.ranked).toHaveLength(5);
+    expect(r.femenino.ranked.map((s) => s.position)).toEqual([1, 1, 1]);
+  });
+
+  it('una mujer que es cuarta en el general puede ser primera en el femenino', () => {
+    const r = sortStandingsByGender(
+      [
+        conDosTorneos({ archerId: 'm1', sex: 'masculino', topNPcts: [95, 90] }),
+        conDosTorneos({ archerId: 'm2', sex: 'masculino', topNPcts: [92, 88] }),
+        conDosTorneos({ archerId: 'm3', sex: 'masculino', topNPcts: [91, 87] }),
+        conDosTorneos({ archerId: 'f1', sex: 'femenino', topNPcts: [85, 80] }),
+      ],
+      2,
+    );
+
+    expect(r.general.ranked.find((s) => s.archerId === 'f1')?.position).toBe(4);
+    expect(r.femenino.ranked.find((s) => s.archerId === 'f1')?.position).toBe(1);
+  });
+
+  // No se filtra el resultado ya ordenado: se filtra la pool antes de ordenar.
+  it('el mínimo de torneos se evalúa dentro de cada pool, no contra el general', () => {
+    const r = sortStandingsByGender(
+      [
+        conDosTorneos({ archerId: 'f1', sex: 'femenino' }),
+        standing({ archerId: 'f2', sex: 'femenino', tournamentsPlayed: 1 }),
+      ],
+      2,
+    );
+
+    expect(r.femenino.ranked.map((s) => s.archerId)).toEqual(['f1']);
+    expect(r.femenino.notYetEligible.map((s) => s.archerId)).toEqual(['f2']);
+  });
+
+  /**
+   * Un arquero sin `sex` (padrón viejo) no rompe el cálculo: no figura en
+   * ninguno de los dos rankings por sexo, pero sigue en el general.
+   */
+  it('un arquero sin sexo cargado no rompe el cálculo, y no figura en los rankings por sexo', () => {
+    const r = sortStandingsByGender(
+      [conDosTorneos({ archerId: 'sinSexo' }), conDosTorneos({ archerId: 'f1', sex: 'femenino' })],
+      2,
+    );
+
+    expect(() => r).not.toThrow();
+    expect(r.general.ranked.map((s) => s.archerId).sort()).toEqual(['f1', 'sinSexo']);
+    expect(r.femenino.ranked.map((s) => s.archerId)).toEqual(['f1']);
+    expect(r.masculino.ranked).toEqual([]);
   });
 });

@@ -42,6 +42,19 @@ export type Stake = (typeof STAKES)[number];
 /** Asignación de categorías a estacas. Editable por torneo. */
 export type StakeMap = Readonly<Record<Stake, readonly BowCategory[]>>;
 
+// ── Sexo ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Sexo del arquero, para el ranking Femenino / Masculino / General.
+ *
+ * Opcional en todo el dominio: el padrón anterior a este campo no lo tiene
+ * cargado (ver `docs/DOMAIN_WA.md` §9), y un arquero sin `sex` participa igual
+ * — sólo queda afuera de los rankings por sexo, nunca del general.
+ */
+export const SEXES = ['femenino', 'masculino'] as const;
+
+export type Sex = (typeof SEXES)[number];
+
 // ── Tokens de flecha ─────────────────────────────────────────────────────────
 
 /** Flecha sin puntaje. Se registra explícitamente, nunca se omite. */

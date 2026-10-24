@@ -16,13 +16,15 @@
  * Ver `docs/DOMAIN_WA.md` §9.
  */
 
-import type { BowCategory } from './domain.js';
+import type { BowCategory, Sex } from './domain.js';
 import { asignarPosiciones, type Rankable, rankAllByCategory } from './ranking.js';
 import { comparePersonName, compareText } from './text.js';
 
 /** Acumulado de un arquero en una temporada, para una categoría. */
 export interface ArcherStanding {
   readonly archerId: string;
+  /** Ausente en el padrón viejo (`docs/DOMAIN_WA.md` §9). No rankea sin esto, pero sigue en el general. */
+  readonly sex?: Sex;
   readonly firstName: string;
   readonly lastName: string;
   readonly category: BowCategory;
@@ -109,6 +111,9 @@ export function eligibleForRanking(standing: ArcherStanding, bestN: number): boo
 function nuevoStanding(p: Rankable): ArcherStanding {
   return {
     archerId: p.archerId,
+    // `exactOptionalPropertyTypes`: si no hay sexo, la clave ni se escribe —
+    // `sex: undefined` es un valor distinto de «ausente» con esta opción.
+    ...(p.sex ? { sex: p.sex } : {}),
     firstName: p.firstName,
     lastName: p.lastName,
     category: p.category,
@@ -154,9 +159,13 @@ export function applyTournamentToStandings(
 
     acumulado.set(k, {
       ...actual,
-      // El snapshot del torneo es el dato más reciente del arquero.
+      // El snapshot del torneo es el dato más reciente del arquero. `sex` es
+      // la excepción: un snapshot viejo sin el campo no puede desconocer lo
+      // que un snapshot más nuevo ya había informado. Con `exactOptionalPropertyTypes`,
+      // la clave se omite del todo en vez de escribirse como `undefined`.
       firstName: entry.firstName,
       lastName: entry.lastName,
+      ...((entry.sex ?? actual.sex) ? { sex: entry.sex ?? actual.sex } : {}),
       tournamentsPlayed: actual.tournamentsPlayed + 1,
       bestNormalizedPct: mejora ? pct : actual.bestNormalizedPct,
       bestRawScore: mejora ? entry.total : actual.bestRawScore,
@@ -200,5 +209,41 @@ export function sortStandings(
       tied,
     })),
     notYetEligible: [...restantes].sort(desempatar),
+  };
+}
+
+/** Las tres vistas del ranking de liga: General, Femenino y Masculino. */
+export interface StandingsPorSexo {
+  readonly general: SortedStandings;
+  readonly femenino: SortedStandings;
+  readonly masculino: SortedStandings;
+}
+
+/**
+ * Las tres vistas, cada una ordenada sobre **su propia pool**.
+ *
+ * No es `sortStandings` una vez y después filtrar el resultado: el puesto
+ * compartido y el salto de posición dependen de contra quién se compite, así
+ * que cada vista se arma filtrando el acumulado **antes** de ordenar. Una
+ * arquera que es cuarta en el general puede ser primera en el femenino.
+ *
+ * Un arquero sin `sex` (padrón viejo, `docs/DOMAIN_WA.md` §9) entra al general
+ * igual que cualquiera, y no entra a ninguna de las dos vistas por sexo — no
+ * se le inventa un valor.
+ */
+export function sortStandingsByGender(
+  standings: readonly ArcherStanding[],
+  bestN: number,
+): StandingsPorSexo {
+  return {
+    general: sortStandings(standings, bestN),
+    femenino: sortStandings(
+      standings.filter((s) => s.sex === 'femenino'),
+      bestN,
+    ),
+    masculino: sortStandings(
+      standings.filter((s) => s.sex === 'masculino'),
+      bestN,
+    ),
   };
 }

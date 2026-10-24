@@ -14,6 +14,29 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-24 · Ranking de liga por sexo: General / Femenino / Masculino (SH-10)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado — sólo el dominio puro; sin dato real de `sexo` todavía (eso es `BE-19`).
+
+### Filtrar antes de ordenar, no después
+
+`sortStandingsByGender` llama a `sortStandings` tres veces —general, femenino, masculino— cada una sobre su **propia pool filtrada**, nunca filtrando un ranking ya calculado. La razón está probada con un caso concreto: con 3 varones mejores y una arquera, ella es 4ª en el general pero 1ª en el femenino, porque el puesto compartido y el salto de posición (1, 2, 2, 4) dependen de contra quién se compite. Filtrar el resultado ya ordenado le habría dejado la posición "4" aunque fuera la única en su pool.
+
+### `exactOptionalPropertyTypes` y un campo opcional nuevo
+
+Este monorepo tiene `exactOptionalPropertyTypes: true` desde `INF-1`. Con esa opción, `sex?: Sex` significa que la clave puede **faltar**, pero si está presente tiene que ser `'femenino' | 'masculino'` — nunca `undefined` explícito. Escribir `sex: p.sex` donde `p.sex` es `Sex | undefined` no compila. La solución en los dos lugares que construyen un `ArcherStanding` (`nuevoStanding` y el merge dentro de `applyTournamentToStandings`) fue un spread condicional que omite la clave entera cuando no hay valor, en vez de asignarle `undefined`. Quedó comentado en el código porque no es obvio a simple vista por qué `sex: p.sex` directo no compila.
+
+### Qué generaliza gratis y qué no
+
+`Rankable.sex` y `ArcherStanding.sex` son opcionales y **ningún otro código que ya usaba esos tipos tuvo que cambiar** — ni un test, ni un archivo fuera de `league.ts`/`ranking.ts`/`domain.ts`. Es la ventaja de agregar un campo opcional en vez de uno obligatorio: generaliza sin arrastrar una migración por todo el árbol de dependientes, al revés de lo que pasó con `SH-9` y `leaguePointsForPosition`.
+
+### Deuda / lo que sigue
+
+- No hay ningún arquero real con `sex` cargado todavía: `BE-19` tiene que agregar el campo al padrón (`ArcherDoc`), propagarlo al snapshot del participante y de ahí a `Rankable` en `publishService.ts`.
+- `BE-21` (exponer las tres vistas en `/api/public/rankings`) y `FE-28` (pestañas General/Femenino/Masculino en las dos pantallas de Ranking) quedan bloqueadas por `BE-19` — sin dato, no hay nada que mostrar.
+
+---
+
 ## 2026-10-24 · Ranking «mejor de N», sin puntos de liga (SH-9, con BE-18 y partes de BE-19/BE-21/FE-28)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado — `SH-9` y `BE-18` cerradas; dejó parcialmente hechas `BE-19`, `BE-21` y `FE-28` (quedan anotadas en `ACTION_PLAN.md` con lo que falta de cada una).

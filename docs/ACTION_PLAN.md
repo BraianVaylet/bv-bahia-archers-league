@@ -476,7 +476,8 @@ _(Hecho, con un alcance más grande que el escrito: `leaguePointsForPosition` no
 - No queda ninguna referencia a `'position'`, `leaguePoints`, `podiums` ni `leaguePointsForPosition` en `@bal/shared` ni en su API pública (`index.ts`).
 - Cobertura ≥ 95% de ramas en `league.ts`.
 
-### `[ ] SH-10` · Dominio: ranking de liga por sexo (general / femenino / masculino)
+### `[x] SH-10` · Dominio: ranking de liga por sexo (general / femenino / masculino)
+_(Hecho. `Sex`/`SEXES` nuevos en `domain.ts`; `Rankable.sex` y `ArcherStanding.sex` opcionales — ningún otro llamador de esos tipos tuvo que cambiar. `sortStandingsByGender` filtra la pool antes de ordenar, no filtra un resultado ya ordenado, verificado con el caso de una arquera 4ª en el general y 1ª en el femenino. `exactOptionalPropertyTypes` —activo en este monorepo— obligó a omitir la clave `sex` en vez de escribirla como `undefined`; el fix quedó en `nuevoStanding` y en el merge de `applyTournamentToStandings`, con comentario explicando por qué. Todavía no hay ningún dato real de `sex` en la base: eso es `BE-19`.)_
 **Objetivo:** las mismas funciones de `league.ts`, aplicadas a tres recortes del padrón.
 **Archivos:** `packages/shared/src/league.ts` (o un módulo nuevo `genero.ts` si `league.ts` ya es grande) + tests
 **Referencia:** decisión 5 de esta fase
