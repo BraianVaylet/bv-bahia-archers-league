@@ -491,12 +491,12 @@ describe('publicar', () => {
     expect(body.standingsUpdated).toBe(2);
 
     const acumulado = await standings().find({}).toArray();
-    // Los dos son razo: el primero se lleva 5, el segundo 4.
-    expect(acumulado.map((s) => s.leaguePoints).sort((a, b) => b - a)).toEqual([5, 4]);
-    expect(acumulado[0]?.tournamentsPlayed).toBe(1);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado.every((s) => s.tournamentsPlayed === 1)).toBe(true);
+    expect(acumulado.every((s) => s.topNPcts.length === 1)).toBe(true);
   });
 
-  it('con empate reparte los mismos puntos a los dos', async () => {
+  it('con empate, el acumulado de los dos queda igual', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
     await c.post(`/api/admin/tournaments/${tournamentId}/start`);
@@ -546,14 +546,15 @@ describe('publicar', () => {
 
     await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
 
-    // Puesto compartido: los dos primeros se llevan 5 cada uno.
+    // Tiraron exactamente lo mismo: el acumulado de los dos queda igual.
     const acumulado = await standings().find({}).toArray();
-    expect(acumulado.map((s) => s.leaguePoints)).toEqual([5, 5]);
-    expect(acumulado.every((s) => s.podiums.first === 1)).toBe(true);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado[0]?.bestNormalizedPct).toBe(acumulado[1]?.bestNormalizedPct);
+    expect(acumulado[0]?.bestNormalizedPct).toBeGreaterThan(0);
   });
 
   // Recalcular desde cero en vez de sumar el delta es lo que lo hace idempotente.
-  it('publicar dos veces NO duplica los puntos', async () => {
+  it('publicar dos veces NO duplica el acumulado', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
     await c.post(`/api/admin/tournaments/${tournamentId}/start`);
@@ -564,7 +565,8 @@ describe('publicar', () => {
 
     expect(segunda.status).toBe(409);
     const acumulado = await standings().find({}).toArray();
-    expect(acumulado.map((s) => s.leaguePoints).sort((a, b) => b - a)).toEqual([5, 4]);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado.every((s) => s.tournamentsPlayed === 1)).toBe(true);
   });
 
   it('despublicar revierte el impacto en la liga', async () => {
@@ -812,15 +814,15 @@ describe('endpoints públicos', () => {
   });
 });
 
-// ── REF-2 · Ranking «mejor de 2» ─────────────────────────────────────────────
+// ── SH-9 · Ranking «mejor de N» ──────────────────────────────────────────────
 
 /**
- * El ranking de la liga promedia los DOS mejores porcentajes de la temporada.
- *
- * Reemplaza al modo «por mejor puntaje»: un porcentaje suelto premia el día
- * bueno; el promedio de los dos mejores premia la regularidad.
+ * El ranking de la liga promedia los `LEAGUE_BEST_N` mejores porcentajes de la
+ * temporada. Reemplazó al ranking por posición (puntos 5-4-3-2-1), retirado el
+ * 2026-10-24: un porcentaje suelto premia el día bueno; el promedio de los
+ * mejores premia la regularidad.
  */
-describe('ranking mejor de 2', () => {
+describe('ranking mejor de N', () => {
   /** Deja dos torneos publicados en la misma temporada. */
   async function dosTorneosPublicados(c: ReturnType<typeof cliente>) {
     const { seasonId, archerIds, tournamentId } = await torneoNuevo(c);
@@ -834,32 +836,24 @@ describe('ranking mejor de 2', () => {
     return seasonId;
   }
 
-  it('rechaza el modo `score`, que ya no existe', async () => {
-    const c = await admin();
-    const { seasonId } = await torneoNuevo(c);
-
-    const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=score`);
-    expect(res.status).toBe(400);
-  });
-
-  it('acepta el modo `best_two`', async () => {
+  it('rechaza un `mode` en la query — ya no existen modos', async () => {
     const c = await admin();
     const { seasonId } = await torneoNuevo(c);
 
     const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
   });
 
-  it('guarda los dos mejores porcentajes al publicar', async () => {
+  it('guarda los `LEAGUE_BEST_N` (default 2) mejores porcentajes al publicar', async () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
-    expect(doc?.topTwoPcts).toHaveLength(2);
+    expect(doc?.topNPcts).toHaveLength(2);
     expect(doc?.tournamentsPlayed).toBe(2);
   });
 
   /**
-   * Los acumulados escritos ANTES de «mejor de 2» no tienen `topTwoPcts`, y
+   * Los acumulados escritos ANTES de «mejor de N» no tienen `topNPcts`, y
    * ninguna publicación futura los toca si nadie vuelve a publicar esa
    * temporada. `db:reconcile` es lo que los alcanza.
    */
@@ -867,8 +861,8 @@ describe('ranking mejor de 2', () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     // Se simula el documento viejo: sin el campo.
-    await standings().updateMany({}, { $unset: { topTwoPcts: '' } });
-    expect((await standings().findOne({}))?.topTwoPcts).toBeUndefined();
+    await standings().updateMany({}, { $unset: { topNPcts: '' } });
+    expect((await standings().findOne({}))?.topNPcts).toBeUndefined();
 
     const resultado = await publishService.reconcileStandings();
 
@@ -876,26 +870,26 @@ describe('ranking mejor de 2', () => {
     expect(resultado.standings).toBeGreaterThan(0);
 
     const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
-    expect(doc?.topTwoPcts).toHaveLength(2);
+    expect(doc?.topNPcts).toHaveLength(2);
   });
 
-  it('el ranking público expone el promedio de los dos mejores', async () => {
+  it('el ranking público expone el promedio de los mejores porcentajes', async () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     const res = (await (
-      await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`)
+      await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
     ).json()) as {
-      categories: { ranked: { bestTwoAvgPct: number; topTwoPcts: number[] }[] }[];
+      categories: { ranked: { bestNAvgPct: number; topNPcts: number[] }[] }[];
     };
 
     const primero = res.categories[0]?.ranked[0];
     if (!primero) throw new Error('el ranking vino vacío');
 
     // Los dos torneos son idénticos, así que los dos porcentajes coinciden. Lo
-    // que se verifica es que el valor sea el promedio de los dos que están
+    // que se verifica es que el valor sea el promedio de los que están
     // guardados, no un número suelto.
-    const [a, b] = primero.topTwoPcts as [number, number];
-    expect(primero.bestTwoAvgPct).toBe(Math.round(((a + b) / 2) * 100) / 100);
+    const [a, b] = primero.topNPcts as [number, number];
+    expect(primero.bestNAvgPct).toBe(Math.round(((a + b) / 2) * 100) / 100);
   });
 });
 

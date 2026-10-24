@@ -17,6 +17,7 @@ import {
 import { type ClientSession, ObjectId } from 'mongodb';
 import { getClient } from '../db/client.js';
 import type { ParticipantDoc, TournamentDoc } from '../db/types.js';
+import { env } from '../env.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as standingRepo from '../repositories/standingRepo.js';
@@ -51,11 +52,15 @@ const aContribucion = (
  * torneos publicados.
  *
  * Recalcular en vez de sumar el delta hace que publicar sea **idempotente** y
- * que despublicar sea exacto: no hay forma de que un doble click aplique los
- * puntos dos veces, ni de que revertir deje residuos.
+ * que despublicar sea exacto: no hay forma de que un doble click aplique el
+ * acumulado dos veces, ni de que revertir deje residuos.
+ *
+ * `bestN` es `LEAGUE_BEST_N` vigente: lo lee quien llama (acá abajo), no esta
+ * función — es la que termina en `@bal/shared`, que no lee configuración.
  */
 export async function recalcularTemporada(
   publicados: readonly TournamentDoc[],
+  bestN: number,
 ): Promise<ArcherStanding[]> {
   // En orden cronológico: `bestNormalizedPct` se queda con el mejor, pero
   // `bestTournamentId` tiene que apuntar al primero que lo logró.
@@ -64,7 +69,7 @@ export async function recalcularTemporada(
   let acumulado: ArcherStanding[] = [];
   for (const torneo of enOrden) {
     const miembros = await tournamentRepo.listParticipants(torneo._id);
-    acumulado = applyTournamentToStandings(acumulado, aContribucion(torneo, miembros));
+    acumulado = applyTournamentToStandings(acumulado, aContribucion(torneo, miembros), bestN);
   }
 
   return acumulado.filter((s) => s.tournamentsPlayed > 0);
@@ -103,10 +108,11 @@ export interface ReconcileStandingsResult {
  * escritos antes del cambio siguen ahí, con la forma vieja, y ninguna
  * publicación futura los toca si nadie vuelve a publicar esa temporada.
  *
- * Fue lo que pasó con «mejor de 2»: `topTwoPcts` no existía.
+ * Fue lo que pasó con «mejor de 2»: `topNPcts` no existía.
  */
 export async function reconcileStandings(): Promise<ReconcileStandingsResult> {
   const publicados = await tournamentRepo.list({ status: 'publicado' });
+  const bestN = env().LEAGUE_BEST_N;
 
   const porTemporada = new Map<string, TournamentDoc[]>();
   for (const t of publicados) {
@@ -118,7 +124,7 @@ export async function reconcileStandings(): Promise<ReconcileStandingsResult> {
 
   let total = 0;
   for (const [seasonId, torneos] of porTemporada) {
-    const acumulado = await recalcularTemporada(torneos);
+    const acumulado = await recalcularTemporada(torneos, bestN);
     await conTransaccion((session) =>
       standingRepo.replaceSeason(new ObjectId(seasonId), acumulado, session),
     );
@@ -156,7 +162,7 @@ export async function publish(tournamentId: ObjectId, actorId: ObjectId): Promis
       (t) => t.status === 'publicado' || t._id.equals(tournamentId),
     );
 
-    const acumulado = await recalcularTemporada(publicados);
+    const acumulado = await recalcularTemporada(publicados, env().LEAGUE_BEST_N);
     await standingRepo.replaceSeason(torneo.seasonId, acumulado, session);
 
     await auditRepo.record(
@@ -211,7 +217,7 @@ export async function unpublish(
       (t) => t.status === 'publicado' && !t._id.equals(tournamentId),
     );
 
-    const acumulado = await recalcularTemporada(publicados);
+    const acumulado = await recalcularTemporada(publicados, env().LEAGUE_BEST_N);
     await standingRepo.replaceSeason(torneo.seasonId, acumulado, session);
 
     await auditRepo.record(

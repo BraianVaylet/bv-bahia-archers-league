@@ -208,13 +208,9 @@ export function stakeForCategory(
   );
 }
 
-// ── Puntos de liga ───────────────────────────────────────────────────────────
-
-/**
- * Puntos por puesto en el podio de cada categoría, 1-based.
- * Del 6.º en adelante, 0. Ver `docs/DOMAIN_WA.md` §9.1.
- */
-export const LEAGUE_POINTS_BY_POSITION = [5, 4, 3, 2, 1] as const;
-
-/** Torneos publicados mínimos para figurar en los rankings de liga. */
-export const MIN_TOURNAMENTS_FOR_RANKING = 2;
+// ── Ranking de liga ──────────────────────────────────────────────────────────
+//
+// El tamaño del promedio de «mejor de N» (y el mínimo de torneos para
+// clasificar, que es el mismo número) no vive acá: es `LEAGUE_BEST_N`, una
+// variable de entorno que el API inyecta como parámetro en `@bal/shared/league.ts`.
+// Ver `docs/DOMAIN_WA.md` §9 y `docs/CONFIG.md` §2.

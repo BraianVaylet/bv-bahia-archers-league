@@ -1,17 +1,16 @@
 /**
  * Seguimiento y publicación de un torneo.
  *
- * El podio y los puntos de liga se calculan con **las mismas funciones que usa
- * el servidor al publicar** (`rankByCategory`, `leaguePointsForPosition`), así
- * que la vista previa no es una estimación: es lo que va a quedar aplicado.
+ * El podio se calcula con **la misma función que usa el servidor al
+ * publicar** (`rankByCategory`), así que la vista previa no es una
+ * estimación: es lo que va a quedar aplicado.
  *
- * Ver `docs/FUNCTIONAL.md` §6.7 · `docs/DOMAIN_WA.md` §9.
+ * Ver `docs/FUNCTIONAL.md` §6.7 · `docs/DOMAIN_WA.md` §8.
  */
 
 import {
   type BowCategory,
   CATEGORY_INFO,
-  leaguePointsForPosition,
   type Rankable,
   type RankedEntry,
   rankByCategory,
@@ -85,12 +84,11 @@ export function motivoDeBloqueo(
   return undefined;
 }
 
-// ── Podio y puntos de liga ───────────────────────────────────────────────────
+// ── Podio ────────────────────────────────────────────────────────────────────
 
 export interface FilaDePodio {
   readonly position: number;
   readonly tied: boolean;
-  readonly leaguePoints: number;
   readonly participante: ResultadoParticipante;
 }
 
@@ -101,15 +99,12 @@ export interface PodioDeCategoria {
 }
 
 /**
- * Podios por categoría con los puntos de liga que se aplicarían.
+ * Podios por categoría.
  *
- * Los ausentes ya los deja afuera `rankByCategory`. El puesto compartido reparte
- * los puntos **de esa posición a todos los empatados**: dos primeros se llevan 5
- * cada uno, y el siguiente queda tercero con 3.
+ * Los ausentes ya los deja afuera `rankByCategory`. El puesto compartido:
+ * ambos quedan en la misma posición y el siguiente salta (1, 1, 3).
  */
-export function podiosConPuntos(
-  participantes: readonly ResultadoParticipante[],
-): PodioDeCategoria[] {
+export function podios(participantes: readonly ResultadoParticipante[]): PodioDeCategoria[] {
   const porCategoria = rankByCategory(participantes);
 
   return Object.entries(porCategoria)
@@ -120,20 +115,9 @@ export function podiosConPuntos(
       filas: (entradas as RankedEntry<ResultadoParticipante>[]).map((e) => ({
         position: e.position,
         tied: e.tied,
-        leaguePoints: leaguePointsForPosition(e.position),
         participante: e.entry,
       })),
     }));
-}
-
-/** Cuántos puntos de liga sumaría cada arquero. Sólo los que suman algo. */
-export function puntosQueSeAplicarian(
-  participantes: readonly ResultadoParticipante[],
-): { readonly participante: ResultadoParticipante; readonly puntos: number }[] {
-  return podiosConPuntos(participantes)
-    .flatMap((p) => p.filas)
-    .filter((f) => f.leaguePoints > 0)
-    .map((f) => ({ participante: f.participante, puntos: f.leaguePoints }));
 }
 
 // ── Guardas de publicación ───────────────────────────────────────────────────

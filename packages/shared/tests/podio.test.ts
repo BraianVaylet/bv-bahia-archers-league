@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ETIQUETA_DE_MODO, medallaDe, type StandingsMode } from '../src/index.js';
+import { etiquetaDeMejorDeN, medallaDe } from '../src/index.js';
 
 /**
  * Podio y modos del ranking (FE-16).
@@ -40,16 +40,12 @@ describe('medallaDe', () => {
   });
 });
 
-describe('ETIQUETA_DE_MODO', () => {
-  it('cubre los dos modos que la API acepta', () => {
-    const modos: StandingsMode[] = ['position', 'best_two'];
-    for (const modo of modos) {
-      expect(ETIQUETA_DE_MODO[modo]).toBeTruthy();
-    }
-  });
-
-  // Si un día se agrega un modo, esto obliga a darle nombre en los dos lados.
-  it('no tiene más entradas que modos', () => {
-    expect(Object.keys(ETIQUETA_DE_MODO)).toHaveLength(2);
+describe('etiquetaDeMejorDeN', () => {
+  // `bestN` es la variable de entorno LEAGUE_BEST_N, no un «2» fijo: la
+  // etiqueta tiene que decir el número vigente, cualquiera sea.
+  it('dice el N vigente', () => {
+    expect(etiquetaDeMejorDeN(2)).toBe('Mejor de 2');
+    expect(etiquetaDeMejorDeN(3)).toBe('Mejor de 3');
+    expect(etiquetaDeMejorDeN(5)).toBe('Mejor de 5');
   });
 });

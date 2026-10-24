@@ -431,7 +431,6 @@ export interface ArcherTournamentResult {
   readonly total: number;
   readonly maxPossibleScore: number;
   readonly position: number;
-  readonly leaguePoints: number;
   readonly innerCount: number;
   readonly tenCount: number;
   readonly mCount: number;
@@ -443,7 +442,6 @@ export interface CareerEntry extends ArcherTournamentResult {
 
 export interface ArcherCareerStats {
   readonly tournamentsPlayed: number;
-  readonly leaguePoints: number;
   readonly bestNormalizedPct: number;
   readonly bestRawScore: number;
   readonly bestTournamentId: string | null;
@@ -472,13 +470,11 @@ export function archerCareerStats(results: readonly ArcherTournamentResult[]): A
 
   let mejor: CareerEntry | null = null;
   let peor: CareerEntry | null = null;
-  let leaguePoints = 0;
   let totalInner = 0;
   let totalTens = 0;
   let totalM = 0;
 
   for (const e of entradas) {
-    leaguePoints += e.leaguePoints;
     totalInner += e.innerCount;
     totalTens += e.tenCount;
     totalM += e.mCount;
@@ -489,7 +485,6 @@ export function archerCareerStats(results: readonly ArcherTournamentResult[]): A
 
   return {
     tournamentsPlayed: entradas.length,
-    leaguePoints,
     bestNormalizedPct: mejor?.normalizedPct ?? 0,
     bestRawScore: mejor?.total ?? 0,
     bestTournamentId: mejor?.tournamentId ?? null,

@@ -7,22 +7,15 @@
  * cada paquete: no comparten bundle, y arrastrar la biblioteca de la landing a
  * la PWA le sumaría peso a una app que tiene que abrir sin señal.
  *
- * Lo que **no** se duplica son las decisiones —qué medalla lleva cada puesto y
- * cómo se llama cada modo— que viven en `@bal/shared`.
+ * Lo que **no** se duplica son las decisiones —qué medalla lleva cada puesto—
+ * que viven en `@bal/shared`.
  *
- * Ver `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
+ * Un solo modo desde el 2026-10-24: «mejor de N», con `bestN` que manda el
+ * servidor (`LEAGUE_BEST_N`). El ranking por posición se retiró. Ver
+ * `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
  */
 
-import {
-  type BowCategory,
-  CATEGORY_INFO,
-  ETIQUETA_DE_MODO,
-  LEAGUE_POINTS_BY_POSITION,
-  MIN_TOURNAMENTS_FOR_RANKING,
-  medallaDe,
-  type StandingsMode,
-  textoDeRanking,
-} from '@bal/shared';
+import { type BowCategory, CATEGORY_INFO, medallaDe, textoDeRanking } from '@bal/shared';
 import { IconoCompartir } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
@@ -37,10 +30,9 @@ interface Entrada {
   readonly archerId: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly leaguePoints: number;
   readonly tournamentsPlayed: number;
   readonly bestNormalizedPct: number;
-  readonly bestTwoAvgPct: number;
+  readonly bestNAvgPct: number;
   readonly position?: number;
   readonly tied?: boolean;
 }
@@ -66,7 +58,7 @@ function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
 export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   const [temporadas, setTemporadas] = useState<Temporada[]>();
   const [elegida, setElegida] = useState('');
-  const [modo, setModo] = useState<StandingsMode>('position');
+  const [bestN, setBestN] = useState(2);
   const [categorias, setCategorias] = useState<CategoriaRankeada[]>();
   const [error, setError] = useState<string>();
   const [copiado, setCopiado] = useState(false);
@@ -80,14 +72,14 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   const compartir = async () => {
     const texto = textoDeRanking({
       temporada: (temporadas ?? []).find((t) => t.id === elegida)?.name ?? 'Liga Bahiense',
-      modo,
+      bestN,
       categorias: (categorias ?? []).map((c) => ({
         category: c.category,
         ranked: c.ranked.map((e, i) => ({
           position: e.position ?? i + 1,
           firstName: e.firstName,
           lastName: e.lastName,
-          valor: modo === 'position' ? e.leaguePoints : e.bestTwoAvgPct,
+          valor: e.bestNAvgPct,
         })),
       })),
     });
@@ -120,15 +112,16 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
     if (!elegida) return;
 
     try {
-      const r = await api.get<{ categories: CategoriaRankeada[] }>(
-        `/public/rankings?seasonId=${elegida}&mode=${modo}`,
+      const r = await api.get<{ bestN: number; categories: CategoriaRankeada[] }>(
+        `/public/rankings?seasonId=${elegida}`,
       );
+      setBestN(r.bestN);
       setCategorias(r.categories);
       setError(undefined);
     } catch {
       setError('No se pudo cargar el ranking. Revisá la conexión.');
     }
-  }, [elegida, modo]);
+  }, [elegida]);
 
   useEffect(() => {
     void cargar();
@@ -164,26 +157,6 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
                 ))}
               </select>
             </div>
-
-            <fieldset className="flex items-center gap-2">
-              <legend className="sr-only">Modo del ranking</legend>
-              {(['position', 'best_two'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={modo === m}
-                  onClick={() => setModo(m)}
-                  className={cn(
-                    'min-h-[44px] px-3 rounded-[var(--radius-md)] border text-sm',
-                    modo === m
-                      ? 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold'
-                      : 'bg-[var(--surface)]',
-                  )}
-                >
-                  {ETIQUETA_DE_MODO[m]}
-                </button>
-              ))}
-            </fieldset>
           </div>
         )}
 
@@ -208,29 +181,6 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
               {copiado ? 'Copiado' : 'Compartir'}
             </span>
           </Button>
-        )}
-
-        {/* La columna «Puntos» es un número sin origen si no se dice de dónde
-            sale. Ver docs/DOMAIN_WA.md §9.1. */}
-        {categorias !== undefined && categorias.length > 0 && (
-          <details className="text-sm">
-            <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-              Cómo se reparten los puntos
-            </summary>
-            <ul className="flex flex-wrap gap-2 pt-1">
-              {LEAGUE_POINTS_BY_POSITION.map((puntos, i) => (
-                <li
-                  key={puntos}
-                  className="h-8 px-3 rounded-full bg-[var(--surface-2)] flex items-center gap-1.5"
-                >
-                  <Medalla puesto={i + 1} />
-                  <span>
-                    {i + 1}º: {puntos} {puntos === 1 ? 'punto' : 'puntos'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
         )}
 
         {categorias?.map((c) => (
@@ -264,14 +214,8 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
                       </span>
                     </span>
 
-                    <span className="text-sm tabular-nums shrink-0 text-right">
-                      <span className={cn(modo === 'position' && 'font-semibold')}>
-                        {e.leaguePoints} pts
-                      </span>
-                      {' · '}
-                      <span className={cn(modo === 'best_two' && 'font-semibold')}>
-                        {e.bestTwoAvgPct}%
-                      </span>
+                    <span className="text-sm tabular-nums shrink-0 text-right font-semibold">
+                      {e.bestNAvgPct}%
                     </span>
                   </li>
                 ))}
@@ -282,7 +226,7 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
             {c.notYetEligible.length > 0 && (
               <details className="text-sm">
                 <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-                  {c.notYetEligible.length} con menos de {MIN_TOURNAMENTS_FOR_RANKING} torneos
+                  {c.notYetEligible.length} con menos de {bestN} torneos
                 </summary>
                 <ul className="flex flex-col gap-1 pb-2">
                   {c.notYetEligible.map((e) => (

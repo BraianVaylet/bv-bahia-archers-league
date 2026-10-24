@@ -2,7 +2,7 @@
  * Revisar y publicar un torneo.
  *
  * **Publicar es lo que aplica los resultados a la liga.** Por eso la pantalla
- * muestra primero qué va a pasar —podios y puntos— y recién después ofrece el
+ * muestra primero qué va a pasar —los podios— y recién después ofrece el
  * botón, con una confirmación aparte.
  *
  * Ver `docs/FUNCTIONAL.md` §6.7.
@@ -23,8 +23,7 @@ import {
 import { ApiError, api } from '../../lib/apiClient.js';
 import {
   avisosDePublicacion,
-  podiosConPuntos,
-  puntosQueSeAplicarian,
+  podios,
   type ResultadoParticipante,
   sePuedePublicar,
 } from '../torneo.js';
@@ -144,8 +143,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
     }
   };
 
-  const podios = podiosConPuntos(participantes);
-  const puntos = puntosQueSeAplicarian(participantes);
+  const losPodios = podios(participantes);
   const avisos = torneo ? avisosDePublicacion(torneo.status, participantes) : [];
   const publicado = torneo?.status === 'publicado';
 
@@ -187,7 +185,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
         ))}
 
         {/* Los podios primero: es lo que el admin tiene que revisar. */}
-        {podios.map((p) => (
+        {losPodios.map((p) => (
           <section
             key={p.category}
             className="flex flex-col gap-2"
@@ -217,11 +215,6 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
                   <div className="flex items-center gap-2 shrink-0">
                     <StakeChip stake={f.participante.stake} />
                     <span className="tabular-nums font-medium">{f.participante.total}</span>
-                    {f.leaguePoints > 0 && (
-                      <span className="text-sm text-[var(--ink-muted)] tabular-nums">
-                        +{f.leaguePoints}
-                      </span>
-                    )}
                   </div>
                 </li>
               ))}
@@ -229,16 +222,8 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
           </section>
         ))}
 
-        {podios.length === 0 && !error && (
+        {losPodios.length === 0 && !error && (
           <p className="text-[var(--ink-muted)]">Todavía no hay resultados para mostrar.</p>
-        )}
-
-        {!publicado && puntos.length > 0 && (
-          <p className="text-sm text-[var(--ink-muted)]" data-testid="resumen-puntos">
-            Al publicar, {puntos.length}{' '}
-            {puntos.length === 1 ? 'arquero suma puntos' : 'arqueros suman puntos'} de liga en esta
-            temporada.
-          </p>
         )}
       </Screen>
 

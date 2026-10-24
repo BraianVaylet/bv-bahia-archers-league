@@ -7,7 +7,7 @@
 
 import {
   type ArcherStanding,
-  bestTwoAvgPct,
+  bestNAvgPct,
   distribucionDeModalidades,
   ObjectIdSchema,
   sortStandings,
@@ -15,6 +15,7 @@ import {
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { seasons } from '../db/client.js';
+import { env } from '../env.js';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { publicCache } from '../middleware/cache.js';
@@ -25,7 +26,6 @@ import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
 const RankingQuery = z.strictObject({
   seasonId: ObjectIdSchema,
-  mode: z.enum(['position', 'best_two']).default('position'),
 });
 
 export const publico = new Hono()
@@ -47,11 +47,12 @@ export const publico = new Hono()
   /**
    * Ranking de liga por categoría.
    *
-   * Los que no llegan al mínimo de torneos vienen en `notYetEligible`, **no se
+   * Los que no llegan a `bestN` torneos vienen en `notYetEligible`, **no se
    * ocultan**: esconderlos haría creer que se perdió su resultado.
    */
   .get('/rankings', async (c) => {
-    const { seasonId, mode } = parseQuery(c, RankingQuery);
+    const { seasonId } = parseQuery(c, RankingQuery);
+    const bestN = env().LEAGUE_BEST_N;
     const docs = await standingRepo.listBySeason(toObjectId(seasonId));
     const dominio = docs.map(standingRepo.toDomain);
 
@@ -62,17 +63,18 @@ export const publico = new Hono()
       else porCategoria.set(s.category, [s]);
     }
 
-    // El promedio de «mejor de 2» se DERIVA al serializar y no se guarda: dos
+    // El promedio de «mejor de N» se DERIVA al serializar y no se guarda: dos
     // copias del mismo número son dos que pueden separarse.
     const conPromedio = <T extends ArcherStanding>(s: T) => ({
       ...s,
-      bestTwoAvgPct: bestTwoAvgPct(s),
+      bestNAvgPct: bestNAvgPct(s),
     });
 
     return c.json({
-      mode,
+      // El front nunca escribe «2» (ni ningún N) en un texto: lo lee de acá.
+      bestN,
       categories: [...porCategoria.entries()].map(([category, entradas]) => {
-        const { ranked, notYetEligible } = sortStandings(entradas, mode);
+        const { ranked, notYetEligible } = sortStandings(entradas, bestN);
         return {
           category,
           ranked: ranked.map(conPromedio),
@@ -224,12 +226,10 @@ export const publico = new Hono()
         seasons: acumulados.map((s) => ({
           seasonId: s.seasonId.toHexString(),
           category: s.category,
-          leaguePoints: s.leaguePoints,
           tournamentsPlayed: s.tournamentsPlayed,
-          podiums: s.podiums,
           bestNormalizedPct: s.bestNormalizedPct,
           bestRawScore: s.bestRawScore,
-          bestTwoAvgPct: bestTwoAvgPct(standingRepo.toDomain(s)),
+          bestNAvgPct: bestNAvgPct(standingRepo.toDomain(s)),
           totalX: s.totalX,
           totalTens: s.totalTens,
           totalM: s.totalM,

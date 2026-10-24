@@ -19,7 +19,6 @@ import {
   formatearFecha,
   formatearFechaCorta,
   formatearMonto,
-  leaguePointsForPosition,
   type ParteDeModalidad,
   rankByCategory,
   SCORING,
@@ -168,8 +167,7 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
               <th className="py-1 pr-2 font-medium text-right">X</th>
               <th className="py-1 pr-2 font-medium text-right">10</th>
               <th className="py-1 pr-2 font-medium text-right">M</th>
-              <th className="py-1 pr-2 font-medium text-right">%</th>
-              <th className="py-1 font-medium text-right">Puntos</th>
+              <th className="py-1 font-medium text-right">%</th>
             </Cabecera>
             <Cuerpo>
               {(entradas ?? []).map((e) => (
@@ -202,15 +200,6 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
                   </Celda>
                   <Celda etiqueta="%" enLinea className="text-right tabular-nums">
                     {e.entry.normalizedPct}%
-                  </Celda>
-                  {/* Lo que este torneo le suma a la liga. El mismo cálculo que
-                      corre el servidor al publicar, no una copia del criterio. */}
-                  <Celda
-                    etiqueta="Puntos"
-                    enLinea
-                    className="text-right tabular-nums font-semibold"
-                  >
-                    {leaguePointsForPosition(e.position)}
                   </Celda>
                 </Fila>
               ))}

@@ -14,6 +14,46 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-24 · Ranking «mejor de N», sin puntos de liga (SH-9, con BE-18 y partes de BE-19/BE-21/FE-28)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado — `SH-9` y `BE-18` cerradas; dejó parcialmente hechas `BE-19`, `BE-21` y `FE-28` (quedan anotadas en `ACTION_PLAN.md` con lo que falta de cada una).
+
+### El alcance real triplicó al escrito en el plan
+
+`SH-9` nació acotada a `packages/shared/src/league.ts`. Al tocar `leaguePointsForPosition` aparecieron consumidores que el plan no había listado, en cascada:
+
+1. **Dentro de `@bal/shared`:** `stats.ts` (`ArcherTournamentResult.leaguePoints`, sin ningún llamador real — confirmado por búsqueda antes de tocarlo) y dos módulos de presentación, `podio.ts` (`ETIQUETA_DE_MODO`, un diccionario por modo que ya no tiene sentido con un solo modo) y `compartir.ts` (`RankingParaCompartir.modo`, la misma historia).
+2. **Fuera de `@bal/shared`:** `pnpm -r typecheck` —no los tests, que con esbuild no chequean tipos— encontró que `StandingDoc` todavía tenía `leaguePoints`/`podiums` en `db/types.ts`, que `standingRepo.ts` los mapeaba, que `publishService.ts` llamaba a `applyTournamentToStandings` con dos argumentos en vez de tres, y que `publico.ts` seguía aceptando `mode` en la query.
+
+Ninguno de los dos grupos estaba en el `ACTION_PLAN.md` original de esta tarea. La razón es mecánica: TypeScript no permite dejar una migración de tipos a mitad de camino entre paquetes — o se sigue la cadena completa de consumidores, o el monorepo no compila. Se decidió seguir la cadena completa en el mismo cambio en vez de cortar en el límite de paquete que marcaba el plan, porque dejar `@bal/api`/`@bal/app`/`@bal/landing` rotos entre un commit y el siguiente viola la Definición de Terminado de `CLAUDE.md` tanto como no terminar la tarea.
+
+Esto adelantó **partes** de `BE-18`, `BE-19`, `BE-21` y `FE-28`:
+
+- `BE-18` (variable `LEAGUE_BEST_N`) quedó **completa** — era chica y la pedía `publishService.ts` para funcionar.
+- `BE-19`, `BE-21` y `FE-28` quedaron **parciales**: la parte de «borrar lo que ya no existe» se hizo (porque si no, no compila); la parte de «agregar lo nuevo» —`sexo`/`dni`/`registrationStatus`, el split por sexo del ranking, las pestañas de la UI— sigue pendiente, documentada en `ACTION_PLAN.md` con una nota en cada tarea para que quien la tome no vuelva a buscar lo que ya está.
+
+### `bestNAvgPct` no necesitó el parámetro que el plan le había puesto
+
+El plan original decía que `bestTwoAvgPct` iba a recibir `bestN` como parámetro. Al escribir el primer test quedó claro que no hacía falta: la función ya dividía por `pcts.length`, no por una constante `2`, así que generaliza sola a cualquier N con sólo cambiar quién llena el array (`mejoresCon`, que sí recibe `bestN`). Se eligió la firma más chica — menos superficie es menos que mantener — en vez de seguir el plan al pie de la letra.
+
+### Qué se borró y qué se conservó
+
+Por la decisión confirmada con el usuario el mismo día: `leaguePoints` y `podiums` se borraron **los dos**, de punta a punta — tipo, documento de Mongo, índice (`ix_ranking_posicion`, que ya no indexa nada), endpoints públicos y las cinco pantallas que los mostraban (landing: `Ranking`, `Tournaments`, `Archer`; WAFA: `Ranking`, `Publish`). `bestNormalizedPct` (el mejor resultado suelto) se conserva: es el récord personal que el arquero reconoce, aunque ya no ordene nada.
+
+### Hallazgo: `pnpm typecheck` no revisa los tests de `shared` ni de `api`
+
+`packages/shared/tsconfig.json` y `packages/api/tsconfig.json` tienen `"include": ["src"]`. Sus tests viven en una carpeta `tests/` **al lado** de `src/`, no adentro — así que `pnpm typecheck` nunca los toca. (En `app` y `landing` es al revés: los tests viven dentro de `src/`, así que ahí sí typechequean.)
+
+Se detectó porque `stats.ts` quedó con `leaguePoints` sin borrar —olvidado de verdad, no una decisión— y ni el typecheck de `shared` ni el de todo el monorepo lo encontraron; sólo lo delató revisar a mano después de que todo ya daba verde. `pnpm vitest run` sí corre esos archivos y los ejecuta, así que un cambio de tipo que rompe algo en runtime se termina viendo igual, pero un cambio que sólo deja un campo de más o de menos **sin que ningún assert lo note** puede pasar completamente desapercibido en `shared` y `api`. No se abre una tarea nueva para esto —es de infraestructura de testing, no de esta fase— pero vale la anotación para la próxima vez que algo se sienta raro después de un refactor de tipos: revisar a mano los `tests/` de esos dos paquetes, no confiar en que el typecheck los cubre.
+
+### Deuda / lo que sigue
+
+- `BE-19`: agregar `sexo`/`dni`/`registrationStatus` al padrón — lo único de esa tarea que faltaba de verdad.
+- `BE-21` y `FE-28`: el split General/Femenino/Masculino depende de `SH-10`, que todavía no se tocó.
+- `ix_ranking_posicion` se borró de `ensureIndexes`, pero **no hay mecanismo en este proyecto para dropear índices de un Mongo ya desplegado** — en cualquier entorno donde ese índice ya se haya creado, queda huérfano hasta que alguien lo borre a mano. Mismo problema preexistente que ya tenía `ix_ranking_puntaje`.
+
+---
+
 ## 2026-10-24 · Estaca `naranja` y categoría `principiantes` (SH-8)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado — es la primera tarea de la Fase 8 (padrón público, categorías/estacas nuevas, ranking por sexo y mejor-de-N), planificada el mismo día en `ACTION_PLAN.md` junto con una tabla de 7 decisiones que el usuario confirmó antes de empezar a tocar código.

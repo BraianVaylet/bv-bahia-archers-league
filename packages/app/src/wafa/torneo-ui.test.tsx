@@ -220,23 +220,15 @@ describe('PublishPage', () => {
     });
   };
 
-  it('muestra el podio con los puntos de liga que se aplicarían', async () => {
+  it('muestra el podio con el puntaje de cada arquero', async () => {
     completado();
     renderPantalla(PublishPage, '/wafa/torneos/t1/publicar');
 
     const podio = await screen.findByTestId('podio-razo');
     expect(podio).toHaveTextContent('Pérez');
-    expect(podio).toHaveTextContent('+5');
-    expect(podio).toHaveTextContent('+4');
-  });
-
-  it('resume cuántos arqueros sumarían puntos', async () => {
-    completado();
-    renderPantalla(PublishPage, '/wafa/torneos/t1/publicar');
-
-    expect(await screen.findByTestId('resumen-puntos')).toHaveTextContent(
-      '2 arqueros suman puntos',
-    );
+    expect(podio).toHaveTextContent('Gómez');
+    expect(podio).toHaveTextContent('100');
+    expect(podio).toHaveTextContent('90');
   });
 
   it('un torneo en proceso NO se puede publicar, y lo explica', async () => {

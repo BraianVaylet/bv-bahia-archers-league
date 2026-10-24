@@ -248,16 +248,17 @@ export interface StandingDoc {
   firstName: string;
   lastName: string;
 
-  leaguePoints: number;
   tournamentsPlayed: number;
-  podiums: { first: number; second: number; third: number };
 
   bestNormalizedPct: number;
   bestRawScore: number;
   bestTournamentId: ObjectId | null;
 
-  /** Los dos mejores porcentajes, de mayor a menor. El promedio se deriva. */
-  topTwoPcts: number[];
+  /**
+   * Los `bestN` mejores porcentajes, de mayor a menor. El promedio se deriva.
+   * `bestN` es `LEAGUE_BEST_N`, variable de entorno — no un número fijo.
+   */
+  topNPcts: number[];
 
   totalX: number;
   totalTens: number;

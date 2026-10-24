@@ -21,7 +21,22 @@ describe('loadEnv', () => {
     expect(env.SESSION_COOKIE_NAME).toBe('bal_session');
     expect(env.SESSION_TTL_HOURS_ADMIN).toBe(12);
     expect(env.RATE_LIMIT_SYNC).toBe(300);
+    expect(env.LEAGUE_BEST_N).toBe(2);
     expect(env.isProduction).toBe(false);
+  });
+
+  describe('LEAGUE_BEST_N', () => {
+    it('acepta un N distinto del default', () => {
+      expect(loadEnv(testEnvRaw({ LEAGUE_BEST_N: '3' })).LEAGUE_BEST_N).toBe(3);
+    });
+
+    it('FALLA con 0: el promedio de «mejor de N» no tiene sentido sin torneos', () => {
+      expect(() => loadEnv(testEnvRaw({ LEAGUE_BEST_N: '0' }))).toThrow(EnvError);
+    });
+
+    it('FALLA con un valor negativo', () => {
+      expect(() => loadEnv(testEnvRaw({ LEAGUE_BEST_N: '-1' }))).toThrow(EnvError);
+    });
   });
 
   it('reúne TODOS los problemas, no sólo el primero', () => {

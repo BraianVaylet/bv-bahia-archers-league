@@ -457,7 +457,8 @@ _(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD
 - Test de contraste del nuevo tono de `paleta.ts`, igual que los otros seis.
 - `pnpm test` en `@bal/shared` sigue en 100% de cobertura.
 
-### `[ ] SH-9` · Liga: eliminar el ranking por puntos, «mejor de N» configurable · **TDD**
+### `[x] SH-9` · Liga: eliminar el ranking por puntos, «mejor de N» configurable · **TDD**
+_(Hecho, con un alcance más grande que el escrito: `leaguePointsForPosition` no era sólo del modo retirado, así que la limpieza llegó también a `stats.ts` (`ArcherTournamentResult`/`ArcherCareerStats`, sin llamadores reales), `podio.ts` (`ETIQUETA_DE_MODO` → `etiquetaDeMejorDeN(bestN)`) y `compartir.ts` (`RankingParaCompartir.modo` → `bestN`). Fuera de `@bal/shared`, el compilador obligó a adelantar partes de `BE-18`/`BE-19`/`BE-21`/`FE-28` en el mismo cambio —TypeScript no permite dejar media migración a medio camino—: `env.ts` tiene `LEAGUE_BEST_N`; `db/types.ts` le borró `leaguePoints`/`podiums` a `StandingDoc` (le falta `sex`/`dni`/`registrationStatus`, eso sigue en `BE-19`); `publishService.ts`/`standingRepo.ts`/`indexes.ts` actualizados; `publico.ts` perdió `mode` y expone `bestN` (le falta el split por sexo, eso sigue en `BE-21`); `torneo.ts`/`Publish.tsx`/ambos `Ranking.tsx`/`Tournaments.tsx`/`Archer.tsx` perdieron toda mención a puntos de liga (les falta las pestañas de sexo, eso sigue en `FE-28`). `pnpm -r typecheck`, `pnpm -r test` (1258 tests) y `pnpm lint` verdes en los cinco paquetes. Ver `docs/BITACORA.md`, entrada del 2026-10-24.)_
 **Objetivo:** un solo modo de ranking de liga, con el tamaño del promedio como parámetro, no como constante.
 **Cómo:** reescribir `DOMAIN_WA.md` §9.1 y §9.2 primero (el §9.1 de puntos por posición se retira del ranking; el §9.2 pasa a hablar de «mejor de N», con N configurable). Actualizar la fila de `DOMAIN_WA.md` §11 que referencia "ranking por puntos".
 **Archivos:** `packages/shared/src/{league,stats}.ts` + tests
@@ -484,7 +485,8 @@ _(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD
 - Con 3 mujeres y 5 hombres en una categoría, el ranking femenino tiene 3 posiciones (1, 2, 3) y el general tiene 8 — ninguno es un subconjunto del otro con los mismos números de puesto.
 - Test de que un arquero sin `sex` cargado (padrón viejo, decisión 6) no rompe el cálculo: se excluye de femenino y de masculino, pero aparece en general con un aviso, no con un throw.
 
-### `[ ] BE-18` · Variable de entorno `LEAGUE_BEST_N`
+### `[x] BE-18` · Variable de entorno `LEAGUE_BEST_N`
+_(Hecho como parte de `SH-9` — ver esa entrada. `entero(2)` con `.positive()` ya rechazaba 0 y negativos sin código nuevo. Agregada a `.env.example` y a `CONFIG.md` §2.)_
 **Objetivo:** el tamaño del promedio de liga es configuración, no un número en el código.
 **Archivos:** `packages/api/src/env.ts`, `.env.example`
 **Referencia:** [`CONFIG.md`](CONFIG.md) §2 (agregar la variable a la tabla primero) · decisión 4
@@ -492,6 +494,7 @@ _(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD
 **DoD:** cambiar `LEAGUE_BEST_N=3` sin tocar código cambia el ranking en `/api/public/rankings` y en `pnpm --filter @bal/api db:reconcile` · con `LEAGUE_BEST_N=0` el arranque falla (Zod) con mensaje claro.
 
 ### `[ ] BE-19` · Padrón: campos `sexo` y `dni`, propagados a participante y standing
+> **Parcial ya hecho en `SH-9`:** `StandingDoc` perdió `leaguePoints`/`podiums`, `topTwoPcts` → `topNPcts`, `standingRepo.ts`/`indexes.ts` al día. Lo que queda es todo lo de `sexo`/`dni`/`registrationStatus`: `ArcherDoc`, `ParticipantDoc`, `ArcherInputSchema`, `archerRepo.ts`, `archerService.ts`, snapshot en `tournamentService.ts`.
 **Objetivo:** el dato nace en el arquero y viaja congelado por snapshot, igual que `category`.
 **Cómo:** actualizar `TECHNICAL.md` §2 (`archers`, `participants`, `standings`) y §3.2 primero.
 **Archivos:** `packages/api/src/db/{types,indexes,seed,reconcile}.ts`, `packages/api/src/repositories/{archerRepo,standingRepo}.ts`, `packages/api/src/services/archerService.ts`, `packages/shared/src/schemas.ts` (`ArcherInputSchema` +`sex`+`dni`), `tournamentService.ts` (snapshot)
@@ -521,6 +524,7 @@ _(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD
 - Todos los casos de `TESTING.md` §4.x (agregar la subsección) verdes.
 
 ### `[ ] BE-21` · Endpoint público de ranking: por sexo, sin `mode` ni puntos de liga
+> **Parcial ya hecho en `SH-9`:** `RankingQuery` perdió `mode`, la respuesta trae `bestN`, `/archers/:id` perdió `leaguePoints`/`podiums`. Lo que queda es el split `general`/`femenino`/`masculino` de `SH-10`.
 **Archivos:** `packages/api/src/routes/publico.ts`
 **Referencia:** decisiones 3 y 5
 **Contenido:** `RankingQuery` pierde `mode` (ya no hay dos modos, `SH-9`). `GET /api/public/rankings` devuelve, por categoría, las tres vistas de `SH-10`: `general`, `femenino`, `masculino`. `GET /api/public/archers/:id` deja de devolver `leaguePoints` y `podiums`.
@@ -544,6 +548,7 @@ _(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD
 **DoD:** nombre, apellido, DNI, sexo (femenino/masculino) y categoría — incluida `principiantes` — validados en cliente y servidor · errores del servidor (DNI duplicado) se muestran tal cual, sin reinterpretarlos · la confirmación dice explícitamente que **queda pendiente de que el club lo apruebe** — no "ya estás anotado", porque todavía no lo está.
 
 ### `[ ] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
+> **La parte de «quitar puntos de liga» ya está hecha, en `SH-9`:** `torneo.ts`, `Publish.tsx`, los dos `Ranking.tsx` (landing y WAFA), `Tournaments.tsx` y `Archer.tsx` ya no mencionan puntos de liga en ningún lado. Lo que queda de esta tarea son **las pestañas General/Femenino/Masculino**, que dependen de `SH-10`.
 **Archivos:** `packages/landing/src/pages/{Ranking,Tournaments,Archer}.tsx`, `packages/app/src/wafa/pages/{Ranking,Publish}.tsx`, `packages/app/src/wafa/torneo.ts`
 **Referencia:** decisiones 3 y 5 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.2 (reescribir)
 **Contenido:**

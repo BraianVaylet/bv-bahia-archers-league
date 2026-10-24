@@ -17,13 +17,11 @@ import { useRecurso } from '../lib/useRecurso.js';
 interface TemporadaDelArquero {
   readonly seasonId: string;
   readonly category: BowCategory;
-  readonly leaguePoints: number;
   readonly tournamentsPlayed: number;
-  readonly podiums: { readonly first: number; readonly second: number; readonly third: number };
   readonly bestNormalizedPct: number;
   readonly bestRawScore: number;
-  /** Promedio de los dos mejores porcentajes: es lo que ordena el ranking. */
-  readonly bestTwoAvgPct: number;
+  /** Promedio de los `bestN` mejores porcentajes: es lo que ordena el ranking. */
+  readonly bestNAvgPct: number;
   readonly totalX: number;
   readonly totalTens: number;
   readonly totalM: number;
@@ -72,42 +70,6 @@ function Dato({
   );
 }
 
-/**
- * Los tres podios, cada uno con su medalla y su número.
- *
- * Antes era un solo valor, `1-0-2`, y no había forma de saber cuál era cuál:
- * el que lo lee tiene que adivinar que el orden es primero-segundo-tercero.
- *
- * La medalla **acompaña** al número, no lo reemplaza — es la misma regla que
- * gobierna la del ranking.
- */
-function Podios({
-  podios,
-}: {
-  readonly podios: { readonly first: number; readonly second: number; readonly third: number };
-}) {
-  const puestos = [
-    { medalla: '🥇', nombre: 'primeros', cantidad: podios.first },
-    { medalla: '🥈', nombre: 'segundos', cantidad: podios.second },
-    { medalla: '🥉', nombre: 'terceros', cantidad: podios.third },
-  ];
-
-  return (
-    <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2 col-span-2">
-      <dt className="text-xs text-[var(--ink-muted)]">Podios</dt>
-      <dd className="flex gap-4">
-        {puestos.map((p) => (
-          <span key={p.nombre} className="flex items-baseline gap-1">
-            <span aria-hidden="true">{p.medalla}</span>
-            <span className="text-lg font-semibold tabular-nums">{p.cantidad}</span>
-            <span className="sr-only">{p.nombre}</span>
-          </span>
-        ))}
-      </dd>
-    </div>
-  );
-}
-
 export function ArcherPage() {
   const { id = '' } = useParams();
   const ficha = useRecurso<{ archer: Arquero }>(`/archers/${id}`);
@@ -151,16 +113,14 @@ export function ArcherPage() {
 
           <dl className="grid gap-2 grid-cols-2 sm:grid-cols-5">
             <Dato etiqueta="Torneos" valor={s.tournamentsPlayed} />
-            <Dato etiqueta="Puntos de liga" valor={s.leaguePoints} />
             {/* El que ordena el ranking va primero; el mejor suelto queda al
                 lado porque es el récord que el arquero recuerda. */}
-            <Dato etiqueta="Mejor de 2" valor={`${s.bestTwoAvgPct}%`} />
+            <Dato etiqueta="Promedio" valor={`${s.bestNAvgPct}%`} />
             <Dato
               etiqueta="Mejor"
               valor={`${s.bestNormalizedPct}%`}
               detalle={`${s.bestRawScore} puntos`}
             />
-            <Podios podios={s.podiums} />
             <Dato etiqueta="Inner" valor={s.totalX} />
             <Dato etiqueta="Dieces" valor={s.totalTens} />
             {/* «M» y no «Emes»: es como se anota en la planilla y como se dice

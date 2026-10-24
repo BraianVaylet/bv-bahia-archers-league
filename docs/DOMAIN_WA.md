@@ -302,54 +302,38 @@ Una **temporada** es una entidad creada por el admin (ej. "Liga Bahiense 2026") 
 
 Solo los torneos en estado **`publicado`** impactan la liga.
 
-### 9.1 Ranking por posición (puntos de liga)
+> **El ranking «por posición» (puntos 5-4-3-2-1 por puesto en el podio de cada torneo) se retiró el 2026-10-24.** Existió hasta entonces como uno de los dos modos de ranking de liga. Queda **un solo modo**: «mejor de N» (§9.1), con N configurable. Ver la entrada de esa fecha en [`BITACORA.md`](BITACORA.md) para el porqué y el detalle de qué se borró (`leaguePoints`, `podiums` y todo lo que los mostraba).
 
-Por cada torneo publicado y **por categoría**, se reparten puntos según el puesto en el podio de esa categoría:
+### 9.1 Ranking «mejor de N»
 
-| Puesto | Puntos |
-|---|---|
-| 1º | 5 |
-| 2º | 4 |
-| 3º | 3 |
-| 4º | 2 |
-| 5º | 1 |
-| 6º en adelante | 0 |
-
-Los puntos se **suman** a lo largo de la temporada. En caso de puesto compartido, **ambos reciben los puntos de esa posición** (dos primeros → 5 puntos cada uno; el siguiente queda 3º y recibe 3).
-
-### 9.2 Ranking «mejor de 2»
-
-Se toma el **promedio de los dos mejores `normalizedPct`** que el arquero logró en la temporada.
+Se toma el **promedio de los N mejores `normalizedPct`** que el arquero logró en la temporada. `N` es la variable de entorno `LEAGUE_BEST_N` (default 2) — ver [`CONFIG.md`](CONFIG.md) §2 — no un número fijo en el código.
 
 ```
 normalizedPct = (totalDelTorneo / maxPossibleScore(eseTorneo)) × 100
-mejorDe2       = promedio(los dos normalizedPct más altos de la temporada)
+mejorDeN       = promedio(los N normalizedPct más altos de la temporada)
 ```
 
-> **Por qué dos y no el mejor.** Un porcentaje suelto premia el día bueno: un arquero que tira excelente una vez y flojo el resto queda por encima de otro que sostiene un nivel alto todo el año. El promedio de los dos mejores mide lo que la liga quiere medir, que es la regularidad. Con dos torneos es el promedio de los dos; con más, los dos mejores.
+> **Por qué N y no el mejor.** Un porcentaje suelto premia el día bueno: un arquero que tira excelente una vez y flojo el resto queda por encima de otro que sostiene un nivel alto todo el año. El promedio de los N mejores mide lo que la liga quiere medir, que es la regularidad.
 
 > **Por qué normalizado.** Cada torneo multitarget tiene una configuración distinta (14 blancos vs 20, distinta mezcla de modalidades) y por lo tanto un máximo posible distinto. Comparar puntajes brutos entre torneos premiaría al que tiró el recorrido más largo, no al que mejor tiró. El % es lo comparable; el bruto se conserva porque es el dato que los arqueros reconocen.
 
-El **mejor resultado suelto** de la temporada se sigue guardando y mostrando —el `%`, el puntaje bruto que lo originó y el torneo donde ocurrió— porque es el récord personal que el arquero reconoce. Pero **ya no ordena ningún ranking**.
+El **mejor resultado suelto** de la temporada se sigue guardando y mostrando —el `%`, el puntaje bruto que lo originó y el torneo donde ocurrió— porque es el récord personal que el arquero reconoce. Pero **no ordena el ranking**: eso lo hace el promedio de los N mejores.
 
-> Este modo **reemplazó** a «por mejor puntaje». Los acumulados escritos antes del cambio no tienen los dos porcentajes guardados; se recalculan con `pnpm --filter @bal/api db:reconcile`.
+### 9.2 Requisito de participación
 
-### 9.3 Requisito de participación
+Un arquero necesita **al menos N torneos publicados** en la temporada para figurar en el ranking — el mismo `N` de §9.1. Con menos, el promedio de «mejor de N» no tiene sentido: con 2 torneos y `N=3`, el promedio sería de 2 valores, no de 3, y el arquero no clasificaría en igualdad de condiciones con el resto.
 
-Un arquero necesita **al menos 2 torneos publicados** en la temporada para figurar en cualquiera de los dos rankings. Con 1 solo torneo aparece en el podio de ese torneo, pero no en la liga.
+Con menos torneos que `N` publicados, el arquero aparece en el podio de cada torneo que disputó, pero no en el ranking de liga.
 
-Es el mismo número que necesita «mejor de 2» para tener sentido: con un torneo el promedio sería ese único porcentaje, y el arquero no clasifica igual.
+### 9.3 Desempate en la liga
 
-### 9.4 Desempate en la liga
-
-- **Ranking por posición:** más puntos → más podios de 1º → más podios de 2º → mejor `normalizedPct` de la temporada.
-- **Ranking «mejor de 2»:** mejor promedio → más inner totales → menos `M`.
+Mejor promedio de «mejor de N» → más inner totales (`X`+`X6`+`11`) → menos `M`.
 
 Si persiste, puesto compartido.
 
-### 9.5 Escuela
+### 9.4 Escuela y principiantes
 
-`escuela` es una categoría más: tiene su podio en cada torneo y sus dos rankings de liga, con las mismas reglas.
+`escuela` y `principiantes` son dos categorías más: cada una tiene su podio en cada torneo y su ranking de liga, con las mismas reglas que el resto.
 
 ---
 
@@ -362,7 +346,7 @@ Si persiste, puesto compartido.
 Total de `X`, de `10` y de `M` · promedio general y por categoría · mejor puntaje general y por categoría · distribución agregada · cantidad de blancos completados por patrulla.
 
 ### Por arquero en la liga (ficha pública)
-Torneos disputados · mejor y peor puntaje (bruto y %) · total de `X`, `10` y `M` acumulados · puntos de liga por categoría · evolución torneo a torneo.
+Torneos disputados · mejor y peor puntaje (bruto y %) · total de `X`, `10` y `M` acumulados · evolución torneo a torneo.
 
 Todas se calculan desde los **rollups denormalizados** de `participants`, no recorriendo las flechas. Ver [`TECHNICAL.md`](TECHNICAL.md).
 
@@ -377,8 +361,8 @@ Todas se calculan desde los **rollups denormalizados** de `participants`, no rec
 | Los 5 criterios de armado de patrullas | §5 (`H1`–`H4`, `S1`–`S3`) |
 | Los ejemplos de patrullas correctas e incorrectas | §5, tabla de ejemplos normativos |
 | "usuarios patrulla + numero, password de 4 digitos" | §6 — elevado a **6 dígitos**, ver `SECURITY.md` |
-| "ranking por mejor puntaje" (puntos por posición 5-4-3-2-1) | §9.1 |
-| "ranking por puntos" (mejor puntaje de los torneos) | §9.2, normalizado |
-| "es necesario tener al menos 2 torneos para entrar en los rankings" | §9.3 |
+| "ranking por mejor puntaje" (puntos por posición 5-4-3-2-1) | Implementado y luego **retirado** el 2026-10-24 — ver nota al inicio de §9 y `BITACORA.md` |
+| "ranking por puntos" (mejor puntaje de los torneos) | §9.1, «mejor de N» normalizado — `N` configurable desde el 2026-10-24, antes fijo en 2 |
+| "es necesario tener al menos 2 torneos para entrar en los rankings" | §9.2 — el mínimo es `N`, no un 2 fijo, desde el 2026-10-24 |
 | "puntajes ordenados de mayor a menor" | §2 |
 | "cantidad de X, de 10 y de M" | §10 |
