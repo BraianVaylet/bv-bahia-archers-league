@@ -122,6 +122,7 @@ const StakeMapSchema = z.strictObject({
   roja: listaDeCategorias,
   azul: listaDeCategorias,
   amarilla: listaDeCategorias,
+  naranja: listaDeCategorias,
 });
 
 const metros = z.number().int().min(1).max(200);
@@ -130,6 +131,7 @@ const DistancesSchema = z.strictObject({
   roja: metros,
   azul: metros,
   amarilla: metros,
+  naranja: metros,
 });
 
 /** Los índices de los blancos tienen que ser contiguos desde 1, sin repetidos. */

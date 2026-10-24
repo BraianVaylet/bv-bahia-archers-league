@@ -65,7 +65,7 @@ El default sale de la tabla, pero el admin puede sobreescribir las flechas de cu
 
 ## 3. Categorías de arco
 
-Siete categorías. Todas las de la liga son **senior** salvo `escuela`.
+Ocho categorías. Todas las de la liga son **senior** salvo `escuela` y `principiantes`.
 
 | `key` | Etiqueta | Estaca |
 |---|---|---|
@@ -76,6 +76,9 @@ Siete categorías. Todas las de la liga son **senior** salvo `escuela`.
 | `tradicional` | Tradicional | `azul` |
 | `longbow` | Longbow | `azul` |
 | `escuela` | Escuela | `amarilla` |
+| `principiantes` | Iniciación | `naranja` |
+
+> **`principiantes` es no senior, igual que `escuela`.** `H3` (ver §5) la protege de la misma manera: ninguna patrulla puede ser 100% `principiantes`, y el armado automático la mezcla en la misma bolsa no-senior que `escuela` — `isEscuela()` ya generaliza por el flag `senior` de `CATEGORY_INFO`, no por el nombre de la categoría. La etiqueta visible es «Iniciación» porque «Principiantes» (13 caracteres) no entra en el límite de 11 de las etiquetas de categoría (`docs/DESIGN_SYSTEM.md`); la clave de dominio sigue siendo `principiantes`.
 
 > **Nota terminológica.** `razo` (barebow / arco desnudo) y `cazador` (bowhunter) vienen del uso de campo y 3D en federaciones hispanohablantes. Se respeta la grafía **`razo`** que usa el club. WA Field internacional reconoce recurvo, compuesto y barebow; el mapeo de estacas se ofrece **editable por torneo** para adaptarse al reglamento vigente del club.
 
@@ -83,13 +86,14 @@ Siete categorías. Todas las de la liga son **senior** salvo `escuela`.
 
 ## 4. Estacas
 
-Estacas por cercanía al blanco: **roja** (más lejos) › **azul** (media) › **amarilla** (más cerca).
+Estacas por cercanía al blanco: **roja** (más lejos) › **azul** (media) › **amarilla** › **naranja** (más cerca).
 
 | Estaca | Categorías por defecto | Referencia IFAA de distancia máxima |
 |---|---|---|
 | `roja` | recurvo, compuesto, cazador | hasta ~45 m |
 | `azul` | razo, tradicional, longbow | hasta ~30 m |
 | `amarilla` | escuela | distancias cortas |
+| `naranja` | principiantes | distancias muy cortas |
 
 - El mapeo es **editable por torneo** (`stakeMap`), pero por defecto es el de la tabla.
 - Las distancias son **informativas**: se guardan por torneo para mostrarlas en la app, y **no afectan el cálculo del puntaje**.
@@ -113,7 +117,7 @@ Estacas por cercanía al blanco: **roja** (más lejos) › **azul** (media) › 
 |---|---|
 | `H1` | Tamaño de patrulla entre **2 y 4** arqueros. |
 | `H2` | Cada unidad de tiro es **homogénea de categoría**: si tiene 2 arqueros, ambos son de la misma categoría. |
-| `H3` | **Ninguna patrulla puede ser 100% escuela.** Toda patrulla que incluya arqueros de escuela debe incluir al menos 1 arquero senior que los acompañe. |
+| `H3` | **Ninguna patrulla puede ser 100% no senior** (`escuela` y/o `principiantes`). Toda patrulla que incluya arqueros no senior debe incluir al menos 1 arquero senior que los acompañe. |
 | `H4` | La estaca de cada arquero se deriva de su categoría vía `stakeMap`. Por `H2`, los dos arqueros de una unidad siempre comparten estaca. |
 
 ### Objetivos blandos (`S`) — se optimizan en este orden
@@ -192,10 +196,10 @@ Mismo input → mismo output, siempre. Sin aleatoriedad, sin dependencia del ord
    c. Una unidad que queda sola forma su propia patrulla
       (válida si tiene 2 arqueros; si tiene 1, se fusiona con otra
       unidad solitaria respetando H1..H3).
-6. Si quedan unidades de ESCUELA sin SENIOR disponible:
-      NO se arma una patrulla 100% escuela.
+6. Si quedan unidades no senior (ESCUELA o PRINCIPIANTES) sin SENIOR disponible:
+      NO se arma una patrulla 100% no senior.
       Esos arqueros quedan en `unassigned`, se emite el warning
-      `ESCUELA_SIN_SENIOR` y se marca `requiresManualReview = true`.
+      `CATEGORIA_SIN_SENIOR` y se marca `requiresManualReview = true`.
       El admin los ubica a mano. Nunca se pierde un arquero en silencio.
 7. Ordenar las patrullas y numerarlas 1..N.
 8. Asignar blanco de inicio:  startTarget = floor(k × T / N) + 1   (k 0-based, T = cantidad de blancos)
@@ -217,7 +221,7 @@ interface PatrolPlan {
       members: Array<{ archerId: string; position: 'izquierda' | 'derecha' }>;
     }>;
   }>;
-  warnings: PatrolWarning[];             // ej. { code: 'ESCUELA_SIN_SENIOR', patrolNumber: 3 }
+  warnings: PatrolWarning[];             // ej. { code: 'CATEGORIA_SIN_SENIOR', patrolNumber: 3 }
   requiresManualReview: boolean;
 }
 ```

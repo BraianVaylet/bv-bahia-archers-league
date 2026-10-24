@@ -49,6 +49,9 @@ export const COLOR_DE_CATEGORIA: Readonly<Record<BowCategory, ParDeColor>> = {
   tradicional: { claro: '#6b4526', oscuro: '#c99a72' },
   longbow: { claro: '#0f6f4d', oscuro: '#6fd6a8' },
   escuela: { claro: '#4d5260', oscuro: '#b0b6c2' },
+  // Ciruela apagada: saturación ~0.32, lejos del naranja vivo de la estaca
+  // homónima (H3 generaliza por el flag `senior`, no por el color).
+  principiantes: { claro: '#7a3f73', oscuro: '#d9a8d1' },
 };
 
 /** Cuatro modalidades. El tono evoca el escenario, no el puntaje. */
@@ -60,8 +63,8 @@ export const COLOR_DE_MODALIDAD: Readonly<Record<Modality, ParDeColor>> = {
 };
 
 /**
- * Los tres tonos de estaca, para que un test pueda comprobar que ningún color
+ * Los cuatro tonos de estaca, para que un test pueda comprobar que ningún color
  * de esta paleta se les parezca. Duplicarlos acá es a propósito: si alguien
  * cambia un valor en `tokens.css` sin tocar este, el test lo dice.
  */
-export const TONOS_DE_ESTACA = ['#d22b2b', '#1d5fd6', '#f5c518'] as const;
+export const TONOS_DE_ESTACA = ['#d22b2b', '#1d5fd6', '#f5c518', '#e8650a'] as const;

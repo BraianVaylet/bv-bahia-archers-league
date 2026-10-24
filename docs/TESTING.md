@@ -102,7 +102,7 @@ Los ejemplos del reglamento del club son **normativos** y se testean literalment
 - Todas las patrullas generadas cumplen `H1..H4`.
 - La estaca de cada arquero corresponde a su categoría según el `stakeMap`.
 - Con 20 arqueros y 14 blancos, los blancos de inicio están repartidos y no se repiten innecesariamente.
-- Cuando no alcanzan los seniors para acompañar a los escuela: `requiresManualReview === true`, warning `ESCUELA_SIN_SENIOR`, y **ninguna patrulla queda 100% escuela**.
+- Cuando no alcanzan los seniors para acompañar a los no senior (`escuela` o `principiantes`): `requiresManualReview === true`, warning `CATEGORIA_SIN_SENIOR`, y **ninguna patrulla queda 100% no senior**.
 - Caso extremo: **todos** los participantes son de escuela → no se genera ninguna patrulla válida; se devuelve el warning, no se rompe.
 - Caso extremo: 2 participantes → una sola patrulla.
 - Caso extremo: número impar en cada categoría → las unidades solitarias se combinan correctamente.

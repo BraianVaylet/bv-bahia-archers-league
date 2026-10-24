@@ -107,6 +107,24 @@ export function IconoEscuela(p: IconoProps) {
   );
 }
 
+/**
+ * Principiantes: diana con un impacto lejos del centro.
+ *
+ * Como `escuela`, no es senior y el glifo no es un arco: distingue a quien
+ * recién empieza, no un tipo de arco. Se diferencia de `IconoEscuela` —flecha
+ * todavía en camino— mostrando el resultado típico de los primeros tiros: la
+ * diana, pero lejos del centro.
+ */
+export function IconoPrincipiantes(p: IconoProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17" cy="7" r="1.3" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 export const ICONO_DE_CATEGORIA: Readonly<Record<BowCategory, Icono>> = {
   recurvo: IconoRecurvo,
   compuesto: IconoCompuesto,
@@ -115,4 +133,5 @@ export const ICONO_DE_CATEGORIA: Readonly<Record<BowCategory, Icono>> = {
   tradicional: IconoTradicional,
   longbow: IconoLongbow,
   escuela: IconoEscuela,
+  principiantes: IconoPrincipiantes,
 };

@@ -657,7 +657,7 @@ describe('creación de torneo', () => {
 
       expect(body.tournament.patrolCount).toBe(0);
       expect(body.tournament.requiresManualReview).toBe(true);
-      expect(body.tournament.warnings[0]?.code).toBe('ESCUELA_SIN_SENIOR');
+      expect(body.tournament.warnings[0]?.code).toBe('CATEGORIA_SIN_SENIOR');
       expect(body.tournament.unassigned).toHaveLength(4);
       // Nadie se pierde en silencio: los 4 vienen listados.
     });

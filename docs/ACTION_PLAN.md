@@ -421,6 +421,156 @@ _(Hecho. `.github/workflows/ci.yml` con los cuatro jobs: `quality` (lint + tipos
 
 ---
 
+# Fase 8 — Padrón público, categoría y estaca nuevas, ranking por sexo y mejor-de-N · P1
+
+> Pedido del 2026-10-24: alta de arqueros desde la landing, categoría `principiantes` (estaca `naranja`), eliminar el ranking de liga **por puntos**, «mejor de 2» configurable por entorno, y rankings Femenino / Masculino / General.
+
+### Decisiones — confirmadas el 2026-10-24
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| 1 | `principiantes`, ¿`senior: false` como `escuela`? | **Sí.** Se une a la misma bolsa de armado; `H3` la protege igual que a `escuela`. |
+| 2 | ¿Generalizar `ESCUELA_SIN_SENIOR`? | **Sí** → `CATEGORIA_SIN_SENIOR`. Cubre `escuela` y `principiantes` con un nombre que no miente. |
+| 3 | ¿Qué se borra del ranking por puntos? | **Todo**: `leaguePoints` **y** `podiums` (1º/2º/3º acumulados por temporada). No queda ningún resabio de «puntos de liga» — ni el dato, ni el comparador, ni la columna en ninguna pantalla. |
+| 4 | ¿Mínimo de torneos para el ranking = N (mejor-de-N)? | **Sí.** Con `LEAGUE_BEST_N=3`, hacen falta 3 torneos jugados para figurar. |
+| 5 | ¿Femenino/Masculino/General también en el podio por torneo? | **No**, sólo en el ranking de liga por temporada. El podio de un torneo individual sigue siendo uno por categoría. |
+| 6 | ¿Padrón viejo sin `sexo`/`dni`? | **Quedan opcionales** (`null`), con aviso en el listado de WAFA señalando a quién le falta completar. No se fuerza nada retroactivo. |
+| 7 | ¿El alta pública requiere aprobación del admin? | **Sí.** Queda `pendiente` hasta que un admin la aprueba desde WAFA. No se puede sumar a un torneo mientras esté pendiente. **Esto agrega las tareas `BE-22` y `FE-30`, y cambia el alcance de `BE-20` y `FE-27` respecto de la primera versión de este plan.** |
+
+---
+
+### `[x] SH-8` · Dominio: categoría `principiantes`, estaca `naranja` · **TDD**
+_(Hecho **parcialmente**: estaca `naranja` y categoría `principiantes`, con TDD. El campo `sexo` del arquero queda para `BE-19`/`SH-10`, que es donde vive el resto del padrón — este ítem sólo cubre lo que es dominio puro. `isEscuela()` ya generalizaba por el flag `senior` de `CATEGORY_INFO`, no por el nombre: el test de que `principiantes` dispara el mismo warning que `escuela` pasó con el primer intento de implementación, sin ajustar la función. Lo que sí hizo falta tocar, fuera de `packages/shared`, para que la estaca no quedara a medio andar: `StakeMapSchema`/`DistancesSchema` en `schemas.ts` (sin la clave `naranja`, un `stakeMap` personalizado con `principiantes` se rechazaba por `.strict()`), el snapshot de `stakeMap` en `tournamentService.ts` (copiaba las tres claves viejas a mano), `StakeChip.tsx` y `tokens.css` (sin esto, la estaca naranja renderizaba `null`), y `ICONO_DE_CATEGORIA` en `packages/ui` (typecheck lo exigía). La etiqueta de `principiantes` es «Iniciación», no «Principiantes»: 13 caracteres no entran en el límite de 11 de `tests/etiquetas.test.ts`. El warning `ESCUELA_SIN_SENIOR` se renombró a `CATEGORIA_SIN_SENIOR` en todo el repo — código y tests, no sólo el comentario.)_
+**Objetivo:** estaca y categoría nuevas sin romper el armado de patrullas ni el reglamento de estacas; sexo como dato de dominio.
+**Cómo:** primero actualizar `DOMAIN_WA.md` §3 (tabla de categorías: agregar `principiantes` → `naranja`) y §4 (tabla de estacas: agregar `naranja`), y la regla 8 de `CLAUDE.md` (la lista de colores reservados pasa a cuatro). Recién ahí tocar código.
+**Archivos:** `packages/shared/src/{domain,constants,paleta}.ts` + tests
+**Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §3, §4, §5 (actualizar primero) · decisiones 1 y 2
+**Contenido:**
+- `STAKES`: agregar `'naranja'`. `BOW_CATEGORIES`: agregar `'principiantes'`.
+- `CATEGORY_INFO.principiantes`: `sort: 8`, `senior: false`.
+- `DEFAULT_STAKE_MAP.naranja = ['principiantes']`.
+- `paleta.ts`: `TONOS_DE_ESTACA` pasa a cuatro valores; `COLOR_DE_CATEGORIA.principiantes` con un tono que el test de contraste AA apruebe en los dos temas.
+- `patrolling.ts`: `ESCUELA_SIN_SENIOR` → `CATEGORIA_SIN_SENIOR` (renombrar el código, no sólo documentarlo).
+**DoD:**
+- Test que `stakeForCategory('principiantes')` devuelve `'naranja'`.
+- Test de armado: una patrulla 100% `principiantes` sin senior dispara el mismo warning que una 100% `escuela` — prueba que `H3` ya generaliza por el flag `senior`, no por nombre.
+- Test de contraste del nuevo tono de `paleta.ts`, igual que los otros seis.
+- `pnpm test` en `@bal/shared` sigue en 100% de cobertura.
+
+### `[ ] SH-9` · Liga: eliminar el ranking por puntos, «mejor de N» configurable · **TDD**
+**Objetivo:** un solo modo de ranking de liga, con el tamaño del promedio como parámetro, no como constante.
+**Cómo:** reescribir `DOMAIN_WA.md` §9.1 y §9.2 primero (el §9.1 de puntos por posición se retira del ranking; el §9.2 pasa a hablar de «mejor de N», con N configurable). Actualizar la fila de `DOMAIN_WA.md` §11 que referencia "ranking por puntos".
+**Archivos:** `packages/shared/src/{league,stats}.ts` + tests
+**Alcance real, más grande de lo que parece:** `leaguePointsForPosition` no es sólo del modo `position` — es una función de **puntos por posición en un torneo**, y se usa también fuera del ranking de temporada: landing `Tournaments.tsx` (columna de puntos en el resultado de un torneo), WAFA `torneo.ts`/`Publish.tsx` (vista previa de «puntos que se aplicarían» al publicar), y `stats.ts` (`ArcherTournamentResult.leaguePoints`, `ArcherCareerStats.leaguePoints` — esto último **sin ningún llamador en `api` ni en los frontends**, confirmado por búsqueda; se le borra el campo sin que haga falta tocar otro paquete). El resto de los consumidores se actualiza en `FE-28`.
+**Referencia:** [`DOMAIN_WA.md`](DOMAIN_WA.md) §9 (reescribir primero) · decisiones 3 y 4
+**Contenido:**
+- `CUANTOS_MEJORES` deja de ser una constante del módulo: `bestTwoAvgPct` y `applyTournamentToStandings` pasan a recibir `bestN: number` como parámetro (igual que `buildPatrols` recibe `stakeMap` — el dominio no lee configuración, la configuración se la pasan). Renombrar a `bestNAvgPct` / `mejoresCon(pcts, nuevo, n)`.
+- `StandingsMode` desaparece por completo: `sortStandings` ya no recibe modo, queda con un solo comparador (`compararPorMejorDeN`).
+- Se borran: `leaguePointsForPosition`, `compararPorPosicion`, `sumarPodio`, `LEAGUE_POINTS_BY_POSITION` (de `constants.ts`).
+- `eligibleForRanking` compara contra el mismo `bestN` recibido, no contra una constante — `MIN_TOURNAMENTS_FOR_RANKING` se borra de `constants.ts`.
+- `ArcherStanding` pierde `leaguePoints` **y** `podiums` (decisión 3). Queda: `tournamentsPlayed`, `bestNormalizedPct`/`bestRawScore`/`bestTournamentId`, `topTwoPcts` (renombrar a `topNPcts`), `totalX`/`totalTens`/`totalM`.
+**DoD:**
+- Con `bestN = 3`: el promedio toma las tres mejores marcas, y con 2 torneos el arquero queda en `notYetEligible` (antes clasificaba con 2).
+- Con `bestN = 2` el comportamiento es idéntico al actual — ningún test viejo de «mejor de 2» cambia de resultado, sólo de firma.
+- No queda ninguna referencia a `'position'`, `leaguePoints`, `podiums` ni `leaguePointsForPosition` en `@bal/shared` ni en su API pública (`index.ts`).
+- Cobertura ≥ 95% de ramas en `league.ts`.
+
+### `[ ] SH-10` · Dominio: ranking de liga por sexo (general / femenino / masculino)
+**Objetivo:** las mismas funciones de `league.ts`, aplicadas a tres recortes del padrón.
+**Archivos:** `packages/shared/src/league.ts` (o un módulo nuevo `genero.ts` si `league.ts` ya es grande) + tests
+**Referencia:** decisión 5 de esta fase
+**Contenido:** `ArcherStanding` y `Rankable`/`TournamentContribution` incorporan `sex: 'femenino' | 'masculino'` (tipo nuevo en `domain.ts`, ver `SH-8`). Una función `sortStandingsByGender(standings, bestN): { general, femenino, masculino }` que llama a `sortStandings` tres veces: una con la lista completa y dos filtrando por `sex` antes de ordenar — **no** filtrando el resultado ya ordenado, porque el puesto compartido y el salto de posición dependen de la pool exacta que se está rankeando.
+**DoD:**
+- Con 3 mujeres y 5 hombres en una categoría, el ranking femenino tiene 3 posiciones (1, 2, 3) y el general tiene 8 — ninguno es un subconjunto del otro con los mismos números de puesto.
+- Test de que un arquero sin `sex` cargado (padrón viejo, decisión 6) no rompe el cálculo: se excluye de femenino y de masculino, pero aparece en general con un aviso, no con un throw.
+
+### `[ ] BE-18` · Variable de entorno `LEAGUE_BEST_N`
+**Objetivo:** el tamaño del promedio de liga es configuración, no un número en el código.
+**Archivos:** `packages/api/src/env.ts`, `.env.example`
+**Referencia:** [`CONFIG.md`](CONFIG.md) §2 (agregar la variable a la tabla primero) · decisión 4
+**Contenido:** `LEAGUE_BEST_N: entero(2)`, con `min(1)`. Todo el código de `@bal/api` que hoy importaría `MIN_TOURNAMENTS_FOR_RANKING` pasa a leer `env().LEAGUE_BEST_N` y lo inyecta donde `SH-9` pide el parámetro `bestN`.
+**DoD:** cambiar `LEAGUE_BEST_N=3` sin tocar código cambia el ranking en `/api/public/rankings` y en `pnpm --filter @bal/api db:reconcile` · con `LEAGUE_BEST_N=0` el arranque falla (Zod) con mensaje claro.
+
+### `[ ] BE-19` · Padrón: campos `sexo` y `dni`, propagados a participante y standing
+**Objetivo:** el dato nace en el arquero y viaja congelado por snapshot, igual que `category`.
+**Cómo:** actualizar `TECHNICAL.md` §2 (`archers`, `participants`, `standings`) y §3.2 primero.
+**Archivos:** `packages/api/src/db/{types,indexes,seed,reconcile}.ts`, `packages/api/src/repositories/{archerRepo,standingRepo}.ts`, `packages/api/src/services/archerService.ts`, `packages/shared/src/schemas.ts` (`ArcherInputSchema` +`sex`+`dni`), `tournamentService.ts` (snapshot)
+**Referencia:** [`TECHNICAL.md`](TECHNICAL.md) §2, §3.2 (actualizar primero) · decisiones 3 y 6
+**Contenido:**
+- `ArcherDoc`: `+ sex: 'femenino' | 'masculino' | null` · `+ dni: string | null`. Nuevos registros los exigen (schema), los viejos quedan en `null` hasta que el admin los completa.
+- `dni`: formato argentino, 7–8 dígitos, sin puntos. Índice **único parcial** (sólo sobre documentos con `dni` no nulo) en `indexes.ts`, idempotente.
+- `ParticipantDoc` y `StandingDoc`: `+ sex` (snapshot, igual que `firstName`/`lastName`/`category`). `StandingDoc` pierde `leaguePoints` **y** `podiums` (decisión 3, `SH-9`) — `standingRepo.toDomain`/`fromDomain` se actualizan junto.
+- `indexes.ts`: se borra `ix_ranking_posicion` (`{seasonId, category, leaguePoints: -1}`), que ordenaba un campo que deja de existir.
+- `archerService.ArcherView`: expone `sex`, `dni`, un flag `profileIncomplete` (decisión 6) y `registrationStatus: 'pendiente' | 'aprobado'` (decisión 7, ver `BE-22`). Un arquero creado por el admin nace `aprobado`.
+**DoD:**
+- Crear un arquero con DNI repetido devuelve un error tipado (`ARCHER_DNI_DUPLICATE`), no un 500 de Mongo.
+- Un arquero viejo (sin `dni`/`sex`) sigue participando de torneos sin romper nada; `profileIncomplete: true` en su `ArcherView`.
+- `archerRepo.list` (la que alimenta el wizard de `FE-11` para elegir participantes) **excluye por defecto** a los `pendiente` — no se puede sumar a un torneo un arquero sin aprobar.
+- `db:reconcile` recalcula `standings` con el `sex` vigente de cada arquero, sin `leaguePoints` ni `podiums`.
+
+### `[ ] BE-20` · Alta pública de arqueros desde la landing (queda `pendiente`)
+**Objetivo:** cualquiera puede inscribirse al padrón sin sesión; el registro **no** lo hace usable todavía (decisión 7).
+**Cómo:** escribir primero la sección nueva de `FUNCTIONAL.md` §5 (flujo de alta pública) y la entrada correspondiente en `SECURITY.md` (es la primera ruta pública que **escribe**, no sólo lee — documentar qué la distingue de `/api/public/*` existente).
+**Archivos:** `packages/api/src/routes/publico.ts`, `packages/shared/src/schemas.ts` (`ArcherSelfRegisterSchema`)
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5 (nueva sección) · [`SECURITY.md`](SECURITY.md) (nueva entrada) · decisión 7
+**Contenido:** `POST /api/public/archers`, cuerpo `{ firstName, lastName, dni, sex, category }` validado con `.strict()`. Reusa `RATE_LIMIT_PUBLIC`. Crea el arquero con `registrationStatus: 'pendiente'` (`BE-19`). DNI duplicado → 409 tipado, mensaje que no confirma ni niega si ese DNI ya existe con otro nombre (evitar que el endpoint sirva para buscar gente por DNI).
+**DoD:**
+- 200 con el arquero creado **en estado `pendiente`** — no aparece en `archerRepo.list` del wizard de torneo hasta que `BE-22` lo apruebe.
+- DNI duplicado → 409 `ARCHER_DNI_DUPLICATE`, sin filtrar el nombre con el que ya está cargado.
+- Un objeto con una propiedad extra (ej. `isAdmin: true`, `registrationStatus: 'aprobado'`) es rechazado por el `.strict()` — **quien se autoregistra no puede autoaprobarse**.
+- Todos los casos de `TESTING.md` §4.x (agregar la subsección) verdes.
+
+### `[ ] BE-21` · Endpoint público de ranking: por sexo, sin `mode` ni puntos de liga
+**Archivos:** `packages/api/src/routes/publico.ts`
+**Referencia:** decisiones 3 y 5
+**Contenido:** `RankingQuery` pierde `mode` (ya no hay dos modos, `SH-9`). `GET /api/public/rankings` devuelve, por categoría, las tres vistas de `SH-10`: `general`, `femenino`, `masculino`. `GET /api/public/archers/:id` deja de devolver `leaguePoints` y `podiums`.
+**DoD:** la respuesta trae `bestN` (el vigente, de `BE-18`) para que la landing no lo tenga que adivinar ni hardcodear "2" en ningún texto.
+
+### `[ ] BE-22` · Aprobar o rechazar altas pendientes · P1
+**Objetivo:** el admin modera el padrón autoregistrado antes de que entre a cualquier torneo.
+**Cómo:** agregar `archer.approve` y `archer.reject` a `AuditAction` (`db/types.ts`) y documentar el flujo en `FUNCTIONAL.md` §6.4, junto al CRUD de arqueros.
+**Archivos:** `packages/api/src/routes/admin.ts`, `packages/api/src/services/archerService.ts`, `packages/api/src/repositories/archerRepo.ts`, `packages/api/src/repositories/auditRepo.ts`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4 (ampliar) · decisión 7
+**Contenido:** `GET /admin/archers?status=pendiente` (filtro existente, nuevo valor) · `POST /admin/archers/:id/approve` → `registrationStatus: 'aprobado'`, audit log · `POST /admin/archers/:id/reject` → reusa `archerRepo.remove` (un `pendiente` nunca participó, así que siempre se puede borrar), audit log con quién y cuándo. Las dos rutas exigen sesión de admin, como el resto de `/admin/*`.
+**DoD:**
+- Aprobar un arquero `pendiente` lo hace aparecer en la lista del wizard de torneo (`FE-11`) sin recargar nada manual.
+- Rechazar lo borra del padrón; intentar rechazar uno que ya participó (no debería poder pasar, pero se verifica) devuelve `ARCHER_IN_USE`, no un borrado silencioso.
+- Las dos acciones quedan en el audit log con `actorId` del admin.
+
+### `[ ] FE-27` · Landing: alta de arquero (queda pendiente de aprobación)
+**Objetivo:** el formulario que pide el brief, en la landing, sin autenticación.
+**Archivos:** `packages/landing/src/pages/ArcherRegister.tsx`, ruta en `App.tsx`, acceso desde `Home.tsx`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5 (la sección que escribe `BE-20`) · decisión 7
+**DoD:** nombre, apellido, DNI, sexo (femenino/masculino) y categoría — incluida `principiantes` — validados en cliente y servidor · errores del servidor (DNI duplicado) se muestran tal cual, sin reinterpretarlos · la confirmación dice explícitamente que **queda pendiente de que el club lo apruebe** — no "ya estás anotado", porque todavía no lo está.
+
+### `[ ] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
+**Archivos:** `packages/landing/src/pages/{Ranking,Tournaments,Archer}.tsx`, `packages/app/src/wafa/pages/{Ranking,Publish}.tsx`, `packages/app/src/wafa/torneo.ts`
+**Referencia:** decisiones 3 y 5 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.2 (reescribir)
+**Contenido:**
+- **Ranking de temporada** (landing y WAFA `Ranking.tsx`): se borra el `<fieldset>` de modo (`position` / `best_two`) y su explicación condicional, y la columna «Puntos». En su lugar, pestañas **General / Femenino / Masculino** por encima de las tarjetas de categoría. El texto de «mejor de N» usa el `bestN` que trae la respuesta (`BE-21`), nunca un «2» escrito en el JSX.
+- **Resultado de un torneo** (landing `Tournaments.tsx`): se borra la columna que mostraba `leaguePointsForPosition(e.position)`.
+- **Vista previa de publicar** (WAFA `torneo.ts` + `Publish.tsx`): se borra la fila de «puntos que se aplicarían» (`+{f.leaguePoints}`); la vista previa de podios por categoría queda igual.
+- **Ficha de arquero** (landing `Archer.tsx`): se borra `<Dato etiqueta="Puntos de liga">` y el componente `<Podios>` con su conteo de 1º/2º/3º (decisión 3 incluyó borrar `podiums`, no sólo `leaguePoints`).
+**DoD:** ninguna pantalla de `app` ni de `landing` muestra la palabra «puntos» referida a liga · con `LEAGUE_BEST_N=3` el texto explicativo dice «tres mejores», no «dos» · `data-testid` de cada tarjeta de categoría sigue siendo estable para los tests E2E existentes.
+
+### `[ ] FE-29` · WAFA: sexo y DNI en el padrón
+**Archivos:** `packages/wafa/.../pages/{Archers,ArcherForm}.tsx` (`FE-12`)
+**Referencia:** decisión 6
+**DoD:** alta y edición piden sexo y DNI · el listado marca con un aviso a quién le falta completar alguno de los dos (arqueros viejos) · búsqueda por DNI además de por nombre.
+
+### `[ ] FE-30` · WAFA: cola de aprobación de altas pendientes
+**Objetivo:** pantalla para que el admin revise y decida sobre lo que llega de la landing.
+**Archivos:** `packages/app/src/wafa/pages/Archers.tsx` (sección nueva o pestaña), consume `BE-22`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4 · decisión 7
+**DoD:** lista separada (o filtro) de arqueros `pendiente`, con los datos que mandó —nombre, DNI, sexo, categoría— y dos acciones, **Aprobar** y **Rechazar**, cada una con su confirmación · un arquero recién aprobado aparece de inmediato disponible en el wizard de torneo (`FE-11`) sin recargar la página.
+
+### `[ ] TEST-3` · Tests de la fase
+**Archivos:** `e2e/alta-publica.spec.ts` (nuevo), ajustes en `TEST-1`/`TEST-2` si tocan textos del ranking que cambiaron.
+**Referencia:** [`TESTING.md`](TESTING.md) (agregar la subsección de esta fase)
+**DoD:** el flujo completo nuevo — alta pública (queda `pendiente`) → admin la aprueba (`FE-30`) → admin lo suma a un torneo → publica → aparece en el ranking de su categoría y de su sexo, sin ningún «puntos de liga» en pantalla — probado de punta a punta, contra el stack real como `TEST-1`. Un segundo caso corto: un alta rechazada **no** aparece nunca en el wizard de torneo.
+
+---
+
 ## Orden recomendado de ejecución
 
 **Camino crítico** — lo que sostiene todo lo demás:
@@ -436,6 +586,7 @@ INF-1 → INF-2 → SH-1 → SH-2 → SH-3 → BE-1 → BE-2 → BE-5 → BE-8 �
 - `FE-3`, `FE-9`..`FE-16` (WAFA) — apenas termine `FE-1`.
 - `BE-12`, `BE-13`, `FE-17`..`FE-20` (landing) — después de `BE-11`.
 - `INF-3`, `INF-5` — en cualquier momento después de `INF-2`.
+- Fase 8 (`SH-8`..`TEST-3`) — independiente del resto, sobre un sistema ya en producción. Orden interno: `SH-8` → `SH-9` → `SH-10` → `BE-18` → `BE-19` → `BE-20` → `BE-22` → `BE-21` → `FE-27`/`FE-29`/`FE-30` → `FE-28` → `TEST-3`.
 
 **Cuatro tareas mandan sobre el resto:** `SH-3` (patrullas), `BE-10` (sync), `FE-2` (offline) y `FE-6` (teclado). Son las que definen si la app funciona el día del torneo. Se les da el tiempo que pidan y se cubren con tests antes de construir nada encima.
 

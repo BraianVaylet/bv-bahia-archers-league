@@ -41,7 +41,7 @@ Estas no se rompen. Si algo parece exigir romper una, la respuesta es preguntar,
 
 7. **`registerType: 'prompt'` en la PWA. Nunca `autoUpdate`.** Recargar la app a mitad de recorrido es inaceptable.
 
-8. **Los colores de estaca (`roja`, `azul`, `amarilla`) son semántica reservada.** No se usan para nada más en toda la interfaz.
+8. **Los colores de estaca (`roja`, `azul`, `amarilla`, `naranja`) son semántica reservada.** No se usan para nada más en toda la interfaz.
 
 9. **Objetivos táctiles: 56px en el teclado de scoring, 44px en el resto.** Si un componente no llega, se rediseña el componente, no se baja el número.
 
@@ -123,7 +123,7 @@ Usar estas palabras, en el código y en la interfaz. **No** traducirlas ni inven
 - **Asumir que la modalidad es del torneo.** Es de **cada blanco**. Un `11` es válido en un blanco 3D e inválido en el de sala del mismo torneo.
 - **Validar los tokens de flecha contra una lista fija.** Se validan contra el set de la modalidad **de ese blanco**, leída del torneo en base.
 - **Comparar puntajes brutos entre torneos.** Cada torneo multitarget tiene un máximo distinto. Para comparar se usa `normalizedPct`.
-- **Olvidar que `escuela` no puede quedar sola.** Ninguna patrulla puede ser 100% escuela (restricción `H3`).
+- **Olvidar que `escuela` ni `principiantes` pueden quedar solos.** Ninguna patrulla puede ser 100% no senior (restricción `H3`); ambas categorías comparten el flag `senior: false`.
 - **Poner un spinner al guardar un puntaje.** No hay nada que esperar.
 - **Descartar ops del outbox ante un 401.** Se pierde trabajo del usuario. Jamás.
 - **Editar un blanco que ya tiene puntajes.** Está bloqueado a propósito.

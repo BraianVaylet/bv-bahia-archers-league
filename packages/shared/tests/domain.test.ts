@@ -151,7 +151,7 @@ describe('límites de flechas por blanco', () => {
 });
 
 describe('categorías de arco', () => {
-  it('son exactamente las siete de la liga', () => {
+  it('son exactamente las ocho de la liga', () => {
     expect([...BOW_CATEGORIES]).toEqual([
       'recurvo',
       'compuesto',
@@ -160,6 +160,7 @@ describe('categorías de arco', () => {
       'tradicional',
       'longbow',
       'escuela',
+      'principiantes',
     ]);
   });
 
@@ -175,15 +176,15 @@ describe('categorías de arco', () => {
     expect(ordenes).toEqual(BOW_CATEGORIES.map((_, i) => i + 1));
   });
 
-  it('escuela es la única categoría no senior', () => {
+  it('escuela y principiantes son las únicas categorías no senior', () => {
     const noSenior = BOW_CATEGORIES.filter((c) => isEscuela(c));
-    expect(noSenior).toEqual(['escuela']);
+    expect(noSenior).toEqual(['escuela', 'principiantes']);
   });
 });
 
 describe('estacas', () => {
-  it('son exactamente roja, azul y amarilla', () => {
-    expect([...STAKES]).toEqual(['roja', 'azul', 'amarilla']);
+  it('son exactamente roja, azul, amarilla y naranja', () => {
+    expect([...STAKES]).toEqual(['roja', 'azul', 'amarilla', 'naranja']);
   });
 
   it('el mapeo por defecto es el del reglamento del club', () => {
@@ -191,6 +192,7 @@ describe('estacas', () => {
       roja: ['recurvo', 'compuesto', 'cazador'],
       azul: ['razo', 'tradicional', 'longbow'],
       amarilla: ['escuela'],
+      naranja: ['principiantes'],
     });
   });
 
@@ -208,6 +210,7 @@ describe('estacas', () => {
     expect(stakeForCategory('tradicional')).toBe('azul');
     expect(stakeForCategory('longbow')).toBe('azul');
     expect(stakeForCategory('escuela')).toBe('amarilla');
+    expect(stakeForCategory('principiantes')).toBe('naranja');
   });
 
   it('stakeForCategory acepta un mapeo personalizado del torneo', () => {
@@ -222,7 +225,7 @@ describe('estacas', () => {
   });
 
   it('stakeForCategory falla con error tipado si el mapeo no cubre la categoría', () => {
-    const incompleto = { roja: ['recurvo'], azul: [], amarilla: [] } as const;
+    const incompleto = { roja: ['recurvo'], azul: [], amarilla: [], naranja: [] } as const;
 
     expect(() => stakeForCategory('escuela', incompleto)).toThrow(DomainError);
     expect(() => stakeForCategory('escuela', incompleto)).toThrow(/escuela/);

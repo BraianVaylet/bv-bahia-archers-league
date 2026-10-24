@@ -4,7 +4,7 @@
  * El color **nunca** va solo: lleva siempre el nombre escrito. Un daltónico lee
  * «Azul»; el resto ve el color. Ninguno depende del otro.
  *
- * Es la única pieza de la interfaz que usa rojo, azul y amarillo. Ver la regla
+ * Es la única pieza de la interfaz que usa rojo, azul, amarillo y naranja. Ver la regla
  * 8 de `CLAUDE.md` y `docs/DESIGN_SYSTEM.md` §2.2.
  */
 
@@ -15,6 +15,7 @@ const ESTACAS: Readonly<Record<Stake, { readonly color: string; readonly label: 
   roja: { color: 'var(--stake-roja)', label: 'Roja' },
   azul: { color: 'var(--stake-azul)', label: 'Azul' },
   amarilla: { color: 'var(--stake-amarilla)', label: 'Amarilla' },
+  naranja: { color: 'var(--stake-naranja)', label: 'Naranja' },
 };
 
 export interface StakeChipProps {

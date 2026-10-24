@@ -18,7 +18,7 @@ export type Modality = (typeof MODALITIES)[number];
 
 // ── Categorías de arco ───────────────────────────────────────────────────────
 
-/** Las siete categorías de la liga, en orden de presentación. */
+/** Las ocho categorías de la liga, en orden de presentación. */
 export const BOW_CATEGORIES = [
   'recurvo',
   'compuesto',
@@ -27,14 +27,15 @@ export const BOW_CATEGORIES = [
   'tradicional',
   'longbow',
   'escuela',
+  'principiantes',
 ] as const;
 
 export type BowCategory = (typeof BOW_CATEGORIES)[number];
 
 // ── Estacas ──────────────────────────────────────────────────────────────────
 
-/** Estacas por cercanía al blanco: roja (más lejos) › azul › amarilla. */
-export const STAKES = ['roja', 'azul', 'amarilla'] as const;
+/** Estacas por cercanía al blanco: roja (más lejos) › azul › amarilla › naranja (más cerca). */
+export const STAKES = ['roja', 'azul', 'amarilla', 'naranja'] as const;
 
 export type Stake = (typeof STAKES)[number];
 

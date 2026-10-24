@@ -62,7 +62,8 @@ export interface PlannedPatrol {
 }
 
 export type PatrolWarning = {
-  readonly code: 'ESCUELA_SIN_SENIOR';
+  /** Quedaron arqueros no senior (`escuela` o `principiantes`) sin un senior que los acompañe. */
+  readonly code: 'CATEGORIA_SIN_SENIOR';
   readonly archerIds: readonly string[];
 };
 
@@ -357,7 +358,7 @@ export function buildPatrols(
 
   const warnings: PatrolWarning[] =
     escuelaSinSenior.length > 0
-      ? [{ code: 'ESCUELA_SIN_SENIOR', archerIds: escuelaSinSenior }]
+      ? [{ code: 'CATEGORIA_SIN_SENIOR', archerIds: escuelaSinSenior }]
       : [];
 
   return {

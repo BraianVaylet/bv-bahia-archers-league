@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-24 · Estaca `naranja` y categoría `principiantes` (SH-8)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado — es la primera tarea de la Fase 8 (padrón público, categorías/estacas nuevas, ranking por sexo y mejor-de-N), planificada el mismo día en `ACTION_PLAN.md` junto con una tabla de 7 decisiones que el usuario confirmó antes de empezar a tocar código.
+
+### `principiantes` se unió a la bolsa no-senior sin tocar `patrolling.ts`
+
+`isEscuela()` ya generalizaba por el flag `senior` de `CATEGORY_INFO`, no por el nombre de la categoría. El test «`principiantes` dispara el mismo warning que `escuela` cuando no alcanzan los seniors» pasó en el primer intento de implementación —agregar la categoría con `senior: false`—, sin tocar una línea de la lógica de armado. Es la señal de que `H3` estaba bien diseñada desde `SH-3`.
+
+Lo único que se renombró en `patrolling.ts` fue el código del warning: `ESCUELA_SIN_SENIOR` → `CATEGORIA_SIN_SENIOR`, porque con dos categorías no-senior el nombre viejo mentía. Se actualizó en el código y en los dos tests que lo verificaban (`@bal/shared` y `@bal/api`), no sólo en un comentario.
+
+### Una estaca nueva toca más paquetes de los que parece
+
+`SH-8` nació acotada a `packages/shared`, pero `pnpm -r typecheck` encontró tres lugares más que se habrían roto o quedado a medio andar si no se tocaban en el mismo cambio:
+
+- `StakeMapSchema` y `DistancesSchema` en `schemas.ts` no tenían la clave `naranja`: un admin que mandara un `stakeMap` personalizado con `principiantes` se habría encontrado con un 400 de `.strict()` sin explicación obvia.
+- `tournamentService.ts` copiaba `stakeMap.{roja,azul,amarilla}` a mano al snapshot del torneo — sin la cuarta clave, `principiantes` se guardaba con un `stakeMap` incompleto.
+- `StakeChip.tsx` resuelve el color por un `Record<Stake, …>` propio (no reexporta el de `@bal/shared`): sin la entrada `naranja`, el componente devolvía `null` y la estaca no se veía en ninguna pantalla, en silencio.
+
+Ninguno de los tres rompía un test existente — los tres son cosas que **faltaban**, no que se rompieron — y los tres se encontraron por el typecheck del monorepo, no por cobertura. Queda como lección: una estaca o categoría nueva en `@bal/shared` hay que perseguirla con `pnpm -r typecheck`, no asumir que el paquete de dominio es el único lugar.
+
+### Decisiones de diseño de esta tarea
+
+- **Etiqueta «Iniciación», no «Principiantes».** La clave de dominio es `principiantes` —así la pidió el usuario—, pero la etiqueta visible tiene un límite de 11 caracteres (`tests/etiquetas.test.ts`, por el ancho de fila en celular) y «Principiantes» son 13. «Iniciación» es el término que ya usan los clubes de arquería para esta categoría.
+- **Color de categoría `#7a3f73`/`#d9a8d1` (ciruela apagada).** Saturación ~0.32, bien por debajo del 0.6 que dispara el chequeo de «se confunde con una estaca» — igual que `tradicional` ya resolvía su cercanía de tono con `roja`/`naranja` bajando la saturación en vez de alejar el tono.
+- **Color de estaca `--stake-naranja: #e8650a`.** Naranja saturado, visible al sol; no hay test que exija que las estacas sean distinguibles entre sí (sólo que las categorías no se les parezcan), así que la elección fue por criterio visual.
+- **Ícono `IconoPrincipiantes`:** diana con un impacto lejos del centro, siguiendo la convención de `IconoEscuela` (glifo que no es un arco, porque la categoría no distingue tipo de arco) pero visualmente distinto de él (impacto ya hecho y descentrado, en vez de flecha todavía en camino).
+
+### Deuda / lo que sigue
+
+- El campo `sexo` del arquero (parte del pedido original de `SH-8`) **no** se tocó en esta tarea: pertenece al padrón (`ArcherDoc`), que es `BE-19`, y al ranking por sexo, que es `SH-10`. El título de la tarea en `ACTION_PLAN.md` se acortó para reflejar el alcance real.
+- Queda pendiente actualizar `DESIGN_SYSTEM.md` si tiene una paleta de referencia propia (no se encontró una sección de colores duplicada fuera de `paleta.ts`/`tokens.css`, pero no se revisó el documento completo).
+
+---
+
 ## 2026-08-21 · Recuperar el password del admin sin redesplegar
 
 **Autor:** Claude Opus 5 · **Estado:** completado

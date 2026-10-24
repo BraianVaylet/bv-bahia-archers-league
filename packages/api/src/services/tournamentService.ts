@@ -105,6 +105,7 @@ export async function createTournament(
           roja: [...stakeMap.roja],
           azul: [...stakeMap.azul],
           amarilla: [...stakeMap.amarilla],
+          naranja: [...stakeMap.naranja],
         },
         distances: input.distances ? { ...input.distances } : null,
         patrolCount: plan.patrols.length,
