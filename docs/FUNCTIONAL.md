@@ -146,11 +146,20 @@ Listado de torneos agrupados por estado: en proceso, sin iniciar, completados, p
 El torneo queda en estado `sin_iniciar`.
 
 ### 6.4 Arqueros
-Padrón del club. Alta con **nombre, apellido y categoría**. Se pueden editar, archivar y eliminar.
+Padrón del club. Alta con **nombre, apellido y categoría** — sexo y DNI, por ahora, sólo los pide el autoregistro público (§5.5); `FE-29` los sigue sin pedir acá. Se pueden editar, archivar y eliminar.
 
 - **Eliminar** solo está permitido si el arquero no participó de ningún torneo.
 - Si ya participó, se puede **archivar**: deja de aparecer al armar torneos nuevos pero conserva todo su histórico y su lugar en los rankings.
 - Un arquero archivado se puede **restaurar**.
+
+#### Cola de aprobación (`BE-22`, `2026-10-25`)
+
+Un arquero autoregistrado (§5.5) llega `pendiente` y **no aparece** en el padrón que alimenta el wizard de torneo hasta que el admin lo revisa. WAFA lista aparte a los `pendiente`, con los datos que mandó, y ofrece dos acciones:
+
+- **Aprobar**: pasa a `aprobado` y queda disponible de inmediato para sumarlo a un torneo, sin recargar nada.
+- **Rechazar**: lo borra del padrón. Como un `pendiente` nunca pudo haber participado de un torneo, el rechazo siempre se puede hacer — no hay un caso de "rechazar a alguien que ya tiró".
+
+Las dos acciones quedan en el audit log.
 
 ### 6.5 Temporadas
 Alta de temporadas con nombre, fecha de inicio y fin. Una temporada activa por vez (puede haber varias, pero la landing destaca la activa).

@@ -533,7 +533,8 @@ _(Hecho. Encontró y corrigió un bug latente en `middleware/cache.ts`: `publicC
 **Contenido:** `RankingQuery` pierde `mode` (ya no hay dos modos, `SH-9`). `GET /api/public/rankings` devuelve, por categoría, las tres vistas de `SH-10`: `general`, `femenino`, `masculino`. `GET /api/public/archers/:id` deja de devolver `leaguePoints` y `podiums`.
 **DoD:** la respuesta trae `bestN` (el vigente, de `BE-18`) para que la landing no lo tenga que adivinar ni hardcodear "2" en ningún texto.
 
-### `[ ] BE-22` · Aprobar o rechazar altas pendientes · P1
+### `[x] BE-22` · Aprobar o rechazar altas pendientes · P1
+_(Hecho. `approveArcher`/`rejectArcher` en `archerService.ts`, mismo patrón que `patrolAdminService.regeneratePin` (actorId por parámetro, sin transacción). `rejectArcher` duplica la guarda de `remove` —`hasParticipated` → `ARCHER_IN_USE`— en vez de reusar `remove` directo, porque son dos acciones semánticamente distintas que comparten la misma regla; no se abstrajo. `GET /admin/archers?status=pendiente` ya funcionaba desde `BE-19`, no hizo falta tocarlo.)_
 **Objetivo:** el admin modera el padrón autoregistrado antes de que entre a cualquier torneo.
 **Cómo:** agregar `archer.approve` y `archer.reject` a `AuditAction` (`db/types.ts`) y documentar el flujo en `FUNCTIONAL.md` §6.4, junto al CRUD de arqueros.
 **Archivos:** `packages/api/src/routes/admin.ts`, `packages/api/src/services/archerService.ts`, `packages/api/src/repositories/archerRepo.ts`, `packages/api/src/repositories/auditRepo.ts`

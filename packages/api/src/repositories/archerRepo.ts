@@ -114,6 +114,15 @@ export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherDo
   }
 }
 
+/** `pendiente` → `aprobado` (`BE-22`). Idempotente: aprobar uno ya aprobado no hace nada raro. */
+export async function approve(id: ObjectId): Promise<ArcherDoc | null> {
+  return archers().findOneAndUpdate(
+    { _id: id },
+    { $set: { registrationStatus: 'aprobado', updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+}
+
 export async function setArchived(id: ObjectId, archived: boolean): Promise<ArcherDoc | null> {
   return archers().findOneAndUpdate(
     { _id: id },

@@ -441,6 +441,98 @@ describe('alta pública de arqueros', () => {
   });
 });
 
+// ── BE-22 · Aprobar o rechazar altas pendientes ──────────────────────────────
+
+/** Deja un arquero `pendiente` en la base, vía el autoregistro público (`BE-20`). */
+async function altaPendiente(dni = '30888888') {
+  const res = await cliente().post('/api/public/archers', {
+    firstName: 'Pedro',
+    lastName: 'Pendiente',
+    category: 'razo',
+    sex: 'masculino',
+    dni,
+  });
+  const body = (await res.json()) as { archer: { id: string } };
+  return body.archer.id;
+}
+
+describe('aprobar o rechazar altas pendientes', () => {
+  it('exige sesión de admin', async () => {
+    const id = await altaPendiente();
+    expect((await cliente().post(`/api/admin/archers/${id}/approve`)).status).toBe(401);
+    expect((await cliente().post(`/api/admin/archers/${id}/reject`)).status).toBe(401);
+  });
+
+  it('aprobar lo hace aparecer de inmediato en el padrón del wizard de torneo', async () => {
+    const id = await altaPendiente();
+    const c = await adminListo();
+
+    await c.post(`/api/admin/archers/${id}/approve`);
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { id: string; registrationStatus: string }[];
+    };
+    expect(lista.find((a) => a.id === id)?.registrationStatus).toBe('aprobado');
+  });
+
+  it('rechazar lo borra del padrón', async () => {
+    const id = await altaPendiente();
+    const c = await adminListo();
+
+    const res = await c.post(`/api/admin/archers/${id}/reject`);
+    expect(res.status).toBe(200);
+    expect(await archers().countDocuments({ _id: new ObjectId(id) })).toBe(0);
+  });
+
+  // No debería poder pasar —un `pendiente` nunca participó— pero se verifica
+  // que el rechazo no sea un borrado silencioso si alguna vez pasara.
+  it('rechazar uno que ya participó devuelve ARCHER_IN_USE, no lo borra', async () => {
+    const c = await adminListo();
+    const seasonId = await crearTemporada(c);
+    const archerIds = await crearArqueros(c, [['razo', 2]]);
+
+    await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo de prueba',
+      date: '2026-08-08',
+      targets: [{ index: 1, modality: 'sala', arrows: 3, description: null }],
+      archerIds,
+    });
+
+    const res = await c.post(`/api/admin/archers/${archerIds[0]}/reject`);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('ARCHER_IN_USE');
+    expect(await archers().countDocuments({ _id: new ObjectId(archerIds[0]) })).toBe(1);
+  });
+
+  it('las dos acciones quedan en el audit log con el admin que las hizo', async () => {
+    const aprobado = await altaPendiente('30888889');
+    const rechazado = await altaPendiente('30888890');
+    const c = await adminListo();
+
+    await c.post(`/api/admin/archers/${aprobado}/approve`);
+    await c.post(`/api/admin/archers/${rechazado}/reject`);
+
+    const entradas = await auditLog()
+      .find({ action: { $in: ['archer.approve', 'archer.reject'] } })
+      .toArray();
+
+    expect(entradas).toHaveLength(2);
+    expect(entradas.every((e) => e.actorId !== null)).toBe(true);
+    expect(entradas.find((e) => e.action === 'archer.approve')?.entityId.toHexString()).toBe(
+      aprobado,
+    );
+    expect(entradas.find((e) => e.action === 'archer.reject')?.entityId.toHexString()).toBe(
+      rechazado,
+    );
+  });
+
+  it('un id malformado devuelve 404, no 500', async () => {
+    const c = await adminListo();
+    expect((await c.post('/api/admin/archers/no-es-un-id/approve')).status).toBe(404);
+  });
+});
+
 // ── BE-5 · Creación de torneo ────────────────────────────────────────────────
 
 /**

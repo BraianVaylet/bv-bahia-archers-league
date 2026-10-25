@@ -9,6 +9,7 @@ import type { ObjectId } from 'mongodb';
 import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
+import * as auditRepo from '../repositories/auditRepo.js';
 
 export interface ArcherView {
   readonly id: string;
@@ -97,4 +98,49 @@ export async function remove(id: ObjectId): Promise<void> {
   }
 
   await archerRepo.remove(id);
+}
+
+/** `BE-22`: `pendiente` → `aprobado`. Queda disponible de inmediato para el wizard de torneo. */
+export async function approveArcher(id: ObjectId, actorId: ObjectId): Promise<ArcherView> {
+  const doc = await archerRepo.approve(id);
+  if (!doc) throw notFound();
+
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action: 'archer.approve',
+    entity: 'archer',
+    entityId: id,
+    meta: { firstName: doc.firstName, lastName: doc.lastName },
+  });
+
+  return toView(doc);
+}
+
+/**
+ * `BE-22`: rechaza un alta pendiente, borrándola del padrón.
+ *
+ * Reusa la misma guarda que `remove`: un `pendiente` nunca pudo haber
+ * participado de un torneo, así que esto no debería poder pasar — pero se
+ * verifica igual, para no convertir el rechazo en un borrado silencioso si
+ * alguna vez pasara.
+ */
+export async function rejectArcher(id: ObjectId, actorId: ObjectId): Promise<void> {
+  const doc = await archerRepo.findById(id);
+  if (!doc) throw notFound();
+
+  if (await archerRepo.hasParticipated(id)) {
+    throw new AppError('ARCHER_IN_USE');
+  }
+
+  await archerRepo.remove(id);
+
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action: 'archer.reject',
+    entity: 'archer',
+    entityId: id,
+    meta: { firstName: doc.firstName, lastName: doc.lastName },
+  });
 }

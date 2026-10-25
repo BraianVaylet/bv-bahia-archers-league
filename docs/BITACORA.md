@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-25 · Aprobar o rechazar altas pendientes (BE-22)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra el circuito que abrió `BE-20`: ahora hay alguien del otro lado revisando la cola.
+
+Nada sorprendente en esta — es la tarea más directa de la fase. `approveArcher` y `rejectArcher` siguen el mismo patrón que `patrolAdminService.regeneratePin`: la acción, después el audit log, sin transacción porque no hay nada que necesite atomicidad entre dos colecciones. `rejectArcher` repite la guarda `hasParticipated → ARCHER_IN_USE` que ya tenía `archerService.remove`, en vez de llamarlo: son dos acciones distintas (una es "rechazar un alta", la otra "borrar del padrón") que comparten una regla, no una sola acción con dos nombres — no justificaba una abstracción.
+
+`GET /admin/archers?status=pendiente` no necesitó ninguna línea nueva: `BE-19` ya lo había dejado funcionando al agregar el filtro de `status` a la query. Es la segunda vez en esta fase que una tarea posterior encuentra que la anterior ya la completó sin saberlo (la primera fue `db:reconcile` en `BE-19`).
+
+Con esto, el autoregistro público (`BE-20`) deja de ser una ruta que escribe a una cola que nadie mira: hay alta → aprobación/rechazo → disponible para el wizard de torneo, de punta a punta, aunque todavía sin ninguna pantalla — todo probado por API directa.
+
+### Deuda / lo que sigue
+
+- `FE-30`: WAFA todavía no tiene la pantalla de la cola. `GET ?status=pendiente` y los dos POST están, probados, pero nadie los ve sin abrir la consola de red.
+- `BE-21`/`FE-28`: el split por sexo del ranking sigue siendo lo único que falta para que `SH-10` tenga alguna pantalla.
+
+---
+
 ## 2026-10-25 · Alta pública de arqueros (BE-20)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado. Primera ruta pública que escribe; `/security-review` corrió sobre el diff completo de la fase antes de este commit.

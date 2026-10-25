@@ -298,7 +298,11 @@ export type AuditAction =
   /** Se recuperó el password con el código de `ADMIN_INITIAL_PASSWORD`. */
   | 'admin.password_recovered'
   /** Alguien probó un código de recuperación equivocado. */
-  | 'admin.recovery_failed';
+  | 'admin.recovery_failed'
+  /** Un arquero autoregistrado (`BE-20`) pasó de `pendiente` a `aprobado`. */
+  | 'archer.approve'
+  /** Un arquero autoregistrado se rechazó y se borró del padrón. */
+  | 'archer.reject';
 
 export interface AuditLogDoc {
   _id: ObjectId;
@@ -306,7 +310,7 @@ export interface AuditLogDoc {
   actorType: SubjectType | 'system';
   actorId: ObjectId | null;
   action: AuditAction;
-  entity: 'tournament' | 'patrol' | 'participant' | 'user';
+  entity: 'tournament' | 'patrol' | 'participant' | 'user' | 'archer';
   entityId: ObjectId;
   /** Nunca datos sensibles: ni tokens, ni hashes, ni PIN. */
   meta: Record<string, unknown>;

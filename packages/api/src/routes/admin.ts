@@ -83,6 +83,17 @@ export const admin = new Hono()
     });
   })
 
+  .post('/archers/:id/approve', async (c) => {
+    return c.json({
+      archer: await archerService.approveArcher(toObjectId(c.req.param('id')), currentAdminId(c)),
+    });
+  })
+
+  .post('/archers/:id/reject', async (c) => {
+    await archerService.rejectArcher(toObjectId(c.req.param('id')), currentAdminId(c));
+    return c.json({ ok: true });
+  })
+
   .delete('/archers/:id', async (c) => {
     await archerService.remove(toObjectId(c.req.param('id')));
     return c.json({ ok: true });
