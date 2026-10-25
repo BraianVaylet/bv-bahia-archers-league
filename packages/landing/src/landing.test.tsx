@@ -120,7 +120,23 @@ describe('HomePage', () => {
 // ── FE-18 · Ranking ──────────────────────────────────────────────────────────
 
 describe('RankingPage', () => {
-  const conTemporada = (categories: unknown[], bestN = 2) => {
+  /**
+   * Toma `{category, ranked, notYetEligible}` —la forma simple que usan los
+   * tests— y la envuelve en `general` (`BE-21`): `femenino`/`masculino` van
+   * vacíos porque esta pantalla todavía no los usa, eso es `FE-28`.
+   */
+  const conTemporada = (
+    categoriasSimples: { category: string; ranked: unknown[]; notYetEligible: unknown[] }[],
+    bestN = 2,
+  ) => {
+    const vacia = { ranked: [], notYetEligible: [] };
+    const categories = categoriasSimples.map(({ category, ranked, notYetEligible }) => ({
+      category,
+      general: { ranked, notYetEligible },
+      femenino: vacia,
+      masculino: vacia,
+    }));
+
     servidor({
       '/api/public/seasons': () => ({
         json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },

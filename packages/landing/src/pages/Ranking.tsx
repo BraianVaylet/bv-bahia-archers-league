@@ -45,10 +45,16 @@ interface Entrada {
   readonly tied?: boolean;
 }
 
-interface CategoriaRankeada {
-  readonly category: BowCategory;
+interface VistaDeRanking {
   readonly ranked: readonly Entrada[];
   readonly notYetEligible: readonly Entrada[];
+}
+
+interface CategoriaRankeada {
+  readonly category: BowCategory;
+  readonly general: VistaDeRanking;
+  readonly femenino: VistaDeRanking;
+  readonly masculino: VistaDeRanking;
 }
 
 /**
@@ -191,7 +197,7 @@ export function RankingPage() {
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
 
-            {c.ranked.length === 0 ? (
+            {c.general.ranked.length === 0 ? (
               <p className="text-sm text-[var(--ink-muted)]">
                 Nadie llegó todavía al mínimo de torneos en esta categoría.
               </p>
@@ -204,7 +210,7 @@ export function RankingPage() {
                   <th className="py-1 font-medium text-right">Mejor</th>
                 </Cabecera>
                 <Cuerpo>
-                  {c.ranked.map((e) => (
+                  {c.general.ranked.map((e) => (
                     <FilaDeArquero key={e.archerId} entrada={e} />
                   ))}
                 </Cuerpo>
@@ -212,17 +218,17 @@ export function RankingPage() {
             )}
 
             {/* No se ocultan: esconderlos haría creer que se perdió su resultado. */}
-            {c.notYetEligible.length > 0 && (
+            {c.general.notYetEligible.length > 0 && (
               <details className="text-sm">
                 <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-                  {c.notYetEligible.length} con menos de {bestN} torneos
+                  {c.general.notYetEligible.length} con menos de {bestN} torneos
                 </summary>
                 <p className="pb-2 text-[var(--ink-muted)]">
                   Para figurar en el ranking hacen falta al menos {bestN} torneos disputados. Sus
                   resultados están cargados y cuentan apenas lleguen.
                 </p>
                 <ul className="flex flex-col gap-1">
-                  {c.notYetEligible.map((e) => (
+                  {c.general.notYetEligible.map((e) => (
                     <li key={e.archerId} data-testid={`pendiente-${e.lastName}`}>
                       <Link to={`/arqueros/${e.archerId}`} className="underline">
                         {e.lastName}, {e.firstName}

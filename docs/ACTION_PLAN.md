@@ -526,7 +526,8 @@ _(Hecho. Encontró y corrigió un bug latente en `middleware/cache.ts`: `publicC
 - Un objeto con una propiedad extra (ej. `isAdmin: true`, `registrationStatus: 'aprobado'`) es rechazado por el `.strict()` — **quien se autoregistra no puede autoaprobarse**.
 - Todos los casos de `TESTING.md` §4.x (agregar la subsección) verdes.
 
-### `[ ] BE-21` · Endpoint público de ranking: por sexo, sin `mode` ni puntos de liga
+### `[x] BE-21` · Endpoint público de ranking: por sexo, sin `mode` ni puntos de liga
+_(Hecho. Cambiar la forma de la respuesta (de `{ranked, notYetEligible}` plano a `{general, femenino, masculino}`) rompía en runtime las dos pantallas de Ranking ya en producción —ningún typecheck lo iba a atrapar, son interfaces TS del frontend, no verificadas contra el contrato real del backend—, así que `FE-28` se adelantó parcialmente: ambas pantallas leen de `.general` ahora, sin pestañas todavía. `/security-review` sin hallazgos: trazado `dni`/`registrationStatus` por `standingRepo.toDomain`/`replaceSeason` y ninguno de los dos existe en `StandingDoc`/`ArcherStanding`, así que no hay forma de que se filtren por la anidación nueva.)_
 > **Parcial ya hecho en `SH-9`:** `RankingQuery` perdió `mode`, la respuesta trae `bestN`, `/archers/:id` perdió `leaguePoints`/`podiums`. Lo que queda es el split `general`/`femenino`/`masculino` de `SH-10`.
 **Archivos:** `packages/api/src/routes/publico.ts`
 **Referencia:** decisiones 3 y 5
@@ -552,7 +553,7 @@ _(Hecho. `approveArcher`/`rejectArcher` en `archerService.ts`, mismo patrón que
 **DoD:** nombre, apellido, DNI, sexo (femenino/masculino) y categoría — incluida `principiantes` — validados en cliente y servidor · errores del servidor (DNI duplicado) se muestran tal cual, sin reinterpretarlos · la confirmación dice explícitamente que **queda pendiente de que el club lo apruebe** — no "ya estás anotado", porque todavía no lo está.
 
 ### `[ ] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
-> **La parte de «quitar puntos de liga» ya está hecha, en `SH-9`:** `torneo.ts`, `Publish.tsx`, los dos `Ranking.tsx` (landing y WAFA), `Tournaments.tsx` y `Archer.tsx` ya no mencionan puntos de liga en ningún lado. Lo que queda de esta tarea son **las pestañas General/Femenino/Masculino**, que dependen de `SH-10`.
+> **Dos de tres partes ya hechas.** «Quitar puntos de liga» (`SH-9`): `torneo.ts`, `Publish.tsx`, los dos `Ranking.tsx`, `Tournaments.tsx` y `Archer.tsx` ya no mencionan puntos de liga. «Leer la respuesta nueva» (`BE-21`): los dos `Ranking.tsx` ya leen `categoria.general.{ranked,notYetEligible}` — lo exigió el cambio de forma de la respuesta, no se podía dejar roto hasta esta tarea. Lo que queda de verdad: **las pestañas General/Femenino/Masculino** en la UI (ahora mismo `femenino`/`masculino` llegan en la respuesta y no se usan para nada).
 **Archivos:** `packages/landing/src/pages/{Ranking,Tournaments,Archer}.tsx`, `packages/app/src/wafa/pages/{Ranking,Publish}.tsx`, `packages/app/src/wafa/torneo.ts`
 **Referencia:** decisiones 3 y 5 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.2 (reescribir)
 **Contenido:**

@@ -37,10 +37,16 @@ interface Entrada {
   readonly tied?: boolean;
 }
 
-interface CategoriaRankeada {
-  readonly category: BowCategory;
+interface VistaDeRanking {
   readonly ranked: readonly Entrada[];
   readonly notYetEligible: readonly Entrada[];
+}
+
+interface CategoriaRankeada {
+  readonly category: BowCategory;
+  readonly general: VistaDeRanking;
+  readonly femenino: VistaDeRanking;
+  readonly masculino: VistaDeRanking;
 }
 
 /** El emoji nunca va solo: lleva su nombre. Ver `docs/DESIGN_SYSTEM.md` §10. */
@@ -75,7 +81,7 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
       bestN,
       categorias: (categorias ?? []).map((c) => ({
         category: c.category,
-        ranked: c.ranked.map((e, i) => ({
+        ranked: c.general.ranked.map((e, i) => ({
           position: e.position ?? i + 1,
           firstName: e.firstName,
           lastName: e.lastName,
@@ -191,13 +197,13 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
 
-            {c.ranked.length === 0 ? (
+            {c.general.ranked.length === 0 ? (
               <p className="text-sm text-[var(--ink-muted)]">
                 Nadie llegó todavía al mínimo de torneos en esta categoría.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {c.ranked.map((e) => (
+                {c.general.ranked.map((e) => (
                   <li
                     key={e.archerId}
                     className={cn(clasesDeTarjeta(), 'flex items-center justify-between gap-3')}
@@ -223,13 +229,13 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
             )}
 
             {/* No se ocultan: esconderlos haría creer que se perdió su resultado. */}
-            {c.notYetEligible.length > 0 && (
+            {c.general.notYetEligible.length > 0 && (
               <details className="text-sm">
                 <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-                  {c.notYetEligible.length} con menos de {bestN} torneos
+                  {c.general.notYetEligible.length} con menos de {bestN} torneos
                 </summary>
                 <ul className="flex flex-col gap-1 pb-2">
-                  {c.notYetEligible.map((e) => (
+                  {c.general.notYetEligible.map((e) => (
                     <li key={e.archerId} data-testid={`pendiente-${e.lastName}`}>
                       {e.lastName}, {e.firstName}{' '}
                       <span className="text-[var(--ink-muted)]">

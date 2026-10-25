@@ -799,12 +799,12 @@ describe('endpoints públicos', () => {
     const body = (await (
       await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
     ).json()) as {
-      categories: { category: string; ranked: unknown[]; notYetEligible: unknown[] }[];
+      categories: { category: string; general: { ranked: unknown[]; notYetEligible: unknown[] } }[];
     };
 
     // Con un solo torneo nadie clasifica todavía: hacen falta 2.
-    expect(body.categories[0]?.ranked).toHaveLength(0);
-    expect(body.categories[0]?.notYetEligible).toHaveLength(2);
+    expect(body.categories[0]?.general.ranked).toHaveLength(0);
+    expect(body.categories[0]?.general.notYetEligible).toHaveLength(2);
   });
 
   it('las respuestas públicas llevan cabeceras de caché', async () => {
@@ -879,10 +879,10 @@ describe('ranking mejor de N', () => {
     const res = (await (
       await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
     ).json()) as {
-      categories: { ranked: { bestNAvgPct: number; topNPcts: number[] }[] }[];
+      categories: { general: { ranked: { bestNAvgPct: number; topNPcts: number[] }[] } }[];
     };
 
-    const primero = res.categories[0]?.ranked[0];
+    const primero = res.categories[0]?.general.ranked[0];
     if (!primero) throw new Error('el ranking vino vacío');
 
     // Los dos torneos son idénticos, así que los dos porcentajes coinciden. Lo
@@ -950,6 +950,132 @@ describe('sexo: del arquero al standing', () => {
       .toArray();
     expect(acumulados.find((a) => a.lastName === 'Arquera')?.sex).toBe('femenino');
     expect(acumulados.find((a) => a.lastName === 'Arquero')?.sex).toBeNull();
+  });
+});
+
+// ── BE-21 · Ranking público por sexo ─────────────────────────────────────────
+
+/**
+ * `GET /api/public/rankings` expone, por categoría, las tres vistas de
+ * `SH-10`: `general`, `femenino`, `masculino`. Cada una es una pool rankeada
+ * aparte, no el general filtrado — por eso cada una numera desde 1.
+ */
+describe('ranking público por sexo', () => {
+  it('cada vista numera desde 1, sobre su propia pool', async () => {
+    const c = await admin();
+    const s = await c.post('/api/admin/seasons', {
+      name: 'Liga 2026',
+      startsAt: '2026-01-01',
+      endsAt: '2026-12-31',
+    });
+    const seasonId = ((await s.json()) as { season: { id: string } }).season.id;
+
+    const archero = async (lastName: string, sex: 'femenino' | 'masculino') => {
+      const r = await c.post('/api/admin/archers', {
+        firstName: 'Nombre',
+        lastName,
+        category: 'razo',
+        sex,
+      });
+      return ((await r.json()) as { archer: { id: string } }).archer.id;
+    };
+    const archerIds = [
+      await archero('Primera', 'femenino'),
+      await archero('Segunda', 'femenino'),
+      await archero('Tercero', 'masculino'),
+      await archero('Cuarto', 'masculino'),
+    ];
+
+    const t = await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo',
+      date: '2026-08-08',
+      targets: TARGETS,
+      archerIds,
+    });
+    const tournamentId = ((await t.json()) as { tournament: { id: string } }).tournament.id;
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    // Cuatro puntajes distintos, para que nadie empate.
+    const patrulla = await patrols().findOne({ tournamentId: new ObjectId(tournamentId) });
+    const lider = cliente();
+    await lider.post('/api/auth/patrol/login', {
+      tournamentId,
+      username: patrulla?.username,
+      pin: decryptPin(patrulla?.pinEnc ?? '', testEnv().PIN_ENC_KEY),
+    });
+    const miembros = await participants().find({ patrolId: patrulla?._id }).toArray();
+    const puntaje: Record<string, [string, string]> = {
+      Primera: ['11', '11'],
+      Segunda: ['10', '8'],
+      Tercero: ['10', '10'],
+      Cuarto: ['5', '5'],
+    };
+
+    await lider.post('/api/wafl/sync', {
+      ops: miembros.flatMap((m) => [
+        {
+          type: 'score' as const,
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: m._id.toHexString(),
+          targetIndex: 1,
+          arrows: puntaje[m.lastName] ?? ['M', 'M'],
+        },
+        {
+          type: 'score' as const,
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: m._id.toHexString(),
+          targetIndex: 2,
+          arrows: ['5', '5', '5'],
+        },
+      ]),
+    });
+    await lider.post('/api/wafl/sync', {
+      ops: miembros.map((m) => ({
+        type: 'signature' as const,
+        opId: uuid(),
+        clientUpdatedAt: new Date().toISOString(),
+        participantId: m._id.toHexString(),
+        pngDataUrl: PNG,
+      })),
+    });
+    await lider.post('/api/wafl/sync', {
+      ops: [{ type: 'close' as const, opId: uuid(), clientUpdatedAt: new Date().toISOString() }],
+    });
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    // Un solo torneo: nadie clasifica todavía (hace falta bestN=2), así que
+    // se mira `notYetEligible`, que también está separado por sexo.
+    const body = (await (
+      await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
+    ).json()) as {
+      categories: {
+        category: string;
+        general: { notYetEligible: { lastName: string }[] };
+        femenino: { notYetEligible: { lastName: string }[] };
+        masculino: { notYetEligible: { lastName: string }[] };
+      }[];
+    };
+
+    const razo = body.categories.find((cat) => cat.category === 'razo');
+    expect(razo?.general.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Cuarto',
+      'Primera',
+      'Segunda',
+      'Tercero',
+    ]);
+    expect(razo?.femenino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Primera',
+      'Segunda',
+    ]);
+    expect(razo?.masculino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Cuarto',
+      'Tercero',
+    ]);
   });
 });
 

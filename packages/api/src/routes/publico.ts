@@ -11,7 +11,7 @@ import {
   bestNAvgPct,
   distribucionDeModalidades,
   ObjectIdSchema,
-  sortStandings,
+  sortStandingsByGender,
 } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -69,10 +69,12 @@ export const publico = new Hono()
   })
 
   /**
-   * Ranking de liga por categoría.
-   *
-   * Los que no llegan a `bestN` torneos vienen en `notYetEligible`, **no se
-   * ocultan**: esconderlos haría creer que se perdió su resultado.
+   * Ranking de liga por categoría, en tres vistas: **General, Femenino y
+   * Masculino** (`SH-10`). Cada una rankea su propia pool —no es el general
+   * filtrado— así que cada una numera desde 1 y los que no llegan a `bestN`
+   * torneos van en su propio `notYetEligible`, **sin ocultarse**: esconderlos
+   * haría creer que se perdió su resultado. Un arquero sin `sex` cargado
+   * entra al general igual que cualquiera, y a ninguna de las otras dos.
    */
   .get('/rankings', async (c) => {
     const { seasonId } = parseQuery(c, RankingQuery);
@@ -98,11 +100,17 @@ export const publico = new Hono()
       // El front nunca escribe «2» (ni ningún N) en un texto: lo lee de acá.
       bestN,
       categories: [...porCategoria.entries()].map(([category, entradas]) => {
-        const { ranked, notYetEligible } = sortStandings(entradas, bestN);
+        const { general, femenino, masculino } = sortStandingsByGender(entradas, bestN);
+        const vista = (v: typeof general) => ({
+          ranked: v.ranked.map(conPromedio),
+          notYetEligible: v.notYetEligible.map(conPromedio),
+        });
+
         return {
           category,
-          ranked: ranked.map(conPromedio),
-          notYetEligible: notYetEligible.map(conPromedio),
+          general: vista(general),
+          femenino: vista(femenino),
+          masculino: vista(masculino),
         };
       }),
     });

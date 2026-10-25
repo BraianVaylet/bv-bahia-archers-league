@@ -14,6 +14,27 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-25 · Ranking público por sexo: General/Femenino/Masculino (BE-21)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado — con la misma clase de corrección forzada que ya aparece dos veces en esta fase (`SH-9`, `BE-20`): cambiar un contrato público rompe a quien ya lo consume, y hay que arreglarlo en el mismo cambio.
+
+### Cambiar la forma de la respuesta rompía las dos pantallas ya en producción
+
+`GET /api/public/rankings` pasó de `{ bestN, categories: [{ category, ranked, notYetEligible }] }` a `{ bestN, categories: [{ category, general, femenino, masculino }] }`. Los dos `Ranking.tsx` (landing y WAFA) leían `categoria.ranked`/`categoria.notYetEligible` directo. Ningún `pnpm typecheck` lo iba a atrapar —las interfaces del frontend son una promesa sobre la forma de la respuesta, no algo que TypeScript verifique contra el backend real— así que habría quedado roto en producción sin que ningún check lo dijera, hasta que alguien abriera la pantalla y viera el ranking vacío.
+
+Se adelantó la parte mínima de `FE-28` que hacía falta para no romper nada: las dos pantallas ahora leen `categoria.general.{ranked,notYetEligible}`. **No** se agregaron las pestañas — `femenino`/`masculino` llegan en la respuesta y nadie los usa todavía. Es la misma frontera que ya se usó en `SH-9`: la corrección forzada se hace, la *feature* nueva se deja para la tarea que la tiene asignada.
+
+### El test de integración evita el caso fácil (empates)
+
+El primer borrador del test de "cada vista numera desde 1" usaba `completarTorneo`, el helper compartido — pero ese helper sólo distingue al primer arquero del resto (`i === 0`), así que con 4 participantes, 3 habrían empatado. Se escribieron ops de sync a mano, una por arquero, con cuatro puntajes distintos, para no depender de esa limitación del helper. Con un solo torneo publicado nadie llega a `bestN=2`, así que el test quedó mirando `notYetEligible` —separado por sexo— en vez de `ranked`, que de todos modos es lo que ya prueba `league.test.ts` a nivel unitario.
+
+### Deuda / lo que sigue
+
+- `FE-28`: las pestañas en sí. Es lo único verdaderamente pendiente de esta sub-fase del ranking por sexo.
+- Con esto, `SH-8` a `BE-22` —toda la capa de dominio y de backend de la Fase 8— está cerrada. Lo que queda es puramente frontend: `FE-27` (formulario de alta), `FE-29` (sexo/DNI en WAFA), `FE-30` (cola de aprobación), `FE-28` (pestañas), y `TEST-3` (E2E).
+
+---
+
 ## 2026-10-25 · Aprobar o rechazar altas pendientes (BE-22)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra el circuito que abrió `BE-20`: ahora hay alguien del otro lado revisando la cola.
