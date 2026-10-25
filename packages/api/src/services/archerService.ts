@@ -4,7 +4,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
-import type { ArcherInput, Sex } from '@bal/shared';
+import type { ArcherInput, ArcherSelfRegisterInput, Sex } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -60,6 +60,14 @@ export async function list(options: archerRepo.ListOptions): Promise<ArcherView[
 
 export async function create(input: ArcherInput): Promise<ArcherView> {
   return toView(await archerRepo.create(input));
+}
+
+/**
+ * Autoregistro público (`BE-20`). Nace `pendiente`: no entra al padrón que
+ * usa el wizard de torneo hasta que `BE-22` lo aprueba.
+ */
+export async function registerPublic(input: ArcherSelfRegisterInput): Promise<ArcherView> {
+  return toView(await archerRepo.create(input, 'pendiente'));
 }
 
 export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherView> {

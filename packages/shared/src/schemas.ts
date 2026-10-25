@@ -108,6 +108,24 @@ export const ArcherInputSchema = z.strictObject({
   dni: DniSchema.nullable().default(null),
 });
 
+/**
+ * Autoregistro público (`BE-20`). A diferencia de `ArcherInputSchema`, acá
+ * `sex` y `dni` son **obligatorios**: es un formulario nuevo, escrito para
+ * pedir exactamente estos datos desde el primer día, y el DNI es lo que
+ * permite deduplicar sin depender de nombre y apellido.
+ *
+ * `.strict()` es lo que impide que alguien se autoapruebe: no hay
+ * `registrationStatus` en esta lista, así que mandarlo lo rechaza el schema
+ * antes de que el servicio llegue a decidir nada.
+ */
+export const ArcherSelfRegisterSchema = z.strictObject({
+  firstName: texto(1, 60),
+  lastName: texto(1, 60),
+  category: CategorySchema,
+  sex: SexSchema,
+  dni: DniSchema,
+});
+
 export const SeasonInputSchema = z
   .strictObject({
     name: texto(3, 120),
@@ -329,6 +347,7 @@ export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 export type RecoverAdminInput = z.infer<typeof RecoverAdminSchema>;
 export type PatrolLoginInput = z.infer<typeof PatrolLoginSchema>;
 export type ArcherInput = z.infer<typeof ArcherInputSchema>;
+export type ArcherSelfRegisterInput = z.infer<typeof ArcherSelfRegisterSchema>;
 export type SeasonInput = z.infer<typeof SeasonInputSchema>;
 export type TargetConfigInput = z.infer<typeof TargetConfigSchema>;
 export type CreateTournamentInput = z.infer<typeof CreateTournamentSchema>;

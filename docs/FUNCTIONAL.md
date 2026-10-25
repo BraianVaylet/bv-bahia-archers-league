@@ -86,16 +86,15 @@ Sin autenticación. Optimizada para móvil y para carga rápida.
 ### 5.2 Sección Ranking
 Ranking de la temporada activa, **separado por categoría**, con selector de temporada para ver años anteriores.
 
-Dos modos, conmutables:
+> **Actualizado el 2026-10-24.** El ranking «por posición» (puntos 5-4-3-2-1) se retiró. Queda un solo modo: **mejor de N** — el promedio de los `N` mejores porcentajes de la temporada, con `N` (`LEAGUE_BEST_N`) configurable por el club, nunca un «2» fijo en la pantalla. Ver `docs/DOMAIN_WA.md` §9 y `docs/BITACORA.md`, esa fecha.
 
-| Modo | Ordena por | Muestra |
-|---|---|---|
-| **Por posición** | Puntos de liga acumulados (5-4-3-2-1 por torneo) | Puntos, torneos disputados, desglose de podios |
-| **Por mejor puntaje** | Mejor puntaje normalizado de la temporada | %, puntaje bruto, torneo donde lo logró |
+Muestra, por arquero: el promedio de «mejor de N», el mejor puntaje suelto de la temporada (% y bruto, con el torneo donde ocurrió — es el récord personal, aunque ya no ordene nada), y cuántos torneos disputó.
 
-Solo figuran arqueros con **≥ 2 torneos publicados** en la temporada. Se muestra un aviso explicando el requisito, y una lista aparte de "aún no clasifican" para que nadie crea que se perdió su resultado.
+Solo figuran arqueros con **≥ N torneos publicados** en la temporada. Se muestra un aviso explicando el requisito, y una lista aparte de "aún no clasifican" para que nadie crea que se perdió su resultado.
 
 Al tocar un arquero se navega a su ficha (§5.4).
+
+> **Pendiente (`BE-21`/`FE-28`, bloqueadas por nada ya — el dato de `sex` existe desde `BE-19`):** el ranking va a sumar pestañas **General / Femenino / Masculino**, cada una con su propia numeración — no es el general filtrado, es una pool aparte (ver `docs/DOMAIN_WA.md` §9, `sortStandingsByGender`). Un arquero sin `sex` cargado entra al general igual que cualquiera, y no entra a ninguna de las dos vistas por sexo.
 
 ### 5.3 Sección Listado de torneos
 Torneos **publicados** y **en proceso**, ordenados por fecha descendente.
@@ -106,6 +105,16 @@ Al entrar a un torneo:
 
 ### 5.4 Sección Arquero (ficha)
 Estadísticas históricas del arquero: torneos disputados, mejor y peor puntaje (bruto y %), acumulados de `X`, `10` y `M`, evolución torneo a torneo, y su posición en los rankings de cada temporada.
+
+### 5.5 Alta de arquero (autoregistro) — `2026-10-24`
+
+Formulario público, sin sesión, accesible desde la Introducción (§5.1). Pide nombre, apellido, DNI, sexo (femenino/masculino) y categoría — incluida `principiantes`.
+
+**No inscribe a nada.** El arquero queda `pendiente` de aprobación — no aparece en el padrón que el admin usa para armar un torneo (`BE-22` lo revisa y aprueba o rechaza, desde WAFA). La pantalla lo dice explícitamente al confirmar: «tu alta quedó pendiente de que el club la revise», nunca «ya estás anotado».
+
+Un DNI que ya existe en el padrón devuelve un error, pero **sin decir con qué nombre está cargado** — el formulario no puede volverse una forma de averiguar si una persona concreta ya está en la liga.
+
+Es la **primera ruta pública que escribe**, no sólo lee. Comparte el límite de `RATE_LIMIT_PUBLIC` con el resto de `/api/public/*`. Ver `docs/SECURITY.md` §16.
 
 ---
 

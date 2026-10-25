@@ -513,7 +513,8 @@ _(Hecho. `ArcherInputSchema.sex`/`.dni` **opcionales** —no obligatorios como d
 - `archerRepo.list` (la que alimenta el wizard de `FE-11` para elegir participantes) **excluye por defecto** a los `pendiente` — no se puede sumar a un torneo un arquero sin aprobar.
 - `db:reconcile` recalcula `standings` con el `sex` vigente de cada arquero, sin `leaguePoints` ni `podiums`.
 
-### `[ ] BE-20` · Alta pública de arqueros desde la landing (queda `pendiente`)
+### `[x] BE-20` · Alta pública de arqueros desde la landing (queda `pendiente`)
+_(Hecho. Encontró y corrigió un bug latente en `middleware/cache.ts`: `publicCache` le agregaba `Cache-Control`/`ETag` a **cualquier** respuesta 200 de `/api/public/*`, sin mirar el método — hasta ahora esa ruta sólo tenía GETs, así que nunca importó. Se lo acotó a `GET` antes de agregar el primer POST. La respuesta nunca devuelve `dni` ni `registrationStatus`, ni siquiera el del propio request — se actualizó `docs/SECURITY.md` §11 y se agregó §15 documentando la superficie nueva. `docs/FUNCTIONAL.md` §5.2 y `docs/TESTING.md` §4.8 estaban desactualizados desde `SH-9` —seguían describiendo el modo "por posición" retirado— y se corrigieron de paso.)_
 **Objetivo:** cualquiera puede inscribirse al padrón sin sesión; el registro **no** lo hace usable todavía (decisión 7).
 **Cómo:** escribir primero la sección nueva de `FUNCTIONAL.md` §5 (flujo de alta pública) y la entrada correspondiente en `SECURITY.md` (es la primera ruta pública que **escribe**, no sólo lee — documentar qué la distingue de `/api/public/*` existente).
 **Archivos:** `packages/api/src/routes/publico.ts`, `packages/shared/src/schemas.ts` (`ArcherSelfRegisterSchema`)

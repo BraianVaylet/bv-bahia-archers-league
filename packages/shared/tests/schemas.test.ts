@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AdminLoginSchema,
   ArcherInputSchema,
+  ArcherSelfRegisterSchema,
   ChangePasswordSchema,
   CreateTournamentSchema,
   MAX_SIGNATURE_BYTES,
@@ -577,6 +578,44 @@ describe('ArcherInputSchema', () => {
       ).toBe(false);
     },
   );
+});
+
+describe('ArcherSelfRegisterSchema', () => {
+  const valido = {
+    firstName: 'Juan',
+    lastName: 'Pérez',
+    category: 'razo',
+    sex: 'masculino',
+    dni: '30123456',
+  } as const;
+
+  it('acepta un alta completa', () => {
+    expect(ArcherSelfRegisterSchema.safeParse(valido).success).toBe(true);
+  });
+
+  // A diferencia de ArcherInputSchema (alta del admin), acá son obligatorios.
+  it.each(['sex', 'dni'] as const)('rechaza sin %s — acá es obligatorio', (campo) => {
+    const { [campo]: _omitido, ...sinCampo } = valido;
+    expect(ArcherSelfRegisterSchema.safeParse(sinCampo).success).toBe(false);
+  });
+
+  it('rechaza un DNI mal formado', () => {
+    expect(ArcherSelfRegisterSchema.safeParse({ ...valido, dni: '30.123.456' }).success).toBe(
+      false,
+    );
+  });
+
+  // Es la razón de ser del .strict() acá: quien se autoregistra no puede
+  // decidir su propio estado de aprobación.
+  it('rechaza `registrationStatus`: nadie se autoaprueba', () => {
+    expect(
+      ArcherSelfRegisterSchema.safeParse({ ...valido, registrationStatus: 'aprobado' }).success,
+    ).toBe(false);
+  });
+
+  it('rechaza una propiedad extra cualquiera', () => {
+    expect(ArcherSelfRegisterSchema.safeParse({ ...valido, isAdmin: true }).success).toBe(false);
+  });
 });
 
 describe('SeasonInputSchema', () => {

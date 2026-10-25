@@ -14,6 +14,31 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-25 · Alta pública de arqueros (BE-20)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado. Primera ruta pública que escribe; `/security-review` corrió sobre el diff completo de la fase antes de este commit.
+
+### `publicCache` nunca había visto un método que no fuera GET
+
+`middleware/cache.ts` le agrega `Cache-Control: public, max-age=60` y un `ETag` a toda respuesta 200 de `/api/public/*`, sin filtrar por método — porque hasta ahora esa ruta **sólo tenía GETs**, así que la pregunta nunca se planteó. Al agregar el primer `POST`, la respuesta de crear un arquero habría salido con cabeceras de caché pública: un intermediario podría haber servido de nuevo la respuesta de **otra** creación para un request posterior. Se acotó el middleware a `c.req.method === 'GET'` antes de escribir la ruta nueva, no después.
+
+Es el mismo tipo de hallazgo que `SH-8` tuvo con `StakeMapSchema` y que `BE-19` no tuvo: código que nadie escribió mal, que simplemente nunca se topó con el caso que esta tarea introduce por primera vez. `pnpm typecheck` no lo iba a encontrar —es una cabecera HTTP, no un tipo— así que quedó para la revisión manual del endpoint nuevo.
+
+### La respuesta nunca repite `dni`, ni el que el mismo cliente mandó
+
+Decisión explícita, documentada en `docs/SECURITY.md` §15: ninguna ruta sin sesión devuelve `dni` ni `registrationStatus`, **tampoco** la de crear, aunque el dato sea el que el propio cliente acaba de escribir en el formulario. Es más estricto que lo mínimo necesario —nadie más que ese cliente podría leer esa respuesta en el momento— pero mantiene la regla sin excepciones: no hay un "sólo esta vez" que alguien tenga que recordar al tocar este archivo en seis meses.
+
+### Documentación que `SH-9` había dejado desactualizada
+
+`docs/FUNCTIONAL.md` §5.2 y `docs/TESTING.md` §4.8 seguían describiendo el ranking «por posición» retirado hace dos commits. No es parte del alcance de `BE-20`, pero tocar `FUNCTIONAL.md` §5 para documentar el alta pública exigía pasar por esa sección, y dejarla mintiendo al lado de la sección nueva era peor que corregirla de paso.
+
+### Deuda / lo que sigue
+
+- `FE-27`: el formulario de la landing todavía no existe. El endpoint está, probado, pero nadie puede llegar a él sin escribir el `curl` a mano.
+- `BE-22`: la cola de aprobación (`GET /admin/archers?status=pendiente` ya funciona desde `BE-19`; falta `approve`/`reject`) es lo único que saca a un arquero de `pendiente`.
+
+---
+
 ## 2026-10-24 · Sexo y DNI reales en el padrón (BE-19)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado — backend únicamente: la base ya guarda y propaga `sex`/`dni`, pero ninguna pantalla los pide todavía (`FE-29`) ni hay alta pública (`BE-20`).

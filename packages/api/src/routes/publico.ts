@@ -6,6 +6,7 @@
  */
 
 import {
+  ArcherSelfRegisterSchema,
   type ArcherStanding,
   bestNAvgPct,
   distribucionDeModalidades,
@@ -19,10 +20,11 @@ import { env } from '../env.js';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { publicCache } from '../middleware/cache.js';
-import { parseQuery } from '../middleware/validate.js';
+import { parseJsonBody, parseQuery } from '../middleware/validate.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as standingRepo from '../repositories/standingRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import * as archerService from '../services/archerService.js';
 
 const RankingQuery = z.strictObject({
   seasonId: ObjectIdSchema,
@@ -30,6 +32,28 @@ const RankingQuery = z.strictObject({
 
 export const publico = new Hono()
   .use('*', publicCache({ maxAge: 60 }))
+
+  /**
+   * Autoregistro público (`BE-20`, `docs/SECURITY.md` §15).
+   *
+   * Nace `pendiente`: no es inscripción a nada, es un pedido de alta que un
+   * admin tiene que aprobar desde WAFA (`BE-22`) antes de que sirva para algo.
+   * La respuesta nunca incluye `dni` ni `registrationStatus` — ninguna ruta
+   * sin sesión los devuelve, ni siquiera el del propio request.
+   */
+  .post('/archers', async (c) => {
+    const input = await parseJsonBody(c, ArcherSelfRegisterSchema);
+    const archer = await archerService.registerPublic(input);
+
+    return c.json({
+      archer: {
+        id: archer.id,
+        firstName: archer.firstName,
+        lastName: archer.lastName,
+        category: archer.category,
+      },
+    });
+  })
 
   .get('/seasons', async (c) => {
     const docs = await seasons().find({}).sort({ startsAt: -1 }).toArray();

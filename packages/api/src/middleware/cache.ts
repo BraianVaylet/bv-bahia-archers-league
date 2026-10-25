@@ -28,7 +28,10 @@ export const publicCache = (options: CacheOptions): MiddlewareHandler => {
   return async (c, next) => {
     await next();
 
-    if (c.res.status !== 200) return;
+    // Sólo GET: desde `BE-20`, `/api/public/*` tiene una ruta que escribe.
+    // Cachear la respuesta de una creación la deja servible de nuevo por un
+    // intermediario, que es exactamente lo que no tiene que pasar.
+    if (c.req.method !== 'GET' || c.res.status !== 200) return;
 
     const cuerpo = await c.res.clone().text();
     const etag = `W/"${createHash('sha256').update(cuerpo).digest('base64url').slice(0, 27)}"`;

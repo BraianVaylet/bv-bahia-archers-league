@@ -208,8 +208,16 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 
 ### 4.8 Público
 - Un torneo no publicado **no** expone puntajes.
-- El ranking excluye a los arqueros con menos de 2 torneos.
+- El ranking excluye a los arqueros con menos de `bestN` torneos (`LEAGUE_BEST_N`, default 2).
 - Headers de caché presentes.
+
+### 4.9 Alta pública de arqueros (`BE-20`)
+- Alta válida → 200, el arquero queda `registrationStatus: 'pendiente'`.
+- No aparece en `archerRepo.list` (el que alimenta el wizard de torneo) hasta que se aprueba.
+- DNI repetido → 409 `ARCHER_DNI_DUPLICATE`, **sin mencionar el nombre** con el que ese DNI ya está cargado.
+- Un cuerpo con `registrationStatus: 'aprobado'` o cualquier propiedad extra se rechaza por el `.strict()` — quien se autoregistra no puede autoaprobarse.
+- Un cuerpo sin `sex` o sin `dni` se rechaza: a diferencia del alta del admin, acá son obligatorios desde el vamos.
+- Comparte `RATE_LIMIT_PUBLIC` con el resto de `/api/public/*`.
 
 ---
 

@@ -362,6 +362,85 @@ describe('arqueros', () => {
   });
 });
 
+// ── BE-20 · Alta pública de arqueros ─────────────────────────────────────────
+
+/**
+ * La primera ruta pública que escribe. Sin sesión, nace `pendiente`.
+ * Ver `docs/SECURITY.md` §15 · `docs/FUNCTIONAL.md` §5.5.
+ */
+describe('alta pública de arqueros', () => {
+  const alta = {
+    firstName: 'Ana',
+    lastName: 'Pública',
+    category: 'razo',
+    sex: 'femenino',
+    dni: '30999999',
+  };
+
+  it('crea un arquero pendiente, sin sesión', async () => {
+    const res = await cliente().post('/api/public/archers', alta);
+    expect(res.status).toBe(200);
+
+    const doc = await archers().findOne({ dni: '30999999' });
+    expect(doc?.registrationStatus).toBe('pendiente');
+  });
+
+  it('la respuesta no incluye dni ni registrationStatus', async () => {
+    const res = await cliente().post('/api/public/archers', alta);
+    const body = (await res.json()) as { archer: Record<string, unknown> };
+
+    expect(body.archer.dni).toBeUndefined();
+    expect(body.archer.registrationStatus).toBeUndefined();
+    expect(body.archer.firstName).toBe('Ana');
+  });
+
+  it('no aparece en el padrón que alimenta el wizard de torneo', async () => {
+    await cliente().post('/api/public/archers', alta);
+
+    const c = await adminListo();
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { lastName: string }[];
+    };
+    expect(lista.find((a) => a.lastName === 'Pública')).toBeUndefined();
+  });
+
+  it('no permite cachear la respuesta de una creación', async () => {
+    const res = await cliente().post('/api/public/archers', { ...alta, dni: '30999998' });
+    expect(res.headers.get('cache-control')).toBeNull();
+  });
+
+  it('un DNI repetido devuelve 409 sin filtrar el nombre con el que ya está cargado', async () => {
+    await cliente().post('/api/public/archers', alta);
+    const res = await cliente().post('/api/public/archers', {
+      ...alta,
+      firstName: 'Otra',
+      lastName: 'Persona',
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('ARCHER_DNI_DUPLICATE');
+    expect(body.error.message).not.toMatch(/Ana|Pública/);
+  });
+
+  it('nadie se autoaprueba: registrationStatus en el body se rechaza', async () => {
+    const res = await cliente().post('/api/public/archers', {
+      ...alta,
+      dni: '30999997',
+      registrationStatus: 'aprobado',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rechaza un alta sin sexo o sin DNI — acá son obligatorios', async () => {
+    const { sex: _sex, ...sinSexo } = alta;
+    expect((await cliente().post('/api/public/archers', sinSexo)).status).toBe(400);
+
+    const { dni: _dni, ...sinDni } = alta;
+    expect((await cliente().post('/api/public/archers', sinDni)).status).toBe(400);
+  });
+});
+
 // ── BE-5 · Creación de torneo ────────────────────────────────────────────────
 
 /**

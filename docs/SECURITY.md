@@ -257,10 +257,12 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains    (solo producci
 
 PII mínima **por diseño**:
 
-- De los arqueros: nombre, apellido y categoría. Nada más.
-- **Sin** emails, teléfonos, DNI, direcciones ni fechas de nacimiento.
+- De los arqueros: nombre, apellido, categoría, sexo y DNI.
+- **Sin** emails, teléfonos, direcciones ni fechas de nacimiento.
 - Las firmas son imágenes de trazo, no datos biométricos identificatorios.
 - No hay cuentas de usuario para los arqueros.
+
+> **Ampliado el 2026-10-24.** `sexo` y `dni` se agregaron para el ranking por sexo (`SH-10`) y para poder deduplicar altas del autoregistro público (§15) sin depender de nombre y apellido, que no son únicos. Son **opcionales** —el padrón anterior no los tiene— y nunca se inventan. El `dni` **nunca sale de una ruta sin sesión**: sólo lo devuelven los endpoints de `/api/admin/*`. Los endpoints de `/api/public/*` (landing) exponen `sexo` —es lo que alimenta el ranking por sexo, que es público por diseño— pero no `dni` ni `registrationStatus`.
 
 Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en producción se responden sin stack trace; se loguean con un `requestId` correlacionable.
 
@@ -340,3 +342,15 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - **`aikido:scan`** después de generar código nuevo.
 - Este checklist se ejecuta completo antes de cada release.
 - Cualquier desviación de un control de este documento se discute y se documenta **antes** de implementarse, nunca después.
+
+---
+
+## 15. Alta pública de arqueros — la primera ruta sin sesión que escribe
+
+`POST /api/public/archers` (`BE-20`, `docs/FUNCTIONAL.md` §5.5). Hasta este cambio, todo `/api/public/*` era de **sólo lectura**: el peor caso de un bug ahí era mostrar mal un dato público. Una ruta que escribe sin sesión es una superficie distinta, y se la trata como tal:
+
+- **Nunca queda usable de inmediato.** Nace `registrationStatus: 'pendiente'` (decisión 7, `ACTION_PLAN.md` Fase 8) y no entra al padrón que alimenta el wizard de torneo (`archerRepo.list` filtra por `'aprobado'` salvo que se pida lo contrario) hasta que un admin la aprueba desde WAFA (`BE-22`). El peor abuso posible —un bot creando cientos de arqueros falsos— no contamina ningún torneo real: queda en una cola que el admin revisa, no en producción.
+- **`.strict()` impide autoaprobarse.** El cuerpo acepta exactamente `{ firstName, lastName, dni, sex, category }`. Un request con `registrationStatus: 'aprobado'` o `isAdmin: true` se rechaza antes de llegar al servicio — no hay una rama de código que decida "confío en este campo si viene"; Zod lo descarta estructuralmente.
+- **El DNI duplicado no es un oráculo.** La respuesta es `409 ARCHER_DNI_DUPLICATE` sin mencionar el nombre con el que ese DNI ya está cargado. Sin esto, el formulario serviría para confirmar si una persona puntual —conociendo su DNI— ya está en el padrón de la liga, lo que no es información que el club decidió hacer pública.
+- **Rate limit compartido.** Usa `RATE_LIMIT_PUBLIC` como cualquier otra ruta de `/api/public/*` (`middleware/rateLimit.ts`, aplicado por prefijo en `app.ts`). No tiene un límite propio más estricto: se decidió no agregar uno porque el freno real contra abuso en volumen es la cola de aprobación manual, no el rate limit.
+- **Sin caché.** `publicCache` (que agrega `Cache-Control`/`ETag` a `/api/public/*`) está escrito para GETs idempotentes; se lo acotó a no tocar un método que no sea `GET`, así una respuesta de creación nunca queda con cabeceras de caché que invitarían a un intermediario a servirla de nuevo.
