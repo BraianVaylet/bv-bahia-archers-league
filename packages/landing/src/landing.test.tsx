@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
+import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
@@ -633,6 +634,77 @@ describe('ArcherPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró.');
     expect(screen.getByText('Volver al ranking')).toBeDefined();
+  });
+});
+
+// ── FE-27 · Alta pública de arquero ──────────────────────────────────────────
+
+/**
+ * Primera pantalla de la landing que escribe. No inscribe a nada: el
+ * autoregistro queda `pendiente` de que el club lo apruebe (`BE-20`/`BE-22`).
+ */
+describe('ArcherRegisterPage', () => {
+  const renderAlta = () => renderEn(<ArcherRegisterPage />, '/alta', '/alta');
+
+  const completar = () => {
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Pérez' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30123456' } });
+    fireEvent.click(screen.getByLabelText('Femenino'));
+  };
+
+  it('ofrece la categoría principiantes, con su etiqueta corta', () => {
+    renderAlta();
+    expect(screen.getByRole('option', { name: 'Iniciación' })).toBeDefined();
+  });
+
+  it('no manda nada al servidor si falta completar algo', async () => {
+    renderAlta();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByRole('alert')).toBeDefined();
+    expect(llamadas.some((u) => u.includes('/archers'))).toBe(false);
+  });
+
+  it('el alta exitosa dice que queda PENDIENTE, nunca que ya está anotado', async () => {
+    servidor({
+      '/api/public/archers': () => ({
+        json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+      }),
+    });
+    renderAlta();
+    completar();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const confirmacion = await screen.findByRole('status');
+    expect(confirmacion).toHaveTextContent(/pendiente/i);
+    expect(confirmacion).toHaveTextContent('Pérez, Ana');
+    expect(confirmacion.textContent ?? '').not.toMatch(/ya está(s)? anotad[oa]/i);
+  });
+
+  // El error del servidor se muestra tal cual, sin reinterpretarlo: es el
+  // caso del DNI repetido, que no dice con qué nombre ya está cargado.
+  it('un error del servidor se muestra tal cual lo manda', async () => {
+    servidor({
+      '/api/public/archers': () => ({
+        status: 409,
+        json: {
+          error: { code: 'ARCHER_DNI_DUPLICATE', message: 'Ya existe un arquero con ese DNI.' },
+        },
+      }),
+    });
+    renderAlta();
+    completar();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un arquero con ese DNI.');
+  });
+
+  it('el DNI filtra letras al tipear, y corta en 8 dígitos', () => {
+    renderAlta();
+    const dni = screen.getByLabelText('DNI') as HTMLInputElement;
+    fireEvent.change(dni, { target: { value: '30ab123cd456xx99' } });
+    expect(dni.value).toBe('30123456');
   });
 });
 

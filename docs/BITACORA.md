@@ -14,6 +14,25 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-25 · Landing: alta de arquero, queda pendiente (FE-27)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado. Primera pantalla de la landing que escribe; dos bugs reales sólo aparecieron al probar el formulario en el navegador, no corriendo los tests.
+
+### El `maxLength` nativo pelea con el filtro de `onChange`
+
+El campo DNI tenía `maxLength={8}` y un `onChange` que filtra letras con `/\D/g`. El atributo nativo trunca el valor **crudo** antes de que React vea el cambio, así que tipear `"30ab123cd456xx99"` llegaba al handler ya cortado en los primeros 8 caracteres crudos (`"30ab123c"`), y filtrar las letras de eso deja sólo 5 dígitos — no los 8 esperados. Encontrado tipeando en el navegador con `javascript_tool`, no con un test: el test original tipeaba dígitos limpios y no lo habría atrapado. Se sacó el `maxLength`; el tope de 8 lo pone el `.slice(0, 8)` sobre el valor ya filtrado, y se agregó un test con letras intercaladas.
+
+### El primer mensaje de Zod que llega a una pantalla, sin traducir
+
+`texto()` y `SexSchema`, en `packages/shared/src/schemas.ts`, nunca habían tenido mensajes propios — nadie lo había notado porque hasta ahora ningún formulario mostraba `issue.message` directo al usuario. `ArcherInputSchema` ya los usa, así que el admin también se beneficia del arreglo, no sólo el autoregistro. El fix fue agregar mensajes en español a los dos; el test para el caso de sexo inválido se escribió dos veces: la primera versión comprobaba que el mensaje incluyera `femenino`/`masculino`, pero esas son las mismas palabras en inglés y en español, así que pasaba aunque el armazón del mensaje siguiera en inglés (`"Invalid option: expected one of..."`). Se corrigió para verificar la *ausencia* de ese armazón, no la presencia de palabras del dominio.
+
+### Deuda / lo que sigue
+
+- `FE-29` (sexo/DNI en el alta de WAFA), `FE-30` (cola de aprobación) y `FE-28` (pestañas de sexo en el ranking) siguen siendo lo único pendiente de la Fase 8, más `TEST-3` (E2E).
+- El hallazgo de los mensajes de Zod probablemente valga una pasada sobre el resto de los schemas de `packages/shared/src/schemas.ts` el día que otro formulario empiece a mostrar `issue.message` directo — no se hizo acá porque ningún otro lo hace todavía.
+
+---
+
 ## 2026-10-25 · Ranking público por sexo: General/Femenino/Masculino (BE-21)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado — con la misma clase de corrección forzada que ya aparece dos veces en esta fase (`SH-9`, `BE-20`): cambiar un contrato público rompe a quien ya lo consume, y hay que arreglarlo en el mismo cambio.

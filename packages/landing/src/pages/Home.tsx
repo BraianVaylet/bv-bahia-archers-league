@@ -76,15 +76,26 @@ export function HomePage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <Link to="/ranking" className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}>
           <h2 className="font-semibold">Ranking de la liga</h2>
-          <p className="text-sm text-[var(--ink-muted)]">
-            Por categoría, por puntos y por mejor porcentaje.
-          </p>
+          <p className="text-sm text-[var(--ink-muted)]">Por categoría, mejor de N torneos.</p>
         </Link>
 
         <Link to="/torneos" className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}>
           <h2 className="font-semibold">Torneos</h2>
           <p className="text-sm text-[var(--ink-muted)]">
             Fechas disputadas, podios y estadísticas.
+          </p>
+        </Link>
+
+        {/* Alta pública (`FE-27`): no inscribe a nada, queda pendiente de que
+            el club la apruebe. Va acá y no en el header: es una acción puntual,
+            no un destino que alguien visite seguido. */}
+        <Link
+          to="/alta"
+          className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block sm:col-span-2')}
+        >
+          <h2 className="font-semibold">Sumarte al padrón</h2>
+          <p className="text-sm text-[var(--ink-muted)]">
+            Dejá tus datos. El club revisa cada alta antes de habilitarla.
           </p>
         </Link>
       </div>

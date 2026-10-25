@@ -546,11 +546,19 @@ _(Hecho. `approveArcher`/`rejectArcher` en `archerService.ts`, mismo patrón que
 - Rechazar lo borra del padrón; intentar rechazar uno que ya participó (no debería poder pasar, pero se verifica) devuelve `ARCHER_IN_USE`, no un borrado silencioso.
 - Las dos acciones quedan en el audit log con `actorId` del admin.
 
-### `[ ] FE-27` · Landing: alta de arquero (queda pendiente de aprobación)
+### `[x] FE-27` · Landing: alta de arquero (queda pendiente de aprobación)
 **Objetivo:** el formulario que pide el brief, en la landing, sin autenticación.
 **Archivos:** `packages/landing/src/pages/ArcherRegister.tsx`, ruta en `App.tsx`, acceso desde `Home.tsx`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5 (la sección que escribe `BE-20`) · decisión 7
 **DoD:** nombre, apellido, DNI, sexo (femenino/masculino) y categoría — incluida `principiantes` — validados en cliente y servidor · errores del servidor (DNI duplicado) se muestran tal cual, sin reinterpretarlos · la confirmación dice explícitamente que **queda pendiente de que el club lo apruebe** — no "ya estás anotado", porque todavía no lo está.
+
+_(Hecho. La validación del cliente usa `ArcherSelfRegisterSchema` de `@bal/shared` tal cual —no una copia a mano— así que cliente y servidor nunca pueden desalinearse. `lib/api.ts` ganó `post()`: la landing no tenía hasta ahora ninguna mutación, así que no existía el envío de CSRF (`x-csrf-token` desde la cookie `bal_csrf`, pidiéndola primero si falta) que el middleware exige en todo `/api/*`.
+
+Dos hallazgos reales, probando el formulario en el navegador, no sólo con tests:
+1. El campo DNI tenía `maxLength={8}` **y** un `onChange` que filtra letras; el atributo nativo trunca el valor crudo antes de que el filtro corra, así que tipear algo con letras intercaladas (`"30ab123cd456"`) perdía dígitos de más. Se sacó el `maxLength`; el tope de 8 lo pone el `.slice(0, 8)` sobre el valor ya filtrado.
+2. Un campo vacío o un sexo inválido mostraban el mensaje default de Zod, en inglés y sin mencionar el campo (`"Too small: expected string to have >=1 characters"`). Es la primera pantalla del proyecto que muestra un mensaje de Zod directo en una pantalla, y ahí se notó que `texto()` y `SexSchema` —en `packages/shared/src/schemas.ts`, usados también por `ArcherInputSchema`— nunca habían tenido mensajes propios. Se les agregaron, en español; tests en `schemas.test.ts` confirman que no es el armazón en inglés de Zod, no sólo que el mensaje contenga alguna palabra del dominio.
+
+5 tests nuevos en `landing.test.tsx`. `pnpm -r typecheck`, `pnpm -r test` (1307 tests) y `pnpm lint` verdes en los cinco paquetes. `/security-review` sobre el diff: sin hallazgos — no hay ruta ni persistencia nueva, sólo el formulario, el cliente CSRF y los mensajes de Zod.)_
 
 ### `[ ] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
 > **Dos de tres partes ya hechas.** «Quitar puntos de liga» (`SH-9`): `torneo.ts`, `Publish.tsx`, los dos `Ranking.tsx`, `Tournaments.tsx` y `Archer.tsx` ya no mencionan puntos de liga. «Leer la respuesta nueva» (`BE-21`): los dos `Ranking.tsx` ya leen `categoria.general.{ranked,notYetEligible}` — lo exigió el cambio de forma de la respuesta, no se podía dejar roto hasta esta tarea. Lo que queda de verdad: **las pestañas General/Femenino/Masculino** en la UI (ahora mismo `femenino`/`masculino` llegan en la respuesta y no se usan para nada).

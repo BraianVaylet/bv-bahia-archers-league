@@ -23,8 +23,20 @@ import { BOW_CATEGORIES, MODALITIES, SEXES, UNITS } from './domain.js';
 /** `ObjectId` de Mongo en hexadecimal. Se valida antes de construir uno. */
 export const ObjectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, 'Identificador inválido.');
 
-/** Texto de una línea: recortado, no vacío, con tope. */
-const texto = (min: number, max: number) => z.string().trim().min(min).max(max);
+/**
+ * Texto de una línea: recortado, no vacío, con tope.
+ *
+ * Mensajes propios, no el default de Zod: sin esto, un campo vacío devuelve
+ * algo como «Too small: expected string to have >=1 characters» — en inglés,
+ * y sin decir qué campo. `FE-27` fue el primer lugar que mostró el mensaje de
+ * un error de Zod directo en una pantalla, y ahí se notó.
+ */
+const texto = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min, min <= 1 ? 'No puede quedar vacío.' : `Tiene que tener al menos ${min} caracteres.`)
+    .max(max, `No puede tener más de ${max} caracteres.`);
 
 export const MAX_TARGETS = 60;
 export const MAX_PARTICIPANTS = 200;
@@ -44,7 +56,7 @@ export const MIN_PASSWORD_LENGTH = 12;
 
 const CategorySchema = z.enum(BOW_CATEGORIES);
 const ModalitySchema = z.enum(MODALITIES);
-const SexSchema = z.enum(SEXES);
+const SexSchema = z.enum(SEXES, 'Elegí femenino o masculino.');
 
 /** DNI argentino: 7 u 8 dígitos, sin puntos. */
 const DniSchema = z
