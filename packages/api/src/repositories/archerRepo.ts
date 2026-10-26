@@ -33,7 +33,10 @@ export function list(options: ListOptions = {}): Promise<ArcherDoc[]> {
     // `escapeRegExp` no hace falta porque se escapan todos los metacaracteres:
     // el término viene del usuario y una regex maliciosa es un vector de ReDoS.
     const termino = searchKey(options.query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filtro.searchKey = { $regex: termino };
+    // Por nombre o por DNI (`FE-29`): el mismo término, sin que el admin tenga
+    // que elegir en qué campo busca. `$regex` sobre `dni` no explota con los
+    // documentos viejos en `null` — simplemente no matchea, no es un string.
+    filtro.$or = [{ searchKey: { $regex: termino } }, { dni: { $regex: termino } }];
   }
 
   return archers().find(filtro).sort({ lastName: 1, firstName: 1 }).limit(500).toArray();

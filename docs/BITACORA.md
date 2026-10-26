@@ -14,6 +14,28 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · WAFA: sexo, DNI y búsqueda por DNI en el padrón (FE-29)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado.
+
+### El formulario vive adentro de `Archers.tsx`, no en un `ArcherForm.tsx` separado
+
+El plan listaba `{Archers,ArcherForm}.tsx` como si fueran dos archivos; `ArcherForm` siempre fue un componente local dentro de `Archers.tsx`. Se aprovechó para escribir el filtro de DNI bien desde el principio —sin `maxLength` nativo peleando con el `onChange`, el bug que `FE-27` encontró y corrigió en la landing— en vez de reintroducirlo acá y tener que volver a encontrarlo.
+
+### Ninguno de los dos campos bloquea el guardado
+
+Decisión 6 es explícita: el padrón viejo no se fuerza a completarse retroactivamente. El formulario pide sexo y DNI, pero `completo` —lo que habilita "Guardar"— sigue dependiendo sólo de nombre y apellido. El aviso en el listado (`profileIncomplete`, que ya traía `BE-19`) es el mecanismo real: se puso **a la vista** en cada fila, no detrás de un `<details>` como el de "por qué no se puede eliminar" —ese se consulta cuando hace falta, este es para escanear el padrón entero de un vistazo.
+
+### "Búsqueda por DNI" no estaba en los archivos del plan porque es de backend
+
+`archerRepo.list` sólo filtraba por `searchKey` (nombre y apellido armados en una clave normalizada). Se le agregó un `$or` contra `dni`, con el mismo término ya escapado que usaba `searchKey` — no hizo falta tocar la ruta ni el query schema, `q` ya existía desde antes. TDD: el test se escribió primero contra el comportamiento viejo, se lo vio devolver `[]` en rojo, y el fix fue una línea.
+
+### Deuda / lo que sigue
+
+- Con esto cierra todo `SH-8`..`FE-29`. Queda `FE-30` (cola de aprobación en WAFA), `FE-28` (pestañas de sexo en el ranking) y `TEST-3` (E2E) para terminar la Fase 8.
+
+---
+
 ## 2026-10-25 · Landing: alta de arquero, queda pendiente (FE-27)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado. Primera pantalla de la landing que escribe; dos bugs reales sólo aparecieron al probar el formulario en el navegador, no corriendo los tests.

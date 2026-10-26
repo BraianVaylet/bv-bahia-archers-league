@@ -324,6 +324,41 @@ describe('arqueros', () => {
     expect(lista.find((a) => a.firstName === 'Con')?.profileIncomplete).toBe(false);
   });
 
+  // ── FE-29 · búsqueda por DNI ─────────────────────────────────────────────
+
+  it('busca por DNI, no sólo por nombre', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Con',
+      lastName: 'Dni',
+      category: 'razo',
+      dni: '30123457',
+    });
+    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Dni', category: 'razo' });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers?q=30123457')).json()) as {
+      archers: { firstName: string }[];
+    };
+
+    expect(lista.map((a) => a.firstName)).toEqual(['Con']);
+  });
+
+  it('busca por un DNI parcial', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Con',
+      lastName: 'Dni',
+      category: 'razo',
+      dni: '30123457',
+    });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers?q=1234')).json()) as {
+      archers: { firstName: string }[];
+    };
+
+    expect(lista.map((a) => a.firstName)).toEqual(['Con']);
+  });
+
   /**
    * Todavía no existe el alta pública (`BE-20`): se simula insertando el
    * documento `pendiente` directo en Mongo, que es exactamente lo que hará

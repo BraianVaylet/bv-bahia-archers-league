@@ -571,10 +571,18 @@ Dos hallazgos reales, probando el formulario en el navegador, no sólo con tests
 - **Ficha de arquero** (landing `Archer.tsx`): se borra `<Dato etiqueta="Puntos de liga">` y el componente `<Podios>` con su conteo de 1º/2º/3º (decisión 3 incluyó borrar `podiums`, no sólo `leaguePoints`).
 **DoD:** ninguna pantalla de `app` ni de `landing` muestra la palabra «puntos» referida a liga · con `LEAGUE_BEST_N=3` el texto explicativo dice «tres mejores», no «dos» · `data-testid` de cada tarjeta de categoría sigue siendo estable para los tests E2E existentes.
 
-### `[ ] FE-29` · WAFA: sexo y DNI en el padrón
+### `[x] FE-29` · WAFA: sexo y DNI en el padrón
 **Archivos:** `packages/wafa/.../pages/{Archers,ArcherForm}.tsx` (`FE-12`)
 **Referencia:** decisión 6
 **DoD:** alta y edición piden sexo y DNI · el listado marca con un aviso a quién le falta completar alguno de los dos (arqueros viejos) · búsqueda por DNI además de por nombre.
+
+_(Hecho. No hay `ArcherForm.tsx` separado: el formulario vive dentro de `Archers.tsx` (`ArcherForm`, componente local), que es donde se agregó el radio de Sexo y el campo DNI —reusando el mismo filtro de dígitos sin `maxLength` nativo que `FE-27` tuvo que corregir, escrito bien desde el vamos acá. Ninguno de los dos bloquea el guardado si quedan en blanco: decisión 6 dice explícitamente que no se fuerza nada retroactivo, así que el `completo` que habilita "Guardar" sigue dependiendo sólo de nombre y apellido, igual que antes.
+
+El aviso de incompleto (`profileIncomplete`, que ya traía `BE-19`) se agregó **a la vista** en cada fila, no detrás de un `<details>` como el de "por qué no se puede eliminar": ese otro se consulta cuando hace falta, éste es para escanear el padrón entero y ver de un vistazo a quién le falta completar.
+
+"Búsqueda por DNI" no estaba en los archivos listados porque vive en el backend: `archerRepo.list` sólo filtraba por `searchKey` (nombre y apellido). Se le agregó un `$or` con el mismo término escapado contra `dni` — no hacía falta tocar `ListArchersQuery` ni la ruta, el parámetro `q` ya existía. Con TDD: el test se escribió primero, confirmado en rojo (devolvía `[]`), y el fix fue una línea.
+
+`pnpm -r typecheck`, `pnpm -r test` (1312 tests) y `pnpm lint` verdes en los cinco paquetes. Probado en el navegador contra un backend simulado con `fetch` stub (login, CSRF, listado y alta): el aviso aparece sólo en el arquero incompleto, el filtro de DNI corta en 8 dígitos limpios tipeando con letras intercaladas, y el body del POST llega con `sex`/`dni`. `/security-review` sobre el diff: sin hallazgos — misma clase que `BE-20`/`BE-21`/`FE-27`, ruta ya protegida por `requireAdmin()`, término de búsqueda ya venía escapado contra regex.)_
 
 ### `[ ] FE-30` · WAFA: cola de aprobación de altas pendientes
 **Objetivo:** pantalla para que el admin revise y decida sobre lo que llega de la landing.

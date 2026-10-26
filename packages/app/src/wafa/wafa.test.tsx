@@ -320,6 +320,9 @@ describe('ArchersPage', () => {
     firstName: 'Juan',
     lastName: 'Pérez',
     category: 'razo',
+    sex: null,
+    dni: null,
+    profileIncomplete: true,
     archived: false,
     participated: false,
     ...o,
@@ -479,7 +482,7 @@ describe('ArchersPage', () => {
     expect(await screen.findByText('El padrón está vacío.')).toBeDefined();
   });
 
-  it('crea un arquero', async () => {
+  it('crea un arquero, con sexo y DNI', async () => {
     listar([]);
     servidor({
       'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
@@ -491,12 +494,68 @@ describe('ArchersPage', () => {
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Gómez' } });
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'longbow' } });
+    fireEvent.click(screen.getByLabelText('Femenino'));
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
     await waitFor(() => {
       const alta = llamadas.find((l) => l.method === 'POST' && l.url.endsWith('/admin/archers'));
-      expect(alta?.body).toEqual({ firstName: 'Ana', lastName: 'Gómez', category: 'longbow' });
+      expect(alta?.body).toEqual({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        category: 'longbow',
+        sex: 'femenino',
+        dni: '30123456',
+      });
     });
+  });
+
+  // Decisión 6: el padrón viejo no se fuerza a completarse retroactivamente.
+  it('deja guardar sin sexo ni DNI', async () => {
+    listar([]);
+    servidor({
+      'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+      'POST /api/admin/archers': () => ({ status: 201, json: { archer: arquero() } }),
+    });
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo arquero' }));
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Gómez' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      const alta = llamadas.find((l) => l.method === 'POST' && l.url.endsWith('/admin/archers'));
+      expect(alta?.body).toEqual({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        category: 'razo',
+        sex: null,
+        dni: null,
+      });
+    });
+  });
+
+  it('el DNI filtra letras al tipear, y corta en 8 dígitos', async () => {
+    listar([]);
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo arquero' }));
+    const dni = screen.getByLabelText('DNI') as HTMLInputElement;
+    fireEvent.change(dni, { target: { value: '30ab123cd456xx99' } });
+
+    expect(dni.value).toBe('30123456');
+  });
+
+  it('marca con un aviso a quien le falta sexo o DNI', async () => {
+    listar([
+      arquero({ lastName: 'Pérez', profileIncomplete: true }),
+      arquero({ id: 'x2', lastName: 'Gómez', profileIncomplete: false }),
+    ]);
+    renderArqueros();
+
+    expect(await screen.findByTestId('arquero-Pérez')).toHaveTextContent(/falta.*sexo.*dni/i);
+    expect(screen.getByTestId('arquero-Gómez')).not.toHaveTextContent(/falta.*sexo.*dni/i);
   });
 
   it('editar manda PATCH al arquero, no crea uno nuevo', async () => {

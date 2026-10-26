@@ -9,7 +9,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
-import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
+import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO, SEXES, type Sex } from '@bal/shared';
 import {
   ChipCategoria,
   type Icono,
@@ -36,6 +36,10 @@ export interface ArcherRow {
   readonly firstName: string;
   readonly lastName: string;
   readonly category: BowCategory;
+  readonly sex: Sex | null;
+  readonly dni: string | null;
+  /** `true` si falta `sex` o `dni` (padrón viejo). Decisión 6: no se fuerza a completarlo. */
+  readonly profileIncomplete: boolean;
   readonly archived: boolean;
   /** Participó de algún torneo, así que **no se puede borrar**. */
   readonly participated: boolean;
@@ -48,9 +52,19 @@ interface Borrador {
   firstName: string;
   lastName: string;
   category: BowCategory;
+  sex: Sex | '';
+  dni: string;
 }
 
-const BORRADOR_VACIO: Borrador = { firstName: '', lastName: '', category: 'razo' };
+const BORRADOR_VACIO: Borrador = {
+  firstName: '',
+  lastName: '',
+  category: 'razo',
+  sex: '',
+  dni: '',
+};
+
+const ETIQUETA_DE_SEXO: Record<Sex, string> = { femenino: 'Femenino', masculino: 'Masculino' };
 
 // ── Formulario ───────────────────────────────────────────────────────────────
 
@@ -117,6 +131,53 @@ function ArcherForm({
           ))}
         </select>
       </div>
+
+      {/*
+        Sexo y DNI (`FE-29`), opcionales: decisión 6 — el padrón viejo no se
+        fuerza a completarse, así que acá tampoco se bloquea el guardado si
+        quedan en blanco. El aviso en el listado es lo que de verdad señala
+        a quién le falta, no esto.
+      */}
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-sm font-medium">Sexo</legend>
+        <div className="flex gap-2">
+          {SEXES.map((sexo) => (
+            <label
+              key={sexo}
+              className={cn(
+                'flex-1 min-h-[52px] flex items-center justify-center rounded-[var(--radius-md)] border cursor-pointer',
+                borrador.sex === sexo && 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold',
+              )}
+            >
+              <input
+                type="radio"
+                name="sexo"
+                value={sexo}
+                checked={borrador.sex === sexo}
+                onChange={() => setBorrador({ ...borrador, sex: sexo })}
+                className="sr-only"
+              />
+              {ETIQUETA_DE_SEXO[sexo]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/*
+        Sólo dígitos, filtrados al tipear. Sin `maxLength`: el atributo nativo
+        trunca el valor crudo antes de este `onChange`, así que con letras
+        intercaladas corta antes de filtrarlas (ver `FE-27`). El tope de 8 lo
+        pone el `.slice(0, 8)` sobre el valor ya filtrado.
+      */}
+      <Field
+        label="DNI"
+        type="text"
+        inputMode="numeric"
+        value={borrador.dni}
+        onChange={(e) =>
+          setBorrador({ ...borrador, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })
+        }
+      />
 
       {error && (
         <p role="alert" className="text-sm text-[var(--danger)]">
@@ -212,6 +273,19 @@ function Fila({
           ? 'Todavía no jugó ningún torneo'
           : `${arquero.tournamentCount} ${arquero.tournamentCount === 1 ? 'torneo jugado' : 'torneos jugados'}`}
       </p>
+
+      {/*
+        A la vista y no en un `<details>`: a diferencia del aviso de «por qué
+        no se puede eliminar» (que se consulta sólo cuando hace falta), éste
+        es para escanear el padrón de un vistazo y ver a quién le falta
+        completar —decisión 6, nadie lo fuerza, pero alguien tiene que verlo.
+      */}
+      {arquero.profileIncomplete && (
+        <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
+          <IconoAviso size={16} />
+          Falta completar sexo o DNI
+        </p>
+      )}
 
       {/* A iconos para que las tres acciones entren en un renglón sin empujar
           el nombre. El `aria-label` lleva el APELLIDO además del verbo: con
@@ -319,7 +393,13 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   const visibles = arqueros?.filter((a) => categoria === '' || a.category === categoria);
 
   const guardar = async (b: Borrador) => {
-    const cuerpo = { firstName: b.firstName, lastName: b.lastName, category: b.category };
+    const cuerpo = {
+      firstName: b.firstName,
+      lastName: b.lastName,
+      category: b.category,
+      sex: b.sex || null,
+      dni: b.dni.trim() || null,
+    };
     await (b.id ? api.patch(`/admin/archers/${b.id}`, cuerpo) : api.post('/admin/archers', cuerpo));
     setEditando(undefined);
     await cargar();
@@ -351,7 +431,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           type="search"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Apellido o nombre"
+          placeholder="Apellido, nombre o DNI"
         />
 
         {/* El filtro es del cliente y no del servidor: el padrón entero son
@@ -414,6 +494,8 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
                   firstName: a.firstName,
                   lastName: a.lastName,
                   category: a.category,
+                  sex: a.sex ?? '',
+                  dni: a.dni ?? '',
                 })
               }
               onArchivar={() => void accion(() => api.post(`/admin/archers/${a.id}/archive`))}
