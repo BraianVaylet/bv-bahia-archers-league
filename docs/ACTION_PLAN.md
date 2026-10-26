@@ -560,7 +560,7 @@ Dos hallazgos reales, probando el formulario en el navegador, no sólo con tests
 
 5 tests nuevos en `landing.test.tsx`. `pnpm -r typecheck`, `pnpm -r test` (1307 tests) y `pnpm lint` verdes en los cinco paquetes. `/security-review` sobre el diff: sin hallazgos — no hay ruta ni persistencia nueva, sólo el formulario, el cliente CSRF y los mensajes de Zod.)_
 
-### `[ ] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
+### `[x] FE-28` · Quitar puntos de liga de todas las pantallas; ranking con pestañas de sexo
 > **Dos de tres partes ya hechas.** «Quitar puntos de liga» (`SH-9`): `torneo.ts`, `Publish.tsx`, los dos `Ranking.tsx`, `Tournaments.tsx` y `Archer.tsx` ya no mencionan puntos de liga. «Leer la respuesta nueva» (`BE-21`): los dos `Ranking.tsx` ya leen `categoria.general.{ranked,notYetEligible}` — lo exigió el cambio de forma de la respuesta, no se podía dejar roto hasta esta tarea. Lo que queda de verdad: **las pestañas General/Femenino/Masculino** en la UI (ahora mismo `femenino`/`masculino` llegan en la respuesta y no se usan para nada).
 **Archivos:** `packages/landing/src/pages/{Ranking,Tournaments,Archer}.tsx`, `packages/app/src/wafa/pages/{Ranking,Publish}.tsx`, `packages/app/src/wafa/torneo.ts`
 **Referencia:** decisiones 3 y 5 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.2 (reescribir)
@@ -570,6 +570,14 @@ Dos hallazgos reales, probando el formulario en el navegador, no sólo con tests
 - **Vista previa de publicar** (WAFA `torneo.ts` + `Publish.tsx`): se borra la fila de «puntos que se aplicarían» (`+{f.leaguePoints}`); la vista previa de podios por categoría queda igual.
 - **Ficha de arquero** (landing `Archer.tsx`): se borra `<Dato etiqueta="Puntos de liga">` y el componente `<Podios>` con su conteo de 1º/2º/3º (decisión 3 incluyó borrar `podiums`, no sólo `leaguePoints`).
 **DoD:** ninguna pantalla de `app` ni de `landing` muestra la palabra «puntos» referida a liga · con `LEAGUE_BEST_N=3` el texto explicativo dice «tres mejores», no «dos» · `data-testid` de cada tarjeta de categoría sigue siendo estable para los tests E2E existentes.
+
+_(Hecho. Una sola tira de pestañas por pantalla —General/Femenino/Masculino, `role="tablist"`/`role="tab"`— arriba de todas las tarjetas de categoría, no una por tarjeta: se elige la vista una vez y aplica a las ocho. `c[vista]` reemplaza a `c.general` en ambos `Ranking.tsx`; el componente está duplicado entre landing y WAFA a propósito, misma razón que el resto del JSX de cada paquete (no comparten bundle). `data-testid` de cada tarjeta (`cat-${category}`) no se tocó: sigue siendo `c.category`, no depende de la vista.
+
+El DoD de "ninguna pantalla muestra «puntos» referida a liga" encontró un sobrante real que `SH-9` había dejado pasar: `Publish.tsx` todavía decía "los puntos que sumó cada arquero se recalculan" al despublicar un torneo —lenguaje del sistema por posición que ya no existe—, corregido a "el promedio de cada arquero se recalcula". El resto de los "puntos" que aparecían en `grep` (`Archer.tsx`, `Tournaments.tsx`, `torneo.ts`) son puntaje de arco o puntos de un gráfico, no puntos de liga; se verificaron uno por uno antes de tocar nada.
+
+Hallazgo no pedido por el plan pero necesario para que las pestañas sirvan de algo: `compartir()` en WAFA `Ranking.tsx` siempre armaba el texto con `c.general`, sin mirar qué pestaña estaba mostrando la pantalla — tocar "Compartir" en Femenino mandaba igual el ranking General por WhatsApp. Se corrigió para que use `c[vista]`, y el nombre de la vista se suma al de la temporada en el texto compartido (`textoDeRanking` es dominio puro de puntajes, no sabe de sexo, así que la etiqueta se arma antes de llamarlo, no dentro).
+
+`pnpm -r typecheck`, `pnpm -r test` (1327 tests) y `pnpm lint` verdes en los cinco paquetes. Probado en el navegador con un backend simulado en ambas apps: las tres pestañas muestran cada una su propio arquero, y "Compartir" en Femenino manda el texto de Femenino, no el de General. `/security-review` sobre el diff: sin hallazgos — puramente presentacional, sin ruta nueva, `vista` es una unión cerrada de tres literales, no una clave que llegue del usuario.)_
 
 ### `[x] FE-29` · WAFA: sexo y DNI en el padrón
 **Archivos:** `packages/wafa/.../pages/{Archers,ArcherForm}.tsx` (`FE-12`)

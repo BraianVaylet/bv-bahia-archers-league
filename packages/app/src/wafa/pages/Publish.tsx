@@ -63,7 +63,7 @@ function Despublicar({ id, onHecho }: { readonly id: string; readonly onHecho: (
     <div className={cn(clasesDeTarjeta({ nivel: 'transparente' }), 'flex flex-col gap-2')}>
       {/* Se dice exactamente qué revierte, no un "¿estás seguro?" genérico. */}
       <p className="text-sm text-[var(--warn)]">
-        Despublicar saca este torneo de la liga: los puntos que sumó cada arquero se recalculan
+        Despublicar saca este torneo de la liga: el promedio de cada arquero se recalcula
         <strong> sin él</strong>, y los resultados dejan de verse en la página pública. Los puntajes
         cargados no se borran, y se puede volver a publicar.
       </p>

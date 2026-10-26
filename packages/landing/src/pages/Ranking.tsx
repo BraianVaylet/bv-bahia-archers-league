@@ -12,6 +12,7 @@
  */
 
 import { type BowCategory, CATEGORY_INFO, medallaDe } from '@bal/shared';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Cabecera,
@@ -55,6 +56,51 @@ interface CategoriaRankeada {
   readonly general: VistaDeRanking;
   readonly femenino: VistaDeRanking;
   readonly masculino: VistaDeRanking;
+}
+
+const VISTAS = [
+  { key: 'general', label: 'General' },
+  { key: 'femenino', label: 'Femenino' },
+  { key: 'masculino', label: 'Masculino' },
+] as const;
+
+type Vista = (typeof VISTAS)[number]['key'];
+
+/**
+ * Una sola tira de pestañas **arriba de todas las categorías**, no una por
+ * tarjeta: elegís la vista una vez y se aplica a las ocho. Cada vista está
+ * rankeada por separado desde el servidor (`BE-21`) — no es el general
+ * filtrado, así que el puesto 1 de Femenino es realmente el puesto 1 de esa
+ * pool, no "el primero del general que da la casualidad que es mujer".
+ */
+function Pestañas({
+  vista,
+  onElegir,
+}: {
+  readonly vista: Vista;
+  readonly onElegir: (v: Vista) => void;
+}) {
+  return (
+    <div role="tablist" aria-label="Ver ranking" className="flex gap-2">
+      {VISTAS.map((v) => (
+        <button
+          key={v.key}
+          type="button"
+          role="tab"
+          aria-selected={vista === v.key}
+          onClick={() => onElegir(v.key)}
+          className={cn(
+            'flex-1 min-h-[44px] rounded-[var(--radius-md)] border',
+            vista === v.key
+              ? 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold'
+              : 'bg-[var(--surface)]',
+          )}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -111,6 +157,7 @@ function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
 
 export function RankingPage() {
   const [params, setParams] = useSearchParams();
+  const [vista, setVista] = useState<Vista>('general');
 
   const temporadas = useRecurso<{ seasons: Temporada[] }>('/seasons');
   const elegida =
@@ -152,6 +199,10 @@ export function RankingPage() {
 
       {ranking.estado === 'cargando' && elegida && <Cargando />}
       {ranking.estado === 'error' && <Fallo mensaje={ranking.mensaje} />}
+
+      {ranking.estado === 'listo' && ranking.datos.categories.length > 0 && (
+        <Pestañas vista={vista} onElegir={setVista} />
+      )}
 
       {/*
         La explicación va **abierta**, no plegada: la primera vez que alguien
@@ -197,7 +248,7 @@ export function RankingPage() {
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
 
-            {c.general.ranked.length === 0 ? (
+            {c[vista].ranked.length === 0 ? (
               <p className="text-sm text-[var(--ink-muted)]">
                 Nadie llegó todavía al mínimo de torneos en esta categoría.
               </p>
@@ -210,7 +261,7 @@ export function RankingPage() {
                   <th className="py-1 font-medium text-right">Mejor</th>
                 </Cabecera>
                 <Cuerpo>
-                  {c.general.ranked.map((e) => (
+                  {c[vista].ranked.map((e) => (
                     <FilaDeArquero key={e.archerId} entrada={e} />
                   ))}
                 </Cuerpo>
@@ -218,17 +269,17 @@ export function RankingPage() {
             )}
 
             {/* No se ocultan: esconderlos haría creer que se perdió su resultado. */}
-            {c.general.notYetEligible.length > 0 && (
+            {c[vista].notYetEligible.length > 0 && (
               <details className="text-sm">
                 <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-                  {c.general.notYetEligible.length} con menos de {bestN} torneos
+                  {c[vista].notYetEligible.length} con menos de {bestN} torneos
                 </summary>
                 <p className="pb-2 text-[var(--ink-muted)]">
                   Para figurar en el ranking hacen falta al menos {bestN} torneos disputados. Sus
                   resultados están cargados y cuentan apenas lleguen.
                 </p>
                 <ul className="flex flex-col gap-1">
-                  {c.general.notYetEligible.map((e) => (
+                  {c[vista].notYetEligible.map((e) => (
                     <li key={e.archerId} data-testid={`pendiente-${e.lastName}`}>
                       <Link to={`/arqueros/${e.archerId}`} className="underline">
                         {e.lastName}, {e.firstName}

@@ -14,6 +14,28 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · Ranking con pestañas General/Femenino/Masculino (FE-28)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra la Fase 8 entera (`SH-8`..`FE-30`); queda sólo `TEST-3` (E2E).
+
+### Una tira de pestañas, no ocho
+
+El plan decía "pestañas por encima de las tarjetas de categoría" — una sola elección de vista que aplica a las ocho categorías, no un selector repetido en cada una. Un estado `vista` en la pantalla, `c[vista]` en vez de `c.general` en cada lugar que antes leía la vista general a secas. El componente de pestañas está duplicado entre landing y WAFA, misma razón que el resto del JSX de cada paquete en este proyecto: no comparten bundle.
+
+### "Ninguna pantalla dice «puntos»" tenía un sobrante real
+
+`grep` encontró cinco archivos con la palabra "puntos". Cuatro eran legítimos —puntaje de arco (`Archer.tsx`, `Tournaments.tsx`), puntos de un gráfico (prop `puntos` de `GraficoDeEvolucion`), o sobre el torneo individual (`torneo.ts`: "no suman puntos" se refiere a si el arquero tiró, no al sistema de liga)—. El quinto no: `Publish.tsx` decía "los puntos que sumó cada arquero se recalculan" al despublicar, lenguaje del sistema por posición que `SH-9` había retirado hace dos días sin tocar esta frase. Corregido a "el promedio de cada arquero se recalcula".
+
+### `Compartir` ignoraba la pestaña elegida
+
+No estaba en el plan, pero sin esto las pestañas de WAFA no servían: `compartir()` armaba el texto siempre con `c.general`, así que tocar "Compartir" parado en la pestaña Femenino mandaba por WhatsApp el ranking General igual. Se encontró probando el flujo completo en el navegador, no leyendo el código. Corregido para que comparta `c[vista]`, con el nombre de la vista sumado al de la temporada en el encabezado del texto —`textoDeRanking` en `@bal/shared` es dominio puro de puntajes y no sabe de sexo, así que la etiqueta se arma en el componente, no se le agregó un parámetro nuevo a la función pura.
+
+### Deuda / lo que sigue
+
+- `TEST-3`: E2E de punta a punta de toda la Fase 8. Es lo único que queda.
+
+---
+
 ## 2026-10-26 · WAFA: cola de aprobación de altas pendientes (FE-30)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado.

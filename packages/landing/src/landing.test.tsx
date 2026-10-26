@@ -313,6 +313,89 @@ describe('RankingPage', () => {
       expect(seccion.className).toMatch(/rounded/);
     });
   });
+
+  // ── FE-28 · Pestañas General/Femenino/Masculino ──────────────────────────
+
+  describe('pestañas de sexo', () => {
+    const vacia: { ranked: unknown[]; notYetEligible: unknown[] } = {
+      ranked: [],
+      notYetEligible: [],
+    };
+
+    const conVistas = (
+      general: { ranked: unknown[]; notYetEligible: unknown[] },
+      femenino = vacia,
+      masculino = vacia,
+      bestN = 2,
+    ) => {
+      servidor({
+        '/api/public/seasons': () => ({
+          json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+        }),
+        '/api/public/rankings?seasonId=s1': () => ({
+          json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+        }),
+      });
+    };
+
+    it('arranca mostrando General', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      expect(await screen.findByTestId('fila-Gral')).toBeDefined();
+      expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('tocar «Femenino» muestra sólo ese ranking', async () => {
+      conVistas(
+        { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+        { ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })], notYetEligible: [] },
+      );
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByTestId('fila-Fem')).toBeDefined();
+      expect(screen.queryByTestId('fila-Gral')).toBeNull();
+    });
+
+    it('tocar «Masculino» muestra sólo ese ranking', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] }, vacia, {
+        ranked: [arquero({ archerId: 'm1', lastName: 'Masc' })],
+        notYetEligible: [],
+      });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Masculino' }));
+
+      expect(await screen.findByTestId('fila-Masc')).toBeDefined();
+      expect(screen.queryByTestId('fila-Gral')).toBeNull();
+    });
+
+    // El E2E existente busca la tarjeta por esta categoría; cambiar de
+    // pestaña no puede moverle el testid.
+    it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('cat-razo');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByTestId('cat-razo')).toBeDefined();
+    });
+
+    it('una vista sin nadie clasificado lo dice, no deja la tabla vacía', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByText(/Nadie llegó todavía al mínimo/)).toBeDefined();
+    });
+  });
 });
 
 // ── FE-19 · Torneos ──────────────────────────────────────────────────────────

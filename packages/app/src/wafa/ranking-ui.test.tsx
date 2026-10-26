@@ -159,6 +159,61 @@ describe('RankingPage de WAFA', () => {
   });
 });
 
+// ── FE-28 · Pestañas General/Femenino/Masculino ─────────────────────────────
+
+describe('pestañas de sexo', () => {
+  const vacia: { ranked: unknown[]; notYetEligible: unknown[] } = {
+    ranked: [],
+    notYetEligible: [],
+  };
+
+  function conVistas(
+    general: { ranked: unknown[]; notYetEligible: unknown[] },
+    femenino = vacia,
+    masculino = vacia,
+    bestN = 2,
+  ) {
+    rutas['GET /api/public/seasons'] = () => ({
+      json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+    });
+    rutas['GET /api/public/rankings?seasonId=s1'] = () => ({
+      json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+    });
+  }
+
+  it('arranca mostrando General', async () => {
+    conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+    renderRanking();
+
+    expect(await screen.findByTestId('fila-Gral')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('tocar «Femenino» muestra sólo ese ranking', async () => {
+    conVistas(
+      { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+      { ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })], notYetEligible: [] },
+    );
+    renderRanking();
+    await screen.findByTestId('fila-Gral');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+    expect(await screen.findByTestId('fila-Fem')).toBeDefined();
+    expect(screen.queryByTestId('fila-Gral')).toBeNull();
+  });
+
+  it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
+    conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+    renderRanking();
+    await screen.findByTestId('cat-razo');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Masculino' }));
+
+    expect(await screen.findByTestId('cat-razo')).toBeDefined();
+  });
+});
+
 // ── REF2-6 · Compartir ───────────────────────────────────────────────────────
 
 describe('compartir el ranking', () => {
@@ -209,5 +264,49 @@ describe('compartir el ranking', () => {
 
     await waitFor(() => expect(copiado).toHaveLength(1));
     expect(await screen.findByRole('button', { name: 'Copiado' })).toBeDefined();
+  });
+
+  // FE-28: las pestañas no sirven de nada si Compartir siempre manda General
+  // aunque la pantalla esté mostrando Femenino.
+  it('comparte la pestaña que está mostrando, no siempre General', async () => {
+    const compartido: string[] = [];
+    Object.defineProperty(navigator, 'share', {
+      value: (d: { text: string }) => {
+        compartido.push(d.text);
+        return Promise.resolve();
+      },
+      configurable: true,
+    });
+
+    rutas['GET /api/public/seasons'] = () => ({
+      json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+    });
+    rutas['GET /api/public/rankings?seasonId=s1'] = () => ({
+      json: {
+        bestN: 2,
+        categories: [
+          {
+            category: 'razo',
+            general: { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+            femenino: {
+              ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })],
+              notYetEligible: [],
+            },
+            masculino: { ranked: [], notYetEligible: [] },
+          },
+        ],
+      },
+    });
+    renderRanking();
+    await screen.findByTestId('fila-Gral');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+    await screen.findByTestId('fila-Fem');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
+    await waitFor(() => expect(compartido).toHaveLength(1));
+
+    expect(compartido[0]).toMatch(/Fem, Juan/);
+    expect(compartido[0]).not.toMatch(/Gral, Juan/);
   });
 });

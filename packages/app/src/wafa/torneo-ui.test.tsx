@@ -314,7 +314,7 @@ describe('PublishPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Despublicar' }));
 
     // No un "¿estás seguro?" genérico: qué pasa exactamente.
-    expect(screen.getByText(/se recalculan/)).toBeDefined();
+    expect(screen.getByText(/se recalcula/)).toBeDefined();
     expect(screen.getByText(/no se borran/)).toBeDefined();
   });
 

@@ -61,6 +61,49 @@ function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
   );
 }
 
+const VISTAS = [
+  { key: 'general', label: 'General' },
+  { key: 'femenino', label: 'Femenino' },
+  { key: 'masculino', label: 'Masculino' },
+] as const;
+
+type Vista = (typeof VISTAS)[number]['key'];
+
+/**
+ * Una sola tira de pestañas arriba de todas las categorías, no una por
+ * tarjeta. Mismo componente que la landing, duplicado por la misma razón que
+ * el resto del JSX de este archivo: no comparten bundle. Ver `docs/FUNCTIONAL.md` §5.2.
+ */
+function Pestañas({
+  vista,
+  onElegir,
+}: {
+  readonly vista: Vista;
+  readonly onElegir: (v: Vista) => void;
+}) {
+  return (
+    <div role="tablist" aria-label="Ver ranking" className="flex gap-2">
+      {VISTAS.map((v) => (
+        <button
+          key={v.key}
+          type="button"
+          role="tab"
+          aria-selected={vista === v.key}
+          onClick={() => onElegir(v.key)}
+          className={cn(
+            'flex-1 min-h-[52px] rounded-[var(--radius-md)] border',
+            vista === v.key
+              ? 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold'
+              : 'bg-[var(--surface)]',
+          )}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   const [temporadas, setTemporadas] = useState<Temporada[]>();
   const [elegida, setElegida] = useState('');
@@ -68,20 +111,30 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   const [categorias, setCategorias] = useState<CategoriaRankeada[]>();
   const [error, setError] = useState<string>();
   const [copiado, setCopiado] = useState(false);
+  const [vista, setVista] = useState<Vista>('general');
 
   /**
    * Manda el ranking como texto.
    *
    * El texto lo arma `@bal/shared`, que es donde está probado: lo que se
    * comparte tiene que ser exactamente lo publicado, no una lectura del DOM.
+   *
+   * **Comparte la pestaña que está mirando**, no siempre General: las
+   * pestañas no sirven de nada si lo que se manda por WhatsApp es otra cosa
+   * que lo que se ve en pantalla. El nombre de la vista se suma al de la
+   * temporada —`textoDeRanking` no sabe de sexo, es dominio puro de puntajes—
+   * así que quien lo recibe sabe cuál de las tres está leyendo.
    */
   const compartir = async () => {
+    const nombreTemporada =
+      (temporadas ?? []).find((t) => t.id === elegida)?.name ?? 'Liga Bahiense';
+    const etiquetaVista = VISTAS.find((v) => v.key === vista)?.label;
     const texto = textoDeRanking({
-      temporada: (temporadas ?? []).find((t) => t.id === elegida)?.name ?? 'Liga Bahiense',
+      temporada: vista === 'general' ? nombreTemporada : `${nombreTemporada} — ${etiquetaVista}`,
       bestN,
       categorias: (categorias ?? []).map((c) => ({
         category: c.category,
-        ranked: c.general.ranked.map((e, i) => ({
+        ranked: c[vista].ranked.map((e, i) => ({
           position: e.position ?? i + 1,
           firstName: e.firstName,
           lastName: e.lastName,
@@ -181,12 +234,16 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
           no carga es peor que uno que copia.
         */}
         {categorias !== undefined && categorias.length > 0 && (
-          <Button variante="secundario" onClick={() => void compartir()}>
-            <span className="flex items-center justify-center gap-2">
-              <IconoCompartir />
-              {copiado ? 'Copiado' : 'Compartir'}
-            </span>
-          </Button>
+          <>
+            <Pestañas vista={vista} onElegir={setVista} />
+
+            <Button variante="secundario" onClick={() => void compartir()}>
+              <span className="flex items-center justify-center gap-2">
+                <IconoCompartir />
+                {copiado ? 'Copiado' : 'Compartir'}
+              </span>
+            </Button>
+          </>
         )}
 
         {categorias?.map((c) => (
@@ -197,13 +254,13 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
           >
             <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
 
-            {c.general.ranked.length === 0 ? (
+            {c[vista].ranked.length === 0 ? (
               <p className="text-sm text-[var(--ink-muted)]">
                 Nadie llegó todavía al mínimo de torneos en esta categoría.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {c.general.ranked.map((e) => (
+                {c[vista].ranked.map((e) => (
                   <li
                     key={e.archerId}
                     className={cn(clasesDeTarjeta(), 'flex items-center justify-between gap-3')}
@@ -229,13 +286,13 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
             )}
 
             {/* No se ocultan: esconderlos haría creer que se perdió su resultado. */}
-            {c.general.notYetEligible.length > 0 && (
+            {c[vista].notYetEligible.length > 0 && (
               <details className="text-sm">
                 <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
-                  {c.general.notYetEligible.length} con menos de {bestN} torneos
+                  {c[vista].notYetEligible.length} con menos de {bestN} torneos
                 </summary>
                 <ul className="flex flex-col gap-1 pb-2">
-                  {c.general.notYetEligible.map((e) => (
+                  {c[vista].notYetEligible.map((e) => (
                     <li key={e.archerId} data-testid={`pendiente-${e.lastName}`}>
                       {e.lastName}, {e.firstName}{' '}
                       <span className="text-[var(--ink-muted)]">
