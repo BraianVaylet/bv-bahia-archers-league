@@ -427,9 +427,17 @@ _(Hecho. `.github/workflows/ci.yml` con los cuatro jobs: `quality` (lint + tipos
 **Sumar al job `budget`:** verificar que **cada frontend emita su `.css`**. Es lo que habría delatado el segundo problema el día que apareció.
 **DoD:** los 4 jobs (`quality`, `e2e`, `audit`, `budget`) · bloquean el merge según `TESTING.md` §8 · umbrales de cobertura aplicados.
 
-### `[ ] INF-6` · Backups · P1
+### `[x] INF-6` · Backups · P1
 **Referencia:** [`CONFIG.md`](CONFIG.md) §9
 **DoD:** procedimiento documentado y **restauración verificada al menos una vez**.
+
+_(Hecho. El procedimiento ya estaba documentado desde antes; lo que faltaba era correrlo. `mongodump`/`mongorestore` no estaban instalados —consultado con el usuario, que pidió instalarlos (binario oficial de mongodb.com, zip verificado contra el SHA-256 publicado en `downloads.mongodb.org/tools/db/release.json`) y verificar de punta a punta, igual que `squirrel` en `FE-21`—.
+
+Verificación real, no simulada: un `mongod` efímero (`mongodb-memory-server`, el mismo paquete que ya usa `e2e/servidor.ts`), una temporada y un arquero insertados a mano, `mongodump` con los comandos **exactos** de `CONFIG.md` §9, se borró la base entera (`dropDatabase`, confirmado en 0 documentos antes de seguir), `mongorestore --drop`, y los dos documentos volvieron —mismo `_id`, mismos campos—.
+
+Encontrado en el camino: con `mongodump`/`mongorestore` 100.19.1 en Windows, pasar `--uri` con un espacio en vez de `=` (`--uri "mongodb://…"` en lugar de `--uri=mongodb://…`) falla con *"provide only one MongoDB connection string"* — un error que no menciona el espacio y hace sospechar primero de la URI. Los comandos documentados en `CONFIG.md` §9 ya usaban `=`, así que el procedimiento tal como está escrito nunca tuvo el problema; se agregó la nota ahí para que nadie lo reintroduzca "arreglando el estilo" en una emergencia real.
+
+El script de verificación y los archivos `.gz` que generó eran scratch, fuera del repo desde el principio salvo un paso intermedio en `packages/api/` —necesario para que Node resolviera el driver `mongodb`—, borrado antes de este commit.)_
 
 ---
 

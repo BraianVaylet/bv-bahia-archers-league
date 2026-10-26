@@ -288,6 +288,10 @@ mongorestore --uri="$MONGODB_URI" --archive=bal-2026-08-10.gz --gzip --drop
 
 **Recomendación operativa:** correr `mongodump` **después de publicar cada torneo**. Es el momento en que hay datos nuevos que no se pueden reconstruir. Guardar el archivo fuera de Atlas y fuera de Railway.
 
+**El `=` de `--uri=`, `--db=`, `--archive=` no es sólo estilo.** Con `mongodb-database-tools` 100.19.1 en Windows, pasar el valor separado por un espacio (`--uri "mongodb://…"`) falla con *"provide only one MongoDB connection string"* — un error que no menciona el espacio y hace pensar que la URI está mal. Es un problema de cómo esta versión separa flags de posicionales, no de la URI. Los dos comandos de arriba, tal como están escritos, ya evitan el problema.
+
+**Restauración verificada el 2026-10-26** (`INF-6`): `mongodump` → se borró la base → `mongorestore --drop`, contra un `mongod` efímero con datos reales (una temporada, un arquero). Los documentos volvieron idénticos, mismo `_id` incluido. Procedimiento confirmado de punta a punta, no sólo escrito.
+
 Al pasar a M10 o superior, Atlas provee backups continuos con point-in-time recovery y esto queda obsoleto.
 
 ---

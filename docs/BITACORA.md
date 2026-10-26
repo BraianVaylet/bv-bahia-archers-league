@@ -14,6 +14,28 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · Backups: restauración verificada de punta a punta (INF-6)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado.
+
+### El procedimiento ya estaba escrito; nadie lo había corrido nunca
+
+`CONFIG.md` §9 documentaba `mongodump`/`mongorestore` desde antes, pero el DoD pedía **restauración verificada**, no sólo documentada. Las herramientas no estaban instaladas. Consultado con el usuario —mismo patrón que `squirrel` en `FE-21`—: pidió instalarlas (binario oficial, SHA-256 verificado contra el que publica `downloads.mongodb.org/tools/db/release.json`) y correr la verificación real, no simularla.
+
+### La verificación: un `mongod` efímero, datos reales, los comandos tal cual están en el doc
+
+Un script standalone (fuera del repo salvo un paso intermedio en `packages/api/`, necesario para que Node encontrara el driver `mongodb` — pnpm no lo hoistea a la raíz) levantó un `mongod` con `mongodb-memory-server` —el mismo paquete que ya usa `e2e/servidor.ts`, nada nuevo que mantener—, insertó una temporada y un arquero, corrió `mongodump` con el comando exacto del doc, **borró la base entera** (`dropDatabase`, confirmado en 0 documentos antes de seguir — sin esto el test podría pasar sin haber restaurado nada), corrió `mongorestore --drop`, y los dos documentos volvieron: mismo `_id`, mismos campos.
+
+### Un error real, encontrado a mano, que no estaba en el procedimiento documentado
+
+El primer intento falló con *"provide only one MongoDB connection string"* — un mensaje que no menciona la causa real. Resultó ser `mongodump`/`mongorestore` 100.19.1 en Windows rechazando `--uri` con el valor en un argv separado (`--uri "mongodb://…"`) en vez de unido con `=` (`--uri=mongodb://…`). Los comandos que ya estaban en `CONFIG.md` §9 usaban `=` desde el principio, así que el procedimiento documentado nunca tuvo el bug — pero alguien "prolijizando" el comando a mano, un día de verdad con la base caída, podría reintroducirlo. Se agregó la nota en el doc explicando por qué el `=` importa, no sólo que importa.
+
+### Deuda / lo que sigue
+
+- Ninguna para esta tarea. Queda la recomendación operativa ya existente: `mongodump` después de publicar cada torneo, archivo guardado fuera de Atlas y de Railway.
+
+---
+
 ## 2026-10-26 · Auditoría de UI y accesibilidad (FE-21)
 
 **Autor:** Claude Sonnet 5 · **Estado:** parcial — todo lo que no depende de un celular real está hecho.
