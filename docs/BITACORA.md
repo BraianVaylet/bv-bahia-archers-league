@@ -14,6 +14,28 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · WAFA: cola de aprobación de altas pendientes (FE-30)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado.
+
+### Filtro, no pestaña
+
+El plan dejaba abierto «lista separada (o filtro)». Se eligió filtro: un segundo checkbox junto a «Ver archivados», mutuamente excluyente con él —no tiene sentido pedir las dos vistas a la vez—, que cambia tanto el query (`?status=pendiente`) como qué componente de fila se renderiza (`FilaPendiente` en vez de `Fila`). Reusa toda la pantalla existente en lugar de abrir una ruta nueva.
+
+### El segundo toque, no un diálogo
+
+`Tournament.tsx` ya tiene el patrón para esto —borrar un torneo pide un segundo toque sobre el mismo botón, con un estado local, no un `<dialog>` ni una librería de modales—. Se repitió igual acá para Aprobar y Rechazar, cada uno con su propio estado de confirmación por fila (no uno global, porque la pantalla lista varias altas pendientes a la vez). El texto de confirmar "Rechazar" dice explícitamente que no tiene vuelta atrás, porque no la tiene: `rejectArcher` borra el documento, no lo archiva.
+
+### "Disponible de inmediato en el wizard" ya estaba resuelto
+
+Antes de escribir nada para esto, se revisó `SelectorDeArqueros.tsx` (el componente del wizard de torneo que lista arqueros elegibles): pide `/admin/archers` de nuevo cada vez que se monta, sin caché. Como `archerRepo.list` ya excluye `pendiente` por defecto (desde `BE-19`), aprobar acá y después abrir el wizard ya alcanza — no hizo falta invalidar nada ni construir ningún mecanismo de refresco.
+
+### Deuda / lo que sigue
+
+- Con esto cierra `SH-8`..`FE-30`: todo lo nuevo funciona de punta a punta salvo el ranking por pestañas. Queda `FE-28` (pestañas General/Femenino/Masculino) y `TEST-3` (E2E) para terminar la Fase 8.
+
+---
+
 ## 2026-10-26 · WAFA: sexo, DNI y búsqueda por DNI en el padrón (FE-29)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado.

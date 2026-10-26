@@ -584,11 +584,17 @@ El aviso de incompleto (`profileIncomplete`, que ya traía `BE-19`) se agregó *
 
 `pnpm -r typecheck`, `pnpm -r test` (1312 tests) y `pnpm lint` verdes en los cinco paquetes. Probado en el navegador contra un backend simulado con `fetch` stub (login, CSRF, listado y alta): el aviso aparece sólo en el arquero incompleto, el filtro de DNI corta en 8 dígitos limpios tipeando con letras intercaladas, y el body del POST llega con `sex`/`dni`. `/security-review` sobre el diff: sin hallazgos — misma clase que `BE-20`/`BE-21`/`FE-27`, ruta ya protegida por `requireAdmin()`, término de búsqueda ya venía escapado contra regex.)_
 
-### `[ ] FE-30` · WAFA: cola de aprobación de altas pendientes
+### `[x] FE-30` · WAFA: cola de aprobación de altas pendientes
 **Objetivo:** pantalla para que el admin revise y decida sobre lo que llega de la landing.
 **Archivos:** `packages/app/src/wafa/pages/Archers.tsx` (sección nueva o pestaña), consume `BE-22`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4 · decisión 7
 **DoD:** lista separada (o filtro) de arqueros `pendiente`, con los datos que mandó —nombre, DNI, sexo, categoría— y dos acciones, **Aprobar** y **Rechazar**, cada una con su confirmación · un arquero recién aprobado aparece de inmediato disponible en el wizard de torneo (`FE-11`) sin recargar la página.
+
+_(Hecho, como filtro: un checkbox «Ver pendientes de aprobar» junto al de «Ver archivados» —mutuamente excluyentes, marcar uno destilda el otro— que pide `?status=pendiente` y cambia el render de cada fila a `FilaPendiente` (nombre, DNI, sexo, categoría, Aprobar/Rechazar) en vez de la `Fila` normal (Editar/Archivar/Eliminar). Cada acción pide un segundo toque antes de pegarle al servidor, el mismo patrón que ya usa el borrado de un torneo en `Tournament.tsx` —un estado local por fila, no un diálogo aparte—; el texto de confirmar Rechazar dice explícitamente que no tiene vuelta atrás, porque no la tiene (`archerService.rejectArcher` borra el documento).
+
+«Disponible de inmediato en el wizard sin recargar» no hizo falta construirlo: se verificó que `SelectorDeArqueros.tsx` —el componente del wizard que lista arqueros elegibles— ya pide `/admin/archers` de nuevo cada vez que se monta, sin ningún caché entre medio. Como `archerRepo.list` ya excluye `pendiente` por defecto, aprobar en esta pantalla y después abrir el wizard alcanza: nada que cachear, nada que invalidar.
+
+`pnpm -r typecheck`, `pnpm -r test` (1318 tests) y `pnpm lint` verdes en los cinco paquetes. Probado en el navegador con un backend simulado: la fila pendiente muestra sus cuatro datos, el primer toque en «Aprobar» NO pega al servidor (sólo cambia a «Sí, aprobar» con el texto de confirmación) y el segundo sí. `/security-review` sobre el diff: sin hallazgos — consume rutas de `BE-22` ya revisadas, sin backend nuevo.)_
 
 ### `[ ] TEST-3` · Tests de la fase
 **Archivos:** `e2e/alta-publica.spec.ts` (nuevo), ajustes en `TEST-1`/`TEST-2` si tocan textos del ranking que cambiaron.

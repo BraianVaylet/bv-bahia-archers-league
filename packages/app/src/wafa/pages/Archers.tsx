@@ -349,19 +349,117 @@ function Fila({
   );
 }
 
+// ── Cola de aprobación (`FE-30`) ───────────────────────────────────────────
+
+/**
+ * Una alta `pendiente`, con lo que mandó la landing y las dos acciones de
+ * `BE-22`.
+ *
+ * **Cada acción pide un segundo toque**, mismo patrón que borrar un torneo
+ * (`Tournament.tsx`): un estado local, no un diálogo aparte. Rechazar borra
+ * del padrón sin vuelta atrás, así que el texto de confirmación lo dice.
+ */
+function FilaPendiente({
+  arquero,
+  onAprobar,
+  onRechazar,
+}: {
+  readonly arquero: ArcherRow;
+  readonly onAprobar: () => Promise<void>;
+  readonly onRechazar: () => Promise<void>;
+}) {
+  const [confirmando, setConfirmando] = useState<'aprobar' | 'rechazar'>();
+  const [procesando, setProcesando] = useState(false);
+
+  const ejecutar = async (accion: 'aprobar' | 'rechazar', fn: () => Promise<void>) => {
+    if (confirmando !== accion) {
+      setConfirmando(accion);
+      return;
+    }
+    setProcesando(true);
+    try {
+      await fn();
+    } finally {
+      setProcesando(false);
+      setConfirmando(undefined);
+    }
+  };
+
+  return (
+    <li
+      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
+      data-testid={`arquero-${arquero.lastName}`}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold">
+          {arquero.lastName}, {arquero.firstName}
+        </span>
+        <span className="shrink-0">
+          <ChipCategoria category={arquero.category} compacto />
+        </span>
+      </div>
+
+      {/* Lo que mandó la landing: es lo único que el admin tiene para decidir. */}
+      <dl className="text-sm text-[var(--ink-muted)] flex flex-col gap-0.5">
+        <div>
+          <dt className="inline font-medium">DNI: </dt>
+          <dd className="inline">{arquero.dni ?? '—'}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium">Sexo: </dt>
+          <dd className="inline">{arquero.sex ? ETIQUETA_DE_SEXO[arquero.sex] : '—'}</dd>
+        </div>
+      </dl>
+
+      <div className="flex gap-2">
+        <Button
+          disabled={procesando}
+          onClick={() => void ejecutar('aprobar', onAprobar)}
+          className="flex-1"
+        >
+          {confirmando === 'aprobar' ? 'Sí, aprobar' : 'Aprobar'}
+        </Button>
+        <Button
+          variante="peligro"
+          disabled={procesando}
+          onClick={() => void ejecutar('rechazar', onRechazar)}
+          className="flex-1"
+        >
+          {confirmando === 'rechazar' ? 'Sí, rechazar' : 'Rechazar'}
+        </Button>
+      </div>
+
+      {confirmando === 'aprobar' && (
+        <p role="status" className="text-sm text-[var(--ink-muted)]">
+          Va a quedar disponible para sumarse a un torneo. Tocá de nuevo para confirmar.
+        </p>
+      )}
+      {confirmando === 'rechazar' && (
+        <p role="status" className="text-sm text-[var(--danger)]">
+          Se borra del padrón, no se puede deshacer. Tocá de nuevo para confirmar.
+        </p>
+      )}
+    </li>
+  );
+}
+
 // ── Pantalla ─────────────────────────────────────────────────────────────────
 
 export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   const [arqueros, setArqueros] = useState<ArcherRow[]>();
   const [busqueda, setBusqueda] = useState('');
   const [verArchivados, setVerArchivados] = useState(false);
+  const [verPendientes, setVerPendientes] = useState(false);
   const [categoria, setCategoria] = useState<BowCategory | ''>('');
   const [editando, setEditando] = useState<Borrador>();
   const [error, setError] = useState<string>();
 
   const cargar = useCallback(async () => {
     const params = new URLSearchParams();
-    if (verArchivados) params.set('archived', 'true');
+    // Pendientes y archivados no se combinan: son dos vistas, no dos filtros
+    // que se puedan pedir a la vez. Lo exige también la UI, ver más abajo.
+    if (verPendientes) params.set('status', 'pendiente');
+    else if (verArchivados) params.set('archived', 'true');
     if (busqueda.trim()) params.set('q', busqueda.trim());
 
     try {
@@ -373,7 +471,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
     } catch {
       setError('No se pudo cargar el padrón. Revisá la conexión.');
     }
-  }, [busqueda, verArchivados]);
+  }, [busqueda, verArchivados, verPendientes]);
 
   useEffect(() => {
     void cargar();
@@ -459,10 +557,28 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           <input
             type="checkbox"
             checked={verArchivados}
-            onChange={(e) => setVerArchivados(e.target.checked)}
+            onChange={(e) => {
+              setVerArchivados(e.target.checked);
+              if (e.target.checked) setVerPendientes(false);
+            }}
             className="w-5 h-5"
           />
           <span>Ver archivados</span>
+        </label>
+
+        {/* FE-30: la cola de BE-22. Pendientes y archivados no se combinan —
+            marcar uno destilda el otro, arriba. */}
+        <label className="flex items-center gap-2 min-h-[44px]">
+          <input
+            type="checkbox"
+            checked={verPendientes}
+            onChange={(e) => {
+              setVerPendientes(e.target.checked);
+              if (e.target.checked) setVerArchivados(false);
+            }}
+            className="w-5 h-5"
+          />
+          <span>Ver pendientes de aprobar</span>
         </label>
 
         {error && (
@@ -477,32 +593,43 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           <p className="text-[var(--ink-muted)]">
             {busqueda.trim()
               ? 'Ningún arquero coincide con la búsqueda.'
-              : verArchivados
-                ? 'No hay arqueros archivados.'
-                : 'El padrón está vacío.'}
+              : verPendientes
+                ? 'No hay altas pendientes de aprobar.'
+                : verArchivados
+                  ? 'No hay arqueros archivados.'
+                  : 'El padrón está vacío.'}
           </p>
         )}
 
         <ul className="flex flex-col gap-2">
-          {visibles?.map((a) => (
-            <Fila
-              key={a.id}
-              arquero={a}
-              onEditar={() =>
-                setEditando({
-                  id: a.id,
-                  firstName: a.firstName,
-                  lastName: a.lastName,
-                  category: a.category,
-                  sex: a.sex ?? '',
-                  dni: a.dni ?? '',
-                })
-              }
-              onArchivar={() => void accion(() => api.post(`/admin/archers/${a.id}/archive`))}
-              onRestaurar={() => void accion(() => api.post(`/admin/archers/${a.id}/restore`))}
-              onEliminar={() => void accion(() => api.del(`/admin/archers/${a.id}`))}
-            />
-          ))}
+          {visibles?.map((a) =>
+            verPendientes ? (
+              <FilaPendiente
+                key={a.id}
+                arquero={a}
+                onAprobar={() => accion(() => api.post(`/admin/archers/${a.id}/approve`))}
+                onRechazar={() => accion(() => api.post(`/admin/archers/${a.id}/reject`))}
+              />
+            ) : (
+              <Fila
+                key={a.id}
+                arquero={a}
+                onEditar={() =>
+                  setEditando({
+                    id: a.id,
+                    firstName: a.firstName,
+                    lastName: a.lastName,
+                    category: a.category,
+                    sex: a.sex ?? '',
+                    dni: a.dni ?? '',
+                  })
+                }
+                onArchivar={() => void accion(() => api.post(`/admin/archers/${a.id}/archive`))}
+                onRestaurar={() => void accion(() => api.post(`/admin/archers/${a.id}/restore`))}
+                onEliminar={() => void accion(() => api.del(`/admin/archers/${a.id}`))}
+              />
+            ),
+          )}
         </ul>
       </Screen>
     </Pantalla>

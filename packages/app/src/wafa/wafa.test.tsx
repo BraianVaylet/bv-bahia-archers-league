@@ -579,6 +579,117 @@ describe('ArchersPage', () => {
       false,
     );
   });
+
+  // ── FE-30 · Cola de aprobación ──────────────────────────────────────────
+
+  describe('cola de aprobación', () => {
+    const pendiente = (o: Record<string, unknown> = {}) =>
+      arquero({
+        id: 'p1',
+        lastName: 'Pendiente',
+        firstName: 'Nueva',
+        sex: 'femenino',
+        dni: '30555555',
+        profileIncomplete: false,
+        ...o,
+      });
+
+    it('tildar «Ver pendientes de aprobar» pide la lista de pendientes', async () => {
+      listar([]);
+      renderArqueros();
+      await screen.findByText('El padrón está vacío.');
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.url.includes('status=pendiente'))).toBe(true);
+      });
+    });
+
+    it('muestra nombre, DNI, sexo y categoría de cada pendiente', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+      });
+      renderArqueros();
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      const fila = await screen.findByTestId('arquero-Pendiente');
+      expect(fila).toHaveTextContent('Pendiente, Nueva');
+      expect(fila).toHaveTextContent('30555555');
+      expect(fila).toHaveTextContent('Femenino');
+      expect(fila).toHaveTextContent('Razo');
+    });
+
+    it('aprobar pide un segundo toque antes de pegarle al servidor', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+        'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+        'POST /api/admin/archers/p1/approve': () => ({ json: { archer: pendiente() } }),
+      });
+      renderArqueros();
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+      await screen.findByTestId('arquero-Pendiente');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Aprobar' }));
+      expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/approve'))).toBe(
+        false,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, aprobar' }));
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/approve'))).toBe(
+          true,
+        );
+      });
+    });
+
+    it('rechazar pide un segundo toque antes de pegarle al servidor', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+        'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+        'POST /api/admin/archers/p1/reject': () => ({ json: { ok: true } }),
+      });
+      renderArqueros();
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+      await screen.findByTestId('arquero-Pendiente');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Rechazar' }));
+      expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/reject'))).toBe(false);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, rechazar' }));
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/reject'))).toBe(
+          true,
+        );
+      });
+    });
+
+    it('un padrón de pendientes vacío lo dice', async () => {
+      servidor({ 'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [] } }) });
+      renderArqueros();
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      expect(await screen.findByText('No hay altas pendientes de aprobar.')).toBeDefined();
+    });
+
+    it('no se pueden ver pendientes y archivados a la vez', async () => {
+      listar([]);
+      renderArqueros();
+      await screen.findByText('El padrón está vacío.');
+
+      const archivados = screen.getByLabelText('Ver archivados') as HTMLInputElement;
+      const pendientes = screen.getByLabelText('Ver pendientes de aprobar') as HTMLInputElement;
+
+      fireEvent.click(archivados);
+      expect(archivados.checked).toBe(true);
+
+      fireEvent.click(pendientes);
+      expect(pendientes.checked).toBe(true);
+      expect(archivados.checked).toBe(false);
+    });
+  });
 });
 
 // ── FE-12 · Temporadas ───────────────────────────────────────────────────────
