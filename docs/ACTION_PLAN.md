@@ -604,10 +604,20 @@ _(Hecho, como filtro: un checkbox «Ver pendientes de aprobar» junto al de «Ve
 
 `pnpm -r typecheck`, `pnpm -r test` (1318 tests) y `pnpm lint` verdes en los cinco paquetes. Probado en el navegador con un backend simulado: la fila pendiente muestra sus cuatro datos, el primer toque en «Aprobar» NO pega al servidor (sólo cambia a «Sí, aprobar» con el texto de confirmación) y el segundo sí. `/security-review` sobre el diff: sin hallazgos — consume rutas de `BE-22` ya revisadas, sin backend nuevo.)_
 
-### `[ ] TEST-3` · Tests de la fase
+### `[x] TEST-3` · Tests de la fase
 **Archivos:** `e2e/alta-publica.spec.ts` (nuevo), ajustes en `TEST-1`/`TEST-2` si tocan textos del ranking que cambiaron.
 **Referencia:** [`TESTING.md`](TESTING.md) (agregar la subsección de esta fase)
 **DoD:** el flujo completo nuevo — alta pública (queda `pendiente`) → admin la aprueba (`FE-30`) → admin lo suma a un torneo → publica → aparece en el ranking de su categoría y de su sexo, sin ningún «puntos de liga» en pantalla — probado de punta a punta, contra el stack real como `TEST-1`. Un segundo caso corto: un alta rechazada **no** aparece nunca en el wizard de torneo.
+
+_(Hecho. Dos casos en `e2e/alta-publica.spec.ts`, contra el stack real (34 s). `entrarComoAdmin` se sacó de `flujo-completo.spec.ts` a `ayudas.ts`, exportada —era la segunda copia, la misma razón por la que el resto de los helpers ya vive ahí—.
+
+El `TEST-1`/`TEST-2` que el plan preveía ajustar "si tocan textos" resultó ser más que texto: el paso 23 de `flujo-completo.spec.ts` todavía pedía `?mode=position` y leía `leaguePoints`, los dos retirados por `SH-9` hace dos días sin que nadie hubiera vuelto a correr el E2E completo —ni `pnpm -r test` lo iba a atrapar, `e2e/` no es parte de esos workspaces—. El E2E es la única red que cubre ese campo. Reescrito para pedir `/public/rankings` sin `mode` y verificar `tournamentsPlayed`/`bestNormalizedPct` en `notYetEligible`, que es el equivalente correcto del chequeo original ("el resultado se aplicó aunque nadie llegue todavía a `bestN`"). `TESTING.md` §6 actualizado en el mismo lugar.
+
+Dos hallazgos reales corriendo el primer intento contra Chromium de verdad, no contra jsdom:
+- El radio de sexo es `sr-only` —la etiqueta visible es el control, como lo toca quien usa el mouse—. `.check()` directo sobre el input choca con la etiqueta que lo envuelve y Playwright reintenta 300 segundos hasta el timeout; jsdom no hace hit-testing real, así que los tests de componente (`landing.test.tsx`) nunca lo iban a encontrar. Se cambió a clickear la etiqueta por su texto.
+- El caso "rechazada no aparece en el wizard" se verifica contra `GET /admin/archers` (sin filtro) y `?status=pendiente`: es exactamente lo que pide `SelectorDeArqueros` al abrir el paso 3 del wizard, así que comprobar la respuesta es comprobar lo que el wizard va a mostrar —abrir el wizard de verdad exigía llenar los pasos 1 y 2 primero (temporada, recorrido) sólo para confirmar una ausencia que la API ya prueba.
+
+`pnpm -r typecheck`, `pnpm -r test` (1327 tests) y `pnpm lint` verdes en los cinco paquetes. Las 18 specs E2E del repo, completas, verdes contra el stack real (2,7 min). `/security-review`: fuera de alcance —son tests y docs, sin código de aplicación nuevo.)_
 
 ---
 

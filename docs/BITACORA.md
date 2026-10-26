@@ -14,6 +14,33 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · E2E de la Fase 8: alta pública de punta a punta (TEST-3)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra toda la Fase 8 (`SH-8`..`TEST-3`).
+
+### `flujo-completo.spec.ts` llevaba dos días roto y nadie lo sabía
+
+El paso 23 de `TEST-1` pedía `?mode=position` y leía `leaguePoints` del ranking — el sistema que `SH-9` retiró. `pnpm -r test` nunca lo iba a atrapar: `e2e/` no es parte de los workspaces que ese comando corre. El E2E es la única red que cubre ese campo, y nadie había vuelto a correrlo completo desde `SH-9` porque toma varios minutos y ninguna de las tareas de la Fase 8 lo pedía explícitamente hasta ésta. Reescrito para pedir `/public/rankings` sin `mode` y verificar `tournamentsPlayed`/`bestNormalizedPct` en `notYetEligible` — el equivalente correcto: "el resultado se aplicó, aunque con un solo torneo nadie llegue todavía a `bestN`".
+
+### El radio de sexo rompía en Chromium de verdad, no en jsdom
+
+`.check()` sobre el input de sexo (`sr-only`, la etiqueta visible es el control real) choca con la etiqueta que lo envuelve: Playwright reintenta el click 300 segundos contra un elemento que otro elemento tapa, hasta el timeout. Los tests de componente de `FE-27`/`FE-29` (`fireEvent.click` sobre jsdom) nunca lo iban a encontrar — jsdom no hace hit-testing real, dispara el evento directo sin importar qué hay encima. Encontrado recién acá, con Chromium de verdad. Se cambió a clickear la etiqueta por su texto, que es además lo que hace quien usa el mouse.
+
+### Decisión: el caso del rechazo se verifica por API, no abriendo el wizard
+
+El DoD dice "no aparece **en el wizard**". Abrirlo de verdad exige llenar los pasos 1 y 2 (temporada, recorrido) antes de llegar al paso 3 donde vive `SelectorDeArqueros` — mucho armado para confirmar una ausencia. Se verificó contra `GET /admin/archers` (sin filtro) y `?status=pendiente`: es exactamente la consulta que `SelectorDeArqueros` hace al abrir ese paso, así que comprobar la respuesta es comprobar lo que el wizard mostraría. Documentado como decisión consciente, no un atajo sin pensar.
+
+### De paso: un segundo `entrarComoAdmin`
+
+Al escribir el nuevo spec iba a quedar una segunda copia de `entrarComoAdmin` —la misma duplicación que `ayudas.ts` ya había resuelto una vez para los helpers de `TEST-2`—. Se sacó de `flujo-completo.spec.ts` y se exportó desde `ayudas.ts` en vez de copiarla de nuevo.
+
+### Deuda / lo que sigue
+
+- **Ninguna.** Con esto, la Fase 8 completa (`SH-8` a `TEST-3`) está cerrada: alta pública, categoría `principiantes`, mejor-de-N configurable y ranking por sexo, de punta a punta, contra el stack real.
+- Vale la pena correr el E2E completo con más frecuencia que "cuando una tarea lo pide explícitamente" — es la única red que habría atrapado el bug de `leaguePoints` antes de dos días.
+
+---
+
 ## 2026-10-26 · Ranking con pestañas General/Femenino/Masculino (FE-28)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra la Fase 8 entera (`SH-8`..`FE-30`); queda sólo `TEST-3` (E2E).

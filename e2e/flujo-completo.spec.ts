@@ -2,10 +2,10 @@ import { MAX_SIGNATURE_BYTES } from '@bal/shared';
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import {
   adminApi,
+  entrarComoAdmin,
   entrarComoLider,
   FLECHAS,
   firmarDeVerdad,
-  PASSWORD_NUEVO,
   PNG_VALIDO,
 } from './ayudas.js';
 
@@ -418,34 +418,32 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
 
   await anonimo.close();
 
-  // 23. Los puntos de liga se aplicaron.
-  const ranking = await request.get(`/api/public/rankings?seasonId=${season.id}&mode=position`);
+  // 23. Los resultados se aplicaron a la liga —«mejor de N», sin puntos por
+  // posición desde SH-9—. Con un solo torneo publicado nadie llega todavía al
+  // mínimo de `bestN`, así que quedan en `notYetEligible`, pero YA tienen su
+  // resultado cargado: no es que no se aplicó, es que falta otro torneo.
+  const ranking = await request.get(`/api/public/rankings?seasonId=${season.id}`);
   const { categories } = (await ranking.json()) as {
     categories: {
       category: string;
-      ranked: unknown[];
-      notYetEligible: { leaguePoints: number }[];
+      general: {
+        ranked: unknown[];
+        notYetEligible: { tournamentsPlayed: number; bestNormalizedPct: number }[];
+      };
     }[];
   };
 
   const razo = categories.find((c) => c.category === 'razo');
   expect(razo).toBeDefined();
 
-  // Con un solo torneo publicado nadie llega al mínimo de dos, así que todos
-  // están en `notYetEligible` — pero YA tienen sus puntos acumulados.
-  const conPuntos = razo?.notYetEligible.filter((e) => e.leaguePoints > 0) ?? [];
-  expect(conPuntos.length).toBeGreaterThan(0);
+  const conResultado =
+    razo?.general.notYetEligible.filter(
+      (e) => e.tournamentsPlayed === 1 && e.bestNormalizedPct > 0,
+    ) ?? [];
+  expect(conResultado.length).toBeGreaterThan(0);
 });
 
 // ── Auxiliares del flujo ─────────────────────────────────────────────────────
-
-async function entrarComoAdmin(page: Page) {
-  await page.goto('/app/wafa');
-  await page.getByLabel('Usuario').fill('admin');
-  await page.getByLabel('Password').fill(PASSWORD_NUEVO);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText('Crear torneo')).toBeVisible();
-}
 
 /**
  * Cierra una patrulla por API: carga, firma y cierra.

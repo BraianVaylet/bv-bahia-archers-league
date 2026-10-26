@@ -290,7 +290,7 @@ tests/e2e/flujo-completo.spec.ts
 20. El torneo pasa a "completado" solo
 21. El admin verifica los podios y publica
 22. En la landing, sin sesión, verifica el ranking y el detalle del torneo
-23. Verifica que los puntos de liga se aplicaron correctamente
+23. Verifica que el resultado se aplicó a la liga —«mejor de N», sin puntos por posición desde `SH-9`—
 ```
 
 ### Escenarios E2E adicionales
@@ -302,6 +302,28 @@ tests/e2e/flujo-completo.spec.ts
 | `sesion-vencida.spec.ts` | Un 401 durante la sincronización conserva el outbox |
 | `blanco-bloqueado.spec.ts` | El admin no puede editar un blanco ya tirado |
 | `pwa-instalable.spec.ts` | Manifest válido, service worker registrado, `registerType: 'prompt'` |
+
+### Fase 8 — alta pública y ranking por sexo (`TEST-3`)
+
+```
+e2e/alta-publica.spec.ts
+
+Caso 1 — el flujo completo nuevo:
+ 1. Alta pública desde la landing (`/alta`), sin sesión → queda `pendiente`
+ 2. No aparece en el padrón que alimenta el wizard de torneo
+ 3. El admin la ve en «Ver pendientes de aprobar» (WAFA) y la aprueba, por interfaz
+ 4. Ya aprobada, aparece en el padrón
+ 5. El admin arma un torneo que la incluye
+ 6. Recorrido, firmas y cierre por WAFL, por interfaz —el mecanismo ya lo prueba TEST-1, acá alcanza con que cierre—
+ 7. El admin publica
+ 8. En la landing: aparece en Razo/General y en Razo/Femenino, NO en Razo/Masculino
+ 9. Ningún «puntos de liga» en pantalla
+
+Caso 2 — el camino corto:
+ 1. Alta pública
+ 2. El admin la rechaza desde la cola de aprobación
+ 3. No aparece en /admin/archers ni en /admin/archers?status=pendiente —lo mismo que consulta el wizard—
+```
 
 ---
 
