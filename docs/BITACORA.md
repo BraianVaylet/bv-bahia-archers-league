@@ -14,6 +14,48 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-26 · Auditoría de UI y accesibilidad (FE-21)
+
+**Autor:** Claude Sonnet 5 · **Estado:** parcial — todo lo que no depende de un celular real está hecho.
+
+### `<button>` dentro de `<a>`: HTML inválido en tres pantallas
+
+`web-design-guidelines` (corrido contra el código, no contra el DOM renderizado) encontró el mismo patrón repetido ocho veces: `<Link><Button>texto</Button></Link>`. Es inválido —interactivo dentro de interactivo— y el navegador lo repara reordenando el DOM de formas que rompen el foco y el objetivo táctil, sin que nada en pantalla avise. Se separó `botonClases()` de `Button` en `components/ui.tsx`: las clases, sin el elemento, para que un `<Link>` que navega se **vea** como botón sin **ser** un botón anidado. Encontrado en `App.tsx` (el selector de rol, la primera pantalla de la PWA), `Home.tsx` y `Tournament.tsx`.
+
+El cambio de rol (`button` → `link`, que es el correcto: navegan, no accionan) rompió `e2e/ingreso.spec.ts`, que consultaba el selector de rol por `role: 'button'`. Se corrigió la consulta al rol correcto en vez de revertir el fix.
+
+### Dos bugs reales de objetivo táctil, encontrados por el propio test que los advierte
+
+El test de 44px existía sólo para WAFA. Al agregarlo a la landing (`/`, `/alta`, `/ranking`, `/torneos`) encontró dos: el link del logo en el header (`min-h-[44px]` estaba en el `<div>` padre, no en el `<Link>` —el `<a>` real medía 26px—) y los links de arquero en `/ranking` (sin `min-h` propio). Es exactamente lo que el comentario original del archivo advertía: *"un `min-h-[44px]` escrito en el código no prueba que el elemento mida 44 en la pantalla"*. Los dos corregidos.
+
+### Contraste sólo se medía en un tema
+
+El test de AAA del teclado de scoring corría en lo que el navegador trae por default —claro—, nunca en oscuro. `page.emulateMedia({ colorScheme })` antes de `goto`, en un `for` sobre los dos temas: el script anti-FOUC de `index.html` lee la preferencia de forma síncrona, así que queda puesto antes de que React monte nada.
+
+### Eliminar un arquero no pedía confirmación
+
+Era la única acción irreversible de `Archers.tsx` sin el patrón de dos toques que ya usa el resto de la app (borrar un torneo, rechazar un alta pendiente). Nadie lo había notado porque ningún test lo clickeaba de verdad —los dos tests existentes sólo comprobaban que el botón estuviera habilitado o deshabilitado—. Agregado el segundo toque, con test que sí lo clickea.
+
+### `squirrel` (audit-website): instalado con permiso, auditado el build real, no el dev server
+
+No estaba instalado y no hay deploy en vivo (`INF-4` sigue pendiente). Consultado con el usuario: pidió instalarlo (binario verificado contra el SHA-256 publicado) y auditar un build de producción local en vez de saltear el punto. El primer intento corrió contra el dev server de Vite y mezcló ruido real con artefactos del dev server (CSP ausente, JS sin minificar) que no existen en producción — se reconfirmó contra `e2e/servidor.ts`, el mismo stack que usa `TEST-1`, y esos dos desaparecieron.
+
+Encontrados y corregidos: favicon sin enlazar (el asset ya existía, faltaba el `<link>`), título y descripción cortos, sin `robots.txt` en ninguna de las dos apps. Decisión consciente de **no** tocar: canonical y OG tags (la landing es una SPA con un único `index.html` para todas las rutas; un canonical fijo sería correcto sólo para `/`, incorrecto para el resto — necesita gestión de `<head>` por ruta, que es más que esta tarea), sitemap.xml (rutas dinámicas, sin sentido antes de un dominio real), y los hallazgos de E-E-A-T (Acerca de, Contacto, Política de privacidad, autoría) — señales de SEO de contenido/marketing que no describen lo que es este sitio.
+
+El "No H1 encontrado" / "0 links internos" / "contenido insuficiente" que `squirrel` marca como error **es real pero no es un bug de esta tarea**: el crawler no ejecuta JavaScript, así que ve el HTML crudo antes de que React pinte nada. Es inherente a ser una SPA sin SSR — se confirmó que persiste igual contra el dev server y contra el stack de producción, mientras que los artefactos de CSP y minificación sí desaparecieron entre uno y otro.
+
+### Lo que queda, y por qué no lo puedo cerrar yo
+
+**Probar en un Android y un iPhone reales.** No hay forma de hacerlo desde una sesión de terminal. Queda marcada `[~]`, igual que `BE-14`/`INF-4`: todo lo demás del DoD está hecho y verificado, esto depende de que alguien del equipo lo haga con el celular en la mano.
+
+### Deuda / lo que sigue
+
+- Prueba en dispositivos reales (el único punto que falta de `FE-21`).
+- Gestión de `<head>` por ruta (título, canonical, OG) si la landing alguna vez necesita compartirse bien en redes — hoy nadie lo pidió.
+- `INF-4` (deploy real) antes de que un sitemap tenga sentido.
+
+---
+
 ## 2026-10-26 · E2E de la Fase 8: alta pública de punta a punta (TEST-3)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado. Cierra toda la Fase 8 (`SH-8`..`TEST-3`).

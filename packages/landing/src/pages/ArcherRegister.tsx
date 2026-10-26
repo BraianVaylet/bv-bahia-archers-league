@@ -41,6 +41,46 @@ function mensajesDe(issues: readonly { message: string }[]): string {
   return [...new Set(issues.map((i) => i.message))].join(' ');
 }
 
+/** De qué campo del schema a qué `id` del DOM, para llevar el foco ahí al fallar. */
+const ID_DEL_CAMPO: Record<string, string> = {
+  lastName: 'apellido',
+  firstName: 'nombre',
+  dni: 'dni',
+  category: 'categoria',
+};
+
+/**
+ * El orden **visual** del formulario, no el del schema.
+ *
+ * `ArcherSelfRegisterSchema` declara `firstName` antes que `lastName`, pero
+ * en la pantalla Apellido va primero. Tomar `issues[0]` a secas enfocaría
+ * Nombre con los dos campos vacíos — técnicamente "un error", pero no el que
+ * se ve arriba de todo.
+ */
+const ORDEN_VISUAL = ['lastName', 'firstName', 'dni', 'sex', 'category'];
+
+/**
+ * Lleva el foco al primer campo que falló, en el orden en que aparece en
+ * pantalla.
+ *
+ * El error ya se lee —`role="alert"` lo anuncia—, pero sin esto el foco se
+ * queda en el botón «Enviar»: quien usa el teclado o un lector de pantalla
+ * tiene que ir a buscar a mano cuál de los cinco campos fue. `sex` no tiene
+ * un `id` propio porque es un grupo de radios, no un input.
+ */
+function enfocarPrimerError(issues: readonly { path: readonly PropertyKey[] }[]): void {
+  const fallados = new Set(issues.map((i) => i.path[0]));
+  const campo = ORDEN_VISUAL.find((c) => fallados.has(c));
+
+  if (campo === 'sex') {
+    document.querySelector<HTMLInputElement>('input[name="sexo"]')?.focus();
+    return;
+  }
+  if (campo) {
+    document.getElementById(ID_DEL_CAMPO[campo] ?? '')?.focus();
+  }
+}
+
 export function ArcherRegisterPage() {
   const [borrador, setBorrador] = useState(VACIO);
   const [error, setError] = useState<string>();
@@ -54,6 +94,7 @@ export function ArcherRegisterPage() {
     const resultado = ArcherSelfRegisterSchema.safeParse(borrador);
     if (!resultado.success) {
       setError(mensajesDe(resultado.error.issues));
+      enfocarPrimerError(resultado.error.issues);
       return;
     }
 
@@ -119,7 +160,9 @@ export function ArcherRegisterPage() {
           </label>
           <input
             id="apellido"
+            name="lastName"
             type="text"
+            autoComplete="family-name"
             value={borrador.lastName}
             onChange={(e) => setBorrador({ ...borrador, lastName: e.target.value })}
             className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
@@ -132,7 +175,9 @@ export function ArcherRegisterPage() {
           </label>
           <input
             id="nombre"
+            name="firstName"
             type="text"
+            autoComplete="given-name"
             value={borrador.firstName}
             onChange={(e) => setBorrador({ ...borrador, firstName: e.target.value })}
             className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
@@ -156,8 +201,10 @@ export function ArcherRegisterPage() {
           */}
           <input
             id="dni"
+            name="dni"
             type="text"
             inputMode="numeric"
+            autoComplete="off"
             value={borrador.dni}
             onChange={(e) =>
               setBorrador({ ...borrador, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })

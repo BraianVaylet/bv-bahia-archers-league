@@ -103,12 +103,16 @@ function ArcherForm({
 
       <Field
         label="Apellido"
+        name="lastName"
+        autoComplete="family-name"
         value={borrador.lastName}
         onChange={(e) => setBorrador({ ...borrador, lastName: e.target.value })}
         required
       />
       <Field
         label="Nombre"
+        name="firstName"
+        autoComplete="given-name"
         value={borrador.firstName}
         onChange={(e) => setBorrador({ ...borrador, firstName: e.target.value })}
         required
@@ -171,8 +175,10 @@ function ArcherForm({
       */}
       <Field
         label="DNI"
+        name="dni"
         type="text"
         inputMode="numeric"
+        autoComplete="off"
         value={borrador.dni}
         onChange={(e) =>
           setBorrador({ ...borrador, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })
@@ -251,6 +257,21 @@ function Fila({
   readonly onRestaurar: () => void;
   readonly onEliminar: () => void;
 }) {
+  /**
+   * Eliminar pide un segundo toque, igual que borrar un torneo o rechazar un
+   * alta pendiente: el mismo patrón en toda la app, sin `confirm()` ni modal.
+   * Faltaba acá —era la única acción irreversible de la pantalla sin él—.
+   */
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+
+  const eliminar = () => {
+    if (!confirmandoEliminar) {
+      setConfirmandoEliminar(true);
+      return;
+    }
+    onEliminar();
+  };
+
   return (
     <li
       className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
@@ -314,12 +335,22 @@ function Fila({
 
         <BotonIcono
           icono={IconoEliminar}
-          etiqueta={`Eliminar a ${arquero.lastName}`}
-          onClick={onEliminar}
+          etiqueta={
+            confirmandoEliminar
+              ? `Confirmar eliminar a ${arquero.lastName}`
+              : `Eliminar a ${arquero.lastName}`
+          }
+          onClick={eliminar}
           disabled={arquero.participated}
           peligro
         />
       </div>
+
+      {confirmandoEliminar && (
+        <p role="status" className="text-sm text-[var(--danger)]">
+          Se borra del padrón, no se puede deshacer. Tocá de nuevo para confirmar.
+        </p>
+      )}
 
       {/*
         La explicación se despliega al tocarla.

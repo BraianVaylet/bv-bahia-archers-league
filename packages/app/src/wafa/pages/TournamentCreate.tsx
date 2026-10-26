@@ -420,8 +420,27 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
   const [borrador, setBorrador] = useState<BorradorTorneo>(borradorVacio);
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);
+  const [confirmandoSalir, setConfirmandoSalir] = useState(false);
 
   const cambiar = (parcial: Partial<BorradorTorneo>) => setBorrador((b) => ({ ...b, ...parcial }));
+
+  /**
+   * «Atrás» pide un segundo toque si hay algo que perder.
+   *
+   * Cuatro pasos —nombre, hasta 60 blancos, hasta 200 arqueros— perdidos por
+   * un toque de más en el botón del header es demasiado para no avisar. Se
+   * reusa el texto del propio botón para el segundo toque, en vez de un
+   * párrafo aparte: no hay dónde ponerlo en el header, y es el mismo patrón de
+   * dos toques que ya usa el resto de la app, sin `confirm()` ni modal.
+   */
+  const hayProgreso = JSON.stringify(borrador) !== JSON.stringify(borradorVacio());
+  const volver = () => {
+    if (hayProgreso && !confirmandoSalir) {
+      setConfirmandoSalir(true);
+      return;
+    }
+    onVolver();
+  };
 
   const problema = problemaDelPaso(paso, borrador);
 
@@ -444,7 +463,11 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
 
   return (
     <Pantalla>
-      <Encabezado titulo="Crear torneo" onVolver={onVolver} />
+      <Encabezado
+        titulo="Crear torneo"
+        onVolver={volver}
+        textoVolver={confirmandoSalir ? '← Se pierde todo, ¿seguro?' : '← Inicio'}
+      />
 
       <Screen conBarraFija>
         <ol className="pt-4 flex gap-1.5" aria-label="Pasos">

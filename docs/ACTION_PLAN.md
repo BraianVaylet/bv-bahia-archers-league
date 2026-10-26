@@ -382,9 +382,33 @@ _(**37 de 38 ítems del checklist verdes, cada uno con su test señalado en [`SE
 **Referencia:** [`SECURITY.md`](SECURITY.md) §13
 **DoD:** **el checklist completo de `SECURITY.md` §13 verde**, cada ítem con su test · `/security-review` sobre el diff sin HIGH ni MEDIUM · `aikido:scan` limpio.
 
-### `[ ] FE-21` · Auditoría de UI y accesibilidad · P1
+### `[~] FE-21` · Auditoría de UI y accesibilidad · P1
 **Referencia:** [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §11
 **DoD:** skills `web-design-guidelines` y `audit-website` sin issues críticos · contraste verificado en ambos temas · objetivos táctiles medidos · probado en Android e iPhone reales.
+
+_(Hecho salvo un punto que no depende del código: **nadie puede probar en un Android ni un iPhone reales desde acá.** Todo lo demás, sí:
+
+**`web-design-guidelines`** encontró bugs reales, no sólo estilo:
+- `<Button>` (→`<button>`) anidado dentro de `<Link>` (→`<a>`) en `App.tsx` (el selector de rol), `Home.tsx` (4 veces) y `Tournament.tsx` (3 veces) — HTML inválido; el navegador repara el DOM de formas que rompen el foco y el objetivo táctil. Se separó `botonClases()` de `Button` en `components/ui.tsx` para que un `<Link>` que navega pueda **verse** como botón sin **ser** uno anidado. `ingreso.spec.ts` consultaba estos dos por `role: 'button'`; el rol correcto ahora es `'link'` —navegan, no accionan— y el test se corrigió, no se ocultó el cambio.
+- `Archers.tsx`: eliminar un arquero pegaba al servidor **sin segundo toque**, la única acción irreversible de esa pantalla sin el patrón que ya usa el resto de la app (borrar un torneo, rechazar un alta). Agregado, con test —nadie lo había probado clickeando de verdad—.
+- Autocomplete/`name` faltante en Apellido/Nombre/DNI, en los dos formularios que los piden (`Archers.tsx` del admin, `ArcherRegister.tsx` público).
+- `ArcherRegister.tsx`: al fallar la validación, el foco se quedaba en «Enviar» — se agregó `enfocarPrimerError`, en el orden **visual** del formulario (Apellido antes que Nombre), no el orden en que el schema declara los campos, que es al revés.
+- `TournamentCreatePage`: «Atrás» en el header salía sin avisar aunque hubiera un torneo a medio armar —hasta 60 blancos, hasta 200 arqueros—. Mismo patrón de dos toques que el resto de la app, reusando el propio texto del botón (`Encabezado.textoVolver`) para el segundo toque.
+- Hallazgos de bajo impacto, documentados y no tocados: `Archers.tsx` (padrón, tope 500) y `Payments.tsx` (tope 200) renderizan sin virtualizar — por debajo de donde importa con esos topes.
+
+**Contraste en ambos temas:** el test de AAA del teclado de scoring sólo corría en el tema que trae el navegador por default (claro). Se separó en un `for` sobre `['light', 'dark']` con `page.emulateMedia({ colorScheme })` antes de navegar —el script anti-FOUC de `index.html` lee esa preferencia de forma síncrona—. Los dos pasan.
+
+**Objetivos táctiles medidos:** existía sólo para WAFA. Se agregó la landing (`/`, `/alta`, `/ranking`, `/torneos`) y encontró dos bugs reales —no hipótesis—: el link del logo en el header de la landing (`min-h-[44px]` estaba en el `<div>` padre, no en el `<Link>`, así que el `<a>` real medía 26px) y los links de arquero en `/ranking` (sin `min-h` propio, heredaban sólo la altura del texto). Los dos corregidos.
+
+**Navegación por teclado:** antes probaba un solo `Tab`. Se agregó un test que completa el alta pública **entera** por teclado —Tab, tipear, `Espacio` para el radio `sr-only`, `Enter` para enviar—, sin un solo click. Encontró, de paso, que el radio de sexo (ya corregido en `TEST-3` para el click del mouse) también necesitaba el camino de teclado probado por separado.
+
+**`audit-website`:** `squirrel` no estaba instalado y no hay deploy en vivo (`INF-4` pendiente) — consultado con el usuario, que pidió instalarlo y auditar un build de producción local (`e2e/servidor.ts`, el mismo stack que usa `TEST-1`). Encontró y se corrigieron: favicon sin enlazar (ya existía el asset, faltaba el `<link>`), título y descripción demasiado cortos, y sin `robots.txt` en ninguna de las dos apps (ahora `Allow: /` en la landing, `Disallow: /` + `<meta name="robots" content="noindex, nofollow">` en la PWA, que no tiene nada que buscar en un buscador). Lo que **no** se tocó, a propósito:
+  - Canonical y OG tags: la landing es una SPA con un único `index.html` servido para todas las rutas — un canonical fijo ahí sería correcto para `/` y **incorrecto** para `/ranking`, `/torneos/:id`, etc. Necesita gestión de `<head>` por ruta (o SSR), que es más que esta tarea.
+  - Sitemap.xml: las rutas dinámicas (`/torneos/:id`, `/arqueros/:id`) necesitarían generarlo del lado del servidor; no tiene sentido antes de que `INF-4` dé un dominio real.
+  - `H1`/contenido/links «faltantes»: el crawler de `squirrel` no ejecuta JavaScript y ve el HTML crudo antes de que React pinte algo — es inherente a ser una SPA sin SSR, no un bug de esta pantalla. Confirmado comparando el crawl contra el dev server (sin seguridad de producción) y contra el stack real: el hallazgo persiste en los dos, el de CSP/minificación no.
+  - E-E-A-T (página Acerca de, Contacto, Política de privacidad, autoría, fechas de publicación): señales genéricas de SEO de contenido/marketing que no aplican a los resultados de una liga de club. No se agregó relleno para subir un puntaje.
+
+`pnpm -r typecheck`, `pnpm -r test` (1331 tests) y `pnpm lint` verdes en los cinco paquetes. Las 10 specs E2E (21 tests) completas, verdes contra el stack real, dos veces —antes y después de esta tanda de arreglos—. `/security-review`: sin hallazgos, es UI/navegación/metadata, sin ruta ni dato nuevo.)_
 
 ### `[x] INF-3` · Dockerfile · P0
 _(**Construido y verificado, en CI.** El job `imagen` lo construye en cada PR, comprueba el `uid` corriendo el contenedor y que sin configuración falle ruidosamente. Al construirlo por primera vez apareció que **no construía**: la etapa de dependencias no copiaba `packages/ui/package.json`, y `@bal/ui` nació después de escribir el Dockerfile. Lo que sigue sin verificarse es servir tráfico real contra Atlas, que es `INF-4`. Detalle original:  Multi-stage en tres etapas (deps → build → runner) sobre `node:22-bookworm-slim`, `USER node`, sin toolchain, `HEALTHCHECK` a `/api/health`, y `.dockerignore`. Los frontends se copian a `packages/api/public/{app,landing}`, que es donde los busca `estaticos.ts` dentro de la imagen — esa detección **sí** está probada (`elegirRutas`). **No se pudo correr `docker build`: no hay Docker en la máquina de desarrollo.** Queda pendiente construir la imagen y arrancarla una vez antes de dar la tarea por cerrada.» — resuelto por el job `imagen`.)_

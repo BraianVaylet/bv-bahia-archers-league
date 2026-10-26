@@ -44,7 +44,7 @@ export function Encabezado() {
         <div className="flex items-center gap-2 min-h-[44px]">
           <Link
             to="/"
-            className="font-[var(--font-display)] font-bold flex items-center gap-2 min-w-0"
+            className="font-[var(--font-display)] font-bold flex items-center gap-2 min-w-0 min-h-[44px]"
           >
             {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice
                 de qué liga se trata, ni se lee en un lector de pantalla. */}

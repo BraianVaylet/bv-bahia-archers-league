@@ -749,6 +749,16 @@ describe('ArcherRegisterPage', () => {
     expect(llamadas.some((u) => u.includes('/archers'))).toBe(false);
   });
 
+  // Sin esto el foco se queda en «Enviar» y hay que ir a buscar a mano cuál
+  // de los cinco campos falló.
+  it('lleva el foco al primer campo vacío al fallar la validación', async () => {
+    renderAlta();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Apellido')).toHaveFocus();
+  });
+
   it('el alta exitosa dice que queda PENDIENTE, nunca que ya está anotado', async () => {
     servidor({
       '/api/public/archers': () => ({

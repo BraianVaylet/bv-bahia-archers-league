@@ -432,6 +432,26 @@ describe('ArchersPage', () => {
     expect(screen.queryByText(/no se puede eliminar/)).toBeNull();
   });
 
+  it('eliminar pide un segundo toque antes de pegarle al servidor', async () => {
+    listar([arquero({ participated: false })]);
+    servidor({
+      'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+      'DELETE /api/admin/archers/x1': () => ({ json: { ok: true } }),
+    });
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Eliminar a/ }));
+    expect(llamadas.some((l) => l.method === 'DELETE')).toBe(false);
+    expect(screen.getByText(/se borra del padrón, no se puede deshacer/i)).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Confirmar eliminar a/ }));
+    await waitFor(() => {
+      expect(llamadas.some((l) => l.method === 'DELETE' && l.url.endsWith('/archers/x1'))).toBe(
+        true,
+      );
+    });
+  });
+
   it('archivar pega a la ruta de archivar y recarga', async () => {
     listar([arquero()]);
     servidor({

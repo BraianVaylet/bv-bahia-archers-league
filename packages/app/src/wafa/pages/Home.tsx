@@ -17,7 +17,14 @@ import { ChipModalidad } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
-import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import {
+  botonClases,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { api } from '../../lib/apiClient.js';
 
 export interface TournamentRow {
@@ -92,26 +99,26 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
 
       <Screen>
         <nav className="pt-4 flex flex-col gap-2">
-          <Link to="/wafa/torneos/nuevo">
-            <Button ancho>Crear torneo</Button>
+          <Link to="/wafa/torneos/nuevo" className={botonClases({ ancho: true })}>
+            Crear torneo
           </Link>
           <div className="flex gap-2">
-            <Link to="/wafa/arqueros" className="flex-1">
-              <Button variante="secundario" ancho>
-                Arqueros
-              </Button>
+            <Link
+              to="/wafa/arqueros"
+              className={botonClases({ variante: 'secundario', ancho: true, className: 'flex-1' })}
+            >
+              Arqueros
             </Link>
-            <Link to="/wafa/temporadas" className="flex-1">
-              <Button variante="secundario" ancho>
-                Temporadas
-              </Button>
+            <Link
+              to="/wafa/temporadas"
+              className={botonClases({ variante: 'secundario', ancho: true, className: 'flex-1' })}
+            >
+              Temporadas
             </Link>
           </div>
 
-          <Link to="/wafa/ranking">
-            <Button variante="secundario" ancho>
-              Ranking de la liga
-            </Button>
+          <Link to="/wafa/ranking" className={botonClases({ variante: 'secundario', ancho: true })}>
+            Ranking de la liga
           </Link>
         </nav>
 

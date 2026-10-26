@@ -137,7 +137,10 @@ function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
         </span>
       </Celda>
       <Celda className="max-sm:justify-start max-sm:pb-1">
-        <Link to={`/arqueros/${entrada.archerId}`} className="underline">
+        <Link
+          to={`/arqueros/${entrada.archerId}`}
+          className="underline min-h-[44px] inline-flex items-center"
+        >
           {entrada.lastName}, {entrada.firstName}
         </Link>
       </Celda>
@@ -281,7 +284,10 @@ export function RankingPage() {
                 <ul className="flex flex-col gap-1">
                   {c[vista].notYetEligible.map((e) => (
                     <li key={e.archerId} data-testid={`pendiente-${e.lastName}`}>
-                      <Link to={`/arqueros/${e.archerId}`} className="underline">
+                      <Link
+                        to={`/arqueros/${e.archerId}`}
+                        className="underline min-h-[44px] inline-flex items-center"
+                      >
                         {e.lastName}, {e.firstName}
                       </Link>{' '}
                       <span className="text-[var(--ink-muted)]">
