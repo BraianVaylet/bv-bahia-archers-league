@@ -105,7 +105,7 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   updatedAt: Date
 }
 ```
-Índices: `{ archivedAt: 1, lastName: 1, firstName: 1 }` · `{ searchKey: 1 }` · `{ category: 1 }` · `{ dni: 1 }` **unique, parcial** (sólo `dni: { $ne: null }` — dos arqueros viejos con `dni: null` no chocan entre sí).
+Índices: `{ archivedAt: 1, lastName: 1, firstName: 1 }` · `{ searchKey: 1 }` · `{ category: 1 }` · `{ dni: 1, category: 1 }` **unique, parcial** (sólo `dni: { $type: 'string' }` — dos arqueros viejos con `dni: null` no chocan entre sí). Único es el par, no el DNI solo: la misma persona puede anotarse en más de una categoría — es un `ArcherDoc` por categoría, mismo DNI — pero no dos veces en la misma.
 
 Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoregistro público (`BE-20`) lo crea `"pendiente"`, y sólo entra al padrón que usa el wizard de torneo (`archerRepo.list` con el filtro por defecto) una vez que `BE-22` lo aprueba.
 
@@ -359,7 +359,7 @@ Base `/api`. JSON. Errores con forma uniforme:
 | `DELETE` | `/api/admin/archers/:id` | **409** si participó de algún torneo |
 | `GET` `POST` `PATCH` | `/api/admin/seasons[/:id]` | CRUD de temporadas |
 
-Un DNI repetido en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`.
+Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`. El mismo DNI en otra categoría se permite: es como una misma persona se anota en más de una.
 
 ### 3.3 Admin — torneos
 

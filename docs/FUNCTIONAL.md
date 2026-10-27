@@ -112,7 +112,7 @@ Formulario público, sin sesión, accesible desde la Introducción (§5.1). Pide
 
 **No inscribe a nada.** El arquero queda `pendiente` de aprobación — no aparece en el padrón que el admin usa para armar un torneo (`BE-22` lo revisa y aprueba o rechaza, desde WAFA). La pantalla lo dice explícitamente al confirmar: «tu alta quedó pendiente de que el club la revise», nunca «ya estás anotado».
 
-Un DNI que ya existe en el padrón devuelve un error, pero **sin decir con qué nombre está cargado** — el formulario no puede volverse una forma de averiguar si una persona concreta ya está en la liga.
+Un DNI que ya existe **en esa misma categoría** devuelve un error, pero **sin decir con qué nombre está cargado** — el formulario no puede volverse una forma de averiguar si una persona concreta ya está en la liga. El mismo DNI en otra categoría se permite: es así como una misma persona se anota en más de una.
 
 Es la **primera ruta pública que escribe**, no sólo lee. Comparte el límite de `RATE_LIMIT_PUBLIC` con el resto de `/api/public/*`. Ver `docs/SECURITY.md` §16.
 

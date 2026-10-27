@@ -292,6 +292,26 @@ describe('arqueros', () => {
     );
   });
 
+  it('el mismo DNI puede anotarse en más de una categoría', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      dni: '30123458',
+    });
+
+    const res = await c.post('/api/admin/archers', {
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'compuesto',
+      dni: '30123458',
+    });
+
+    expect(res.status).toBe(201);
+    expect(await archers().countDocuments({ dni: '30123458' })).toBe(2);
+  });
+
   it('dos arqueros sin DNI no chocan entre sí', async () => {
     const c = await adminListo();
     await c.post('/api/admin/archers', { firstName: 'Uno', lastName: 'Sin DNI', category: 'razo' });

@@ -33,13 +33,16 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { key: { archivedAt: 1, lastName: 1, firstName: 1 }, name: 'ix_activos_nombre' },
       { key: { searchKey: 1 }, name: 'ix_searchKey' },
       { key: { category: 1 }, name: 'ix_category' },
-      // Parcial: dos arqueros del padrón viejo con dni: null no chocan entre
-      // sí. $type excluye null Y la clave ausente, a diferencia de $exists.
+      // Único por DNI+categoría, no por DNI solo: la misma persona puede
+      // anotarse en más de una categoría (dos ArcherDoc, un DNI), pero no dos
+      // veces en la misma. Parcial: dos arqueros del padrón viejo con
+      // dni: null no chocan entre sí. $type excluye null Y la clave ausente,
+      // a diferencia de $exists.
       {
-        key: { dni: 1 },
+        key: { dni: 1, category: 1 },
         unique: true,
         partialFilterExpression: { dni: { $type: 'string' } },
-        name: 'uk_dni',
+        name: 'uk_dni_category',
       },
     ]),
 

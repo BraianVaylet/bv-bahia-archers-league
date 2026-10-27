@@ -59,7 +59,9 @@ export function findManyByIds(ids: readonly ObjectId[]): Promise<ArcherDoc[]> {
  * admin lo vale de entrada. El autoregistro público (`BE-20`) pasa
  * `'pendiente'` explícito.
  *
- * @throws {AppError} `ARCHER_DNI_DUPLICATE` si el DNI ya está en uso.
+ * @throws {AppError} `ARCHER_DNI_DUPLICATE` si ese DNI ya está anotado en esa
+ *   categoría. El mismo DNI en otra categoría es un arquero distinto y se
+ *   permite: es la forma en que una misma persona se anota en más de una.
  */
 export async function create(
   input: ArcherInput,
@@ -83,8 +85,8 @@ export async function create(
     const { insertedId } = await archers().insertOne(doc);
     return { ...doc, _id: insertedId };
   } catch (error) {
-    // Dedup por el índice único parcial de `dni`: sin `findOne` previo, igual
-    // que el resto de los índices únicos de este proyecto.
+    // Dedup por el índice único parcial de `dni`+`category`: sin `findOne`
+    // previo, igual que el resto de los índices únicos de este proyecto.
     if (error instanceof Error && error.message.includes('E11000')) {
       throw new AppError('ARCHER_DNI_DUPLICATE');
     }

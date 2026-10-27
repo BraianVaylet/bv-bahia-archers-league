@@ -59,7 +59,7 @@ const MENSAJES: Record<ErrorCode, string> = {
   TARGET_LOCKED: 'Este blanco ya tiene puntajes cargados y no se puede editar.',
   TOURNAMENT_HAS_SCORES: 'El torneo ya tiene puntajes cargados.',
   ARCHER_IN_USE: 'El arquero participó de un torneo. Archivalo en vez de eliminarlo.',
-  ARCHER_DNI_DUPLICATE: 'Ya existe un arquero con ese DNI.',
+  ARCHER_DNI_DUPLICATE: 'Ya existe un arquero con ese DNI en esa categoría.',
   SIGNATURES_MISSING: 'Faltan firmas para cerrar el circuito.',
   SIGNATURE_MISMATCH: 'El puntaje cambió después de firmarse.',
   PAYLOAD_TOO_LARGE: 'El contenido enviado es demasiado grande.',

@@ -14,6 +14,30 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-27 · DNI único por categoría, no por arquero (padrón)
+
+**Autor:** Claude Sonnet 5 · **Estado:** completado.
+
+### Pedido directo del usuario, fuera del plan
+
+El índice único de `dni` en `archers` era global desde `BE-19`: un DNI sólo podía estar cargado una vez en todo el padrón. El usuario pidió explícitamente lo contrario para el caso real de la liga — un arquero puede anotarse en más de una categoría (p. ej. `recurvo` y `compuesto`), cada anotación es un `ArcherDoc` separado con el mismo DNI — así que lo que hay que impedir es el duplicado **dentro de la misma categoría**, no el DNI repetido en sí.
+
+### El cambio: índice compuesto, no una regla nueva en `@bal/shared`
+
+`uk_dni` (`{dni}` único, parcial sobre `dni: {$type: 'string'}`) pasó a `uk_dni_category` (`{dni, category}`, misma condición parcial). Sigue sin ser una regla de dominio pura: la deduplicación depende de qué hay en la base, así que sigue viviendo en el índice de Mongo + el catch de `E11000` en `archerRepo.create`/`update`, mismo patrón que el resto de los índices únicos del proyecto — no hizo falta tocar `@bal/shared` ni `ArcherInputSchema`/`ArcherSelfRegisterSchema`.
+
+TDD: el test que hoy fallaba por la razón correcta (`el mismo DNI puede anotarse en más de una categoría`, esperando 201 y recibiendo 409 contra el índice global viejo) se escribió primero, se lo vio rojo, y el cambio de índice lo puso verde. Los tests existentes de "DNI repetido en la misma categoría → 409" (admin y alta pública) siguen verdes sin tocarlos: siguen cubriendo exactamente lo que tienen que cubrir.
+
+### Mensaje de error actualizado, oráculo de DNI un poco más angosto, no más ancho
+
+`ARCHER_DNI_DUPLICATE` pasó de "Ya existe un arquero con ese DNI" a "... en esa categoría". El hallazgo `S-6` ya documentado (`docs/post/ref-6/INFORME.md`, `docs/SECURITY.md` §15) sobre el alta pública como oráculo de DNI sigue intacto como riesgo conocido — este cambio no lo introduce, lo angosta: antes un solo intento confirmaba "ese DNI existe en la liga", ahora sólo confirma "existe en la categoría que mandaste". Anotado en `SECURITY.md` §15 para que quede explícito, no evaluado como hallazgo nuevo en el `/security-review` de esta tarea (sin resultados HIGH/MEDIUM).
+
+### Deuda / lo que sigue
+
+- Ninguna para esta tarea. `S-6` (hacer que alta nueva y DNI repetido respondan igual) sigue siendo trabajo de `docs/post/ref-6/ACTION_PLAN.md`, no de ésta.
+
+---
+
 ## 2026-10-26 · Backups: restauración verificada de punta a punta (INF-6)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado.
