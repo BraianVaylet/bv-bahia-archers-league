@@ -276,7 +276,7 @@ El relleno del anillo es la única animación con algo de gracia, y se la ganó:
 ## 9. Temas
 
 - Se respeta `prefers-color-scheme` por defecto, con conmutador manual persistido en `localStorage`.
-- **Anti-FOUC**: un script inline en `<head>` aplica el tema antes del primer pintado. Va con **hash en la CSP**, no con `'unsafe-inline'`.
+- **Anti-FOUC**: un script **externo, clásico y bloqueante** en el `<head>` (`public/theme-init.js` de cada app) aplica el tema antes del primer pintado. Es externo porque la CSP es `script-src 'self'` —sin `'unsafe-inline'` y sin hashes que mantener a mano— y un script inline se bloquea; es bloqueante (sin `async`, `defer` ni `type="module"`) porque tiene que correr antes de pintar.
 - `<meta name="theme-color">` se sincroniza con el tema para que la barra del navegador acompañe.
 - **El tema claro es el default en WAFL**, porque es el que gana bajo el sol. El oscuro está para el pabellón y para la carga nocturna.
 
@@ -284,7 +284,9 @@ El relleno del anillo es la única animación con algo de gracia, y se la ganó:
 
 La decisión de **qué tema corresponde** está en `@bal/shared/src/tema.ts` —`resolverTema`, `TEMA_KEY`, `COLOR_DE_BARRA`— y probada ahí. La **aplicación** al documento es de cada app: `BotonTema` en `app/src/components/ui.tsx` y en `landing/src/components/ui.tsx`.
 
-Son **cuatro lugares** que tienen que coincidir: los dos scripts anti-FOUC de los `index.html` —que no pueden importar nada, porque corren antes de cualquier bundle— y los dos conmutadores. Hay un test en `@bal/shared` que **lee los dos HTML** y verifica que usen la misma clave y los mismos colores. Que exista un archivo con los valores correctos no prueba que los `index.html` digan lo mismo.
+Son **cuatro lugares** que tienen que coincidir: los dos `theme-init.js` —que no pueden importar nada, porque corren antes de cualquier bundle— y los dos conmutadores. Hay un test en `@bal/shared` que **ejecuta los dos scripts** en un `vm`, con todas las combinaciones de valor guardado y preferencia del sistema, y compara el resultado con `resolverTema` y `COLOR_DE_BARRA`; además verifica que las dos copias sean idénticas y que los `index.html` no tengan ningún script inline. Buscar texto dentro del HTML no alcanzaba: una versión anterior pasaba ese test y decidía distinto que `resolverTema` (con un valor guardado corrupto, o con `localStorage` bloqueado, pintaba claro mientras el botón pintaba oscuro).
+
+El E2E `tema-sin-parpadeo.spec.ts` prueba lo que ese test no puede ver: contra el stack de producción, con su CSP real, que el tema oscuro queda puesto **antes** de que React monte y que no hay una sola violación de la CSP.
 
 Un valor guardado que no se reconoce **no cuenta como elección**: se sigue la preferencia del sistema. Forzar claro ignoraría a alguien que tiene el sistema en oscuro por una entrada corrupta que nunca eligió.
 

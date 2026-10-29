@@ -36,8 +36,10 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `COOKIE_SECURE` | no | `false` dev / `true` prod | Flag `Secure` de las cookies |
 | `SESSION_TTL_HOURS_ADMIN` | no | `12` | Vigencia de la sesión de admin |
 | `SESSION_TTL_HOURS_PATROL` | no | `24` | Máximo de la sesión de patrulla |
-| `RATE_LIMIT_LOGIN` | no | `10` | Intentos de login por ventana e IP |
-| `RATE_LIMIT_LOGIN_WINDOW_MIN` | no | `15` | Ventana de login, en minutos |
+| `RATE_LIMIT_LOGIN` | no | `60` | Intentos de login **fallidos** por ventana e IP (admin y patrulla comparten cupo). Los ingresos correctos no cuentan. Generoso a propósito: el wifi del club es una sola IP para todas las patrullas |
+| `RATE_LIMIT_LOGIN_WINDOW_MIN` | no | `15` | Ventana de login y de recuperación, en minutos |
+| `RATE_LIMIT_RECOVER` | no | `5` | Intentos **fallidos** de recuperar el password por ventana e IP. Más corto: es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por cuenta |
+| `TRUSTED_IP_HEADER` | no | `x-real-ip` prod / ninguno dev | Header donde el proxy de adelante deja la IP real del cliente. Railway documenta `X-Real-IP`. Si el servicio queda detrás de otra cosa (p. ej. Cloudflare) poné su header (`cf-connecting-ip`). Ver `SECURITY.md` §3.3 |
 | `RATE_LIMIT_SYNC` | no | `300` | Ops de sync por minuto y sesión. **Generoso a propósito** |
 | `RATE_LIMIT_PUBLIC` | no | `120` | Requests públicos por minuto e IP |
 | `LEAGUE_BEST_N` | no | `2` | Cuántos mejores porcentajes entran en el promedio de «mejor de N». También el mínimo de torneos para figurar en el ranking. Ver `DOMAIN_WA.md` §9 |

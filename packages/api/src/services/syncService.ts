@@ -24,7 +24,8 @@ import {
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
 import { getClient } from '../db/client.js';
-import type { ScoreDoc, TournamentDoc } from '../db/types.js';
+import type { ParticipantDoc, ScoreDoc, TournamentDoc } from '../db/types.js';
+import { AppError, type ErrorCode } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
@@ -64,6 +65,10 @@ const rechazo = (opId: string, code: string, message: string): OpResult => ({
   status: 'rejected',
   error: { code, message },
 });
+
+/** Rechazo con un código del catálogo: el mensaje sale del mismo lugar que el de la API. */
+const rechazoTipado = (opId: string, code: ErrorCode): OpResult =>
+  rechazo(opId, code, new AppError(code).message);
 
 /**
  * Procesa un batch de operaciones.
@@ -111,9 +116,17 @@ export async function sync(
     };
   }
 
+  // Una sola lectura por lote, y no una por op: el estado de la patrulla no
+  // cambia entre las ops de un lote salvo por un `close` del propio lote, que
+  // se sigue acá. Otro dispositivo cerrando en paralelo no abre un hueco: para
+  // cerrar hacen falta todas las firmas, y `aplicarScore` rechaza sobre firmados.
+  let cerrada = (await patrolRepo.findById(patrolId))?.status === 'cerrada';
+
   const results: OpResult[] = [];
   for (const op of batch.ops) {
-    results.push(await procesarOp(op, patrolId, torneo));
+    const resultado = await procesarOp(op, patrolId, torneo, cerrada);
+    results.push(resultado);
+    if (op.type === 'close' && resultado.status === 'applied') cerrada = true;
   }
 
   const patrulla = await patrolRepo.findById(patrolId);
@@ -146,6 +159,7 @@ async function procesarOp(
   op: SyncOpInput,
   patrolId: ObjectId,
   torneo: TournamentDoc,
+  patrullaCerrada: boolean,
 ): Promise<OpResult> {
   // Paso 1 — DEDUP. Insert atómico contra el índice único: no hay ventana entre
   // comprobar y escribir, como sí la habría con un `findOne` previo.
@@ -161,9 +175,9 @@ async function procesarOp(
     await session.withTransaction(async () => {
       resultado =
         op.type === 'score'
-          ? await aplicarScore(op, patrolId, torneo, session)
+          ? await aplicarScore(op, patrolId, torneo, patrullaCerrada, session)
           : op.type === 'signature'
-            ? await aplicarFirma(op, patrolId, session)
+            ? await aplicarFirma(op, patrolId, patrullaCerrada, session)
             : await aplicarCierre(op, patrolId, torneo, session);
     });
 
@@ -186,10 +200,52 @@ async function procesarOp(
 
 // ── Puntaje ──────────────────────────────────────────────────────────────────
 
+/**
+ * Por qué no se puede escribir un puntaje de este participante, o `null`.
+ *
+ * - **Patrulla cerrada**: la planilla es la que se firmó, nada la modifica. Va
+ *   primero para que, después del cierre, el motivo sea ése y no el de la firma
+ *   que el cierre exigió.
+ * - **Arquero firmado**: la firma guarda el hash del puntaje del momento. La UI
+ *   ya lo respeta; el servidor tiene que decir lo mismo, porque una app
+ *   modificada o una op vieja en el outbox no pasan por esa UI. Incluye la firma
+ *   desbloqueada por el admin (sin trazo): también cuenta como cerrada.
+ */
+function motivoDeBloqueo(participante: ParticipantDoc, patrullaCerrada: boolean): ErrorCode | null {
+  if (patrullaCerrada) return 'PATROL_CLOSED';
+  return participante.signature !== null ? 'SIGNATURE_LOCKED' : null;
+}
+
+/**
+ * Lo que cambia en los rollups del participante al guardar un blanco.
+ *
+ * Es la diferencia contra lo que había: editar un blanco no debe sumar dos
+ * veces, y sólo un blanco nuevo suma uno a `targetsCompleted`.
+ */
+function deltaDeRollup(
+  computo: Pick<ScoreDoc, 'total' | 'innerCount' | 'xCount' | 'tenCount' | 'mCount'>,
+  previo: ScoreDoc | null,
+  modality: Modality,
+) {
+  const diferencia = (campo: 'total' | 'innerCount' | 'xCount' | 'tenCount' | 'mCount') =>
+    computo[campo] - (previo?.[campo] ?? 0);
+
+  return {
+    total: diferencia('total'),
+    innerCount: diferencia('innerCount'),
+    xCount: diferencia('xCount'),
+    tenCount: diferencia('tenCount'),
+    mCount: diferencia('mCount'),
+    targetsCompleted: previo ? 0 : 1,
+    byModality: { ...MODALIDADES_EN_CERO, [modality]: diferencia('total') },
+  };
+}
+
 async function aplicarScore(
   op: Extract<SyncOpInput, { type: 'score' }>,
   patrolId: ObjectId,
   torneo: TournamentDoc,
+  patrullaCerrada: boolean,
   session: ClientSession,
 ): Promise<OpResult> {
   // Paso 2 — AUTORIZAR. Dentro del loop, por op: un batch puede traer 200 y
@@ -215,6 +271,11 @@ async function aplicarScore(
     );
     return rechazo(op.opId, 'FORBIDDEN', 'Ese arquero no es de tu patrulla.');
   }
+
+  // Va después de AUTORIZAR a propósito: un intento sobre un ajeno es FORBIDDEN y
+  // queda en el audit log, no un «cerrada» que no le incumbe.
+  const bloqueo = motivoDeBloqueo(participante, patrullaCerrada);
+  if (bloqueo) return rechazoTipado(op.opId, bloqueo);
 
   // Paso 3 — VALIDAR contra la modalidad DEL BLANCO, leída del torneo en base.
   // Nunca contra lo que diga el cliente.
@@ -298,21 +359,9 @@ async function aplicarScore(
 
   await scoreRepo.upsertScore(doc, session);
 
-  // El delta descuenta lo que había: editar un blanco no debe sumar dos veces.
-  const byModality = { ...MODALIDADES_EN_CERO };
-  byModality[blanco.modality] = computo.total - (existente?.total ?? 0);
-
   await scoreRepo.applyRollupDelta(
     participante._id,
-    {
-      total: computo.total - (existente?.total ?? 0),
-      innerCount: computo.innerCount - (existente?.innerCount ?? 0),
-      xCount: computo.xCount - (existente?.xCount ?? 0),
-      tenCount: computo.tenCount - (existente?.tenCount ?? 0),
-      mCount: computo.mCount - (existente?.mCount ?? 0),
-      targetsCompleted: existente ? 0 : 1,
-      byModality,
-    },
+    deltaDeRollup(computo, existente, blanco.modality),
     torneo.maxPossibleScore,
     session,
   );
@@ -368,6 +417,7 @@ async function actualizarAvanceDePatrulla(
 async function aplicarFirma(
   op: Extract<SyncOpInput, { type: 'signature' }>,
   patrolId: ObjectId,
+  patrullaCerrada: boolean,
   session: ClientSession,
 ): Promise<OpResult> {
   const participante = await scoreRepo.findParticipant(new ObjectId(op.participantId), session);
@@ -375,6 +425,8 @@ async function aplicarFirma(
   if (!participante || !participante.patrolId.equals(patrolId)) {
     return rechazo(op.opId, 'FORBIDDEN', 'Ese arquero no es de tu patrulla.');
   }
+
+  if (patrullaCerrada) return rechazoTipado(op.opId, 'PATROL_CLOSED');
 
   const png = decodificarPng(op.pngDataUrl);
   if (!png) {

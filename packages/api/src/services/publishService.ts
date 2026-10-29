@@ -20,6 +20,7 @@ import type { ParticipantDoc, TournamentDoc } from '../db/types.js';
 import { env } from '../env.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
+import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as standingRepo from '../repositories/standingRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 import { transition } from './tournamentStateService.js';
@@ -137,9 +138,28 @@ export async function reconcileStandings(): Promise<ReconcileStandingsResult> {
 }
 
 /**
+ * Participantes cuyo puntaje ya no es el que firmaron.
+ *
+ * `SIGNATURE_MISMATCH` se evalúa en el cierre de cada patrulla y nunca más. Lo
+ * que cambie después —una corrección a mano en la base, un script, un bug— no
+ * lo ve nadie, y publicar es el último punto antes de que el resultado sea
+ * oficial. Las firmas desbloqueadas por el admin también cuentan: guardan el
+ * hash del momento del desbloqueo, justamente para esto.
+ */
+async function firmadosAlterados(tournamentId: ObjectId): Promise<ParticipantDoc[]> {
+  const firmados = (await tournamentRepo.listParticipants(tournamentId)).filter(
+    (m) => m.signature !== null,
+  );
+  const actuales = await Promise.all(firmados.map((m) => scoreRepo.scorecardHashOf(m)));
+
+  return firmados.filter((m, i) => m.signature?.scorecardHash !== actuales[i]);
+}
+
+/**
  * `completado` → `publicado`.
  *
  * @throws {AppError} `INVALID_STATE_TRANSITION` si el torneo no está completado.
+ * @throws {AppError} `SIGNATURE_MISMATCH` si algún puntaje cambió después de firmarse.
  */
 export async function publish(tournamentId: ObjectId, actorId: ObjectId): Promise<PublishResult> {
   const torneo = await tournamentRepo.findById(tournamentId);
@@ -149,6 +169,16 @@ export async function publish(tournamentId: ObjectId, actorId: ObjectId): Promis
     throw new AppError('INVALID_STATE_TRANSITION', {
       message: 'Sólo se puede publicar un torneo completado.',
       details: { status: torneo.status },
+    });
+  }
+
+  const alterados = await firmadosAlterados(tournamentId);
+  if (alterados.length > 0) {
+    throw new AppError('SIGNATURE_MISMATCH', {
+      message: `No se puede publicar: el puntaje de ${alterados
+        .map((m) => `${m.lastName}, ${m.firstName}`)
+        .join('; ')} cambió después de firmarse.`,
+      details: { participantIds: alterados.map((m) => m._id.toHexString()) },
     });
   }
 

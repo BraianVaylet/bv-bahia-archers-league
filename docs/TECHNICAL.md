@@ -583,6 +583,9 @@ Los presupuestos de bundle se hacen fallar el build con `rollup-plugin-visualize
 | `TARGET_LOCKED` | 409 | Editar un blanco que ya tiene puntajes |
 | `ARCHER_IN_USE` | 409 | Eliminar un arquero que participó de un torneo |
 | `SIGNATURES_MISSING` | 409 | Cerrar el circuito sin todas las firmas |
+| `SIGNATURE_MISMATCH` | 409 | El puntaje cambió después de firmarse: lo devuelven el cierre del circuito y publicar |
+| `SIGNATURE_LOCKED` | 409 | Op de score sobre un arquero que ya firmó (`/sync`, por op) |
+| `PATROL_CLOSED` | 409 | Op de score o de firma sobre una patrulla que ya cerró el circuito (`/sync`, por op) |
 | `RATE_LIMITED` | 429 | Excedido el límite; `Retry-After` en la respuesta |
 | `INTERNAL` | 500 | Inesperado. Se loguea con `requestId`, se responde sin detalle |
 

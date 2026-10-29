@@ -35,7 +35,10 @@ async function main(): Promise<void> {
     // chocarían con el límite mientras el test las manda de golpe.
     RATE_LIMIT_SYNC: '10000',
     RATE_LIMIT_PUBLIC: '10000',
-    RATE_LIMIT_LOGIN: '100',
+    // **El login NO se relaja, a propósito.** Se subía a 100 y eso escondía que
+    // el límite real dejaba afuera a la undécima patrulla del wifi del club: el
+    // E2E nunca corría con la configuración que corre el día del torneo. Ahora
+    // sólo cuentan los intentos fallidos, y `ingreso-masivo.spec.ts` lo prueba.
   });
 
   // Los módulos se importan DESPUÉS de sembrar el entorno: `env()` lo cachea al

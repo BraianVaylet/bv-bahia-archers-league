@@ -11,6 +11,7 @@ import type { SessionDoc, SubjectType } from '../db/types.js';
 import { env } from '../env.js';
 import * as sessionRepo from '../repositories/sessionRepo.js';
 import { generateSessionToken, sha256 } from './crypto.js';
+import { ipDelCliente } from './ip.js';
 
 export interface SessionSubject {
   readonly type: SubjectType;
@@ -40,7 +41,7 @@ export async function startSession(
     subjectId: subject.id,
     tournamentId: subject.tournamentId ?? null,
     expiresAt,
-    ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+    ip: ipDelCliente(c),
     userAgent: c.req.header('user-agent') ?? null,
   });
 

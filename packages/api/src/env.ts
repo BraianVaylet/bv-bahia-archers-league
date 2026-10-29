@@ -44,8 +44,20 @@ const EnvSchema = z.object({
   SESSION_TTL_HOURS_ADMIN: entero(12),
   SESSION_TTL_HOURS_PATROL: entero(24),
 
-  RATE_LIMIT_LOGIN: entero(10),
+  /**
+   * Intentos **fallidos** por IP en el login (admin y patrulla), no requests.
+   * Lo que frena la fuerza bruta contra una cuenta es su bloqueo propio; esto es
+   * contra quien rocía intentos por muchas cuentas. Generoso a propósito: el
+   * wifi del club es una sola IP para todas las patrullas.
+   */
+  RATE_LIMIT_LOGIN: entero(60),
   RATE_LIMIT_LOGIN_WINDOW_MIN: entero(15),
+  /**
+   * Intentos fallidos por IP al recuperar el password. Más corto que el login:
+   * es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por
+   * cuenta, así que el cupo de la IP es lo único que frena adivinar el código.
+   */
+  RATE_LIMIT_RECOVER: entero(5),
   RATE_LIMIT_SYNC: entero(300),
   RATE_LIMIT_PUBLIC: entero(120),
 
@@ -56,6 +68,18 @@ const EnvSchema = z.object({
    */
   LEAGUE_BEST_N: entero(2),
 
+  /**
+   * Header donde el proxy de adelante deja la IP real del cliente. Por defecto,
+   * `x-real-ip` en producción (Railway) y ninguno en desarrollo, donde no hay
+   * proxy. Poné otro si el servicio queda detrás de otra cosa (p. ej. Cloudflare:
+   * `cf-connecting-ip`). Ver `lib/ip.ts`.
+   */
+  TRUSTED_IP_HEADER: z
+    .string()
+    .min(1)
+    .transform((v) => v.toLowerCase())
+    .optional(),
+
   WEB_DIST_APP: z.string().min(1).default('public/app'),
   WEB_DIST_LANDING: z.string().min(1).default('public/landing'),
 });
@@ -63,6 +87,8 @@ const EnvSchema = z.object({
 export type Env = z.infer<typeof EnvSchema> & {
   readonly isProduction: boolean;
   readonly cookieSecure: boolean;
+  /** `TRUSTED_IP_HEADER` ya resuelto, con el default de producción aplicado. */
+  readonly trustedIpHeader: string | undefined;
 };
 
 export class EnvError extends Error {
@@ -134,6 +160,9 @@ export function loadEnv(raw: NodeJS.ProcessEnv = process.env): Env {
     isProduction,
     // En producción las cookies van Secure salvo que se desactive a propósito.
     cookieSecure: env.COOKIE_SECURE ?? isProduction,
+    // Igual que las cookies: en producción hay un proxy adelante (Railway) y su
+    // header es el confiable; en desarrollo no hay proxy y no hay nada que creer.
+    trustedIpHeader: env.TRUSTED_IP_HEADER ?? (isProduction ? 'x-real-ip' : undefined),
   };
 }
 

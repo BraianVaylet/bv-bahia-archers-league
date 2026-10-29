@@ -190,7 +190,9 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 
 ### 4.6 Firmas y cierre
 - Firma persistida con `scorecardHash`.
-- Modificar un score después de firmar → cerrar devuelve `SIGNATURE_MISMATCH`.
+- Score sobre un arquero que ya firmó → `rejected` con `SIGNATURE_LOCKED`.
+- Score o firma con la patrulla cerrada → `rejected` con `PATROL_CLOSED`.
+- Modificar un score después de firmar **por fuera de `/sync`** → cerrar y publicar devuelven `SIGNATURE_MISMATCH`.
 - Cerrar sin todas las firmas → `SIGNATURES_MISSING`.
 - Cerrar sin todos los blancos cargados → rechazado.
 - Cerrar la última patrulla → el torneo pasa a `completado` automáticamente.

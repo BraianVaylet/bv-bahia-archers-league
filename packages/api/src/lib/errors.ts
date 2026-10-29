@@ -22,6 +22,8 @@ export type ErrorCode =
   | 'ARCHER_DNI_DUPLICATE'
   | 'SIGNATURES_MISSING'
   | 'SIGNATURE_MISMATCH'
+  | 'SIGNATURE_LOCKED'
+  | 'PATROL_CLOSED'
   | 'PAYLOAD_TOO_LARGE'
   | 'RATE_LIMITED'
   | 'INTERNAL';
@@ -41,6 +43,8 @@ const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   ARCHER_DNI_DUPLICATE: 409,
   SIGNATURES_MISSING: 409,
   SIGNATURE_MISMATCH: 409,
+  SIGNATURE_LOCKED: 409,
+  PATROL_CLOSED: 409,
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   INTERNAL: 500,
@@ -62,6 +66,9 @@ const MENSAJES: Record<ErrorCode, string> = {
   ARCHER_DNI_DUPLICATE: 'Ya existe un arquero con ese DNI en esa categoría.',
   SIGNATURES_MISSING: 'Faltan firmas para cerrar el circuito.',
   SIGNATURE_MISMATCH: 'El puntaje cambió después de firmarse.',
+  SIGNATURE_LOCKED: 'Ese arquero ya firmó y su puntaje no se puede cambiar.',
+  PATROL_CLOSED:
+    'La patrulla ya cerró el circuito y no admite cambios. Consultá con la organización.',
   PAYLOAD_TOO_LARGE: 'El contenido enviado es demasiado grande.',
   RATE_LIMITED: 'Demasiados intentos. Esperá un momento.',
   INTERNAL: 'Ocurrió un error inesperado.',

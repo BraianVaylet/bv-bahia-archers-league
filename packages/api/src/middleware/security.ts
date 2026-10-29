@@ -14,8 +14,11 @@ import { env } from '../env.js';
  * - `img-src data: blob:` hace falta para las firmas en canvas.
  * - `camera=(self)` en Permissions-Policy queda para el escaneo de QR (FE-22);
  *   si esa función no se implementa, se saca.
- * - El script anti-FOUC del tema va con **hash**, no con `'unsafe-inline'`.
- *   El hash lo inyecta el build del frontend.
+ * - **No hay scripts inline.** El script anti-FOUC del tema es un archivo externo
+ *   del mismo origen (`theme-init.js`), así que `script-src` queda en `'self'`.
+ *   Antes los `index.html` lo llevaban inline y esta política no tenía su hash —
+ *   el comentario decía que lo inyectaba el build, pero nunca existió ese paso—,
+ *   y en producción el navegador lo bloqueaba.
  */
 function csp(scriptHashes: readonly string[]): string {
   const scriptSrc = ["'self'", ...scriptHashes.map((h) => `'${h}'`)].join(' ');
@@ -35,7 +38,10 @@ function csp(scriptHashes: readonly string[]): string {
 }
 
 export interface SecurityOptions {
-  /** Hashes SHA-256 de los scripts inline permitidos (ej. anti-FOUC del tema). */
+  /**
+   * Hashes SHA-256 de scripts inline permitidos. **Hoy ninguno**: el único script
+   * que lo necesitaba, el del tema, pasó a ser un archivo externo.
+   */
   readonly scriptHashes?: readonly string[];
 }
 

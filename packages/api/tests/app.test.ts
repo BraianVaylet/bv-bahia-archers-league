@@ -136,29 +136,39 @@ describe('CSRF', () => {
   });
 });
 
-describe('rate limiting', () => {
-  it('corta al pasarse y devuelve Retry-After', async () => {
-    const headers = { 'x-forwarded-for': '203.0.113.10' };
+/**
+ * El middleware genérico se prueba en `rateLimit.test.ts` y el cupo de los
+ * ingresos en `intentos-fallidos.test.ts`. Acá queda lo que sólo se ve en la app
+ * armada: que cada grupo de rutas tenga su límite enchufado.
+ *
+ * Estos tests usaban `/api/auth/csrf`, que dejó de estar limitada a propósito
+ * (`REF6-2`): la app la pide en cada carga y no protege nada.
+ */
+describe('rate limiting enchufado', () => {
+  it('las rutas públicas cortan al pasar el cupo y devuelven Retry-After', async () => {
+    // Sin `seasonId` la ruta responde 400 antes de tocar la base: sirve para
+    // gastar el cupo sin depender de datos. El límite corre antes que todo.
+    const headers = { 'x-forwarded-for': '203.0.113.50' };
 
-    let ultima: Response | undefined;
-    for (let i = 0; i < 12; i++) {
-      ultima = await pedir('/api/auth/csrf', { headers });
-    }
+    let ultima = await pedir('/api/public/rankings', { headers });
+    for (let i = 1; i < 125; i++) ultima = await pedir('/api/public/rankings', { headers });
 
-    expect(ultima?.status).toBe(429);
-    expect(Number(ultima?.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(ultima.status).toBe(429);
+    expect(Number(ultima.headers.get('retry-after'))).toBeGreaterThan(0);
 
-    const body = (await ultima?.json()) as { error: { code: string } };
+    const body = (await ultima.json()) as { error: { code: string } };
     expect(body.error.code).toBe('RATE_LIMITED');
   });
 
-  it('cuenta por IP, así que una no afecta a la otra', async () => {
-    for (let i = 0; i < 12; i++) {
-      await pedir('/api/auth/csrf', { headers: { 'x-forwarded-for': '203.0.113.20' } });
+  it('el cupo público es por IP', async () => {
+    for (let i = 0; i < 125; i++) {
+      await pedir('/api/public/rankings', { headers: { 'x-forwarded-for': '203.0.113.60' } });
     }
 
-    const otra = await pedir('/api/auth/csrf', { headers: { 'x-forwarded-for': '203.0.113.21' } });
-    expect(otra.status).toBe(200);
+    const otra = await pedir('/api/public/rankings', {
+      headers: { 'x-forwarded-for': '203.0.113.61' },
+    });
+    expect(otra.status).not.toBe(429);
   });
 });
 

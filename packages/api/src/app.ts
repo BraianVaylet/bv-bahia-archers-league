@@ -19,7 +19,7 @@ import { env } from './env.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { hayBuild, montarEstaticos, RUTAS_POR_DEFECTO } from './middleware/estaticos.js';
-import { rateLimit } from './middleware/rateLimit.js';
+import { failedAttemptsLimit, rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
@@ -53,12 +53,29 @@ export function createApp(options: AppOptions = {}): Hono {
     rateLimit({ limit: cfg.RATE_LIMIT_PUBLIC, windowMs: 60_000, scope: 'public' }),
   );
 
+  // Sólo los endpoints de ingreso, y sólo los intentos que fallan. Antes era
+  // todo `/api/auth/*` contando cada request: `/me` y `/csrf` los pide la app en
+  // cada carga, y diez patrullas entrando bien desde el wifi del club dejaban
+  // afuera a la undécima. Admin y patrulla comparten cupo: quien rocía
+  // intentos no distingue entre una puerta y la otra.
+  const ventanaDeLogin = cfg.RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000;
+  const intentosDeLogin = failedAttemptsLimit({
+    limit: cfg.RATE_LIMIT_LOGIN,
+    windowMs: ventanaDeLogin,
+    scope: 'login',
+  });
+  app.use('/api/auth/admin/login', intentosDeLogin);
+  app.use('/api/auth/patrol/login', intentosDeLogin);
+
+  // La recuperación del password tiene su cupo, aparte y más corto: no tiene
+  // bloqueo por cuenta que la proteja, y errar el código no tiene que dejar a
+  // nadie sin poder entrar con su PIN (ni al revés).
   app.use(
-    '/api/auth/*',
-    rateLimit({
-      limit: cfg.RATE_LIMIT_LOGIN,
-      windowMs: cfg.RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000,
-      scope: 'auth',
+    '/api/auth/admin/recover',
+    failedAttemptsLimit({
+      limit: cfg.RATE_LIMIT_RECOVER,
+      windowMs: ventanaDeLogin,
+      scope: 'recover',
     }),
   );
 

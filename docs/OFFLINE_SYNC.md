@@ -261,6 +261,10 @@ Máximo **200 ops** por batch, **1 MB** de body. El cliente parte en batches de 
 
 2. AUTORIZAR    ¿participantId pertenece a la patrulla de ESTA sesión?
                 No  →  'rejected' con FORBIDDEN. Se registra en auditLog.
+                Patrulla cerrada  →  'rejected' con PATROL_CLOSED (score y firma).
+                Arquero firmado   →  'rejected' con SIGNATURE_LOCKED (score).
+                (El estado de la patrulla se lee una vez por lote; un `close` del
+                mismo lote cuenta para las ops que vienen después.)
                 Esto es lo que impide que la patrulla 3 escriba puntajes de la 5.
 
 3. VALIDAR      modalidad = tournament.targets[targetIndex].modality

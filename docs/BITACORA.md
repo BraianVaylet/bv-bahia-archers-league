@@ -14,6 +14,124 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-29 · El tema oscuro llega antes de pintar, y la consola sin violaciones de CSP (REF6-3)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Tercera tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `U-1` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema, y por qué nada lo mostraba
+
+El script anti-FOUC estaba **inline** en los dos `index.html`, y la CSP de producción es `script-src 'self'` sin `'unsafe-inline'` ni hashes. El comentario de `security.ts` decía «el hash lo inyecta el build del frontend»; ese paso nunca existió. El navegador bloqueaba el script en cada carga: quien usa el tema oscuro veía la pantalla en claro y el salto a oscuro cuando React montaba, que es el parpadeo que el script existe para evitar. Nada fallaba y ningún test miraba la CSP ni el orden de pintado. Además había un tercer `theme-init.js` suelto, con otra clave (`bal-theme`) y otra lógica, que nadie cargaba.
+
+### Qué cambió
+
+- **El script pasó a un archivo externo, clásico y bloqueante** (`public/theme-init.js` de cada app), referenciado desde el `<head>`. La CSP no se tocó: sigue en `script-src 'self'`, sin hashes que mantener a mano. Se verificó el build: Vite lo emite con el `base` (`/app/theme-init.js`) y la PWA lo precachea, así que sin señal el tema también llega.
+- **Había una segunda violación que el plan no preveía: `script-src → eval`.** Zod 4 compila cada schema de objeto con `new Function` y, para saber si puede, lo *prueba* con `new Function('')` dentro de un `try`. La CSP lo bloquea, el `try` lo atrapa y todo sigue andando, pero el navegador lo reporta en cada carga. Se encontró porque el E2E nuevo exige cero violaciones y no sólo tema correcto. Solución: `@bal/shared/navegador` (`z.config({ jitless: true })`), importado **primero** en el `main.tsx` de cada frontend. El probe se evalúa al *construir* los schemas, no al parsear, así que el orden de import es lo que lo hace funcionar. **Sólo en el navegador**: el backend corre sin CSP y valida hasta 200 ops por lote con JIT.
+
+### Un hallazgo dentro del hallazgo: las copias no decidían lo mismo que `resolverTema`
+
+El test de coherencia que existía leía los `index.html` y buscaba texto (la clave, el color, `setAttribute`). Pasaba, y las copias inline **decidían distinto**: con un valor guardado corrupto y el sistema en oscuro pintaban claro (`guardado === null` en vez de «no reconocido»), y con `localStorage` bloqueado se quedaban en claro mientras `BotonTema` seguía al sistema. En los dos casos, un parpadeo en el lugar donde el script existe para evitarlo. Ahora el test **ejecuta** los dos scripts en un `vm` con `localStorage` y `matchMedia` de mentira y compara con `resolverTema` y `COLOR_DE_BARRA` en las diez combinaciones de valor guardado × sistema, más el caso sin almacenamiento. Las dos copias tienen que ser idénticas (también lo verifica).
+
+### Decisiones y desvíos
+
+- **No hay una sola fuente del script, hay dos copias idénticas.** Un script clásico no se bundlea, y cada `public/` se sirve bajo su propio origen. Una fuente única habría pedido un plugin de Vite que emita el archivo; dos copias con un test que las compara cuesta menos y falla fuerte si se separan.
+- **`DOMContentLoaded` no sirve para medir «antes de pintar».** El plan lo proponía, pero el módulo de React corre *antes* de ese evento y ya habría escrito el tema. El E2E usa un `MutationObserver` instalado antes de cualquier script de la página, que anota qué pasó primero: que se escriba `data-theme` o que `#root` reciba su primer hijo.
+- **`scriptHashes` queda en `createApp` y en `securityHeaders`**, pero ya no lo usa nadie. Se corrigió el comentario que prometía un paso de build inexistente; no se borró la opción porque es el mecanismo correcto si algún día hace falta un script inline, y sacarla toca tests que no son de esta tanda.
+
+### Verificación
+
+`@bal/shared`: 36 tests en `tema.test.ts` (antes 13, ocho de ellos sólo leían texto del HTML) y 1 nuevo en `navegador.test.ts`. Tipos del workspace limpios. Biome sobre los diez archivos tocados, sin warnings ni errores. E2E nuevo `tema-sin-parpadeo.spec.ts`: 8 de 8 (4 páginas × 2) contra el stack de producción; antes de arreglar fallaban los 8, con `script-src-elem → inline` y `script-src → eval`. **Suites completas, verdes:** `pnpm test` en los cinco paquetes (shared 497, api 318, ui 61, app 476, landing 50) y E2E entero, **31 de 31** (3,1 min) contra el stack real.
+
+Mutaciones, todas detectadas: clave `bal-theme` · copias distintas · un valor corrupto deja de seguir al sistema · las dos lecturas en un solo `try` · script inline de vuelta · `defer` · script después del bundle · y el import de Zod movido después de `./App`, que sólo el E2E puede ver (fallan las 4 páginas con `script-src → eval`). Esta última es la que importa: un reordenamiento automático de imports la reproduce sin que nadie lo note.
+
+### Deuda / lo que sigue
+
+- **El script es render-blocking.** Es lo que se busca, pero en la landing —que no tiene service worker— es un pedido más antes de pintar. Pesa 2 KB y `P-4` (política de caché de estáticos) lo vuelve cacheable; hasta entonces cada visita lo revalida.
+- No se probó en un iPhone ni en un Android reales (sigue pendiente en `FE-21`).
+- `docs/ARCHITECTURE.md` §9 todavía lista «`public/theme-init.js` — portar tal cual» como si viniera del repo de origen. Es el mapa histórico de qué se portó y no se tocó.
+
+---
+
+## 2026-10-29 · Un cupo de login que no deja afuera a la patrulla 11 (REF6-2)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado, con un punto que sólo se puede verificar desplegado. Segunda tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-2`, `S-3` y `T-3` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema, y por qué ningún test lo veía
+
+El límite de login (10 cada 15 min por IP) se aplicaba a **todo** `/api/auth/*` y contaba cada request. `/me` y `/csrf` los pide la app en cada carga, y los ingresos correctos gastaban el mismo cupo que un ataque: desde el wifi del club —una sola IP— la patrulla 11 recibía «Demasiados intentos» por culpa de las diez anteriores. Nadie lo vio porque `e2e/servidor.ts` subía `RATE_LIMIT_LOGIN` a 100: **el E2E nunca corría con la configuración que corre el día del torneo.**
+
+### Qué cambió
+
+- **Sólo cuentan los intentos fallidos (`401`)**, y sólo en `POST /admin/login`, `/patrol/login` (cupo compartido) y `/admin/recover` (cupo aparte). `/me`, `/csrf`, `/logout` y el cambio de password salen del cupo. Un `429` del bloqueo de cuenta, un `403` de CSRF o un `409` de torneo no iniciado no cuentan: no son credenciales equivocadas.
+- **`RATE_LIMIT_LOGIN` pasa de 10 a 60** (intentos *fallidos*; lo que frena la fuerza bruta contra una cuenta es su bloqueo propio). **`RATE_LIMIT_RECOVER` = 5**, nuevo: la recuperación del password es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por cuenta, así que este cupo es lo único que frena adivinar el código. Antes compartía el cupo del login.
+- **La IP sale de `TRUSTED_IP_HEADER`**, no del primer valor de `X-Forwarded-For`: los proxies *agregan* al final, y el primero lo escribe quien hace el request. Por defecto `x-real-ip` en producción —el header que Railway documenta como la IP del cliente—, ninguno en desarrollo. Un solo `lib/ip.ts` alimenta el cupo, las sesiones y el audit log; antes cada uno la leía a su manera.
+- **El `Map` de contadores tiene tope** (10 000, desaloja el más viejo): con una IP inventada por request crecía sin límite.
+- `e2e/servidor.ts` **ya no relaja el login**, y hay un spec nuevo (`ingreso-masivo.spec.ts`): quince patrullas entran desde la misma IP con el límite real.
+
+### Una falla de mi propio diseño, encontrada antes de cerrar
+
+La primera versión **miraba el contador al entrar y anotaba el fallo al salir**. Una ráfaga de requests simultáneos mira el contador antes de que el primero termine, y pasan todos: el test de ráfaga lo mostró con números, **30 de 30 intentos llegaron a verificar el código de recuperación contra un cupo de 5**. El límite viejo no tenía el problema porque reservaba el lugar al entrar. Ahora cada intento **suma uno apenas llega y lo resta si la respuesta no fue `401`**. El costo, aceptado: los intentos en vuelo cuentan unos milisegundos, así que hacen falta tantos ingresos simultáneos como el cupo (60) para cortar a uno legítimo.
+
+### Decisiones y desvíos
+
+- **`TRUSTED_PROXY_HOPS` → `TRUSTED_IP_HEADER`.** El plan decía contar saltos del proxy, «antes, verificar en Railway qué header y en qué posición llega la IP real». La documentación de Railway (*Specs & Limits → Request Headers*) da `X-Real-IP` y no menciona `X-Forwarded-For`: contar saltos habría sido adivinar una posición que no está documentada. Si el header no llega, se cae al comportamiento de antes en lugar de agrupar a todo el club bajo una IP: un cupo compartido sería peor que uno esquivable.
+- **Dos tests de `app.test.ts` cambiaron de premisa.** Probaban el middleware genérico contra `/api/auth/csrf`, que dejó de estar limitada a propósito. El middleware pasó a `rateLimit.test.ts` (contra una app mínima) y `app.test.ts` conserva sólo que cada grupo de rutas tenga su límite enchufado (`/api/public/*`). No se perdió cobertura: se movió a donde prueba lo que dice.
+- **Una guarda que escribí era código muerto.** La mutación «devolver el lugar sin mirar si la ventana se reabrió» sobrevivió; resultó un mutante *equivalente*: se resta sobre la referencia reservada, no sobre una búsqueda por clave, así que restarle a una ventana vieja no toca a la nueva. Se sacó la guarda en vez de dejarla; el test queda como especificación.
+- **La primera verificación del E2E no probaba nada.** La corrida con el comportamiento viejo «falló», pero por el *build* (`noUnusedLocals` rechazó mi mutación), no por el test; no probaba nada. Se rehízo con una mutación que compila, y falla donde tiene que fallar: `patrulla 10 — Expected: 200, Received: 429`.
+
+### Verificación
+
+`@bal/api`: **318 tests** verdes (15 archivos; 17 nuevos entre `intentos-fallidos`, `rateLimit`, `env` y `app`). `tsc --noEmit` limpio. Biome sobre los once archivos tocados, sin warnings ni errores. **E2E completo contra el stack real: 23 de 23 en verde** (3,1 min), incluido `ingreso-masivo.spec.ts`, ya sin la relajación del login. No se corrieron `shared`, `ui`, `app` ni `landing`: esta tanda no toca esos paquetes.
+
+**No se corrió** `/security-review` formal ni `aikido:scan` sobre esta tanda, que el plan pide. Sí hubo una revisión mía del diseño, y fue la que encontró la ráfaga de arriba; pero la escribió quien lo diseñó, y no reemplaza una mirada independiente.
+
+Mutaciones, todas detectadas salvo la equivalente: no registrar fallos · contar cualquier error · contar los exitosos · cupo global en vez de por IP · sin default de producción · ignorar el header de confianza · sin tope · desalojar el contador recién abierto · sin el límite público enchufado · nunca devolver el lugar · devolver también el de los fallos · no reservar.
+
+### Deuda / lo que sigue
+
+- **Sin verificar: que el borde de Railway pise un `X-Real-IP` mandado por el cliente.** La documentación dice que identifica la IP del cliente; no dice que sobrescriba uno falsificado. Hay que comprobarlo en el primer deploy (`INF-4`) con el procedimiento de `SECURITY.md` §3.3. Si no lo pisa, el cupo por IP vuelve a ser esquivable.
+- **El bloqueo por cuenta (5 fallos) tiene la misma ráfaga:** evalúa antes de verificar y anota después, así que una ráfaga contra una cuenta pasa de cinco. Es anterior a esta tanda; el cupo por IP ahora lo acota a 60 por ventana desde una IP, pero no desde varias. Anotado en `REF6-6`.
+- `SECURITY.md` §3.3 sigue diciendo «300 / min **por sesión**» para el sync y «60 / min por sesión» para `/api/admin/*`: el primero es por IP y el segundo no existe. Es el `B-2` del informe; entra en `REF6-15`.
+
+---
+
+## 2026-10-29 · Nada se escribe después de cerrar ni sobre lo firmado (REF6-1)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Primera tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md), que sale de la auditoría de [`INFORME.md`](post/ref-6/INFORME.md) (hallazgo `S-1`).
+
+### El hueco, comprobado antes de arreglarlo
+
+`SIGNATURE_MISMATCH` se evaluaba **una sola vez**, en el cierre de la patrulla. Después, `/sync` seguía aceptando puntajes y firmas de una patrulla `cerrada` y puntajes de un arquero ya firmado, y `publish` no volvía a mirar el hash. Los tests nuevos se vieron fallar por esa razón exacta: el servidor devolvía `applied` sobre una patrulla cerrada, y `publish` devolvió **200** sobre un torneo con un puntaje alterado. Es decir: se podía publicar un resultado que nadie firmó.
+
+### Qué cambió
+
+- **`PATROL_CLOSED`** (409, por op): score o firma con la patrulla cerrada. El estado se lee **una vez por lote** —no una por op, que cuesta un viaje a la base— y un `close` del mismo lote cuenta para las ops que vienen detrás.
+- **`SIGNATURE_LOCKED`** (409, por op): score sobre un arquero que ya firmó. La firma que el admin desbloqueó (sin trazo) también cuenta como firmada.
+- **`publish` verifica el hash** de cada firmado y se niega con `SIGNATURE_MISMATCH` diciendo **de quién**; el torneo queda `completado`. `SECURITY.md` §7 ya decía «al publicar, se verifica de nuevo» y el código no lo hacía: la promesa del documento ahora es verdad.
+- Los dos códigos se rechazan **después** de autorizar: un intento sobre un participante ajeno sigue siendo `FORBIDDEN` y sigue quedando en el audit log. Y `PATROL_CLOSED` va antes que `SIGNATURE_LOCKED`: tras el cierre todos están firmados, y el motivo útil es el cierre.
+
+### Decisiones y desvíos
+
+- **Un test existente cambió de premisa.** `cambiar un puntaje después de firmar frena el cierre` mandaba un score sobre un firmado por `/sync` y esperaba que el *cierre* lo frenara. Ahora esa op la corta `SIGNATURE_LOCKED` antes, así que el test dejó de probar el cierre. Se reescribió para alterar el dato **por fuera de `/sync`** (como lo haría una corrección a mano o un bug): `SIGNATURE_MISMATCH` queda como defensa en profundidad y sigue probado. No se ocultó un rojo: cambió el camino por el que el dato puede llegar.
+- **`deltaDeRollup` extraído** de `aplicarScore`. La función estaba justo en el límite de complejidad cognitiva (20) y la guarda nueva la pasaba a 21. En vez de sumar un warning, el cálculo del delta —que repetía `?? 0` cinco veces— salió a una función chica. Es un movimiento puro; lo cubre el test `recalcula el rollup por delta, sin sumar dos veces`, que falla si el delta ignora lo previo (mutación probada).
+- **No se tocó el cliente.** El rechazo llega al líder por el indicador de sincronización del encabezado («Problema al sincronizar: …» con el mensaje del servidor). El plan decía «en el blanco»: verificado, el `error` de cada puntaje no se dibuja en esa pantalla; el camino que existe es el del encabezado.
+- **`loginPatrol` no rechaza una patrulla cerrada**, a propósito: el líder que cambia de celular tiene que poder entrar a ver que el torneo terminó. El control está en la escritura, no en la entrada.
+
+### Verificación
+
+`seguridad.test.ts`: de 8 a 13 tests (5 nuevos, 1 reescrito). `@bal/api`: **301 tests** verdes. `tsc --noEmit` limpio. Biome sobre los cuatro archivos tocados: los mismos 2 warnings que ya existían en `syncService.ts` (`useOptionalChain`), **ninguno nuevo**.
+
+Mutaciones, todas detectadas: sacar el chequeo de patrulla cerrada en score · idem en firma · no seguir el `close` dentro del lote · sacar `SIGNATURE_LOCKED` · `publish` sin verificar el hash · y, sobre el código ya refactorizado, las dos de `motivoDeBloqueo` y la del delta.
+
+**No se corrió:** el E2E (Playwright) ni el resto de los paquetes (`shared`, `app`, `landing`): esta tanda solo toca `@bal/api`. Tampoco `/security-review` ni `aikido:scan`, que el plan pide para esta tanda.
+
+### Deuda / lo que sigue
+
+- **No existe ningún camino para corregir un puntaje firmado por error.** La UI ya lo impedía y ahora el servidor también. `unlockSignature` solo sirve para quien **no** firmó y rechaza a quien ya firmó. El `INFORME.md` decía lo contrario («la corrección pasa por el desbloqueo del admin») y está corregido. Si hace falta —y el día del torneo seguro que alguien firma mal—, es una función nueva: reabrir la firma de un participante con motivo, auditada. **Decisión del dueño del proyecto**, no se hizo.
+- **`pnpm lint` desde la raíz falla ahora** con «Found a nested root configuration»: hay dos worktrees de otras sesiones en `.claude/worktrees/` (`detalle-flechas-solo`, `fix-auditoria-dependencias`) con su propio `biome.json`. No son de esta tanda y no se tocaron; conviene borrarlos o excluirlos en `biome.json`. Mientras tanto Biome se corrió sobre los archivos tocados.
+- La ruta pública nueva de la tarjeta de puntajes (`FE-31`) muestra cada flecha; entra en el alcance de `/security-review` de `REF6-6`.
+
+---
+
 ## 2026-10-29 · Tarjeta de puntajes de un arquero: cada flecha de cada blanco (FE-31)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** completado.

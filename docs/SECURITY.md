@@ -93,13 +93,23 @@ Este es un balance delicado: un rate limit mal calibrado es un **denial of servi
 
 | Endpoint | Límite | Motivo |
 |---|---|---|
-| `POST /api/auth/admin/login` | 10 / 15 min por IP | Fuerza bruta |
-| `POST /api/auth/patrol/login` | 10 / 15 min por IP **y** 5 / 15 min por patrulla | Fuerza bruta del PIN |
+| `POST /api/auth/admin/login` y `POST /api/auth/patrol/login` | 60 intentos **fallidos** / 15 min por IP (cupo compartido), **y** el bloqueo de la cuenta tras 5 fallos | Fuerza bruta. Los ingresos correctos no gastan nada: el wifi del club es una sola IP para todas las patrullas |
+| `POST /api/auth/admin/recover` | 5 intentos **fallidos** / 15 min por IP, cupo aparte | Es la única ruta sin sesión que cambia una credencial y **no tiene bloqueo por cuenta**: el cupo de la IP es lo único que frena adivinar el código |
 | `POST /api/wafl/sync` | **300 / min por sesión de patrulla** | Generoso a propósito: una patrulla que vuelve de 3 horas sin señal envía cientos de ops de golpe. Nunca debe ser rechazada. |
 | `/api/admin/*` (escritura) | 60 / min por sesión | Abuso |
 | `/api/public/*` | 120 / min por IP | Scraping |
 
 Los límites viven en variables de entorno para poder ajustarlos sin redeploy si algo se calibra mal en el campo.
+
+**Qué cuenta y qué no (`REF6-2`).** Antes el límite de login se aplicaba a todo `/api/auth/*` y contaba cada request, así que `/me` y `/csrf` —que la app pide en cada carga— y los ingresos correctos gastaban el mismo cupo que un ataque: la patrulla 11 que entraba desde el wifi del club quedaba afuera por culpa de las diez anteriores. Ahora el cupo cuenta sólo las respuestas `401` (credenciales equivocadas) de las tres rutas de ingreso. Un `429` del bloqueo de la cuenta, un `403` de CSRF o un `409` de torneo no iniciado **no** cuentan.
+
+**El cupo se reserva al entrar y se devuelve si no fue un fallo.** No alcanza con mirar el contador al entrar y anotar el fallo al salir: una ráfaga de requests simultáneos mira el contador antes de que el primero termine y pasan todos (en la primera versión, treinta intentos contra un cupo de cinco). En la recuperación del password, que no tiene bloqueo por cuenta, eso dejaba adivinar el código sin otro freno que el tamaño de la ráfaga. Por eso cada intento suma uno apenas llega y lo resta si la respuesta no fue `401`. El costo: los intentos *en vuelo* cuentan unos milisegundos, así que hacen falta tantos ingresos simultáneos como el cupo para cortar a uno legítimo (60 en el login).
+
+> **Lo que este cupo no cubre:** el bloqueo **por cuenta** (5 fallos) se evalúa antes de verificar y se anota después, así que una ráfaga contra *una* cuenta también puede pasar de cinco. Es anterior a `REF6-2` y se atiende en `REF6-6`.
+
+**La IP del cliente.** El código tomaba el primer valor de `X-Forwarded-For`, y los proxies *agregan* al final: el primero lo escribe quien hace el request, así que un valor distinto en cada intento esquivaba el cupo. Ahora se usa `TRUSTED_IP_HEADER`, por defecto `x-real-ip` en producción —el header que Railway documenta como la IP del cliente en *Specs & Limits → Request Headers*—, y el mismo valor alimenta las sesiones y el audit log. El `Map` de contadores tiene un tope de 10 000 claves: sin él, una IP inventada por request lo hacía crecer sin límite.
+
+> **Pendiente de verificar en el primer deploy (`INF-4`).** La documentación de Railway dice que `X-Real-IP` identifica la IP del cliente, pero **no dice que el borde pise un `X-Real-IP` mandado por el cliente**. Antes de dar el cupo por bueno: iniciar sesión como admin con `curl -H 'X-Real-IP: 1.2.3.4' -H 'x-csrf-token: …' …/api/auth/admin/login` y mirar el campo `ip` de la sesión recién creada en la colección `sessions` (es la IP que ve el servidor, la misma que usa el cupo). Si guardó `1.2.3.4`, el borde no reescribe el header: hay que usar otro o poner un proxy que lo haga.
 
 **Regla:** ante la duda entre seguridad y disponibilidad en `/api/wafl/sync`, gana la disponibilidad. Ese endpoint está protegido por la autenticación y la autorización, no por el rate limit.
 
@@ -178,7 +188,9 @@ scorecardHash = sha256(JSON.stringify({
 
 - Se calcula **server-side** al recibir la firma y se guarda junto a ella.
 - Al cerrar el circuito, se **recalcula y se compara**. Si difiere, el cierre se rechaza con `SIGNATURE_MISMATCH`: el puntaje cambió después de firmarse.
-- Al publicar, se verifica de nuevo para todos los participantes.
+- Al publicar, se verifica de nuevo para todos los participantes firmados. Si alguno difiere, publicar se rechaza con `SIGNATURE_MISMATCH` y el mensaje dice de quién. *(Desde `REF6-1`: esta línea estaba escrita y el código no lo hacía.)*
+- **Lo firmado no se escribe.** Una op de score sobre un arquero que ya firmó se rechaza con `SIGNATURE_LOCKED`, y toda op de score o de firma sobre una patrulla cerrada, con `PATROL_CLOSED`. Antes el hash se comparaba una sola vez, en el cierre, y lo que llegara después no lo miraba nadie. La firma desbloqueada por el admin cuenta como firmada.
+- `SIGNATURE_MISMATCH` queda entonces como **defensa en profundidad**: salta cuando el dato cambia por un camino que no es `/sync` (una corrección a mano en la base, un script, un bug).
 
 **Desbloqueo por el admin:** si un arquero se fue sin firmar, el admin puede desbloquear indicando el motivo. Se registra `unlockedBy`, `unlockReason` y una entrada en `auditLog`. El participante queda marcado como firmado por excepción, y eso es visible en el detalle del torneo — no se oculta.
 
@@ -248,7 +260,8 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains    (solo producci
 
 - `img-src data: blob:` es necesario para las firmas en canvas.
 - `camera=(self)` es necesario para el escaneo de QR (P2). Si esa función no se implementa, se quita.
-- El script anti-FOUC del tema va con **hash en la CSP**, no con `'unsafe-inline'`.
+- El script anti-FOUC del tema es un **archivo externo del mismo origen** (`theme-init.js`), no un script inline: la CSP se queda en `script-src 'self'`, sin `'unsafe-inline'` y sin hashes que mantener a mano. *(Hasta `REF6-3` los `index.html` lo llevaban inline y la CSP no tenía el hash: el navegador lo bloqueaba en producción.)*
+- **Cero violaciones de CSP en la consola.** Zod 4 sondea `eval` con `new Function('')` al construir cada schema, y la CSP no lo permite: el `try` atrapaba el error pero el navegador lo reportaba igual. Los frontends importan `@bal/shared/navegador` primero, que pone `jitless`. Sólo en el navegador: el backend corre sin CSP y se beneficia del JIT.
 - HTTPS obligatorio. Railway termina TLS.
 
 ---
@@ -307,7 +320,10 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - [x] Token `11` en un blanco de sala → rechazado con `INVALID_TOKEN`. — wafl.test.ts
 - [x] Token `X` en un blanco 3D → rechazado. — wafl.test.ts
 - [x] Cantidad de flechas distinta a la del blanco → `ARROW_COUNT`. — wafl.test.ts
-- [x] Cambiar un puntaje después de firmar → `SIGNATURE_MISMATCH` al cerrar. — **seguridad.test.ts**
+- [x] Op de score sobre un arquero que ya firmó → `rejected` con `SIGNATURE_LOCKED`; el que no firmó sigue pudiendo corregir. — **seguridad.test.ts**
+- [x] Op de score o de firma con la patrulla cerrada → `rejected` con `PATROL_CLOSED`, también dentro del mismo lote que el cierre. — **seguridad.test.ts**
+- [x] Cambiar un puntaje después de firmar, por fuera de `/sync` → `SIGNATURE_MISMATCH` al cerrar. — **seguridad.test.ts**
+- [x] Publicar un torneo con un puntaje alterado después de firmarse → `SIGNATURE_MISMATCH`, y no queda publicado. — **seguridad.test.ts**
 - [x] Cerrar el circuito sin todas las firmas → `SIGNATURES_MISSING`. — wafl.test.ts
 - [x] Publicar un torneo que no está `completado` → `INVALID_STATE_TRANSITION`. — ciclo.test.ts
 
