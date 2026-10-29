@@ -33,6 +33,17 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { key: { archivedAt: 1, lastName: 1, firstName: 1 }, name: 'ix_activos_nombre' },
       { key: { searchKey: 1 }, name: 'ix_searchKey' },
       { key: { category: 1 }, name: 'ix_category' },
+      // Único por DNI+categoría, no por DNI solo: la misma persona puede
+      // anotarse en más de una categoría (dos ArcherDoc, un DNI), pero no dos
+      // veces en la misma. Parcial: dos arqueros del padrón viejo con
+      // dni: null no chocan entre sí. $type excluye null Y la clave ausente,
+      // a diferencia de $exists.
+      {
+        key: { dni: 1, category: 1 },
+        unique: true,
+        partialFilterExpression: { dni: { $type: 'string' } },
+        name: 'uk_dni_category',
+      },
     ]),
 
     db.collection(COLLECTIONS.tournaments).createIndexes([
@@ -69,10 +80,10 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection(COLLECTIONS.standings).createIndexes([
       // La landing trae TODA la temporada y la ordena en memoria con
       // `sortStandings` —son cientos de documentos, no millones— así que el
-      // índice que sirve es el del prefijo `seasonId`. El que había sobre
-      // `bestNormalizedPct` no lo usaba ninguna consulta, y encima ese campo ya
-      // no ordena ningún ranking desde «mejor de 2».
-      { key: { seasonId: 1, category: 1, leaguePoints: -1 }, name: 'ix_ranking_posicion' },
+      // índice que sirve es el del prefijo `seasonId`. No hay un índice de
+      // orden: desde que se retiró el ranking por posición (2026-10-24) el
+      // acumulado no se ordena por ningún campo propio en la consulta, se
+      // ordena en memoria por el promedio de «mejor de N».
       { key: { seasonId: 1, archerId: 1, category: 1 }, unique: true, name: 'uk_temporada_archer' },
       { key: { archerId: 1 }, name: 'ix_archer' },
     ]),

@@ -25,5 +25,6 @@ export * from './ranking.js';
 export * from './schemas.js';
 export * from './scoring.js';
 export * from './stats.js';
+export * from './tarjeta.js';
 export * from './tema.js';
 export * from './text.js';

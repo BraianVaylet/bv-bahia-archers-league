@@ -260,6 +260,332 @@ describe('arqueros', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // ── BE-19 · sexo, DNI y aprobación ──────────────────────────────────────────
+
+  it('un arquero nuevo nace aprobado', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', { firstName: 'Juan', lastName: 'Pérez', category: 'razo' });
+
+    expect((await archers().findOne({ firstName: 'Juan' }))?.registrationStatus).toBe('aprobado');
+  });
+
+  it('un DNI repetido devuelve 409 ARCHER_DNI_DUPLICATE, no un 500', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      dni: '30123456',
+    });
+
+    const res = await c.post('/api/admin/archers', {
+      firstName: 'Otro',
+      lastName: 'Arquero',
+      category: 'razo',
+      dni: '30123456',
+    });
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      'ARCHER_DNI_DUPLICATE',
+    );
+  });
+
+  it('el mismo DNI puede anotarse en más de una categoría', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      dni: '30123458',
+    });
+
+    const res = await c.post('/api/admin/archers', {
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'compuesto',
+      dni: '30123458',
+    });
+
+    expect(res.status).toBe(201);
+    expect(await archers().countDocuments({ dni: '30123458' })).toBe(2);
+  });
+
+  it('dos arqueros sin DNI no chocan entre sí', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', { firstName: 'Uno', lastName: 'Sin DNI', category: 'razo' });
+    const res = await c.post('/api/admin/archers', {
+      firstName: 'Dos',
+      lastName: 'Sin DNI',
+      category: 'razo',
+    });
+
+    expect(res.status).toBe(201);
+    expect(await archers().countDocuments()).toBe(2);
+  });
+
+  it('marca profileIncomplete cuando falta sexo o DNI, y no cuando están los dos', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Datos', category: 'razo' });
+    await c.post('/api/admin/archers', {
+      firstName: 'Con',
+      lastName: 'Datos',
+      category: 'razo',
+      sex: 'femenino',
+      dni: '30123457',
+    });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { firstName: string; profileIncomplete: boolean }[];
+    };
+
+    expect(lista.find((a) => a.firstName === 'Sin')?.profileIncomplete).toBe(true);
+    expect(lista.find((a) => a.firstName === 'Con')?.profileIncomplete).toBe(false);
+  });
+
+  // ── FE-29 · búsqueda por DNI ─────────────────────────────────────────────
+
+  it('busca por DNI, no sólo por nombre', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Con',
+      lastName: 'Dni',
+      category: 'razo',
+      dni: '30123457',
+    });
+    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Dni', category: 'razo' });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers?q=30123457')).json()) as {
+      archers: { firstName: string }[];
+    };
+
+    expect(lista.map((a) => a.firstName)).toEqual(['Con']);
+  });
+
+  it('busca por un DNI parcial', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Con',
+      lastName: 'Dni',
+      category: 'razo',
+      dni: '30123457',
+    });
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers?q=1234')).json()) as {
+      archers: { firstName: string }[];
+    };
+
+    expect(lista.map((a) => a.firstName)).toEqual(['Con']);
+  });
+
+  /**
+   * Todavía no existe el alta pública (`BE-20`): se simula insertando el
+   * documento `pendiente` directo en Mongo, que es exactamente lo que hará
+   * esa ruta una vez escrita.
+   */
+  it('la lista excluye a los `pendiente` salvo que se pida explícitamente', async () => {
+    const c = await adminListo();
+    await c.post('/api/admin/archers', {
+      firstName: 'Aprobado',
+      lastName: 'Ya',
+      category: 'razo',
+    });
+    await archers().insertOne({
+      _id: new ObjectId(),
+      firstName: 'Pendiente',
+      lastName: 'DeAprobar',
+      category: 'razo',
+      sex: null,
+      dni: null,
+      registrationStatus: 'pendiente',
+      searchKey: 'deaprobar pendiente',
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const sinFiltro = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { lastName: string }[];
+    };
+    expect(sinFiltro.archers.map((a) => a.lastName)).toEqual(['Ya']);
+
+    const pendientes = (await (await c.get('/api/admin/archers?status=pendiente')).json()) as {
+      archers: { lastName: string }[];
+    };
+    expect(pendientes.archers.map((a) => a.lastName)).toEqual(['DeAprobar']);
+  });
+});
+
+// ── BE-20 · Alta pública de arqueros ─────────────────────────────────────────
+
+/**
+ * La primera ruta pública que escribe. Sin sesión, nace `pendiente`.
+ * Ver `docs/SECURITY.md` §15 · `docs/FUNCTIONAL.md` §5.5.
+ */
+describe('alta pública de arqueros', () => {
+  const alta = {
+    firstName: 'Ana',
+    lastName: 'Pública',
+    category: 'razo',
+    sex: 'femenino',
+    dni: '30999999',
+  };
+
+  it('crea un arquero pendiente, sin sesión', async () => {
+    const res = await cliente().post('/api/public/archers', alta);
+    expect(res.status).toBe(200);
+
+    const doc = await archers().findOne({ dni: '30999999' });
+    expect(doc?.registrationStatus).toBe('pendiente');
+  });
+
+  it('la respuesta no incluye dni ni registrationStatus', async () => {
+    const res = await cliente().post('/api/public/archers', alta);
+    const body = (await res.json()) as { archer: Record<string, unknown> };
+
+    expect(body.archer.dni).toBeUndefined();
+    expect(body.archer.registrationStatus).toBeUndefined();
+    expect(body.archer.firstName).toBe('Ana');
+  });
+
+  it('no aparece en el padrón que alimenta el wizard de torneo', async () => {
+    await cliente().post('/api/public/archers', alta);
+
+    const c = await adminListo();
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { lastName: string }[];
+    };
+    expect(lista.find((a) => a.lastName === 'Pública')).toBeUndefined();
+  });
+
+  it('no permite cachear la respuesta de una creación', async () => {
+    const res = await cliente().post('/api/public/archers', { ...alta, dni: '30999998' });
+    expect(res.headers.get('cache-control')).toBeNull();
+  });
+
+  it('un DNI repetido devuelve 409 sin filtrar el nombre con el que ya está cargado', async () => {
+    await cliente().post('/api/public/archers', alta);
+    const res = await cliente().post('/api/public/archers', {
+      ...alta,
+      firstName: 'Otra',
+      lastName: 'Persona',
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('ARCHER_DNI_DUPLICATE');
+    expect(body.error.message).not.toMatch(/Ana|Pública/);
+  });
+
+  it('nadie se autoaprueba: registrationStatus en el body se rechaza', async () => {
+    const res = await cliente().post('/api/public/archers', {
+      ...alta,
+      dni: '30999997',
+      registrationStatus: 'aprobado',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rechaza un alta sin sexo o sin DNI — acá son obligatorios', async () => {
+    const { sex: _sex, ...sinSexo } = alta;
+    expect((await cliente().post('/api/public/archers', sinSexo)).status).toBe(400);
+
+    const { dni: _dni, ...sinDni } = alta;
+    expect((await cliente().post('/api/public/archers', sinDni)).status).toBe(400);
+  });
+});
+
+// ── BE-22 · Aprobar o rechazar altas pendientes ──────────────────────────────
+
+/** Deja un arquero `pendiente` en la base, vía el autoregistro público (`BE-20`). */
+async function altaPendiente(dni = '30888888') {
+  const res = await cliente().post('/api/public/archers', {
+    firstName: 'Pedro',
+    lastName: 'Pendiente',
+    category: 'razo',
+    sex: 'masculino',
+    dni,
+  });
+  const body = (await res.json()) as { archer: { id: string } };
+  return body.archer.id;
+}
+
+describe('aprobar o rechazar altas pendientes', () => {
+  it('exige sesión de admin', async () => {
+    const id = await altaPendiente();
+    expect((await cliente().post(`/api/admin/archers/${id}/approve`)).status).toBe(401);
+    expect((await cliente().post(`/api/admin/archers/${id}/reject`)).status).toBe(401);
+  });
+
+  it('aprobar lo hace aparecer de inmediato en el padrón del wizard de torneo', async () => {
+    const id = await altaPendiente();
+    const c = await adminListo();
+
+    await c.post(`/api/admin/archers/${id}/approve`);
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: { id: string; registrationStatus: string }[];
+    };
+    expect(lista.find((a) => a.id === id)?.registrationStatus).toBe('aprobado');
+  });
+
+  it('rechazar lo borra del padrón', async () => {
+    const id = await altaPendiente();
+    const c = await adminListo();
+
+    const res = await c.post(`/api/admin/archers/${id}/reject`);
+    expect(res.status).toBe(200);
+    expect(await archers().countDocuments({ _id: new ObjectId(id) })).toBe(0);
+  });
+
+  // No debería poder pasar —un `pendiente` nunca participó— pero se verifica
+  // que el rechazo no sea un borrado silencioso si alguna vez pasara.
+  it('rechazar uno que ya participó devuelve ARCHER_IN_USE, no lo borra', async () => {
+    const c = await adminListo();
+    const seasonId = await crearTemporada(c);
+    const archerIds = await crearArqueros(c, [['razo', 2]]);
+
+    await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo de prueba',
+      date: '2026-08-08',
+      targets: [{ index: 1, modality: 'sala', arrows: 3, description: null }],
+      archerIds,
+    });
+
+    const res = await c.post(`/api/admin/archers/${archerIds[0]}/reject`);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('ARCHER_IN_USE');
+    expect(await archers().countDocuments({ _id: new ObjectId(archerIds[0]) })).toBe(1);
+  });
+
+  it('las dos acciones quedan en el audit log con el admin que las hizo', async () => {
+    const aprobado = await altaPendiente('30888889');
+    const rechazado = await altaPendiente('30888890');
+    const c = await adminListo();
+
+    await c.post(`/api/admin/archers/${aprobado}/approve`);
+    await c.post(`/api/admin/archers/${rechazado}/reject`);
+
+    const entradas = await auditLog()
+      .find({ action: { $in: ['archer.approve', 'archer.reject'] } })
+      .toArray();
+
+    expect(entradas).toHaveLength(2);
+    expect(entradas.every((e) => e.actorId !== null)).toBe(true);
+    expect(entradas.find((e) => e.action === 'archer.approve')?.entityId.toHexString()).toBe(
+      aprobado,
+    );
+    expect(entradas.find((e) => e.action === 'archer.reject')?.entityId.toHexString()).toBe(
+      rechazado,
+    );
+  });
+
+  it('un id malformado devuelve 404, no 500', async () => {
+    const c = await adminListo();
+    expect((await c.post('/api/admin/archers/no-es-un-id/approve')).status).toBe(404);
+  });
 });
 
 // ── BE-5 · Creación de torneo ────────────────────────────────────────────────
@@ -657,7 +983,7 @@ describe('creación de torneo', () => {
 
       expect(body.tournament.patrolCount).toBe(0);
       expect(body.tournament.requiresManualReview).toBe(true);
-      expect(body.tournament.warnings[0]?.code).toBe('ESCUELA_SIN_SENIOR');
+      expect(body.tournament.warnings[0]?.code).toBe('CATEGORIA_SIN_SENIOR');
       expect(body.tournament.unassigned).toHaveLength(4);
       // Nadie se pierde en silencio: los 4 vienen listados.
     });

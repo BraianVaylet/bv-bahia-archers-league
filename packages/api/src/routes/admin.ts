@@ -36,8 +36,11 @@ const ListArchersQuery = z
   .strictObject({
     archived: z.enum(['true', 'false']).optional(),
     q: z.string().max(60).optional(),
+    // Sin esto, `archerService.list` excluye `pendiente` por defecto. `BE-22`
+    // pide `pendiente` explícito para su cola de aprobación.
+    status: z.enum(['pendiente', 'aprobado']).optional(),
   })
-  .transform((v) => ({ archived: v.archived === 'true', query: v.q }));
+  .transform((v) => ({ archived: v.archived === 'true', query: v.q, status: v.status }));
 
 const ListTournamentsQuery = z.strictObject({
   status: z.enum(['sin_iniciar', 'en_proceso', 'completado', 'publicado']).optional(),
@@ -50,8 +53,14 @@ export const admin = new Hono()
   // ── Arqueros ───────────────────────────────────────────────────────────────
 
   .get('/archers', async (c) => {
-    const { archived, query } = parseQuery(c, ListArchersQuery);
-    return c.json({ archers: await archerService.list({ archived, ...(query ? { query } : {}) }) });
+    const { archived, query, status } = parseQuery(c, ListArchersQuery);
+    return c.json({
+      archers: await archerService.list({
+        archived,
+        ...(query ? { query } : {}),
+        ...(status ? { status } : {}),
+      }),
+    });
   })
 
   .post('/archers', async (c) => {
@@ -72,6 +81,17 @@ export const admin = new Hono()
     return c.json({
       archer: await archerService.setArchived(toObjectId(c.req.param('id')), false),
     });
+  })
+
+  .post('/archers/:id/approve', async (c) => {
+    return c.json({
+      archer: await archerService.approveArcher(toObjectId(c.req.param('id')), currentAdminId(c)),
+    });
+  })
+
+  .post('/archers/:id/reject', async (c) => {
+    await archerService.rejectArcher(toObjectId(c.req.param('id')), currentAdminId(c));
+    return c.json({ ok: true });
   })
 
   .delete('/archers/:id', async (c) => {

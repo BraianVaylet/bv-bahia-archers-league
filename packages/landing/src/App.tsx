@@ -11,8 +11,10 @@ import { Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
+import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
+import { ScorecardPage } from './pages/Scorecard.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 
 export function App() {
@@ -32,16 +34,18 @@ export function App() {
         <main className="flex-1 min-h-0 overflow-y-auto">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/alta" element={<ArcherRegisterPage />} />
             <Route path="/ranking" element={<RankingPage />} />
             <Route path="/torneos" element={<TournamentsPage />} />
             <Route path="/torneos/:id" element={<TournamentPage />} />
+            <Route path="/torneos/:id/participantes/:participantId" element={<ScorecardPage />} />
             <Route path="/arqueros/:id" element={<ArcherPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
         {/* Uno solo para todo el sitio: es una app de lectura con una sola
-            columna, y el pie es el mismo en las cinco páginas. */}
+            columna, y el pie es el mismo en las seis páginas. */}
         <Footer className="shrink-0" />
       </div>
     </BrowserRouter>

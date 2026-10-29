@@ -131,6 +131,15 @@ export async function torneoIniciado(
   return { tournamentId: tournament.id, seasonId: season.id, patrols };
 }
 
+/** Entra a WAFA con el password ya cambiado (`adminApi` lo deja en `PASSWORD_NUEVO`). */
+export async function entrarComoAdmin(page: Page): Promise<void> {
+  await page.goto('/app/wafa');
+  await page.getByLabel('Usuario').fill('admin');
+  await page.getByLabel('Password').fill(PASSWORD_NUEVO);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page.getByText('Crear torneo')).toBeVisible();
+}
+
 /** Entra a WAFL con las credenciales de una patrulla. */
 export async function entrarComoLider(
   page: Page,

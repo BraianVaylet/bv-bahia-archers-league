@@ -102,7 +102,7 @@ Los ejemplos del reglamento del club son **normativos** y se testean literalment
 - Todas las patrullas generadas cumplen `H1..H4`.
 - La estaca de cada arquero corresponde a su categoría según el `stakeMap`.
 - Con 20 arqueros y 14 blancos, los blancos de inicio están repartidos y no se repiten innecesariamente.
-- Cuando no alcanzan los seniors para acompañar a los escuela: `requiresManualReview === true`, warning `ESCUELA_SIN_SENIOR`, y **ninguna patrulla queda 100% escuela**.
+- Cuando no alcanzan los seniors para acompañar a los no senior (`escuela` o `principiantes`): `requiresManualReview === true`, warning `CATEGORIA_SIN_SENIOR`, y **ninguna patrulla queda 100% no senior**.
 - Caso extremo: **todos** los participantes son de escuela → no se genera ninguna patrulla válida; se devuelve el warning, no se rompe.
 - Caso extremo: 2 participantes → una sola patrulla.
 - Caso extremo: número impar en cada categoría → las unidades solitarias se combinan correctamente.
@@ -208,8 +208,16 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 
 ### 4.8 Público
 - Un torneo no publicado **no** expone puntajes.
-- El ranking excluye a los arqueros con menos de 2 torneos.
+- El ranking excluye a los arqueros con menos de `bestN` torneos (`LEAGUE_BEST_N`, default 2).
 - Headers de caché presentes.
+
+### 4.9 Alta pública de arqueros (`BE-20`)
+- Alta válida → 200, el arquero queda `registrationStatus: 'pendiente'`.
+- No aparece en `archerRepo.list` (el que alimenta el wizard de torneo) hasta que se aprueba.
+- DNI repetido **en la misma categoría** → 409 `ARCHER_DNI_DUPLICATE`, **sin mencionar el nombre** con el que ese DNI ya está cargado. El mismo DNI en otra categoría se permite.
+- Un cuerpo con `registrationStatus: 'aprobado'` o cualquier propiedad extra se rechaza por el `.strict()` — quien se autoregistra no puede autoaprobarse.
+- Un cuerpo sin `sex` o sin `dni` se rechaza: a diferencia del alta del admin, acá son obligatorios desde el vamos.
+- Comparte `RATE_LIMIT_PUBLIC` con el resto de `/api/public/*`.
 
 ---
 
@@ -282,7 +290,7 @@ tests/e2e/flujo-completo.spec.ts
 20. El torneo pasa a "completado" solo
 21. El admin verifica los podios y publica
 22. En la landing, sin sesión, verifica el ranking y el detalle del torneo
-23. Verifica que los puntos de liga se aplicaron correctamente
+23. Verifica que el resultado se aplicó a la liga —«mejor de N», sin puntos por posición desde `SH-9`—
 ```
 
 ### Escenarios E2E adicionales
@@ -294,6 +302,29 @@ tests/e2e/flujo-completo.spec.ts
 | `sesion-vencida.spec.ts` | Un 401 durante la sincronización conserva el outbox |
 | `blanco-bloqueado.spec.ts` | El admin no puede editar un blanco ya tirado |
 | `pwa-instalable.spec.ts` | Manifest válido, service worker registrado, `registerType: 'prompt'` |
+| `tarjeta-de-puntajes.spec.ts` | Del podio de un torneo publicado se entra a un arquero y se ven sus flechas (orden, valor de `X`/`M`, totales), y a 360 px no hay scroll horizontal |
+
+### Fase 8 — alta pública y ranking por sexo (`TEST-3`)
+
+```
+e2e/alta-publica.spec.ts
+
+Caso 1 — el flujo completo nuevo:
+ 1. Alta pública desde la landing (`/alta`), sin sesión → queda `pendiente`
+ 2. No aparece en el padrón que alimenta el wizard de torneo
+ 3. El admin la ve en «Ver pendientes de aprobar» (WAFA) y la aprueba, por interfaz
+ 4. Ya aprobada, aparece en el padrón
+ 5. El admin arma un torneo que la incluye
+ 6. Recorrido, firmas y cierre por WAFL, por interfaz —el mecanismo ya lo prueba TEST-1, acá alcanza con que cierre—
+ 7. El admin publica
+ 8. En la landing: aparece en Razo/General y en Razo/Femenino, NO en Razo/Masculino
+ 9. Ningún «puntos de liga» en pantalla
+
+Caso 2 — el camino corto:
+ 1. Alta pública
+ 2. El admin la rechaza desde la cola de aprobación
+ 3. No aparece en /admin/archers ni en /admin/archers?status=pendiente —lo mismo que consulta el wizard—
+```
 
 ---
 

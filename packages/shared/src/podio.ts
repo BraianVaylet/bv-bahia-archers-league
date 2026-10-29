@@ -11,8 +11,6 @@
  * Ver `docs/DESIGN_SYSTEM.md` §10 · `docs/DOMAIN_WA.md` §9.
  */
 
-import type { StandingsMode } from './league.js';
-
 export interface Medalla {
   readonly emoji: string;
   /** Para el `aria-label`: el emoji **nunca** va solo. */
@@ -30,7 +28,12 @@ export function medallaDe(puesto: number | undefined): Medalla | undefined {
   return puesto === undefined ? undefined : MEDALLAS[puesto];
 }
 
-export const ETIQUETA_DE_MODO: Record<StandingsMode, string> = {
-  position: 'Por puntos',
-  best_two: 'Mejor de 2',
-};
+/**
+ * Etiqueta del único modo de ranking de liga, con el `bestN` vigente.
+ *
+ * No es una constante: `bestN` viene de `LEAGUE_BEST_N` (`BE-18`) y puede
+ * cambiar sin redeploy, así que la etiqueta nunca escribe «2» a fuego.
+ */
+export function etiquetaDeMejorDeN(bestN: number): string {
+  return `Mejor de ${bestN}`;
+}

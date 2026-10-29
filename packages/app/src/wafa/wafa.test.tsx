@@ -320,6 +320,9 @@ describe('ArchersPage', () => {
     firstName: 'Juan',
     lastName: 'Pérez',
     category: 'razo',
+    sex: null,
+    dni: null,
+    profileIncomplete: true,
     archived: false,
     participated: false,
     ...o,
@@ -429,6 +432,26 @@ describe('ArchersPage', () => {
     expect(screen.queryByText(/no se puede eliminar/)).toBeNull();
   });
 
+  it('eliminar pide un segundo toque antes de pegarle al servidor', async () => {
+    listar([arquero({ participated: false })]);
+    servidor({
+      'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+      'DELETE /api/admin/archers/x1': () => ({ json: { ok: true } }),
+    });
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Eliminar a/ }));
+    expect(llamadas.some((l) => l.method === 'DELETE')).toBe(false);
+    expect(screen.getByText(/se borra del padrón, no se puede deshacer/i)).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Confirmar eliminar a/ }));
+    await waitFor(() => {
+      expect(llamadas.some((l) => l.method === 'DELETE' && l.url.endsWith('/archers/x1'))).toBe(
+        true,
+      );
+    });
+  });
+
   it('archivar pega a la ruta de archivar y recarga', async () => {
     listar([arquero()]);
     servidor({
@@ -479,7 +502,7 @@ describe('ArchersPage', () => {
     expect(await screen.findByText('El padrón está vacío.')).toBeDefined();
   });
 
-  it('crea un arquero', async () => {
+  it('crea un arquero, con sexo y DNI', async () => {
     listar([]);
     servidor({
       'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
@@ -491,12 +514,68 @@ describe('ArchersPage', () => {
     fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Gómez' } });
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'longbow' } });
+    fireEvent.click(screen.getByLabelText('Femenino'));
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
     await waitFor(() => {
       const alta = llamadas.find((l) => l.method === 'POST' && l.url.endsWith('/admin/archers'));
-      expect(alta?.body).toEqual({ firstName: 'Ana', lastName: 'Gómez', category: 'longbow' });
+      expect(alta?.body).toEqual({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        category: 'longbow',
+        sex: 'femenino',
+        dni: '30123456',
+      });
     });
+  });
+
+  // Decisión 6: el padrón viejo no se fuerza a completarse retroactivamente.
+  it('deja guardar sin sexo ni DNI', async () => {
+    listar([]);
+    servidor({
+      'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+      'POST /api/admin/archers': () => ({ status: 201, json: { archer: arquero() } }),
+    });
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo arquero' }));
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Gómez' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      const alta = llamadas.find((l) => l.method === 'POST' && l.url.endsWith('/admin/archers'));
+      expect(alta?.body).toEqual({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        category: 'razo',
+        sex: null,
+        dni: null,
+      });
+    });
+  });
+
+  it('el DNI filtra letras al tipear, y corta en 8 dígitos', async () => {
+    listar([]);
+    renderArqueros();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo arquero' }));
+    const dni = screen.getByLabelText('DNI') as HTMLInputElement;
+    fireEvent.change(dni, { target: { value: '30ab123cd456xx99' } });
+
+    expect(dni.value).toBe('30123456');
+  });
+
+  it('marca con un aviso a quien le falta sexo o DNI', async () => {
+    listar([
+      arquero({ lastName: 'Pérez', profileIncomplete: true }),
+      arquero({ id: 'x2', lastName: 'Gómez', profileIncomplete: false }),
+    ]);
+    renderArqueros();
+
+    expect(await screen.findByTestId('arquero-Pérez')).toHaveTextContent(/falta.*sexo.*dni/i);
+    expect(screen.getByTestId('arquero-Gómez')).not.toHaveTextContent(/falta.*sexo.*dni/i);
   });
 
   it('editar manda PATCH al arquero, no crea uno nuevo', async () => {
@@ -519,6 +598,117 @@ describe('ArchersPage', () => {
     expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/admin/archers'))).toBe(
       false,
     );
+  });
+
+  // ── FE-30 · Cola de aprobación ──────────────────────────────────────────
+
+  describe('cola de aprobación', () => {
+    const pendiente = (o: Record<string, unknown> = {}) =>
+      arquero({
+        id: 'p1',
+        lastName: 'Pendiente',
+        firstName: 'Nueva',
+        sex: 'femenino',
+        dni: '30555555',
+        profileIncomplete: false,
+        ...o,
+      });
+
+    it('tildar «Ver pendientes de aprobar» pide la lista de pendientes', async () => {
+      listar([]);
+      renderArqueros();
+      await screen.findByText('El padrón está vacío.');
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.url.includes('status=pendiente'))).toBe(true);
+      });
+    });
+
+    it('muestra nombre, DNI, sexo y categoría de cada pendiente', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+      });
+      renderArqueros();
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      const fila = await screen.findByTestId('arquero-Pendiente');
+      expect(fila).toHaveTextContent('Pendiente, Nueva');
+      expect(fila).toHaveTextContent('30555555');
+      expect(fila).toHaveTextContent('Femenino');
+      expect(fila).toHaveTextContent('Razo');
+    });
+
+    it('aprobar pide un segundo toque antes de pegarle al servidor', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+        'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+        'POST /api/admin/archers/p1/approve': () => ({ json: { archer: pendiente() } }),
+      });
+      renderArqueros();
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+      await screen.findByTestId('arquero-Pendiente');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Aprobar' }));
+      expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/approve'))).toBe(
+        false,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, aprobar' }));
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/approve'))).toBe(
+          true,
+        );
+      });
+    });
+
+    it('rechazar pide un segundo toque antes de pegarle al servidor', async () => {
+      servidor({
+        'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [pendiente()] } }),
+        'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
+        'POST /api/admin/archers/p1/reject': () => ({ json: { ok: true } }),
+      });
+      renderArqueros();
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+      await screen.findByTestId('arquero-Pendiente');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Rechazar' }));
+      expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/reject'))).toBe(false);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, rechazar' }));
+      await waitFor(() => {
+        expect(llamadas.some((l) => l.method === 'POST' && l.url.endsWith('/p1/reject'))).toBe(
+          true,
+        );
+      });
+    });
+
+    it('un padrón de pendientes vacío lo dice', async () => {
+      servidor({ 'GET /api/admin/archers?status=pendiente': () => ({ json: { archers: [] } }) });
+      renderArqueros();
+
+      fireEvent.click(screen.getByLabelText('Ver pendientes de aprobar'));
+
+      expect(await screen.findByText('No hay altas pendientes de aprobar.')).toBeDefined();
+    });
+
+    it('no se pueden ver pendientes y archivados a la vez', async () => {
+      listar([]);
+      renderArqueros();
+      await screen.findByText('El padrón está vacío.');
+
+      const archivados = screen.getByLabelText('Ver archivados') as HTMLInputElement;
+      const pendientes = screen.getByLabelText('Ver pendientes de aprobar') as HTMLInputElement;
+
+      fireEvent.click(archivados);
+      expect(archivados.checked).toBe(true);
+
+      fireEvent.click(pendientes);
+      expect(pendientes.checked).toBe(true);
+      expect(archivados.checked).toBe(false);
+    });
   });
 });
 

@@ -18,7 +18,7 @@ export type Modality = (typeof MODALITIES)[number];
 
 // ── Categorías de arco ───────────────────────────────────────────────────────
 
-/** Las siete categorías de la liga, en orden de presentación. */
+/** Las ocho categorías de la liga, en orden de presentación. */
 export const BOW_CATEGORIES = [
   'recurvo',
   'compuesto',
@@ -27,19 +27,33 @@ export const BOW_CATEGORIES = [
   'tradicional',
   'longbow',
   'escuela',
+  'principiantes',
 ] as const;
 
 export type BowCategory = (typeof BOW_CATEGORIES)[number];
 
 // ── Estacas ──────────────────────────────────────────────────────────────────
 
-/** Estacas por cercanía al blanco: roja (más lejos) › azul › amarilla. */
-export const STAKES = ['roja', 'azul', 'amarilla'] as const;
+/** Estacas por cercanía al blanco: roja (más lejos) › azul › amarilla › naranja (más cerca). */
+export const STAKES = ['roja', 'azul', 'amarilla', 'naranja'] as const;
 
 export type Stake = (typeof STAKES)[number];
 
 /** Asignación de categorías a estacas. Editable por torneo. */
 export type StakeMap = Readonly<Record<Stake, readonly BowCategory[]>>;
+
+// ── Sexo ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Sexo del arquero, para el ranking Femenino / Masculino / General.
+ *
+ * Opcional en todo el dominio: el padrón anterior a este campo no lo tiene
+ * cargado (ver `docs/DOMAIN_WA.md` §9), y un arquero sin `sex` participa igual
+ * — sólo queda afuera de los rankings por sexo, nunca del general.
+ */
+export const SEXES = ['femenino', 'masculino'] as const;
+
+export type Sex = (typeof SEXES)[number];
 
 // ── Tokens de flecha ─────────────────────────────────────────────────────────
 

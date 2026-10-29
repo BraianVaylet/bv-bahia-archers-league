@@ -33,21 +33,40 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly ancho?: boolean;
 }
 
+/**
+ * Las clases del botón, sin el elemento.
+ *
+ * Separada de `Button` para que un `<Link>` que navega pueda **verse** como
+ * botón sin **ser** un `<button>` anidado adentro de un `<a>` — HTML inválido,
+ * y el navegador lo repara reordenando el DOM de formas que rompen el foco y
+ * el objetivo táctil. La navegación es trabajo de `<a>`; esto sólo pinta.
+ */
+export function botonClases({
+  variante = 'primario',
+  ancho,
+  className,
+}: {
+  variante?: Variante | undefined;
+  ancho?: boolean | undefined;
+  className?: string | undefined;
+} = {}): string {
+  return cn(
+    // 52px de alto: el mínimo de una acción primaria con guantes.
+    'min-h-[52px] px-5 rounded-[var(--radius-md)] text-base',
+    // `inline-flex`, no el `inline-block` que trae `<button>` por default: un
+    // `<a>` es `inline` a secas, y ahí `min-h`/`w-full` no hacen nada.
+    'inline-flex items-center justify-center text-center',
+    'transition-opacity duration-100 hover:opacity-90 active:opacity-80',
+    'disabled:opacity-40 disabled:cursor-not-allowed',
+    VARIANTES[variante],
+    ancho && 'w-full',
+    className,
+  );
+}
+
 export function Button({ variante = 'primario', ancho, className, ...props }: ButtonProps) {
   return (
-    <button
-      type="button"
-      className={cn(
-        // 52px de alto: el mínimo de una acción primaria con guantes.
-        'min-h-[52px] px-5 rounded-[var(--radius-md)] text-base',
-        'transition-opacity duration-100 active:opacity-80',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-        VARIANTES[variante],
-        ancho && 'w-full',
-        className,
-      )}
-      {...props}
-    />
+    <button type="button" className={botonClases({ variante, ancho, className })} {...props} />
   );
 }
 

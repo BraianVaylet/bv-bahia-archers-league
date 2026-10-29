@@ -10,7 +10,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { InstalarApp } from './components/InstalarApp.js';
 import { RegistroDeVersion } from './components/registroDeVersion.js';
-import { Button, Screen } from './components/ui.js';
+import { botonClases, Screen } from './components/ui.js';
 import { VolverALaLiga } from './components/VolverALaLiga.js';
 import { WafaApp } from './wafa/WafaApp.js';
 import { WaflApp } from './wafl/WaflApp.js';
@@ -27,14 +27,12 @@ function Elegir() {
         </h1>
       </div>
 
-      <Link to="/wafl">
-        <Button ancho>Soy líder de patrulla</Button>
+      <Link to="/wafl" className={botonClases({ ancho: true })}>
+        Soy líder de patrulla
       </Link>
 
-      <Link to="/wafa">
-        <Button variante="secundario" ancho>
-          Soy administrador
-        </Button>
+      <Link to="/wafa" className={botonClases({ variante: 'secundario', ancho: true })}>
+        Soy administrador
       </Link>
 
       {/*

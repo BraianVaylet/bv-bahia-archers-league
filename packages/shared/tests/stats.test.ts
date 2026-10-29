@@ -49,7 +49,6 @@ function resultado(overrides: Partial<ArcherTournamentResult> = {}): ArcherTourn
     total: 0,
     maxPossibleScore: 100,
     position: 1,
-    leaguePoints: 5,
     innerCount: 0,
     tenCount: 0,
     mCount: 0,
@@ -346,11 +345,10 @@ describe('archerCareerStats', () => {
     resultado({ tournamentId: 't3', date: '2026-07-01', total: 120, maxPossibleScore: 150 }), // 80 %
   ];
 
-  it('cuenta los torneos y acumula los puntos de liga', () => {
+  it('cuenta los torneos jugados', () => {
     const s = archerCareerStats(carrera);
 
     expect(s.tournamentsPlayed).toBe(3);
-    expect(s.leaguePoints).toBe(15);
   });
 
   // El bruto premia al recorrido más largo, no al mejor tiro.

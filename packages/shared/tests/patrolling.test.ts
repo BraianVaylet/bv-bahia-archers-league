@@ -651,10 +651,28 @@ describe('buildPatrols', () => {
 
       expect(plan.requiresManualReview).toBe(true);
       expect(plan.warnings).toHaveLength(1);
-      expect(plan.warnings[0]?.code).toBe('ESCUELA_SIN_SENIOR');
+      expect(plan.warnings[0]?.code).toBe('CATEGORIA_SIN_SENIOR');
       expect(plan.unassigned.length).toBeGreaterThan(0);
       expect(plan.unassigned.every((m) => m.category === 'escuela')).toBe(true);
       expect(plan.warnings[0]?.archerIds).toEqual(plan.unassigned.map((m) => m.archerId));
+    });
+
+    // H3 generaliza por el flag `senior` de CATEGORY_INFO, no por el nombre
+    // «escuela»: `principiantes` es la otra categoría no senior y tiene que
+    // disparar el mismo warning, con el mismo código.
+    it('principiantes dispara el mismo warning que escuela cuando no alcanzan los seniors', () => {
+      const plan = buildPatrols(
+        [...arqueros('principiantes', 6), ...arqueros('razo', 2)],
+        DEFAULT_STAKE_MAP,
+        14,
+      );
+
+      expect(plan.requiresManualReview).toBe(true);
+      expect(plan.warnings).toHaveLength(1);
+      expect(plan.warnings[0]?.code).toBe('CATEGORIA_SIN_SENIOR');
+      for (const p of plan.patrols) {
+        expect(categoriasDe(p).every((c) => c === 'principiantes')).toBe(false);
+      }
     });
 
     it('con todos los participantes de escuela no arma ninguna patrulla, y no rompe', () => {

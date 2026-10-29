@@ -64,8 +64,9 @@ afterEach(() => {
 });
 
 function renderWizard(onCreado = vi.fn()) {
-  render(<TournamentCreatePage onVolver={vi.fn()} onCreado={onCreado} />);
-  return { onCreado };
+  const onVolver = vi.fn();
+  render(<TournamentCreatePage onVolver={onVolver} onCreado={onCreado} />);
+  return { onCreado, onVolver };
 }
 
 const continuar = () => fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
@@ -91,6 +92,33 @@ async function elegirCuatro() {
     fireEvent.click(screen.getByText(nombre));
   }
 }
+
+// ── Volver ───────────────────────────────────────────────────────────────────
+
+describe('volver', () => {
+  it('sin tocar nada, volver sale directo', async () => {
+    const { onVolver } = renderWizard();
+    await screen.findByLabelText('Nombre');
+
+    fireEvent.click(screen.getByRole('button', { name: '← Inicio' }));
+
+    expect(onVolver).toHaveBeenCalledTimes(1);
+  });
+
+  // Cuatro pasos —nombre, hasta 60 blancos, hasta 200 arqueros— perdidos por
+  // un toque de más es demasiado para no avisar.
+  it('con algo cargado, pide un segundo toque antes de salir', async () => {
+    const { onVolver } = renderWizard();
+    await screen.findByLabelText('Nombre');
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: '3ª fecha' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '← Inicio' }));
+    expect(onVolver).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /se pierde todo/i }));
+    expect(onVolver).toHaveBeenCalledTimes(1);
+  });
+});
 
 // ── Paso 1 ───────────────────────────────────────────────────────────────────
 

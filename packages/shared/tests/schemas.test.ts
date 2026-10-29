@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AdminLoginSchema,
   ArcherInputSchema,
+  ArcherSelfRegisterSchema,
   ChangePasswordSchema,
   CreateTournamentSchema,
   MAX_SIGNATURE_BYTES,
@@ -529,6 +530,113 @@ describe('ArcherInputSchema', () => {
       ArcherInputSchema.safeParse({ firstName: '   ', lastName: 'Pérez', category: 'razo' })
         .success,
     ).toBe(false);
+  });
+
+  /**
+   * `FE-27` fue el primer lugar del proyecto que muestra el mensaje de un
+   * error de Zod directo en una pantalla, y ahí apareció: sin mensaje propio,
+   * `texto()` devuelve el default de Zod en inglés — algo como «Too small:
+   * expected string to have >=1 characters». Viola la regla de español de
+   * `CLAUDE.md`, y nadie lo había notado porque nada lo mostraba.
+   */
+  it('el error de un nombre vacío está en español, no es el default de Zod', () => {
+    const r = ArcherInputSchema.safeParse({ firstName: '', lastName: 'Pérez', category: 'razo' });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues[0]?.message).toMatch(/vacío/i);
+      expect(r.error.issues[0]?.message).not.toMatch(/too small/i);
+    }
+  });
+
+  // Decisión del 2026-10-24 (Fase 8): opcionales para no romper el alta del
+  // admin, que todavía no manda estos campos (FE-29 sigue pendiente).
+  it('sexo y DNI son opcionales, y por defecto quedan en null', () => {
+    const r = ArcherInputSchema.parse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo' });
+    expect(r.sex).toBeNull();
+    expect(r.dni).toBeNull();
+  });
+
+  it('acepta un arquero con sexo y DNI', () => {
+    const r = ArcherInputSchema.safeParse({
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      sex: 'masculino',
+      dni: '30123456',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rechaza un sexo que no sea femenino o masculino, con mensaje en español', () => {
+    const r = ArcherInputSchema.safeParse({
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      category: 'razo',
+      sex: 'otro',
+    });
+    expect(r.success).toBe(false);
+    // Mismo hallazgo que el de los nombres vacíos: sin mensaje propio, Zod
+    // devuelve «Invalid option: expected one of ...» en inglés. Que la lista
+    // de valores aparezca no alcanza —son las mismas palabras en los dos
+    // idiomas— así que se verifica que el armazón del mensaje no sea inglés.
+    if (!r.success) {
+      expect(r.error.issues[0]?.message).not.toMatch(/invalid option|expected/i);
+    }
+  });
+
+  it.each(['3012345', '1234567', '12345678'])('acepta un DNI de 7 u 8 dígitos (%s)', (dni) => {
+    expect(
+      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each(['123456', '123456789', '30.123.456', 'abcdefgh'])(
+    'rechaza un DNI mal formado (%s)',
+    (dni) => {
+      expect(
+        ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+          .success,
+      ).toBe(false);
+    },
+  );
+});
+
+describe('ArcherSelfRegisterSchema', () => {
+  const valido = {
+    firstName: 'Juan',
+    lastName: 'Pérez',
+    category: 'razo',
+    sex: 'masculino',
+    dni: '30123456',
+  } as const;
+
+  it('acepta un alta completa', () => {
+    expect(ArcherSelfRegisterSchema.safeParse(valido).success).toBe(true);
+  });
+
+  // A diferencia de ArcherInputSchema (alta del admin), acá son obligatorios.
+  it.each(['sex', 'dni'] as const)('rechaza sin %s — acá es obligatorio', (campo) => {
+    const { [campo]: _omitido, ...sinCampo } = valido;
+    expect(ArcherSelfRegisterSchema.safeParse(sinCampo).success).toBe(false);
+  });
+
+  it('rechaza un DNI mal formado', () => {
+    expect(ArcherSelfRegisterSchema.safeParse({ ...valido, dni: '30.123.456' }).success).toBe(
+      false,
+    );
+  });
+
+  // Es la razón de ser del .strict() acá: quien se autoregistra no puede
+  // decidir su propio estado de aprobación.
+  it('rechaza `registrationStatus`: nadie se autoaprueba', () => {
+    expect(
+      ArcherSelfRegisterSchema.safeParse({ ...valido, registrationStatus: 'aprobado' }).success,
+    ).toBe(false);
+  });
+
+  it('rechaza una propiedad extra cualquiera', () => {
+    expect(ArcherSelfRegisterSchema.safeParse({ ...valido, isAdmin: true }).success).toBe(false);
   });
 });
 

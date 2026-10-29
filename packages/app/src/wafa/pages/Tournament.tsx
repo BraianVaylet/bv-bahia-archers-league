@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Button,
+  botonClases,
   clasesDeTarjeta,
   cn,
   Encabezado,
@@ -325,16 +326,18 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
             </div>
 
             <nav className="flex flex-col gap-2">
-              <Link to={`/wafa/torneos/${id}/patrullas`}>
-                <Button variante="secundario" ancho>
-                  Patrullas y credenciales
-                </Button>
+              <Link
+                to={`/wafa/torneos/${id}/patrullas`}
+                className={botonClases({ variante: 'secundario', ancho: true })}
+              >
+                Patrullas y credenciales
               </Link>
 
-              <Link to={`/wafa/torneos/${id}/pagos`}>
-                <Button variante="secundario" ancho>
-                  Arqueros y pagos
-                </Button>
+              <Link
+                to={`/wafa/torneos/${id}/pagos`}
+                className={botonClases({ variante: 'secundario', ancho: true })}
+              >
+                Arqueros y pagos
               </Link>
 
               {/*
@@ -384,10 +387,8 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
               )}
 
               {(torneo.status === 'completado' || torneo.status === 'publicado') && (
-                <Link to={`/wafa/torneos/${id}/publicar`}>
-                  <Button ancho>
-                    {torneo.status === 'publicado' ? 'Ver resultados' : 'Revisar y publicar'}
-                  </Button>
+                <Link to={`/wafa/torneos/${id}/publicar`} className={botonClases({ ancho: true })}>
+                  {torneo.status === 'publicado' ? 'Ver resultados' : 'Revisar y publicar'}
                 </Link>
               )}
 

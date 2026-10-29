@@ -10,6 +10,7 @@ import type {
   Modality,
   PatrolStatus,
   Position,
+  Sex,
   Stake,
   TournamentStatus,
   Unit,
@@ -73,11 +74,19 @@ export interface SeasonDoc {
   updatedAt: Date;
 }
 
+/** `aprobado` de entrada si lo crea el admin; `pendiente` si se autoregistró (`BE-20`). */
+export type ArcherRegistrationStatus = 'pendiente' | 'aprobado';
+
 export interface ArcherDoc {
   _id: ObjectId;
   firstName: string;
   lastName: string;
   category: BowCategory;
+  /** `null`: el padrón anterior a este campo no lo tenía cargado. No se inventa el valor. */
+  sex: Sex | null;
+  /** 7-8 dígitos, sin puntos. `null` en el padrón viejo. Único entre los no nulos. */
+  dni: string | null;
+  registrationStatus: ArcherRegistrationStatus;
   /** Apellido y nombre normalizados, sin acentos, para buscar. */
   searchKey: string;
   archivedAt: Date | null;
@@ -169,6 +178,8 @@ export interface ParticipantDoc {
   firstName: string;
   lastName: string;
   category: BowCategory;
+  /** `null` si el arquero no tenía `sex` cargado al crearse el torneo. */
+  sex: Sex | null;
 
   stake: Stake;
   unit: Unit;
@@ -247,17 +258,20 @@ export interface StandingDoc {
   archerId: ObjectId;
   firstName: string;
   lastName: string;
+  /** Snapshot del arquero, para el ranking por sexo (`SH-10`). `null`: no cargado. */
+  sex: Sex | null;
 
-  leaguePoints: number;
   tournamentsPlayed: number;
-  podiums: { first: number; second: number; third: number };
 
   bestNormalizedPct: number;
   bestRawScore: number;
   bestTournamentId: ObjectId | null;
 
-  /** Los dos mejores porcentajes, de mayor a menor. El promedio se deriva. */
-  topTwoPcts: number[];
+  /**
+   * Los `bestN` mejores porcentajes, de mayor a menor. El promedio se deriva.
+   * `bestN` es `LEAGUE_BEST_N`, variable de entorno — no un número fijo.
+   */
+  topNPcts: number[];
 
   totalX: number;
   totalTens: number;
@@ -284,7 +298,11 @@ export type AuditAction =
   /** Se recuperó el password con el código de `ADMIN_INITIAL_PASSWORD`. */
   | 'admin.password_recovered'
   /** Alguien probó un código de recuperación equivocado. */
-  | 'admin.recovery_failed';
+  | 'admin.recovery_failed'
+  /** Un arquero autoregistrado (`BE-20`) pasó de `pendiente` a `aprobado`. */
+  | 'archer.approve'
+  /** Un arquero autoregistrado se rechazó y se borró del padrón. */
+  | 'archer.reject';
 
 export interface AuditLogDoc {
   _id: ObjectId;
@@ -292,7 +310,7 @@ export interface AuditLogDoc {
   actorType: SubjectType | 'system';
   actorId: ObjectId | null;
   action: AuditAction;
-  entity: 'tournament' | 'patrol' | 'participant' | 'user';
+  entity: 'tournament' | 'patrol' | 'participant' | 'user' | 'archer';
   entityId: ObjectId;
   /** Nunca datos sensibles: ni tokens, ni hashes, ni PIN. */
   meta: Record<string, unknown>;

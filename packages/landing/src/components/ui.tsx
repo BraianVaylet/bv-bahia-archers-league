@@ -44,7 +44,7 @@ export function Encabezado() {
         <div className="flex items-center gap-2 min-h-[44px]">
           <Link
             to="/"
-            className="font-[var(--font-display)] font-bold flex items-center gap-2 min-w-0"
+            className="font-[var(--font-display)] font-bold flex items-center gap-2 min-w-0 min-h-[44px]"
           >
             {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice
                 de qué liga se trata, ni se lee en un lector de pantalla. */}
@@ -81,6 +81,35 @@ export function Fallo({ mensaje }: { readonly mensaje: string }) {
     <p role="alert" className="text-[var(--danger)]">
       {mensaje}
     </p>
+  );
+}
+
+export function Dato({
+  etiqueta,
+  valor,
+  detalle,
+}: {
+  readonly etiqueta: string;
+  readonly valor: string | number;
+  /**
+   * El dato de al lado, en chico y abajo.
+   *
+   * Antes esto iba metido dentro del valor —`89.39% (295)`— y quedaban dos
+   * números peleando el mismo renglón: el que ordena el ranking y el puntaje
+   * bruto. En un celular a 320 px eso además se parte.
+   */
+  readonly detalle?: string;
+}) {
+  return (
+    <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2">
+      <dt className="text-xs text-[var(--ink-muted)]">{etiqueta}</dt>
+      <dd className="text-lg font-semibold tabular-nums">
+        {valor}
+        {detalle && (
+          <span className="block text-xs font-normal text-[var(--ink-muted)]">{detalle}</span>
+        )}
+      </dd>
+    </div>
   );
 }
 

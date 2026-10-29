@@ -16,15 +16,27 @@ import {
   MIN_ARROWS_PER_TARGET,
   MIN_PATROL_SIZE,
 } from './constants.js';
-import { BOW_CATEGORIES, MODALITIES, UNITS } from './domain.js';
+import { BOW_CATEGORIES, MODALITIES, SEXES, UNITS } from './domain.js';
 
 // ── Primitivos ───────────────────────────────────────────────────────────────
 
 /** `ObjectId` de Mongo en hexadecimal. Se valida antes de construir uno. */
 export const ObjectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, 'Identificador inválido.');
 
-/** Texto de una línea: recortado, no vacío, con tope. */
-const texto = (min: number, max: number) => z.string().trim().min(min).max(max);
+/**
+ * Texto de una línea: recortado, no vacío, con tope.
+ *
+ * Mensajes propios, no el default de Zod: sin esto, un campo vacío devuelve
+ * algo como «Too small: expected string to have >=1 characters» — en inglés,
+ * y sin decir qué campo. `FE-27` fue el primer lugar que mostró el mensaje de
+ * un error de Zod directo en una pantalla, y ahí se notó.
+ */
+const texto = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min, min <= 1 ? 'No puede quedar vacío.' : `Tiene que tener al menos ${min} caracteres.`)
+    .max(max, `No puede tener más de ${max} caracteres.`);
 
 export const MAX_TARGETS = 60;
 export const MAX_PARTICIPANTS = 200;
@@ -44,6 +56,12 @@ export const MIN_PASSWORD_LENGTH = 12;
 
 const CategorySchema = z.enum(BOW_CATEGORIES);
 const ModalitySchema = z.enum(MODALITIES);
+const SexSchema = z.enum(SEXES, 'Elegí femenino o masculino.');
+
+/** DNI argentino: 7 u 8 dígitos, sin puntos. */
+const DniSchema = z
+  .string()
+  .regex(/^\d{7,8}$/, 'El DNI tiene que ser de 7 u 8 dígitos, sin puntos.');
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -92,6 +110,32 @@ export const ArcherInputSchema = z.strictObject({
   firstName: texto(1, 60),
   lastName: texto(1, 60),
   category: CategorySchema,
+  /**
+   * Opcionales: el padrón anterior a este campo no los tenía, y el alta del
+   * admin todavía no los manda (`FE-29` sigue pendiente). El autoregistro
+   * público (`BE-20`) usa su propio esquema, que sí los exige — es ahí donde
+   * importa de verdad tenerlos desde el alta. Ver `docs/DOMAIN_WA.md` §9.
+   */
+  sex: SexSchema.nullable().default(null),
+  dni: DniSchema.nullable().default(null),
+});
+
+/**
+ * Autoregistro público (`BE-20`). A diferencia de `ArcherInputSchema`, acá
+ * `sex` y `dni` son **obligatorios**: es un formulario nuevo, escrito para
+ * pedir exactamente estos datos desde el primer día, y el DNI es lo que
+ * permite deduplicar sin depender de nombre y apellido.
+ *
+ * `.strict()` es lo que impide que alguien se autoapruebe: no hay
+ * `registrationStatus` en esta lista, así que mandarlo lo rechaza el schema
+ * antes de que el servicio llegue a decidir nada.
+ */
+export const ArcherSelfRegisterSchema = z.strictObject({
+  firstName: texto(1, 60),
+  lastName: texto(1, 60),
+  category: CategorySchema,
+  sex: SexSchema,
+  dni: DniSchema,
 });
 
 export const SeasonInputSchema = z
@@ -122,6 +166,7 @@ const StakeMapSchema = z.strictObject({
   roja: listaDeCategorias,
   azul: listaDeCategorias,
   amarilla: listaDeCategorias,
+  naranja: listaDeCategorias,
 });
 
 const metros = z.number().int().min(1).max(200);
@@ -130,6 +175,7 @@ const DistancesSchema = z.strictObject({
   roja: metros,
   azul: metros,
   amarilla: metros,
+  naranja: metros,
 });
 
 /** Los índices de los blancos tienen que ser contiguos desde 1, sin repetidos. */
@@ -313,6 +359,7 @@ export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 export type RecoverAdminInput = z.infer<typeof RecoverAdminSchema>;
 export type PatrolLoginInput = z.infer<typeof PatrolLoginSchema>;
 export type ArcherInput = z.infer<typeof ArcherInputSchema>;
+export type ArcherSelfRegisterInput = z.infer<typeof ArcherSelfRegisterSchema>;
 export type SeasonInput = z.infer<typeof SeasonInputSchema>;
 export type TargetConfigInput = z.infer<typeof TargetConfigSchema>;
 export type CreateTournamentInput = z.infer<typeof CreateTournamentSchema>;

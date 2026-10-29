@@ -491,12 +491,12 @@ describe('publicar', () => {
     expect(body.standingsUpdated).toBe(2);
 
     const acumulado = await standings().find({}).toArray();
-    // Los dos son razo: el primero se lleva 5, el segundo 4.
-    expect(acumulado.map((s) => s.leaguePoints).sort((a, b) => b - a)).toEqual([5, 4]);
-    expect(acumulado[0]?.tournamentsPlayed).toBe(1);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado.every((s) => s.tournamentsPlayed === 1)).toBe(true);
+    expect(acumulado.every((s) => s.topNPcts.length === 1)).toBe(true);
   });
 
-  it('con empate reparte los mismos puntos a los dos', async () => {
+  it('con empate, el acumulado de los dos queda igual', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
     await c.post(`/api/admin/tournaments/${tournamentId}/start`);
@@ -546,14 +546,15 @@ describe('publicar', () => {
 
     await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
 
-    // Puesto compartido: los dos primeros se llevan 5 cada uno.
+    // Tiraron exactamente lo mismo: el acumulado de los dos queda igual.
     const acumulado = await standings().find({}).toArray();
-    expect(acumulado.map((s) => s.leaguePoints)).toEqual([5, 5]);
-    expect(acumulado.every((s) => s.podiums.first === 1)).toBe(true);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado[0]?.bestNormalizedPct).toBe(acumulado[1]?.bestNormalizedPct);
+    expect(acumulado[0]?.bestNormalizedPct).toBeGreaterThan(0);
   });
 
   // Recalcular desde cero en vez de sumar el delta es lo que lo hace idempotente.
-  it('publicar dos veces NO duplica los puntos', async () => {
+  it('publicar dos veces NO duplica el acumulado', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
     await c.post(`/api/admin/tournaments/${tournamentId}/start`);
@@ -564,7 +565,8 @@ describe('publicar', () => {
 
     expect(segunda.status).toBe(409);
     const acumulado = await standings().find({}).toArray();
-    expect(acumulado.map((s) => s.leaguePoints).sort((a, b) => b - a)).toEqual([5, 4]);
+    expect(acumulado).toHaveLength(2);
+    expect(acumulado.every((s) => s.tournamentsPlayed === 1)).toBe(true);
   });
 
   it('despublicar revierte el impacto en la liga', async () => {
@@ -797,12 +799,12 @@ describe('endpoints públicos', () => {
     const body = (await (
       await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
     ).json()) as {
-      categories: { category: string; ranked: unknown[]; notYetEligible: unknown[] }[];
+      categories: { category: string; general: { ranked: unknown[]; notYetEligible: unknown[] } }[];
     };
 
     // Con un solo torneo nadie clasifica todavía: hacen falta 2.
-    expect(body.categories[0]?.ranked).toHaveLength(0);
-    expect(body.categories[0]?.notYetEligible).toHaveLength(2);
+    expect(body.categories[0]?.general.ranked).toHaveLength(0);
+    expect(body.categories[0]?.general.notYetEligible).toHaveLength(2);
   });
 
   it('las respuestas públicas llevan cabeceras de caché', async () => {
@@ -812,15 +814,171 @@ describe('endpoints públicos', () => {
   });
 });
 
-// ── REF-2 · Ranking «mejor de 2» ─────────────────────────────────────────────
+// ── Tarjeta de puntajes de un arquero (flecha por flecha) ───────────────────
 
 /**
- * El ranking de la liga promedia los DOS mejores porcentajes de la temporada.
- *
- * Reemplaza al modo «por mejor puntaje»: un porcentaje suelto premia el día
- * bueno; el promedio de los dos mejores premia la regularidad.
+ * Desde los resultados de un torneo publicado se entra a un arquero y se ve
+ * qué sacó en cada flecha de cada blanco. La landing no lee ningún total de
+ * ahí: el servidor deriva el valor de cada flecha desde su token.
  */
-describe('ranking mejor de 2', () => {
+describe('tarjeta de puntajes de un arquero', () => {
+  /** Deja el torneo publicado y devuelve los resultados tal como los ve la landing. */
+  async function torneoPublicado(c: ReturnType<typeof cliente>) {
+    const { seasonId, archerIds, tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    const detalle = (await (
+      await cliente().get(`/api/public/tournaments/${tournamentId}`)
+    ).json()) as { tournament: { results: { id: string; total: number }[] } };
+
+    return { seasonId, archerIds, tournamentId, resultados: detalle.tournament.results };
+  }
+
+  interface Tarjeta {
+    scorecard: {
+      archer: { firstName: string; lastName: string; category: string };
+      total: number;
+      maxTotal: number;
+      rows: {
+        index: number;
+        modality: string;
+        arrows: { token: string; value: number }[] | null;
+        total: number;
+        maxTotal: number;
+      }[];
+    };
+  }
+
+  it('cada resultado trae el id con el que se abre su tarjeta', async () => {
+    const c = await admin();
+    const { resultados } = await torneoPublicado(c);
+
+    expect(resultados.every((r) => /^[0-9a-f]{24}$/.test(r.id))).toBe(true);
+    expect(new Set(resultados.map((r) => r.id)).size).toBe(2);
+  });
+
+  it('muestra cada flecha de cada blanco, con su valor, del arquero elegido', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+    const primero = resultados.find((r) => r.total === 51);
+
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${primero?.id}`,
+    );
+    expect(res.status).toBe(200);
+
+    const { scorecard } = (await res.json()) as Tarjeta;
+    expect(scorecard.rows).toEqual([
+      {
+        index: 1,
+        modality: '3d',
+        arrows: [
+          { token: '11', value: 11 },
+          { token: '11', value: 11 },
+        ],
+        total: 22,
+        maxTotal: 22,
+      },
+      {
+        index: 2,
+        modality: 'sala',
+        arrows: [
+          { token: 'X', value: 10 },
+          { token: '10', value: 10 },
+          { token: '9', value: 9 },
+        ],
+        total: 29,
+        maxTotal: 30,
+      },
+    ]);
+    // El total sale de las flechas y coincide con el del listado de resultados.
+    expect(scorecard.total).toBe(51);
+    expect(scorecard.maxTotal).toBe(52);
+  });
+
+  // El detalle del torneo ya oculta los puntajes si no está publicado; la
+  // tarjeta tiene que hacer lo mismo o sería la puerta de atrás.
+  it('un torneo sin publicar NO expone la tarjeta: 404', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+
+    const participante = await participants().findOne({ tournamentId: new ObjectId(tournamentId) });
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${participante?._id.toHexString()}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('el participante de OTRO torneo no se abre bajo este: 404', async () => {
+    const c = await admin();
+    const { seasonId, archerIds, tournamentId } = await torneoPublicado(c);
+    const otroId = await otroTorneoEn(c, seasonId, archerIds);
+    await c.post(`/api/admin/tournaments/${otroId}/start`);
+    await completarTorneo(otroId);
+    await c.post(`/api/admin/tournaments/${otroId}/publish`);
+
+    const ajeno = await participants().findOne({ tournamentId: new ObjectId(otroId) });
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${ajeno?._id.toHexString()}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('un participante ausente no tiene tarjeta: 404', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+    const elegido = resultados[0]?.id ?? '';
+    await participants().updateOne({ _id: new ObjectId(elegido) }, { $set: { status: 'ausente' } });
+
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${elegido}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('un id malformado o inexistente responde 404, no 500', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoPublicado(c);
+
+    for (const participante of ['no-es-un-id', '0'.repeat(24), '{"$ne":null}']) {
+      const res = await cliente().get(
+        `/api/public/tournaments/${tournamentId}/participants/${encodeURIComponent(participante)}`,
+      );
+      expect(res.status).toBe(404);
+    }
+  });
+
+  // La ruta es pública: lo que se serializa va por lista blanca.
+  it('NO expone la firma, si pagó, el DNI ni el id del arquero', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+
+    const crudo = await (
+      await cliente().get(
+        `/api/public/tournaments/${tournamentId}/participants/${resultados[0]?.id}`,
+      )
+    ).text();
+
+    expect(crudo).not.toMatch(/signature|pngDataUrl|scorecardHash|"paid"|dni|archerId|patrolId/i);
+  });
+});
+
+// ── SH-9 · Ranking «mejor de N» ──────────────────────────────────────────────
+
+/**
+ * El ranking de la liga promedia los `LEAGUE_BEST_N` mejores porcentajes de la
+ * temporada. Reemplazó al ranking por posición (puntos 5-4-3-2-1), retirado el
+ * 2026-10-24: un porcentaje suelto premia el día bueno; el promedio de los
+ * mejores premia la regularidad.
+ */
+describe('ranking mejor de N', () => {
   /** Deja dos torneos publicados en la misma temporada. */
   async function dosTorneosPublicados(c: ReturnType<typeof cliente>) {
     const { seasonId, archerIds, tournamentId } = await torneoNuevo(c);
@@ -834,32 +992,24 @@ describe('ranking mejor de 2', () => {
     return seasonId;
   }
 
-  it('rechaza el modo `score`, que ya no existe', async () => {
-    const c = await admin();
-    const { seasonId } = await torneoNuevo(c);
-
-    const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=score`);
-    expect(res.status).toBe(400);
-  });
-
-  it('acepta el modo `best_two`', async () => {
+  it('rechaza un `mode` en la query — ya no existen modos', async () => {
     const c = await admin();
     const { seasonId } = await torneoNuevo(c);
 
     const res = await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
   });
 
-  it('guarda los dos mejores porcentajes al publicar', async () => {
+  it('guarda los `LEAGUE_BEST_N` (default 2) mejores porcentajes al publicar', async () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
-    expect(doc?.topTwoPcts).toHaveLength(2);
+    expect(doc?.topNPcts).toHaveLength(2);
     expect(doc?.tournamentsPlayed).toBe(2);
   });
 
   /**
-   * Los acumulados escritos ANTES de «mejor de 2» no tienen `topTwoPcts`, y
+   * Los acumulados escritos ANTES de «mejor de N» no tienen `topNPcts`, y
    * ninguna publicación futura los toca si nadie vuelve a publicar esa
    * temporada. `db:reconcile` es lo que los alcanza.
    */
@@ -867,8 +1017,8 @@ describe('ranking mejor de 2', () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     // Se simula el documento viejo: sin el campo.
-    await standings().updateMany({}, { $unset: { topTwoPcts: '' } });
-    expect((await standings().findOne({}))?.topTwoPcts).toBeUndefined();
+    await standings().updateMany({}, { $unset: { topNPcts: '' } });
+    expect((await standings().findOne({}))?.topNPcts).toBeUndefined();
 
     const resultado = await publishService.reconcileStandings();
 
@@ -876,26 +1026,212 @@ describe('ranking mejor de 2', () => {
     expect(resultado.standings).toBeGreaterThan(0);
 
     const doc = await standings().findOne({ seasonId: new ObjectId(seasonId) });
-    expect(doc?.topTwoPcts).toHaveLength(2);
+    expect(doc?.topNPcts).toHaveLength(2);
   });
 
-  it('el ranking público expone el promedio de los dos mejores', async () => {
+  it('el ranking público expone el promedio de los mejores porcentajes', async () => {
     const seasonId = await dosTorneosPublicados(await admin());
 
     const res = (await (
-      await cliente().get(`/api/public/rankings?seasonId=${seasonId}&mode=best_two`)
+      await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
     ).json()) as {
-      categories: { ranked: { bestTwoAvgPct: number; topTwoPcts: number[] }[] }[];
+      categories: { general: { ranked: { bestNAvgPct: number; topNPcts: number[] }[] } }[];
     };
 
-    const primero = res.categories[0]?.ranked[0];
+    const primero = res.categories[0]?.general.ranked[0];
     if (!primero) throw new Error('el ranking vino vacío');
 
     // Los dos torneos son idénticos, así que los dos porcentajes coinciden. Lo
-    // que se verifica es que el valor sea el promedio de los dos que están
+    // que se verifica es que el valor sea el promedio de los que están
     // guardados, no un número suelto.
-    const [a, b] = primero.topTwoPcts as [number, number];
-    expect(primero.bestTwoAvgPct).toBe(Math.round(((a + b) / 2) * 100) / 100);
+    const [a, b] = primero.topNPcts as [number, number];
+    expect(primero.bestNAvgPct).toBe(Math.round(((a + b) / 2) * 100) / 100);
+  });
+});
+
+// ── BE-19 · Sexo, de punta a punta ───────────────────────────────────────────
+
+/**
+ * El sexo nace en el arquero y viaja congelado por el torneo igual que
+ * `category`: `ArcherDoc` → snapshot en `ParticipantDoc` → acumulado en
+ * `StandingDoc`. Un arquero sin sexo cargado no rompe nada en el camino.
+ */
+describe('sexo: del arquero al standing', () => {
+  it('viaja de punta a punta, y un arquero sin sexo no rompe nada', async () => {
+    const c = await admin();
+    const s = await c.post('/api/admin/seasons', {
+      name: 'Liga 2026',
+      startsAt: '2026-01-01',
+      endsAt: '2026-12-31',
+    });
+    const seasonId = ((await s.json()) as { season: { id: string } }).season.id;
+
+    const conSexo = await c.post('/api/admin/archers', {
+      firstName: 'Ana',
+      lastName: 'Arquera',
+      category: 'razo',
+      sex: 'femenino',
+    });
+    const sinSexo = await c.post('/api/admin/archers', {
+      firstName: 'Beto',
+      lastName: 'Arquero',
+      category: 'razo',
+    });
+    const archerIds = [
+      ((await conSexo.json()) as { archer: { id: string } }).archer.id,
+      ((await sinSexo.json()) as { archer: { id: string } }).archer.id,
+    ];
+
+    const t = await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo',
+      date: '2026-08-08',
+      targets: TARGETS,
+      archerIds,
+    });
+    const tournamentId = ((await t.json()) as { tournament: { id: string } }).tournament.id;
+
+    const miembros = await participants()
+      .find({ tournamentId: new ObjectId(tournamentId) })
+      .toArray();
+    expect(miembros.find((m) => m.lastName === 'Arquera')?.sex).toBe('femenino');
+    expect(miembros.find((m) => m.lastName === 'Arquero')?.sex).toBeNull();
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    const acumulados = await standings()
+      .find({ seasonId: new ObjectId(seasonId) })
+      .toArray();
+    expect(acumulados.find((a) => a.lastName === 'Arquera')?.sex).toBe('femenino');
+    expect(acumulados.find((a) => a.lastName === 'Arquero')?.sex).toBeNull();
+  });
+});
+
+// ── BE-21 · Ranking público por sexo ─────────────────────────────────────────
+
+/**
+ * `GET /api/public/rankings` expone, por categoría, las tres vistas de
+ * `SH-10`: `general`, `femenino`, `masculino`. Cada una es una pool rankeada
+ * aparte, no el general filtrado — por eso cada una numera desde 1.
+ */
+describe('ranking público por sexo', () => {
+  it('cada vista numera desde 1, sobre su propia pool', async () => {
+    const c = await admin();
+    const s = await c.post('/api/admin/seasons', {
+      name: 'Liga 2026',
+      startsAt: '2026-01-01',
+      endsAt: '2026-12-31',
+    });
+    const seasonId = ((await s.json()) as { season: { id: string } }).season.id;
+
+    const archero = async (lastName: string, sex: 'femenino' | 'masculino') => {
+      const r = await c.post('/api/admin/archers', {
+        firstName: 'Nombre',
+        lastName,
+        category: 'razo',
+        sex,
+      });
+      return ((await r.json()) as { archer: { id: string } }).archer.id;
+    };
+    const archerIds = [
+      await archero('Primera', 'femenino'),
+      await archero('Segunda', 'femenino'),
+      await archero('Tercero', 'masculino'),
+      await archero('Cuarto', 'masculino'),
+    ];
+
+    const t = await c.post('/api/admin/tournaments', {
+      seasonId,
+      name: 'Torneo',
+      date: '2026-08-08',
+      targets: TARGETS,
+      archerIds,
+    });
+    const tournamentId = ((await t.json()) as { tournament: { id: string } }).tournament.id;
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    // Cuatro puntajes distintos, para que nadie empate.
+    const patrulla = await patrols().findOne({ tournamentId: new ObjectId(tournamentId) });
+    const lider = cliente();
+    await lider.post('/api/auth/patrol/login', {
+      tournamentId,
+      username: patrulla?.username,
+      pin: decryptPin(patrulla?.pinEnc ?? '', testEnv().PIN_ENC_KEY),
+    });
+    const miembros = await participants().find({ patrolId: patrulla?._id }).toArray();
+    const puntaje: Record<string, [string, string]> = {
+      Primera: ['11', '11'],
+      Segunda: ['10', '8'],
+      Tercero: ['10', '10'],
+      Cuarto: ['5', '5'],
+    };
+
+    await lider.post('/api/wafl/sync', {
+      ops: miembros.flatMap((m) => [
+        {
+          type: 'score' as const,
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: m._id.toHexString(),
+          targetIndex: 1,
+          arrows: puntaje[m.lastName] ?? ['M', 'M'],
+        },
+        {
+          type: 'score' as const,
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: m._id.toHexString(),
+          targetIndex: 2,
+          arrows: ['5', '5', '5'],
+        },
+      ]),
+    });
+    await lider.post('/api/wafl/sync', {
+      ops: miembros.map((m) => ({
+        type: 'signature' as const,
+        opId: uuid(),
+        clientUpdatedAt: new Date().toISOString(),
+        participantId: m._id.toHexString(),
+        pngDataUrl: PNG,
+      })),
+    });
+    await lider.post('/api/wafl/sync', {
+      ops: [{ type: 'close' as const, opId: uuid(), clientUpdatedAt: new Date().toISOString() }],
+    });
+
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    // Un solo torneo: nadie clasifica todavía (hace falta bestN=2), así que
+    // se mira `notYetEligible`, que también está separado por sexo.
+    const body = (await (
+      await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
+    ).json()) as {
+      categories: {
+        category: string;
+        general: { notYetEligible: { lastName: string }[] };
+        femenino: { notYetEligible: { lastName: string }[] };
+        masculino: { notYetEligible: { lastName: string }[] };
+      }[];
+    };
+
+    const razo = body.categories.find((cat) => cat.category === 'razo');
+    expect(razo?.general.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Cuarto',
+      'Primera',
+      'Segunda',
+      'Tercero',
+    ]);
+    expect(razo?.femenino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Primera',
+      'Segunda',
+    ]);
+    expect(razo?.masculino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+      'Cuarto',
+      'Tercero',
+    ]);
   });
 });
 

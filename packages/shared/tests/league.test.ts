@@ -2,22 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
   type ArcherStanding,
   applyTournamentToStandings,
-  bestTwoAvgPct,
+  bestNAvgPct,
   eligibleForRanking,
-  leaguePointsForPosition,
   normalizedPct,
   type Rankable,
   sortStandings,
+  sortStandingsByGender,
   type TournamentContribution,
 } from '../src/index.js';
 
 /**
- * Liga y temporada (SH-5).
+ * Liga y temporada (SH-5, rediseñado en SH-9).
  *
- * Dos rankings por categoría:
- *   - por posición: 5-4-3-2-1 según el podio de cada torneo
- *   - mejor de 2:   promedio de los DOS mejores normalizedPct de la temporada
- * Mínimo 2 torneos publicados para figurar. Ver docs/DOMAIN_WA.md §9.
+ * Un solo ranking por categoría: «mejor de N», el promedio de los N mejores
+ * `normalizedPct` de la temporada. `N` (`bestN`) es un parámetro —lo decide
+ * quien llama, nunca una constante del módulo— porque en producción viene de
+ * `LEAGUE_BEST_N` (`BE-18`). El ranking «por posición» (puntos 5-4-3-2-1) y
+ * los acumulados `leaguePoints`/`podiums` que lo sostenían se retiraron el
+ * 2026-10-24. Ver docs/DOMAIN_WA.md §9 y BITACORA.md.
  */
 
 let n = 0;
@@ -45,13 +47,11 @@ function standing(overrides: Partial<ArcherStanding> = {}): ArcherStanding {
     firstName: 'Juan',
     lastName: 'Pérez',
     category: 'razo',
-    leaguePoints: 0,
     tournamentsPlayed: 0,
-    podiums: { first: 0, second: 0, third: 0 },
     bestNormalizedPct: 0,
     bestRawScore: 0,
     bestTournamentId: null,
-    topTwoPcts: [],
+    topNPcts: [],
     totalX: 0,
     totalTens: 0,
     totalM: 0,
@@ -59,24 +59,9 @@ function standing(overrides: Partial<ArcherStanding> = {}): ArcherStanding {
   };
 }
 
-/** Standing con los dos mejores porcentajes ya cargados. */
+/** Standing con porcentajes ya cargados, tantos torneos jugados como porcentajes. */
 const conPcts = (pcts: number[], o: Partial<ArcherStanding> = {}) =>
-  standing({ topTwoPcts: pcts, tournamentsPlayed: pcts.length, ...o });
-
-describe('leaguePointsForPosition', () => {
-  it('reparte 5-4-3-2-1 del primero al quinto', () => {
-    expect([1, 2, 3, 4, 5].map(leaguePointsForPosition)).toEqual([5, 4, 3, 2, 1]);
-  });
-
-  it('del sexto en adelante no reparte puntos', () => {
-    expect([6, 7, 20, 100].map(leaguePointsForPosition)).toEqual([0, 0, 0, 0]);
-  });
-
-  it('una posición inválida no reparte puntos', () => {
-    expect(leaguePointsForPosition(0)).toBe(0);
-    expect(leaguePointsForPosition(-1)).toBe(0);
-  });
-});
+  standing({ topNPcts: pcts, tournamentsPlayed: pcts.length, ...o });
 
 describe('normalizedPct', () => {
   it('es el porcentaje del máximo posible del torneo', () => {
@@ -104,36 +89,38 @@ describe('normalizedPct', () => {
 });
 
 /**
- * «Mejor de 2»: el ranking de la liga promedia los DOS mejores porcentajes de
+ * «Mejor de N»: el ranking de la liga promedia los N mejores porcentajes de
  * la temporada, no el mejor suelto. Premia la regularidad y no un día bueno.
+ * `bestNAvgPct` promedia lo que haya en `topNPcts` — el tope de cuántos
+ * entran ahí lo pone `applyTournamentToStandings`, no esta función.
  *
  * Ver docs/DOMAIN_WA.md §9.
  */
-describe('bestTwoAvgPct', () => {
-  it('con dos torneos al 80 % y al 90 % da 85 %', () => {
-    expect(bestTwoAvgPct(conPcts([90, 80]))).toBe(85);
+describe('bestNAvgPct', () => {
+  it('con dos porcentajes guardados, promedia los dos', () => {
+    expect(bestNAvgPct(conPcts([90, 80]))).toBe(85);
   });
 
-  it('con tres torneos toma los DOS mejores, no todos', () => {
-    // El 40 no entra: el promedio de los tres sería 70.
-    expect(bestTwoAvgPct(conPcts([90, 80]))).toBe(85);
-    expect(bestTwoAvgPct(conPcts([90, 80], { tournamentsPlayed: 3 }))).toBe(85);
+  it('con tres porcentajes guardados, promedia los tres', () => {
+    expect(bestNAvgPct(conPcts([90, 80, 40]))).toBeCloseTo(70, 5);
   });
 
-  it('con un solo torneo es ese porcentaje', () => {
-    expect(bestTwoAvgPct(conPcts([70]))).toBe(70);
+  it('con un solo porcentaje guardado es ese porcentaje', () => {
+    expect(bestNAvgPct(conPcts([70]))).toBe(70);
   });
 
-  it('sin torneos es 0, no NaN', () => {
-    expect(bestTwoAvgPct(conPcts([]))).toBe(0);
+  it('sin porcentajes guardados es 0, no NaN', () => {
+    expect(bestNAvgPct(conPcts([]))).toBe(0);
   });
 
   it('redondea a dos decimales', () => {
-    expect(bestTwoAvgPct(conPcts([78.48, 91.21]))).toBe(84.85);
+    expect(bestNAvgPct(conPcts([78.48, 91.21]))).toBe(84.85);
   });
 });
 
 describe('applyTournamentToStandings', () => {
+  const BEST_N = 2;
+
   const torneo: TournamentContribution = {
     tournamentId: 't1',
     maxPossibleScore: 330,
@@ -148,29 +135,17 @@ describe('applyTournamentToStandings', () => {
       }),
       arquero({ archerId: 'plata', lastName: 'Plata', total: 250 }),
       arquero({ archerId: 'bronce', lastName: 'Bronce', total: 200 }),
-      arquero({ archerId: 'cuarto', lastName: 'Cuarto', total: 150 }),
-      arquero({ archerId: 'quinto', lastName: 'Quinto', total: 100 }),
-      arquero({ archerId: 'sexto', lastName: 'Sexto', total: 50 }),
     ],
   };
 
-  it('reparte los puntos de liga según el podio de la categoría', () => {
-    const r = applyTournamentToStandings([], torneo);
-    const puntos = Object.fromEntries(r.map((s) => [s.archerId, s.leaguePoints]));
-
-    expect(puntos).toEqual({ oro: 5, plata: 4, bronce: 3, cuarto: 2, quinto: 1, sexto: 0 });
-  });
-
-  it('registra el podio y cuenta el torneo disputado', () => {
-    const r = applyTournamentToStandings([], torneo);
+  it('registra el torneo disputado', () => {
+    const r = applyTournamentToStandings([], torneo, BEST_N);
     const oro = r.find((s) => s.archerId === 'oro');
-
-    expect(oro?.podiums).toEqual({ first: 1, second: 0, third: 0 });
     expect(oro?.tournamentsPlayed).toBe(1);
   });
 
   it('guarda el mejor puntaje con su bruto y el torneo de origen', () => {
-    const oro = applyTournamentToStandings([], torneo).find((s) => s.archerId === 'oro');
+    const oro = applyTournamentToStandings([], torneo, BEST_N).find((s) => s.archerId === 'oro');
 
     expect(oro?.bestRawScore).toBe(300);
     expect(oro?.bestNormalizedPct).toBe(normalizedPct(300, 330));
@@ -178,7 +153,7 @@ describe('applyTournamentToStandings', () => {
   });
 
   it('acumula X, 10 y M de la temporada', () => {
-    const oro = applyTournamentToStandings([], torneo).find((s) => s.archerId === 'oro');
+    const oro = applyTournamentToStandings([], torneo, BEST_N).find((s) => s.archerId === 'oro');
     expect(oro?.totalTens).toBe(20);
     expect(oro?.totalM).toBe(1);
   });
@@ -193,62 +168,91 @@ describe('applyTournamentToStandings', () => {
       ],
     };
 
-    const r = applyTournamentToStandings([], mixto);
-    // Cada uno gana su categoría, así que los dos se llevan 5 puntos.
-    expect(r.every((s) => s.leaguePoints === 5)).toBe(true);
+    // Cada uno gana su categoría: a los dos les queda un solo porcentaje guardado.
+    const r = applyTournamentToStandings([], mixto, BEST_N);
+    expect(r.every((s) => s.topNPcts.length === 1)).toBe(true);
   });
 
-  it('escuela suma puntos de liga como cualquier otra categoría', () => {
-    const conEscuela: TournamentContribution = {
-      tournamentId: 't1',
+  it('guarda el sexo del arquero, para el ranking por sexo', () => {
+    const r = applyTournamentToStandings(
+      [],
+      { ...torneo, participants: [arquero({ archerId: 'ana', sex: 'femenino', total: 100 })] },
+      BEST_N,
+    );
+    expect(r[0]?.sex).toBe('femenino');
+  });
+
+  it('un arquero sin sexo cargado no rompe nada: queda `undefined`, no un throw', () => {
+    const r = applyTournamentToStandings(
+      [],
+      { ...torneo, participants: [arquero({ archerId: 'viejo', total: 100 })] },
+      BEST_N,
+    );
+    expect(r[0]?.sex).toBeUndefined();
+  });
+
+  it('no pisa un sexo ya conocido con uno desconocido de un snapshot más viejo', () => {
+    const previo = [standing({ archerId: 'a1', sex: 'masculino' })];
+    const sinSexo: TournamentContribution = {
+      tournamentId: 't2',
       maxPossibleScore: 330,
-      participants: [arquero({ archerId: 'e1', category: 'escuela', total: 90 })],
+      participants: [arquero({ archerId: 'a1', total: 100 })],
     };
 
-    expect(applyTournamentToStandings([], conEscuela)[0]?.leaguePoints).toBe(5);
+    const r = applyTournamentToStandings(previo, sinSexo, BEST_N);
+    expect(r[0]?.sex).toBe('masculino');
   });
 
-  describe('puesto compartido', () => {
-    const conEmpate: TournamentContribution = {
+  it('escuela y principiantes acumulan como cualquier otra categoría', () => {
+    const conNoSenior: TournamentContribution = {
       tournamentId: 't1',
       maxPossibleScore: 330,
       participants: [
-        arquero({ archerId: 'empateA', lastName: 'A', total: 300 }),
-        arquero({ archerId: 'empateB', lastName: 'B', total: 300 }),
-        arquero({ archerId: 'tercero', lastName: 'C', total: 200 }),
+        arquero({ archerId: 'e1', category: 'escuela', total: 90 }),
+        arquero({ archerId: 'p1', category: 'principiantes', total: 60 }),
       ],
     };
 
-    it('los dos primeros reciben 5 puntos cada uno', () => {
-      const r = applyTournamentToStandings([], conEmpate);
-      const puntos = Object.fromEntries(r.map((s) => [s.archerId, s.leaguePoints]));
-      expect(puntos.empateA).toBe(5);
-      expect(puntos.empateB).toBe(5);
+    const r = applyTournamentToStandings([], conNoSenior, BEST_N);
+    expect(r.find((s) => s.archerId === 'e1')?.tournamentsPlayed).toBe(1);
+    expect(r.find((s) => s.archerId === 'p1')?.tournamentsPlayed).toBe(1);
+  });
+
+  describe('con bestN = 3, guarda tres porcentajes en vez de dos', () => {
+    const conTotal = (id: string, total: number, max = 330): TournamentContribution => ({
+      tournamentId: id,
+      maxPossibleScore: max,
+      participants: [arquero({ archerId: 'a1', total })],
     });
 
-    it('el siguiente queda TERCERO y recibe 3 puntos, no 4', () => {
-      const r = applyTournamentToStandings([], conEmpate);
-      expect(r.find((s) => s.archerId === 'tercero')?.leaguePoints).toBe(3);
+    it('un tercer torneo se suma, no desplaza a ninguno', () => {
+      let r = applyTournamentToStandings([], conTotal('t1', 264), 3); // 80 %
+      r = applyTournamentToStandings(r, conTotal('t2', 297), 3); // 90 %
+      r = applyTournamentToStandings(r, conTotal('t3', 33), 3); // 10 %
+
+      expect(r[0]?.topNPcts).toEqual([90, 80, 10]);
     });
 
-    it('ambos empatados cuentan el podio de primero', () => {
-      const r = applyTournamentToStandings([], conEmpate);
-      expect(r.find((s) => s.archerId === 'empateA')?.podiums.first).toBe(1);
-      expect(r.find((s) => s.archerId === 'empateB')?.podiums.first).toBe(1);
+    it('un cuarto torneo peor que los tres NO desplaza a ninguno', () => {
+      let r = applyTournamentToStandings([], conTotal('t1', 264), 3); // 80 %
+      r = applyTournamentToStandings(r, conTotal('t2', 297), 3); // 90 %
+      r = applyTournamentToStandings(r, conTotal('t3', 33), 3); // 10 %
+      r = applyTournamentToStandings(r, conTotal('t4', 33), 3); // 10 % también
+
+      expect(r[0]?.topNPcts).toEqual([90, 80, 10]);
     });
   });
 
   describe('acumulación sobre torneos previos', () => {
-    it('suma los puntos de liga', () => {
-      const previo = [standing({ archerId: 'a1', leaguePoints: 4, tournamentsPlayed: 1 })];
+    it('suma los torneos jugados', () => {
+      const previo = [standing({ archerId: 'a1', tournamentsPlayed: 1 })];
       const segundo: TournamentContribution = {
         tournamentId: 't2',
         maxPossibleScore: 330,
         participants: [arquero({ archerId: 'a1', total: 300 })],
       };
 
-      const r = applyTournamentToStandings(previo, segundo);
-      expect(r[0]?.leaguePoints).toBe(9);
+      const r = applyTournamentToStandings(previo, segundo, BEST_N);
       expect(r[0]?.tournamentsPlayed).toBe(2);
     });
 
@@ -260,7 +264,7 @@ describe('applyTournamentToStandings', () => {
         participants: [arquero({ archerId: 'a1', total: 300 })],
       };
 
-      const r = applyTournamentToStandings(previo, mejor);
+      const r = applyTournamentToStandings(previo, mejor, BEST_N);
       expect(r[0]?.bestNormalizedPct).toBe(normalizedPct(300, 330));
       expect(r[0]?.bestTournamentId).toBe('t2');
     });
@@ -280,7 +284,7 @@ describe('applyTournamentToStandings', () => {
         participants: [arquero({ archerId: 'a1', total: 100 })],
       };
 
-      const r = applyTournamentToStandings(previo, peor);
+      const r = applyTournamentToStandings(previo, peor, BEST_N);
       expect(r[0]?.bestNormalizedPct).toBe(90);
       expect(r[0]?.bestRawScore).toBe(297);
       expect(r[0]?.bestTournamentId).toBe('t1');
@@ -295,12 +299,12 @@ describe('applyTournamentToStandings', () => {
         participants: [arquero({ archerId: 'a1', total: 200 })],
       };
 
-      const r = applyTournamentToStandings(previo, cortoPeroMejor);
+      const r = applyTournamentToStandings(previo, cortoPeroMejor, BEST_N);
       expect(r[0]?.bestNormalizedPct).toBe(80);
       expect(r[0]?.bestRawScore).toBe(200);
     });
 
-    describe('los dos mejores porcentajes', () => {
+    describe('los N mejores porcentajes', () => {
       const conTotal = (id: string, total: number, max = 330): TournamentContribution => ({
         tournamentId: id,
         maxPossibleScore: max,
@@ -308,46 +312,46 @@ describe('applyTournamentToStandings', () => {
       });
 
       it('el primer torneo deja un solo porcentaje', () => {
-        const r = applyTournamentToStandings([], conTotal('t1', 264));
-        expect(r[0]?.topTwoPcts).toEqual([80]);
+        const r = applyTournamentToStandings([], conTotal('t1', 264), BEST_N);
+        expect(r[0]?.topNPcts).toEqual([80]);
       });
 
       it('el segundo se suma y quedan ordenados de mayor a menor', () => {
-        const previo = applyTournamentToStandings([], conTotal('t1', 264)); // 80 %
-        const r = applyTournamentToStandings(previo, conTotal('t2', 297)); // 90 %
+        const previo = applyTournamentToStandings([], conTotal('t1', 264), BEST_N); // 80 %
+        const r = applyTournamentToStandings(previo, conTotal('t2', 297), BEST_N); // 90 %
 
-        expect(r[0]?.topTwoPcts).toEqual([90, 80]);
-        expect(bestTwoAvgPct(r[0] as ArcherStanding)).toBe(85);
+        expect(r[0]?.topNPcts).toEqual([90, 80]);
+        expect(bestNAvgPct(r[0] as ArcherStanding)).toBe(85);
       });
 
       it('un tercer torneo peor NO desplaza a ninguno de los dos', () => {
         const previo = [conPcts([90, 80], { archerId: 'a1' })];
-        const r = applyTournamentToStandings(previo, conTotal('t3', 33)); // 10 %
+        const r = applyTournamentToStandings(previo, conTotal('t3', 33), BEST_N); // 10 %
 
-        expect(r[0]?.topTwoPcts).toEqual([90, 80]);
+        expect(r[0]?.topNPcts).toEqual([90, 80]);
       });
 
       it('un tercer torneo mejor desplaza al PEOR de los dos', () => {
         const previo = [conPcts([90, 80], { archerId: 'a1' })];
-        const r = applyTournamentToStandings(previo, conTotal('t3', 313.5)); // 95 %
+        const r = applyTournamentToStandings(previo, conTotal('t3', 313.5), BEST_N); // 95 %
 
-        expect(r[0]?.topTwoPcts).toEqual([95, 90]);
+        expect(r[0]?.topNPcts).toEqual([95, 90]);
       });
 
       // Es la misma razón por la que existe `normalizedPct`: el bruto premia al
       // recorrido más largo, no al mejor tiro.
       it('compara por porcentaje, no por bruto', () => {
         const previo = [conPcts([60, 50], { archerId: 'a1' })];
-        const r = applyTournamentToStandings(previo, conTotal('t3', 200, 250)); // 80 %
+        const r = applyTournamentToStandings(previo, conTotal('t3', 200, 250), BEST_N); // 80 %
 
-        expect(r[0]?.topTwoPcts).toEqual([80, 60]);
+        expect(r[0]?.topNPcts).toEqual([80, 60]);
       });
     });
 
     it('no toca a los arqueros que no participaron de este torneo', () => {
       const previo = [
-        standing({ archerId: 'presente', leaguePoints: 4, tournamentsPlayed: 1 }),
-        standing({ archerId: 'ausente', leaguePoints: 3, tournamentsPlayed: 1 }),
+        standing({ archerId: 'presente', tournamentsPlayed: 1 }),
+        standing({ archerId: 'ausente', tournamentsPlayed: 1 }),
       ];
       const torneoSolo: TournamentContribution = {
         tournamentId: 't2',
@@ -355,117 +359,81 @@ describe('applyTournamentToStandings', () => {
         participants: [arquero({ archerId: 'presente', total: 300 })],
       };
 
-      const r = applyTournamentToStandings(previo, torneoSolo);
+      const r = applyTournamentToStandings(previo, torneoSolo, BEST_N);
       const ausente = r.find((s) => s.archerId === 'ausente');
-      expect(ausente?.leaguePoints).toBe(3);
       expect(ausente?.tournamentsPlayed).toBe(1);
     });
   });
 });
 
 describe('eligibleForRanking', () => {
-  it('exige al menos 2 torneos disputados', () => {
-    expect(eligibleForRanking(standing({ tournamentsPlayed: 0 }))).toBe(false);
-    expect(eligibleForRanking(standing({ tournamentsPlayed: 1 }))).toBe(false);
-    expect(eligibleForRanking(standing({ tournamentsPlayed: 2 }))).toBe(true);
-    expect(eligibleForRanking(standing({ tournamentsPlayed: 9 }))).toBe(true);
+  it('con bestN = 2, exige al menos 2 torneos disputados', () => {
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 0 }), 2)).toBe(false);
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 1 }), 2)).toBe(false);
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 2 }), 2)).toBe(true);
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 9 }), 2)).toBe(true);
+  });
+
+  it('con bestN = 3, el mínimo pasa a ser 3', () => {
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 2 }), 3)).toBe(false);
+    expect(eligibleForRanking(standing({ tournamentsPlayed: 3 }), 3)).toBe(true);
   });
 });
 
 describe('sortStandings', () => {
   const conDosTorneos = (o: Partial<ArcherStanding>) => standing({ tournamentsPlayed: 2, ...o });
 
-  describe('modo posición', () => {
-    it('ordena por puntos de liga descendente', () => {
-      const r = sortStandings(
-        [
-          conDosTorneos({ archerId: 'b', leaguePoints: 8 }),
-          conDosTorneos({ archerId: 'a', leaguePoints: 12 }),
-        ],
-        'position',
-      );
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['a', 'b']);
-    });
-
-    it('a igual puntaje, desempata por cantidad de primeros puestos', () => {
-      const r = sortStandings(
-        [
-          conDosTorneos({
-            archerId: 'menos',
-            leaguePoints: 10,
-            podiums: { first: 1, second: 3, third: 0 },
-          }),
-          conDosTorneos({
-            archerId: 'mas',
-            leaguePoints: 10,
-            podiums: { first: 2, second: 0, third: 0 },
-          }),
-        ],
-        'position',
-      );
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['mas', 'menos']);
-    });
-
-    it('después desempata por segundos puestos, y después por mejor porcentaje', () => {
-      const podiums = { first: 1, second: 1, third: 0 };
-      const r = sortStandings(
-        [
-          conDosTorneos({ archerId: 'peor', leaguePoints: 10, podiums, bestNormalizedPct: 70 }),
-          conDosTorneos({ archerId: 'mejor', leaguePoints: 10, podiums, bestNormalizedPct: 85 }),
-        ],
-        'position',
-      );
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['mejor', 'peor']);
-    });
+  it('ordena por el promedio de los N mejores, descendente', () => {
+    const r = sortStandings(
+      [conPcts([70, 70], { archerId: 'b' }), conPcts([90, 80], { archerId: 'a' })],
+      2,
+    );
+    expect(r.ranked.map((s) => s.archerId)).toEqual(['a', 'b']);
   });
 
-  describe('modo mejor de 2', () => {
-    it('ordena por el promedio de los dos mejores, descendente', () => {
-      const r = sortStandings(
-        [conPcts([70, 70], { archerId: 'b' }), conPcts([90, 80], { archerId: 'a' })],
-        'best_two',
-      );
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['a', 'b']);
-    });
+  /**
+   * `irregular` promedia 75 y `regular` promedia 85, aunque `irregular` tenga
+   * el mejor porcentaje suelto de los dos. La regularidad gana.
+   */
+  it('NO ordena por el mejor porcentaje suelto', () => {
+    const r = sortStandings(
+      [conPcts([95, 55], { archerId: 'irregular' }), conPcts([86, 84], { archerId: 'regular' })],
+      2,
+    );
 
-    /**
-     * La diferencia con el modo anterior, en un caso concreto: `regular`
-     * promedia 85 y `irregular` promedia 75, aunque `irregular` tenga el mejor
-     * porcentaje suelto de los dos. La regularidad gana.
-     */
-    it('NO ordena por el mejor porcentaje suelto', () => {
-      const r = sortStandings(
-        [conPcts([95, 55], { archerId: 'irregular' }), conPcts([86, 84], { archerId: 'regular' })],
-        'best_two',
-      );
+    expect(r.ranked.map((s) => s.archerId)).toEqual(['regular', 'irregular']);
+  });
 
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['regular', 'irregular']);
-    });
-
-    it('a igual promedio, desempata por inner y después por menos M', () => {
-      const r = sortStandings(
-        [
-          conPcts([80, 80], { archerId: 'masM', totalX: 5, totalM: 4 }),
-          conPcts([80, 80], { archerId: 'menosM', totalX: 5, totalM: 1 }),
-        ],
-        'best_two',
-      );
-      expect(r.ranked.map((s) => s.archerId)).toEqual(['menosM', 'masM']);
-    });
+  it('a igual promedio, desempata por inner y después por menos M', () => {
+    const r = sortStandings(
+      [
+        conPcts([80, 80], { archerId: 'masM', totalX: 5, totalM: 4 }),
+        conPcts([80, 80], { archerId: 'menosM', totalX: 5, totalM: 1 }),
+      ],
+      2,
+    );
+    expect(r.ranked.map((s) => s.archerId)).toEqual(['menosM', 'masM']);
   });
 
   describe('mínimo de torneos', () => {
     it('separa a los que todavía no clasifican', () => {
       const r = sortStandings(
         [
-          conDosTorneos({ archerId: 'clasifica', leaguePoints: 5 }),
-          standing({ archerId: 'noClasifica', tournamentsPlayed: 1, leaguePoints: 5 }),
+          conDosTorneos({ archerId: 'clasifica' }),
+          standing({ archerId: 'noClasifica', tournamentsPlayed: 1 }),
         ],
-        'position',
+        2,
       );
 
       expect(r.ranked.map((s) => s.archerId)).toEqual(['clasifica']);
       expect(r.notYetEligible.map((s) => s.archerId)).toEqual(['noClasifica']);
+    });
+
+    it('con bestN = 3, dos torneos no alcanzan', () => {
+      const r = sortStandings([conDosTorneos({ archerId: 'dosTorneos' })], 3);
+
+      expect(r.ranked).toEqual([]);
+      expect(r.notYetEligible.map((s) => s.archerId)).toEqual(['dosTorneos']);
     });
 
     it('ordena también a los que no clasifican, de forma determinista', () => {
@@ -475,7 +443,7 @@ describe('sortStandings', () => {
           standing({ archerId: 'a', lastName: 'Pérez', firstName: 'Ana', tournamentsPlayed: 1 }),
           standing({ archerId: 'm', lastName: 'Álvarez', firstName: 'Beto', tournamentsPlayed: 1 }),
         ],
-        'position',
+        2,
       );
       expect(r.notYetEligible.map((s) => s.archerId)).toEqual(['m', 'a', 'z']);
     });
@@ -483,37 +451,106 @@ describe('sortStandings', () => {
     it('asigna posiciones sólo entre los que clasifican', () => {
       const r = sortStandings(
         [
-          standing({ archerId: 'x', tournamentsPlayed: 1, leaguePoints: 99 }),
-          conDosTorneos({ archerId: 'a', leaguePoints: 10 }),
-          conDosTorneos({ archerId: 'b', leaguePoints: 5 }),
+          standing({ archerId: 'x', tournamentsPlayed: 1, topNPcts: [99] }),
+          conDosTorneos({ archerId: 'a', topNPcts: [90, 80] }),
+          conDosTorneos({ archerId: 'b', topNPcts: [50, 40] }),
         ],
-        'position',
+        2,
       );
       expect(r.ranked.map((s) => s.position)).toEqual([1, 2]);
     });
 
     it('con empate total asigna puesto compartido', () => {
-      const iguales = {
-        leaguePoints: 10,
-        podiums: { first: 1, second: 1, third: 0 },
-        bestNormalizedPct: 80,
-      };
+      const iguales = { topNPcts: [80, 80], totalX: 3, totalM: 0 };
       const r = sortStandings(
         [
           conDosTorneos({ archerId: 'a', ...iguales }),
           conDosTorneos({ archerId: 'b', ...iguales }),
-          conDosTorneos({ archerId: 'c', leaguePoints: 5 }),
+          conDosTorneos({ archerId: 'c', topNPcts: [50, 40] }),
         ],
-        'position',
+        2,
       );
       expect(r.ranked.map((s) => s.position)).toEqual([1, 1, 3]);
     });
   });
 
   it('no muta el array recibido', () => {
-    const entrada = [conDosTorneos({ archerId: 'a', leaguePoints: 1 })];
+    const entrada = [conDosTorneos({ archerId: 'a' })];
     const copia = [...entrada];
-    sortStandings(entrada, 'position');
+    sortStandings(entrada, 2);
     expect(entrada).toEqual(copia);
+  });
+});
+
+/**
+ * Ranking General / Femenino / Masculino (SH-10).
+ *
+ * Las tres vistas se calculan filtrando **antes** de ordenar, no filtrando un
+ * ranking ya ordenado: el puesto compartido y el salto de posición dependen de
+ * la pool exacta que se está rankeando, y una mujer que es 4ª en el general
+ * puede ser 1ª en el femenino.
+ */
+describe('sortStandingsByGender', () => {
+  const conDosTorneos = (o: Partial<ArcherStanding>) => standing({ tournamentsPlayed: 2, ...o });
+
+  it('cada sexo tiene su propia numeración, no un subconjunto del general', () => {
+    const mujeres = ['f1', 'f2', 'f3'].map((id) =>
+      conDosTorneos({ archerId: id, sex: 'femenino' }),
+    );
+    const varones = ['m1', 'm2', 'm3', 'm4', 'm5'].map((id) =>
+      conDosTorneos({ archerId: id, sex: 'masculino' }),
+    );
+
+    const r = sortStandingsByGender([...mujeres, ...varones], 2);
+
+    expect(r.general.ranked).toHaveLength(8);
+    expect(r.femenino.ranked).toHaveLength(3);
+    expect(r.masculino.ranked).toHaveLength(5);
+    expect(r.femenino.ranked.map((s) => s.position)).toEqual([1, 1, 1]);
+  });
+
+  it('una mujer que es cuarta en el general puede ser primera en el femenino', () => {
+    const r = sortStandingsByGender(
+      [
+        conDosTorneos({ archerId: 'm1', sex: 'masculino', topNPcts: [95, 90] }),
+        conDosTorneos({ archerId: 'm2', sex: 'masculino', topNPcts: [92, 88] }),
+        conDosTorneos({ archerId: 'm3', sex: 'masculino', topNPcts: [91, 87] }),
+        conDosTorneos({ archerId: 'f1', sex: 'femenino', topNPcts: [85, 80] }),
+      ],
+      2,
+    );
+
+    expect(r.general.ranked.find((s) => s.archerId === 'f1')?.position).toBe(4);
+    expect(r.femenino.ranked.find((s) => s.archerId === 'f1')?.position).toBe(1);
+  });
+
+  // No se filtra el resultado ya ordenado: se filtra la pool antes de ordenar.
+  it('el mínimo de torneos se evalúa dentro de cada pool, no contra el general', () => {
+    const r = sortStandingsByGender(
+      [
+        conDosTorneos({ archerId: 'f1', sex: 'femenino' }),
+        standing({ archerId: 'f2', sex: 'femenino', tournamentsPlayed: 1 }),
+      ],
+      2,
+    );
+
+    expect(r.femenino.ranked.map((s) => s.archerId)).toEqual(['f1']);
+    expect(r.femenino.notYetEligible.map((s) => s.archerId)).toEqual(['f2']);
+  });
+
+  /**
+   * Un arquero sin `sex` (padrón viejo) no rompe el cálculo: no figura en
+   * ninguno de los dos rankings por sexo, pero sigue en el general.
+   */
+  it('un arquero sin sexo cargado no rompe el cálculo, y no figura en los rankings por sexo', () => {
+    const r = sortStandingsByGender(
+      [conDosTorneos({ archerId: 'sinSexo' }), conDosTorneos({ archerId: 'f1', sex: 'femenino' })],
+      2,
+    );
+
+    expect(() => r).not.toThrow();
+    expect(r.general.ranked.map((s) => s.archerId).sort()).toEqual(['f1', 'sinSexo']);
+    expect(r.femenino.ranked.map((s) => s.archerId)).toEqual(['f1']);
+    expect(r.masculino.ranked).toEqual([]);
   });
 });

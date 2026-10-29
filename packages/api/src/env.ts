@@ -49,6 +49,13 @@ const EnvSchema = z.object({
   RATE_LIMIT_SYNC: entero(300),
   RATE_LIMIT_PUBLIC: entero(120),
 
+  /**
+   * Cuántos de los mejores porcentajes de la temporada entran en el promedio
+   * de «mejor de N» — y el mínimo de torneos para figurar en el ranking, que
+   * es el mismo número. Ver docs/DOMAIN_WA.md §9.
+   */
+  LEAGUE_BEST_N: entero(2),
+
   WEB_DIST_APP: z.string().min(1).default('public/app'),
   WEB_DIST_LANDING: z.string().min(1).default('public/landing'),
 });

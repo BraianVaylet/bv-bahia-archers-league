@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { TOPE_AL_COMPARTIR, textoDeRanking } from '../src/compartir.js';
 
 /**
- * El ranking como texto (REF2-6).
+ * El ranking como texto (REF2-6, rediseñado en SH-9).
  *
- * Lo que se comparte **tiene que decir de qué modo es**. Los dos modos ordenan
- * distinto y dan podios distintos: mandar «el ranking» a secas es mandar una
- * lista de números sin unidad.
+ * El único modo que queda es «mejor de N». El texto **tiene que decir el `N`
+ * vigente**: compartir «mejor de 3» sin decir el 3 es mandar un número sin
+ * explicar qué significa.
  */
 
 const linea = (position: number, lastName: string, valor: number) => ({
@@ -17,37 +17,43 @@ const linea = (position: number, lastName: string, valor: number) => ({
 });
 
 describe('textoDeRanking', () => {
-  it('dice la temporada y el modo en el encabezado', () => {
+  it('dice la temporada y el bestN vigente en el encabezado', () => {
     const t = textoDeRanking({
       temporada: 'Liga 2026',
-      modo: 'position',
-      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 12)] }],
+      bestN: 2,
+      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 85)] }],
     });
 
     expect(t.split('\n')[0]).toMatch(/Liga 2026/);
-    expect(t.split('\n')[0]).toMatch(/[Pp]untos/);
+    expect(t.split('\n')[0]).toMatch(/Mejor de 2/);
   });
 
-  /**
-   * **El mismo ranking en el otro modo dice otra cosa.** Es la razón de ser de
-   * esta función: si el texto no cambia con el modo, compartir «mejor de 2»
-   * manda los puntos y nadie lo nota.
-   */
-  it('el modo cambia el encabezado Y la unidad', () => {
+  /** El `bestN` vigente cambia el encabezado, aunque el ranking sea el mismo. */
+  it('un bestN distinto cambia el encabezado', () => {
     const categorias = [{ category: 'razo' as const, ranked: [linea(1, 'Pérez', 85)] }];
 
-    const porPuntos = textoDeRanking({ temporada: 'Liga', modo: 'position', categorias });
-    const mejorDeDos = textoDeRanking({ temporada: 'Liga', modo: 'best_two', categorias });
+    const dosMejores = textoDeRanking({ temporada: 'Liga', bestN: 2, categorias });
+    const tresMejores = textoDeRanking({ temporada: 'Liga', bestN: 3, categorias });
 
-    expect(porPuntos).not.toBe(mejorDeDos);
-    expect(porPuntos).toMatch(/85 pts/);
-    expect(mejorDeDos).toMatch(/85 %/);
+    expect(dosMejores).not.toBe(tresMejores);
+    expect(dosMejores.split('\n')[0]).toMatch(/Mejor de 2/);
+    expect(tresMejores.split('\n')[0]).toMatch(/Mejor de 3/);
+  });
+
+  it('el valor de cada arquero va en porcentaje', () => {
+    const t = textoDeRanking({
+      temporada: 'Liga',
+      bestN: 2,
+      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 85)] }],
+    });
+
+    expect(t).toMatch(/85 %/);
   });
 
   it('agrupa por categoría con su nombre', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
-      modo: 'position',
+      bestN: 2,
       categorias: [
         { category: 'razo', ranked: [linea(1, 'Pérez', 12)] },
         { category: 'longbow', ranked: [linea(1, 'Gómez', 9)] },
@@ -64,7 +70,7 @@ describe('textoDeRanking', () => {
   it('los tres primeros llevan medalla y el resto su puesto', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
-      modo: 'position',
+      bestN: 2,
       categorias: [
         {
           category: 'razo',
@@ -88,7 +94,7 @@ describe('textoDeRanking', () => {
     const ranked = Array.from({ length: 12 }, (_, i) => linea(i + 1, `Ap${i + 1}`, 12 - i));
     const t = textoDeRanking({
       temporada: 'Liga',
-      modo: 'position',
+      bestN: 2,
       categorias: [{ category: 'razo', ranked }],
     });
 
@@ -100,7 +106,7 @@ describe('textoDeRanking', () => {
   it('no menciona categorías sin nadie rankeado', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
-      modo: 'position',
+      bestN: 2,
       categorias: [
         { category: 'razo', ranked: [linea(1, 'Pérez', 12)] },
         { category: 'longbow', ranked: [] },
@@ -112,7 +118,7 @@ describe('textoDeRanking', () => {
   });
 
   it('sin nadie rankeado lo dice, en vez de mandar un título suelto', () => {
-    const t = textoDeRanking({ temporada: 'Liga', modo: 'position', categorias: [] });
+    const t = textoDeRanking({ temporada: 'Liga', bestN: 2, categorias: [] });
     expect(t).toMatch(/Todavía no hay nadie rankeado/);
   });
 
@@ -120,7 +126,7 @@ describe('textoDeRanking', () => {
   it('no usa markdown ni tabulaciones', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
-      modo: 'position',
+      bestN: 2,
       categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 12)] }],
     });
 

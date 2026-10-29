@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
+import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
@@ -62,11 +63,10 @@ const arquero = (o: Record<string, unknown> = {}) => ({
   archerId: 'a1',
   firstName: 'Juan',
   lastName: 'Pérez',
-  leaguePoints: 12,
   tournamentsPlayed: 3,
   bestNormalizedPct: 84.5,
   bestRawScore: 279,
-  bestTwoAvgPct: 81.2,
+  bestNAvgPct: 81.2,
   position: 1,
   tied: false,
   ...o,
@@ -121,16 +121,28 @@ describe('HomePage', () => {
 // ── FE-18 · Ranking ──────────────────────────────────────────────────────────
 
 describe('RankingPage', () => {
-  const conTemporada = (categories: unknown[]) => {
+  /**
+   * Toma `{category, ranked, notYetEligible}` —la forma simple que usan los
+   * tests— y la envuelve en `general` (`BE-21`): `femenino`/`masculino` van
+   * vacíos porque esta pantalla todavía no los usa, eso es `FE-28`.
+   */
+  const conTemporada = (
+    categoriasSimples: { category: string; ranked: unknown[]; notYetEligible: unknown[] }[],
+    bestN = 2,
+  ) => {
+    const vacia = { ranked: [], notYetEligible: [] };
+    const categories = categoriasSimples.map(({ category, ranked, notYetEligible }) => ({
+      category,
+      general: { ranked, notYetEligible },
+      femenino: vacia,
+      masculino: vacia,
+    }));
+
     servidor({
       '/api/public/seasons': () => ({
         json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
       }),
-      '/api/public/rankings?seasonId=s1&mode=position': () => ({ json: { categories } }),
-      // `best_two`, no `score`: ese modo lo eliminó `REF-2` y el mock se quedó
-      // con el nombre viejo. Ningún test lo notó porque el que conmuta de modo
-      // sólo verificaba que cambiara la URL, no lo que volvía.
-      '/api/public/rankings?seasonId=s1&mode=best_two': () => ({ json: { categories } }),
+      '/api/public/rankings?seasonId=s1': () => ({ json: { bestN, categories } }),
     });
   };
 
@@ -147,6 +159,7 @@ describe('RankingPage', () => {
 
     expect(await screen.findByTestId('cat-razo')).toHaveTextContent('Razo');
     expect(screen.getByTestId('cat-longbow')).toHaveTextContent('Longbow');
+    expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('81.2%');
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('84.5%');
   });
 
@@ -156,42 +169,6 @@ describe('RankingPage', () => {
 
     await screen.findByTestId('cat-razo');
     expect(llamadas.some((u) => u.includes('seasonId=s1'))).toBe(true);
-  });
-
-  it('cambiar de modo pide el ranking de nuevo al servidor', async () => {
-    conTemporada([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
-    renderEn(<RankingPage />, '/ranking', '/ranking');
-
-    await screen.findByTestId('cat-razo');
-    fireEvent.click(screen.getByRole('button', { name: 'Mejor de 2' }));
-
-    // El orden lo decide el servidor: la landing no reordena por su cuenta.
-    await waitFor(() => {
-      expect(llamadas.some((u) => u.includes('mode=best_two'))).toBe(true);
-    });
-  });
-
-  /**
-   * El modo `score` ya no existe en la API: pedirlo devuelve 400.
-   *
-   * El mock acepta cualquier ruta que se le declare, así que un test que sólo
-   * mire lo que se pinta no habría notado que la landing pedía un modo muerto.
-   */
-  it('NO le pide al servidor ningún modo que la API ya no acepta', async () => {
-    conTemporada([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
-    renderEn(<RankingPage />, '/ranking', '/ranking');
-
-    await screen.findByTestId('cat-razo');
-    for (const boton of screen.getAllByRole('button')) fireEvent.click(boton);
-
-    await waitFor(() => expect(llamadas.length).toBeGreaterThan(1));
-
-    const modos = llamadas
-      .filter((u) => u.includes('/rankings?'))
-      .map((u) => new URL(u, 'http://x').searchParams.get('mode'));
-
-    expect(modos.length).toBeGreaterThan(0);
-    expect([...new Set(modos)].sort()).toEqual(['best_two', 'position']);
   });
 
   // Esconderlos haría creer que se perdió su resultado.
@@ -236,7 +213,7 @@ describe('RankingPage', () => {
       // La de 2025 nunca responde: es la única forma de mirar el estado
       // intermedio. Con un error, la pantalla se limpiaría igual y el test
       // pasaría aunque no se reseteara nada.
-      '/api/public/rankings?seasonId=s2&mode=position': () => NUNCA,
+      '/api/public/rankings?seasonId=s2': () => NUNCA,
     });
 
     renderEn(<RankingPage />, '/ranking', '/ranking');
@@ -258,19 +235,22 @@ describe('RankingPage', () => {
   });
 
   describe('podios del ranking', () => {
-    const conPuestos = () =>
-      conTemporada([
-        {
-          category: 'razo',
-          ranked: [
-            arquero({ archerId: 'a1', lastName: 'Oro', position: 1, leaguePoints: 15 }),
-            arquero({ archerId: 'a2', lastName: 'Plata', position: 2, leaguePoints: 12 }),
-            arquero({ archerId: 'a3', lastName: 'Bronce', position: 3, leaguePoints: 9 }),
-            arquero({ archerId: 'a4', lastName: 'Cuarto', position: 4, leaguePoints: 6 }),
-          ],
-          notYetEligible: [],
-        },
-      ]);
+    const conPuestos = (bestN = 2) =>
+      conTemporada(
+        [
+          {
+            category: 'razo',
+            ranked: [
+              arquero({ archerId: 'a1', lastName: 'Oro', position: 1 }),
+              arquero({ archerId: 'a2', lastName: 'Plata', position: 2 }),
+              arquero({ archerId: 'a3', lastName: 'Bronce', position: 3 }),
+              arquero({ archerId: 'a4', lastName: 'Cuarto', position: 4 }),
+            ],
+            notYetEligible: [],
+          },
+        ],
+        bestN,
+      );
 
     it('marca los tres primeros con su medalla', async () => {
       conPuestos();
@@ -304,46 +284,19 @@ describe('RankingPage', () => {
       expect(within(fila).getByLabelText(/primer puesto/i)).toBeDefined();
     });
 
-    // Sin la tabla de puntos, la columna «Puntos» es un número sin origen.
-    it('explica cuántos puntos da cada puesto', async () => {
-      conPuestos();
-      renderEn(<RankingPage />, '/ranking', '/ranking');
-
-      await screen.findByTestId('fila-Oro');
-      const explicacion = screen.getByTestId('puntos-por-puesto');
-
-      expect(explicacion).toHaveTextContent('5');
-      expect(explicacion).toHaveTextContent('4');
-      expect(explicacion).toHaveTextContent('3');
-      expect(explicacion).toHaveTextContent('2');
-      expect(explicacion).toHaveTextContent('1');
-    });
-
     /**
-     * **La explicación sigue al modo elegido** (`REF2-7`).
-     *
-     * Antes había una sola, la del reparto de puntos, y no dependía del modo:
-     * con «Mejor de 2» elegido, la columna que se estaba mirando quedaba sin
-     * explicar y la que se explicaba no estaba en pantalla.
+     * La explicación dice el `bestN` vigente, no un «2» escrito a fuego —
+     * con `bestN = 3` el texto tiene que decir 3, no 2.
      */
-    it('con «Mejor de 2» explica el promedio, no el reparto de puntos', async () => {
-      conPuestos();
+    it('explica el promedio de los bestN mejores porcentajes, con el N vigente', async () => {
+      conPuestos(3);
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       await screen.findByTestId('fila-Oro');
-      expect(screen.getByTestId('puntos-por-puesto')).toBeDefined();
+      const explicacion = screen.getByTestId('como-se-calcula-mejor-de-n');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Mejor de 2' }));
-
-      const explicacion = await screen.findByTestId('como-se-calcula-mejor-de-2');
-      expect(explicacion).toHaveTextContent(/promedio de los dos mejores/i);
-
-      // Y con un ejemplo con números: el promedio de dos porcentajes se
-      // entiende en un renglón y se explica mal en un párrafo.
-      expect(explicacion.textContent ?? '').toMatch(/\d+%/);
-
-      // La otra explicación ya no está: son excluyentes, no acumulativas.
-      expect(screen.queryByTestId('puntos-por-puesto')).toBeNull();
+      expect(explicacion).toHaveTextContent(/promedio de los 3 mejores/i);
+      expect(explicacion).toHaveTextContent(/al menos 3/);
     });
 
     /**
@@ -358,6 +311,89 @@ describe('RankingPage', () => {
       const seccion = await screen.findByTestId('cat-razo');
       expect(seccion.className).toMatch(/border/);
       expect(seccion.className).toMatch(/rounded/);
+    });
+  });
+
+  // ── FE-28 · Pestañas General/Femenino/Masculino ──────────────────────────
+
+  describe('pestañas de sexo', () => {
+    const vacia: { ranked: unknown[]; notYetEligible: unknown[] } = {
+      ranked: [],
+      notYetEligible: [],
+    };
+
+    const conVistas = (
+      general: { ranked: unknown[]; notYetEligible: unknown[] },
+      femenino = vacia,
+      masculino = vacia,
+      bestN = 2,
+    ) => {
+      servidor({
+        '/api/public/seasons': () => ({
+          json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+        }),
+        '/api/public/rankings?seasonId=s1': () => ({
+          json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+        }),
+      });
+    };
+
+    it('arranca mostrando General', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+
+      expect(await screen.findByTestId('fila-Gral')).toBeDefined();
+      expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('tocar «Femenino» muestra sólo ese ranking', async () => {
+      conVistas(
+        { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+        { ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })], notYetEligible: [] },
+      );
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByTestId('fila-Fem')).toBeDefined();
+      expect(screen.queryByTestId('fila-Gral')).toBeNull();
+    });
+
+    it('tocar «Masculino» muestra sólo ese ranking', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] }, vacia, {
+        ranked: [arquero({ archerId: 'm1', lastName: 'Masc' })],
+        notYetEligible: [],
+      });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Masculino' }));
+
+      expect(await screen.findByTestId('fila-Masc')).toBeDefined();
+      expect(screen.queryByTestId('fila-Gral')).toBeNull();
+    });
+
+    // El E2E existente busca la tarjeta por esta categoría; cambiar de
+    // pestaña no puede moverle el testid.
+    it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('cat-razo');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByTestId('cat-razo')).toBeDefined();
+    });
+
+    it('una vista sin nadie clasificado lo dice, no deja la tabla vacía', async () => {
+      conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+      renderEn(<RankingPage />, '/ranking', '/ranking');
+      await screen.findByTestId('fila-Gral');
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+      expect(await screen.findByText(/Nadie llegó todavía al mínimo/)).toBeDefined();
     });
   });
 });
@@ -467,6 +503,57 @@ describe('TournamentPage', () => {
     const filas = podio.querySelectorAll('tbody tr');
     expect(filas[0]?.textContent).toMatch(/Pérez/);
     expect(filas[1]?.textContent).toMatch(/Gómez/);
+  });
+
+  // De los resultados se entra a cada arquero para ver flecha por flecha qué
+  // sacó. El enlace usa el id de la participación que manda el servidor.
+  it('cada arquero del podio lleva a su tarjeta de puntajes', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: {
+          tournament: detalle({
+            results: [
+              {
+                id: 'p-juan',
+                firstName: 'Juan',
+                lastName: 'Pérez',
+                category: 'razo',
+                total: 45,
+                normalizedPct: 86.54,
+                innerCount: 3,
+                xCount: 3,
+                tenCount: 4,
+                mCount: 0,
+              },
+              {
+                id: 'p-ana',
+                firstName: 'Ana',
+                lastName: 'Gómez',
+                category: 'razo',
+                total: 40,
+                normalizedPct: 76.92,
+                innerCount: 1,
+                xCount: 1,
+                tenCount: 2,
+                mCount: 1,
+              },
+            ],
+          }),
+        },
+      }),
+    });
+    renderDetalle();
+
+    const podio = await screen.findByTestId('podio-razo');
+
+    expect(within(podio).getByRole('link', { name: /Pérez, Juan/ })).toHaveAttribute(
+      'href',
+      '/torneos/t1/participantes/p-juan',
+    );
+    expect(within(podio).getByRole('link', { name: /Gómez, Ana/ })).toHaveAttribute(
+      'href',
+      '/torneos/t1/participantes/p-ana',
+    );
   });
 
   // Es una regla del backend —el endpoint no los manda— pero la pantalla lo
@@ -644,11 +731,10 @@ describe('ArcherPage', () => {
               {
                 seasonId: 's1',
                 category: 'razo',
-                leaguePoints: 12,
                 tournamentsPlayed: 3,
-                podiums: { first: 1, second: 1, third: 0 },
                 bestNormalizedPct: 84.5,
                 bestRawScore: 279,
+                bestNAvgPct: 81.2,
                 totalX: 15,
                 totalTens: 22,
                 totalM: 3,
@@ -662,7 +748,7 @@ describe('ArcherPage', () => {
 
     const temporada = await screen.findByTestId('temporada-s1');
     expect(temporada).toHaveTextContent('Razo');
-    expect(temporada).toHaveTextContent('12');
+    expect(temporada).toHaveTextContent('3');
 
     /*
       **El porcentaje y el bruto son dos datos, no uno.**
@@ -671,21 +757,9 @@ describe('ArcherPage', () => {
       peleando el mismo renglón. Ahora el que ordena el ranking es el valor y el
       bruto va debajo, en chico.
     */
+    expect(temporada).toHaveTextContent('81.2%');
     expect(temporada).toHaveTextContent('84.5%');
     expect(temporada).toHaveTextContent('279 puntos');
-
-    /*
-      **Los podios dicen cuál es cuál.**
-
-      Eran `1-1-0`: tres números sin nombre, donde había que adivinar que el
-      orden era primero-segundo-tercero. Ahora cada uno lleva su medalla, y el
-      nombre del puesto va para el lector de pantalla — la medalla sola es un
-      emoji que no todos los lectores anuncian igual.
-    */
-    const podios = within(temporada).getByText('Podios').parentElement as HTMLElement;
-    expect(podios.textContent).toContain('primeros');
-    expect(podios.textContent).toContain('segundos');
-    expect(podios.textContent).toContain('terceros');
   });
 
   // El padrón del club no se filtra hacia afuera.
@@ -694,6 +768,87 @@ describe('ArcherPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró.');
     expect(screen.getByText('Volver al ranking')).toBeDefined();
+  });
+});
+
+// ── FE-27 · Alta pública de arquero ──────────────────────────────────────────
+
+/**
+ * Primera pantalla de la landing que escribe. No inscribe a nada: el
+ * autoregistro queda `pendiente` de que el club lo apruebe (`BE-20`/`BE-22`).
+ */
+describe('ArcherRegisterPage', () => {
+  const renderAlta = () => renderEn(<ArcherRegisterPage />, '/alta', '/alta');
+
+  const completar = () => {
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Pérez' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana' } });
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30123456' } });
+    fireEvent.click(screen.getByLabelText('Femenino'));
+  };
+
+  it('ofrece la categoría principiantes, con su etiqueta corta', () => {
+    renderAlta();
+    expect(screen.getByRole('option', { name: 'Iniciación' })).toBeDefined();
+  });
+
+  it('no manda nada al servidor si falta completar algo', async () => {
+    renderAlta();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByRole('alert')).toBeDefined();
+    expect(llamadas.some((u) => u.includes('/archers'))).toBe(false);
+  });
+
+  // Sin esto el foco se queda en «Enviar» y hay que ir a buscar a mano cuál
+  // de los cinco campos falló.
+  it('lleva el foco al primer campo vacío al fallar la validación', async () => {
+    renderAlta();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Apellido')).toHaveFocus();
+  });
+
+  it('el alta exitosa dice que queda PENDIENTE, nunca que ya está anotado', async () => {
+    servidor({
+      '/api/public/archers': () => ({
+        json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+      }),
+    });
+    renderAlta();
+    completar();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const confirmacion = await screen.findByRole('status');
+    expect(confirmacion).toHaveTextContent(/pendiente/i);
+    expect(confirmacion).toHaveTextContent('Pérez, Ana');
+    expect(confirmacion.textContent ?? '').not.toMatch(/ya está(s)? anotad[oa]/i);
+  });
+
+  // El error del servidor se muestra tal cual, sin reinterpretarlo: es el
+  // caso del DNI repetido, que no dice con qué nombre ya está cargado.
+  it('un error del servidor se muestra tal cual lo manda', async () => {
+    servidor({
+      '/api/public/archers': () => ({
+        status: 409,
+        json: {
+          error: { code: 'ARCHER_DNI_DUPLICATE', message: 'Ya existe un arquero con ese DNI.' },
+        },
+      }),
+    });
+    renderAlta();
+    completar();
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un arquero con ese DNI.');
+  });
+
+  it('el DNI filtra letras al tipear, y corta en 8 dígitos', () => {
+    renderAlta();
+    const dni = screen.getByLabelText('DNI') as HTMLInputElement;
+    fireEvent.change(dni, { target: { value: '30ab123cd456xx99' } });
+    expect(dni.value).toBe('30123456');
   });
 });
 

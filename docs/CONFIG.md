@@ -40,6 +40,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `RATE_LIMIT_LOGIN_WINDOW_MIN` | no | `15` | Ventana de login, en minutos |
 | `RATE_LIMIT_SYNC` | no | `300` | Ops de sync por minuto y sesión. **Generoso a propósito** |
 | `RATE_LIMIT_PUBLIC` | no | `120` | Requests públicos por minuto e IP |
+| `LEAGUE_BEST_N` | no | `2` | Cuántos mejores porcentajes entran en el promedio de «mejor de N». También el mínimo de torneos para figurar en el ranking. Ver `DOMAIN_WA.md` §9 |
 | `WEB_DIST_APP` | no | `public/app` | Ruta del build de la PWA |
 | `WEB_DIST_LANDING` | no | `public/landing` | Ruta del build de la landing |
 | `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error` |
@@ -286,6 +287,10 @@ mongorestore --uri="$MONGODB_URI" --archive=bal-2026-08-10.gz --gzip --drop
 ```
 
 **Recomendación operativa:** correr `mongodump` **después de publicar cada torneo**. Es el momento en que hay datos nuevos que no se pueden reconstruir. Guardar el archivo fuera de Atlas y fuera de Railway.
+
+**El `=` de `--uri=`, `--db=`, `--archive=` no es sólo estilo.** Con `mongodb-database-tools` 100.19.1 en Windows, pasar el valor separado por un espacio (`--uri "mongodb://…"`) falla con *"provide only one MongoDB connection string"* — un error que no menciona el espacio y hace pensar que la URI está mal. Es un problema de cómo esta versión separa flags de posicionales, no de la URI. Los dos comandos de arriba, tal como están escritos, ya evitan el problema.
+
+**Restauración verificada el 2026-10-26** (`INF-6`): `mongodump` → se borró la base → `mongorestore --drop`, contra un `mongod` efímero con datos reales (una temporada, un arquero). Los documentos volvieron idénticos, mismo `_id` incluido. Procedimiento confirmado de punta a punta, no sólo escrito.
 
 Al pasar a M10 o superior, Atlas provee backups continuos con point-in-time recovery y esto queda obsoleto.
 

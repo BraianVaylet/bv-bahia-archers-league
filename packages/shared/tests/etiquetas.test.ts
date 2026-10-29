@@ -25,6 +25,9 @@ describe('etiquetas de categoría', () => {
     longbow: 'Longbow',
     // El pedido no la nombra: queda como estaba.
     escuela: 'Escuela',
+    // «Principiantes» (13) no entra en el límite de 11. «Iniciación» es el
+    // término que ya usan los clubes de arquería para esta categoría.
+    principiantes: 'Iniciación',
   };
 
   it('son las del diccionario', () => {

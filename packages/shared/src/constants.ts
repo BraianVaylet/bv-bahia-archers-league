@@ -152,8 +152,8 @@ export interface CategoryInfo {
   /** Orden de presentación, 1-based. */
   readonly sort: number;
   /**
-   * `false` solo para `escuela`. Sostiene la restricción H3: ninguna patrulla
-   * puede ser 100% escuela. Ver `docs/DOMAIN_WA.md` §5.
+   * `false` para `escuela` y `principiantes`. Sostiene la restricción H3:
+   * ninguna patrulla puede ser 100% no-senior. Ver `docs/DOMAIN_WA.md` §5.
    */
   readonly senior: boolean;
 }
@@ -166,9 +166,13 @@ export const CATEGORY_INFO: Readonly<Record<BowCategory, CategoryInfo>> = {
   tradicional: { key: 'tradicional', label: 'Tradicional', sort: 5, senior: true },
   longbow: { key: 'longbow', label: 'Longbow', sort: 6, senior: true },
   escuela: { key: 'escuela', label: 'Escuela', sort: 7, senior: false },
+  // «Principiantes» (13 caracteres) no entra en el límite de 11 de las
+  // etiquetas de categoría (docs/DESIGN_SYSTEM.md, ver tests/etiquetas.test.ts).
+  // La clave de dominio sigue siendo `principiantes`; sólo la etiqueta se acorta.
+  principiantes: { key: 'principiantes', label: 'Iniciación', sort: 8, senior: false },
 };
 
-/** `true` si la categoría es de escuela (no senior). */
+/** `true` si la categoría no es senior (`escuela` o `principiantes`). */
 export function isEscuela(category: BowCategory): boolean {
   return !CATEGORY_INFO[category].senior;
 }
@@ -180,6 +184,7 @@ export const DEFAULT_STAKE_MAP: StakeMap = {
   roja: ['recurvo', 'compuesto', 'cazador'],
   azul: ['razo', 'tradicional', 'longbow'],
   amarilla: ['escuela'],
+  naranja: ['principiantes'],
 };
 
 /**
@@ -203,13 +208,9 @@ export function stakeForCategory(
   );
 }
 
-// ── Puntos de liga ───────────────────────────────────────────────────────────
-
-/**
- * Puntos por puesto en el podio de cada categoría, 1-based.
- * Del 6.º en adelante, 0. Ver `docs/DOMAIN_WA.md` §9.1.
- */
-export const LEAGUE_POINTS_BY_POSITION = [5, 4, 3, 2, 1] as const;
-
-/** Torneos publicados mínimos para figurar en los rankings de liga. */
-export const MIN_TOURNAMENTS_FOR_RANKING = 2;
+// ── Ranking de liga ──────────────────────────────────────────────────────────
+//
+// El tamaño del promedio de «mejor de N» (y el mínimo de torneos para
+// clasificar, que es el mismo número) no vive acá: es `LEAGUE_BEST_N`, una
+// variable de entorno que el API inyecta como parámetro en `@bal/shared/league.ts`.
+// Ver `docs/DOMAIN_WA.md` §9 y `docs/CONFIG.md` §2.

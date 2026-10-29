@@ -4,8 +4,7 @@ import {
   avisosDePublicacion,
   motivoDeBloqueo,
   type PatrullaSeguimiento,
-  podiosConPuntos,
-  puntosQueSeAplicarian,
+  podios,
   type ResultadoParticipante,
   sePuedePublicar,
 } from './torneo.js';
@@ -107,79 +106,54 @@ describe('motivoDeBloqueo', () => {
 
 // ── Podios ───────────────────────────────────────────────────────────────────
 
-describe('podiosConPuntos', () => {
-  it('reparte 5-4-3-2-1 por categoría', () => {
-    const podios = podiosConPuntos([
+describe('podios', () => {
+  it('ordena por puntaje descendente dentro de la categoría', () => {
+    const p = podios([
       participante({ total: 100 }),
       participante({ total: 90 }),
       participante({ total: 80 }),
     ]);
 
-    expect(podios[0]?.filas.map((f) => f.leaguePoints)).toEqual([5, 4, 3]);
+    expect(p[0]?.filas.map((f) => f.position)).toEqual([1, 2, 3]);
   });
 
-  it('del sexto en adelante no suma nada', () => {
-    const podios = podiosConPuntos(
-      [100, 90, 80, 70, 60, 50].map((total) => participante({ total })),
-    );
-
-    expect(podios[0]?.filas.map((f) => f.leaguePoints)).toEqual([5, 4, 3, 2, 1, 0]);
-  });
-
-  // El empate reparte los puntos DE ESA POSICIÓN a los dos, y el siguiente salta
-  // al tercer puesto. Ver docs/DOMAIN_WA.md §9.1.
-  it('un empate da los mismos puntos a los dos, y el siguiente queda tercero', () => {
-    const podios = podiosConPuntos([
+  // El empate comparte posición y el siguiente salta al tercer puesto.
+  // Ver docs/DOMAIN_WA.md §8.
+  it('un empate comparte posición, y el siguiente queda tercero', () => {
+    const p = podios([
       participante({ total: 100 }),
       participante({ total: 100 }),
       participante({ total: 80 }),
     ]);
 
-    expect(podios[0]?.filas.map((f) => f.position)).toEqual([1, 1, 3]);
-    expect(podios[0]?.filas.map((f) => f.leaguePoints)).toEqual([5, 5, 3]);
-    expect(podios[0]?.filas.map((f) => f.tied)).toEqual([true, true, false]);
+    expect(p[0]?.filas.map((f) => f.position)).toEqual([1, 1, 3]);
+    expect(p[0]?.filas.map((f) => f.tied)).toEqual([true, true, false]);
   });
 
   it('cada categoría tiene su propio podio', () => {
-    const podios = podiosConPuntos([
+    const p = podios([
       participante({ category: 'razo', total: 50 }),
       participante({ category: 'longbow', total: 90 }),
     ]);
 
-    expect(podios).toHaveLength(2);
+    expect(p).toHaveLength(2);
     // El de longbow es primero de la suya aunque el otro tenga menos puntaje.
-    expect(podios.every((p) => p.filas[0]?.leaguePoints === 5)).toBe(true);
+    expect(p.every((cat) => cat.filas[0]?.position === 1)).toBe(true);
   });
 
   it('las categorías vacías no aparecen', () => {
-    expect(podiosConPuntos([participante({ category: 'razo' })]).map((p) => p.category)).toEqual([
-      'razo',
-    ]);
+    expect(podios([participante({ category: 'razo' })]).map((p) => p.category)).toEqual(['razo']);
   });
 
   // Un ausente no tiró: su cero no puede ocupar un lugar del podio.
   it('los ausentes quedan fuera del podio', () => {
-    const podios = podiosConPuntos([
-      participante({ total: 100 }),
-      participante({ total: 0, status: 'ausente' }),
-    ]);
+    const p = podios([participante({ total: 100 }), participante({ total: 0, status: 'ausente' })]);
 
-    expect(podios[0]?.filas).toHaveLength(1);
+    expect(p[0]?.filas).toHaveLength(1);
   });
 
   it('sin participantes no hay podios', () => {
-    expect(podiosConPuntos([])).toEqual([]);
-  });
-});
-
-describe('puntosQueSeAplicarian', () => {
-  it('deja sólo a los que suman', () => {
-    const puntos = puntosQueSeAplicarian(
-      [100, 90, 80, 70, 60, 50].map((total) => participante({ total })),
-    );
-
-    expect(puntos).toHaveLength(5);
-    expect(puntos.map((p) => p.puntos)).toEqual([5, 4, 3, 2, 1]);
+    expect(podios([])).toEqual([]);
   });
 });
 

@@ -9,7 +9,7 @@
  * Ver `docs/DOMAIN_WA.md` §8.
  */
 
-import { BOW_CATEGORIES, type BowCategory, STAKES, type Stake } from './domain.js';
+import { BOW_CATEGORIES, type BowCategory, type Sex, STAKES, type Stake } from './domain.js';
 import { comparePersonName, compareText } from './text.js';
 
 /** Lo mínimo que hace falta de un participante para rankearlo. */
@@ -20,6 +20,8 @@ export interface Rankable {
   readonly lastName: string;
   readonly category: BowCategory;
   readonly stake: Stake;
+  /** Ausente en el padrón viejo. No se usa para ordenar: sólo viaja hasta `league.ts`. */
+  readonly sex?: Sex;
   readonly total: number;
   /** `X` + `X6` + `11`, según los blancos tirados. */
   readonly innerCount: number;

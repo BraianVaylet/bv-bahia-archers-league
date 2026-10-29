@@ -6,21 +6,20 @@
  * está publicado. Armarlo en el componente lo dejaría sin test y a merced de
  * cómo esté maquetada la tabla ese día.
  *
- * El texto **dice de qué modo es**. Compartir «el ranking» sin aclarar si es
- * por puntos o mejor de 2 es mandar una lista de números sin unidad: los dos
- * modos ordenan distinto y dan podios distintos.
+ * El texto **dice el `bestN` vigente**. Compartir «el ranking» sin aclarar si
+ * es mejor de 2 o de 3 es mandar un promedio sin decir sobre cuántos torneos
+ * se calculó.
  */
 
 import { CATEGORY_INFO } from './constants.js';
 import type { BowCategory } from './domain.js';
-import type { StandingsMode } from './league.js';
-import { ETIQUETA_DE_MODO, medallaDe } from './podio.js';
+import { etiquetaDeMejorDeN, medallaDe } from './podio.js';
 
 export interface LineaDeRanking {
   readonly position: number;
   readonly firstName: string;
   readonly lastName: string;
-  /** Puntos de liga, o el promedio de los dos mejores según el modo. */
+  /** El promedio de «mejor de N», en porcentaje. */
   readonly valor: number;
 }
 
@@ -31,7 +30,8 @@ export interface CategoriaParaCompartir {
 
 export interface RankingParaCompartir {
   readonly temporada: string;
-  readonly modo: StandingsMode;
+  /** El `N` vigente de `LEAGUE_BEST_N`, para que el encabezado lo diga. */
+  readonly bestN: number;
   readonly categorias: readonly CategoriaParaCompartir[];
   /** Cuántos puestos por categoría. El podio y poco más. */
   readonly tope?: number;
@@ -48,13 +48,11 @@ export const TOPE_AL_COMPARTIR = 5;
  */
 export function textoDeRanking({
   temporada,
-  modo,
+  bestN,
   categorias,
   tope = TOPE_AL_COMPARTIR,
 }: RankingParaCompartir): string {
-  const partes: string[] = [`🏹 ${temporada} — ${ETIQUETA_DE_MODO[modo]}`];
-
-  const unidad = modo === 'position' ? 'pts' : '%';
+  const partes: string[] = [`🏹 ${temporada} — ${etiquetaDeMejorDeN(bestN)}`];
 
   for (const c of categorias) {
     // Una categoría sin nadie rankeado no se menciona: sumaría un título vacío
@@ -67,7 +65,7 @@ export function textoDeRanking({
       const medalla = medallaDe(linea.position);
       const marca = medalla ? `${medalla.emoji} ` : `${linea.position}º `;
 
-      partes.push(`${marca}${linea.lastName}, ${linea.firstName} — ${linea.valor} ${unidad}`);
+      partes.push(`${marca}${linea.lastName}, ${linea.firstName} — ${linea.valor} %`);
     }
   }
 

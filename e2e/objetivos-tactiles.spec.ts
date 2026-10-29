@@ -111,6 +111,26 @@ test('en WAFA nada tocable baja de 44 px', async ({ page, request }) => {
 });
 
 /**
+ * La landing, sin sesión — incluye `/alta` (`FE-27`), el único formulario
+ * público del sitio.
+ *
+ * No hace falta un torneo publicado: `/torneos` y `/ranking` vacíos igual
+ * renderizan la navegación y los controles que importan medir. El recorrido
+ * completo con datos reales ya lo cubre `flujo-completo.spec.ts`.
+ */
+test('en la landing nada tocable baja de 44 px', async ({ page }) => {
+  await page.setViewportSize(CELULAR);
+
+  for (const ruta of ['/', '/alta', '/ranking', '/torneos']) {
+    await page.goto(ruta);
+    await page.waitForLoadState('networkidle');
+
+    const chicos = await demasiadoChicos(page);
+    expect(chicos, `${ruta} tiene objetivos táctiles por debajo de ${MINIMO} px`).toEqual([]);
+  }
+});
+
+/**
  * El anillo de foco existe **en la pantalla**, no sólo en el CSS.
  *
  * `DESIGN_SYSTEM.md` §10 lo declara: *«foco visible global: `:focus-visible`
@@ -155,6 +175,49 @@ test('el foco se ve al navegar con teclado', async ({ page, request }) => {
 });
 
 /**
+ * **El alta pública, de punta a punta, sin tocar el mouse.**
+ *
+ * `FE-27` es el único formulario público del sitio, y el único con un radio
+ * `sr-only` —la etiqueta visible es el control, para quien usa el mouse—. Acá
+ * se prueba el otro camino: que el mismo radio se pueda **marcar con
+ * `Espacio`**, como exige cualquier `role="radio"` nativo, y que todo el
+ * formulario se complete y se mande sin un solo click.
+ *
+ * El orden de tabulación no se asume: se verifica contra el DOM real en cada
+ * paso, porque un cambio de layout puede reordenar los campos sin que nadie
+ * lo note hasta que alguien intente esto con un lector de pantalla.
+ */
+test('el alta pública se completa entera por teclado', async ({ page }) => {
+  await page.goto('/alta');
+
+  await page.getByLabel('Apellido').focus();
+  await page.keyboard.type('Teclado');
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Nombre')).toBeFocused();
+  await page.keyboard.type('Ana');
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('DNI')).toBeFocused();
+  await page.keyboard.type('30765555');
+
+  // Al radio: sin selección previa, el grupo entra en el primero (Femenino).
+  await page.keyboard.press('Tab');
+  const radioFemenino = page.getByRole('radio', { name: 'Femenino' });
+  await expect(radioFemenino).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(radioFemenino).toBeChecked();
+
+  // Categoría ya trae un valor por defecto: no hace falta tocarla.
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Categoría')).toBeFocused();
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Enviar' })).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByText(/pendiente de que el club la revise/)).toBeVisible();
+});
+
+/**
  * **El teclado de scoring, medido en 56 px.**
  *
  * `DESIGN_SYSTEM.md` §5 lo llama «la regla que manda»: 56 px no es un número
@@ -193,64 +256,75 @@ test('las teclas del scoring miden 56 px', async ({ page, request }) => {
 });
 
 /**
- * **Contraste AAA en la pantalla de scoring.**
+ * **Contraste AAA en la pantalla de scoring, en los dos temas.**
  *
  * §2.4: mínimo AA en todo texto, **AAA (7:1) en la pantalla de scoring y en los
- * números de puntaje** — es la que se lee bajo el sol.
+ * números de puntaje** — es la que se lee bajo el sol. §11 pide el contraste
+ * verificado **en ambos temas**, no sólo el que el navegador trae por defecto.
  *
  * Se calcula sobre los colores **computados**, que es la única forma de saber
  * qué salió: los tokens se combinan en tiempo de ejecución y un par que nadie
  * verificó puede quedar por debajo sin que ningún test lo note.
+ *
+ * `page.emulateMedia` fija `prefers-color-scheme` **antes** de navegar: el
+ * script anti-FOUC de `index.html` lee esa preferencia de forma síncrona, al
+ * cargar, así que el tema queda puesto antes de que React monte nada.
  */
-test('el scoring cumple AAA de contraste', async ({ page, request }) => {
-  const api = await adminApi(request);
-  const { tournamentId, patrols } = await torneoIniciado(api, { nombre: 'contraste' });
+for (const tema of ['light', 'dark'] as const) {
+  test(`el scoring cumple AAA de contraste (tema ${tema === 'light' ? 'claro' : 'oscuro'})`, async ({
+    page,
+    request,
+  }) => {
+    const api = await adminApi(request);
+    const { tournamentId, patrols } = await torneoIniciado(api, { nombre: `contraste-${tema}` });
 
-  const lider = patrols[0];
-  if (!lider) throw new Error('el torneo no dejó patrullas');
+    const lider = patrols[0];
+    if (!lider) throw new Error('el torneo no dejó patrullas');
 
-  await page.setViewportSize(CELULAR);
-  await entrarComoLider(page, tournamentId, 'contraste', lider.username, lider.pin);
-  await page.getByTestId('numero-blanco').first().click();
-  await expect(page.getByRole('button', { name: /^Puntaje / }).first()).toBeVisible();
+    await page.emulateMedia({ colorScheme: tema });
+    await page.setViewportSize(CELULAR);
+    await entrarComoLider(page, tournamentId, `contraste-${tema}`, lider.username, lider.pin);
+    await page.getByTestId('numero-blanco').first().click();
+    await expect(page.getByRole('button', { name: /^Puntaje / }).first()).toBeVisible();
 
-  const flojos = await page.evaluate(() => {
-    /** Luminancia relativa, según la definición de WCAG. */
-    const luminancia = (rgb: number[]): number => {
-      const [r = 0, g = 0, b = 0] = rgb.map((v) => {
-        const c = v / 255;
-        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-      });
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    };
+    const flojos = await page.evaluate(() => {
+      /** Luminancia relativa, según la definición de WCAG. */
+      const luminancia = (rgb: number[]): number => {
+        const [r = 0, g = 0, b = 0] = rgb.map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
 
-    const leerRgb = (color: string): number[] =>
-      (color.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+      const leerRgb = (color: string): number[] =>
+        (color.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
 
-    /** El primer ancestro con fondo opaco: el que de verdad se ve detrás. */
-    const fondoDe = (e: Element): number[] => {
-      let actual: Element | null = e;
-      while (actual) {
-        const c = getComputedStyle(actual).backgroundColor;
-        const rgb = leerRgb(c);
-        const opaco = !c.includes('rgba') || !/,\s*0\s*\)/.test(c);
-        if (rgb.length === 3 && opaco) return rgb;
-        actual = actual.parentElement;
-      }
-      return [255, 255, 255];
-    };
+      /** El primer ancestro con fondo opaco: el que de verdad se ve detrás. */
+      const fondoDe = (e: Element): number[] => {
+        let actual: Element | null = e;
+        while (actual) {
+          const c = getComputedStyle(actual).backgroundColor;
+          const rgb = leerRgb(c);
+          const opaco = !c.includes('rgba') || !/,\s*0\s*\)/.test(c);
+          if (rgb.length === 3 && opaco) return rgb;
+          actual = actual.parentElement;
+        }
+        return [255, 255, 255];
+      };
 
-    const razon = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      const razon = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
-    return [...document.querySelectorAll<HTMLElement>('button[aria-label^="Puntaje "]')]
-      .map((e) => {
-        const estilo = getComputedStyle(e);
-        const r = razon(luminancia(leerRgb(estilo.color)), luminancia(fondoDe(e)));
-        return { nombre: e.getAttribute('aria-label') ?? '', razon: Math.round(r * 100) / 100 };
-      })
-      .filter((x) => x.razon < 7)
-      .map((x) => `${x.nombre}: ${x.razon}:1`);
+      return [...document.querySelectorAll<HTMLElement>('button[aria-label^="Puntaje "]')]
+        .map((e) => {
+          const estilo = getComputedStyle(e);
+          const r = razon(luminancia(leerRgb(estilo.color)), luminancia(fondoDe(e)));
+          return { nombre: e.getAttribute('aria-label') ?? '', razon: Math.round(r * 100) / 100 };
+        })
+        .filter((x) => x.razon < 7)
+        .map((x) => `${x.nombre}: ${x.razon}:1`);
+    });
+
+    expect(flojos, `hay texto del scoring por debajo de AAA (7:1) en tema ${tema}`).toEqual([]);
   });
-
-  expect(flojos, 'hay texto del scoring por debajo de AAA (7:1)').toEqual([]);
-});
+}

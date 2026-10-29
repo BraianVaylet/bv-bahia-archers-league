@@ -1,15 +1,14 @@
-import { ETIQUETA_DE_MODO } from '@bal/shared';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RankingPage } from './pages/Ranking.js';
 
 /**
- * Ranking de liga dentro de WAFA (FE-16).
+ * Ranking de liga dentro de WAFA (FE-16, rediseñado en SH-9).
  *
- * Los mismos datos y los mismos dos modos que la landing, contra los mismos
- * endpoints públicos. Lo que **no** se comparte es el JSX —los paquetes no
- * comparten bundle a propósito— pero sí las decisiones: medallas y nombres de
- * modo salen de `@bal/shared`.
+ * Los mismos datos y el mismo endpoint público que la landing, con el ranking
+ * «mejor de N» — un solo modo, con `bestN` que manda el servidor. Lo que **no**
+ * se comparte es el JSX —los paquetes no comparten bundle a propósito— pero sí
+ * las decisiones: las medallas salen de `@bal/shared`.
  */
 
 type Manejador = (body: unknown) => { status?: number; json: unknown };
@@ -22,22 +21,35 @@ const arquero = (o: Record<string, unknown> = {}) => ({
   firstName: 'Juan',
   lastName: 'Pérez',
   category: 'razo',
-  leaguePoints: 12,
   tournamentsPlayed: 3,
   bestNormalizedPct: 84.5,
-  bestTwoAvgPct: 81.2,
+  bestNAvgPct: 81.2,
   position: 1,
   tied: false,
   ...o,
 });
 
-function conRanking(categories: unknown[]) {
+/**
+ * Toma `{category, ranked, notYetEligible}` —la forma simple que usan los
+ * tests— y la envuelve en `general` (`BE-21`): `femenino`/`masculino` van
+ * vacíos porque esta pantalla todavía no los usa, eso es `FE-28`.
+ */
+function conRanking(
+  categoriasSimples: { category: string; ranked: unknown[]; notYetEligible: unknown[] }[],
+  bestN = 2,
+) {
+  const vacia = { ranked: [], notYetEligible: [] };
+  const categories = categoriasSimples.map(({ category, ranked, notYetEligible }) => ({
+    category,
+    general: { ranked, notYetEligible },
+    femenino: vacia,
+    masculino: vacia,
+  }));
+
   rutas['GET /api/public/seasons'] = () => ({
     json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
   });
-  for (const modo of ['position', 'best_two']) {
-    rutas[`GET /api/public/rankings?seasonId=s1&mode=${modo}`] = () => ({ json: { categories } });
-  }
+  rutas['GET /api/public/rankings?seasonId=s1'] = () => ({ json: { bestN, categories } });
 }
 
 beforeEach(() => {
@@ -81,22 +93,6 @@ describe('RankingPage de WAFA', () => {
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('Pérez, Juan');
   });
 
-  // Los mismos dos modos que la landing, con los mismos nombres: salen del
-  // mismo `ETIQUETA_DE_MODO`.
-  it('ofrece los dos modos y cambia de endpoint al conmutar', async () => {
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
-    renderRanking();
-
-    await screen.findByTestId('cat-razo');
-    expect(screen.getByRole('button', { name: 'Por puntos' })).toBeDefined();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mejor de 2' }));
-
-    await waitFor(() => {
-      expect(llamadas.some((l) => l.includes('mode=best_two'))).toBe(true);
-    });
-  });
-
   it('marca el podio con medalla, y con el puesto escrito al lado', async () => {
     conRanking([
       {
@@ -113,27 +109,35 @@ describe('RankingPage de WAFA', () => {
     const oro = await screen.findByTestId('fila-Oro');
     expect(oro).toHaveTextContent('🥇');
     expect(oro).toHaveTextContent('1');
-    expect(within(oro).getByLabelText(/primer puesto/i)).toBeDefined();
+    expect(oro).toHaveTextContent('81.2%');
 
     // Del cuarto en adelante no hay medalla que inventar.
     expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
   });
 
   /**
-   * Los que no llegan al mínimo van aparte, **no se ocultan**: esconderlos haría
-   * creer que se perdió su resultado. Misma regla que la landing.
+   * Los que no llegan a `bestN` van aparte, **no se ocultan**: esconderlos
+   * haría creer que se perdió su resultado. Misma regla que la landing.
+   *
+   * El texto dice el `bestN` vigente —acá 3, no el default 2— y no un número
+   * escrito a fuego en el JSX.
    */
-  it('separa a los que todavía no clasifican, sin esconderlos', async () => {
-    conRanking([
-      {
-        category: 'razo',
-        ranked: [arquero()],
-        notYetEligible: [arquero({ archerId: 'a9', lastName: 'Díaz', tournamentsPlayed: 1 })],
-      },
-    ]);
+  it('separa a los que todavía no clasifican, con el bestN vigente', async () => {
+    conRanking(
+      [
+        {
+          category: 'razo',
+          ranked: [arquero()],
+          notYetEligible: [arquero({ archerId: 'a9', lastName: 'Díaz', tournamentsPlayed: 2 })],
+        },
+      ],
+      3,
+    );
     renderRanking();
 
-    expect(await screen.findByTestId('pendiente-Díaz')).toBeDefined();
+    const pendiente = await screen.findByTestId('pendiente-Díaz');
+    expect(pendiente).toBeDefined();
+    expect(screen.getByText(/con menos de 3 torneos/)).toBeDefined();
   });
 
   it('sin temporadas lo dice en vez de dejar un select vacío', async () => {
@@ -155,15 +159,65 @@ describe('RankingPage de WAFA', () => {
   });
 });
 
+// ── FE-28 · Pestañas General/Femenino/Masculino ─────────────────────────────
+
+describe('pestañas de sexo', () => {
+  const vacia: { ranked: unknown[]; notYetEligible: unknown[] } = {
+    ranked: [],
+    notYetEligible: [],
+  };
+
+  function conVistas(
+    general: { ranked: unknown[]; notYetEligible: unknown[] },
+    femenino = vacia,
+    masculino = vacia,
+    bestN = 2,
+  ) {
+    rutas['GET /api/public/seasons'] = () => ({
+      json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+    });
+    rutas['GET /api/public/rankings?seasonId=s1'] = () => ({
+      json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+    });
+  }
+
+  it('arranca mostrando General', async () => {
+    conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+    renderRanking();
+
+    expect(await screen.findByTestId('fila-Gral')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('tocar «Femenino» muestra sólo ese ranking', async () => {
+    conVistas(
+      { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+      { ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })], notYetEligible: [] },
+    );
+    renderRanking();
+    await screen.findByTestId('fila-Gral');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+
+    expect(await screen.findByTestId('fila-Fem')).toBeDefined();
+    expect(screen.queryByTestId('fila-Gral')).toBeNull();
+  });
+
+  it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
+    conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
+    renderRanking();
+    await screen.findByTestId('cat-razo');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Masculino' }));
+
+    expect(await screen.findByTestId('cat-razo')).toBeDefined();
+  });
+});
+
 // ── REF2-6 · Compartir ───────────────────────────────────────────────────────
 
 describe('compartir el ranking', () => {
-  /**
-   * **Comparte el modo que está elegido.** Los dos modos ordenan distinto y dan
-   * podios distintos: mandar «el ranking» sin decir cuál es mandar una lista de
-   * números sin unidad.
-   */
-  it('manda el modo elegido, no siempre el mismo', async () => {
+  it('manda el promedio y el bestN vigente, no un número fijo', async () => {
     const compartido: string[] = [];
     Object.defineProperty(navigator, 'share', {
       value: (d: { text: string }) => {
@@ -173,28 +227,15 @@ describe('compartir el ranking', () => {
       configurable: true,
     });
 
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }], 3);
     renderRanking();
     await screen.findByTestId('cat-razo');
 
     fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
     await waitFor(() => expect(compartido).toHaveLength(1));
 
-    // El VALOR, no sólo la unidad. Una primera versión de este test comprobaba
-    // que apareciera «pts» y «%», y pasaba con la pantalla mandando siempre los
-    // puntos de liga: la unidad la pone el texto compartido según el modo, así
-    // que cambiaba igual. Lo destapó la mutación.
-    expect(compartido[0]).toMatch(/12 pts/);
-
-    // Se cambia de modo y se vuelve a compartir: el texto tiene que cambiar.
-    fireEvent.click(screen.getByRole('button', { name: ETIQUETA_DE_MODO.best_two }));
-    await waitFor(() => expect(screen.getByTestId('cat-razo')).toBeDefined());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
-    await waitFor(() => expect(compartido).toHaveLength(2));
-
-    expect(compartido[1]).toMatch(/81\.2 %/);
-    expect(compartido[1]).not.toMatch(/12 /);
+    expect(compartido[0]).toMatch(/Mejor de 3/);
+    expect(compartido[0]).toMatch(/81\.2 %/);
   });
 
   /**
@@ -223,5 +264,49 @@ describe('compartir el ranking', () => {
 
     await waitFor(() => expect(copiado).toHaveLength(1));
     expect(await screen.findByRole('button', { name: 'Copiado' })).toBeDefined();
+  });
+
+  // FE-28: las pestañas no sirven de nada si Compartir siempre manda General
+  // aunque la pantalla esté mostrando Femenino.
+  it('comparte la pestaña que está mostrando, no siempre General', async () => {
+    const compartido: string[] = [];
+    Object.defineProperty(navigator, 'share', {
+      value: (d: { text: string }) => {
+        compartido.push(d.text);
+        return Promise.resolve();
+      },
+      configurable: true,
+    });
+
+    rutas['GET /api/public/seasons'] = () => ({
+      json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
+    });
+    rutas['GET /api/public/rankings?seasonId=s1'] = () => ({
+      json: {
+        bestN: 2,
+        categories: [
+          {
+            category: 'razo',
+            general: { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
+            femenino: {
+              ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })],
+              notYetEligible: [],
+            },
+            masculino: { ranked: [], notYetEligible: [] },
+          },
+        ],
+      },
+    });
+    renderRanking();
+    await screen.findByTestId('fila-Gral');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
+    await screen.findByTestId('fila-Fem');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
+    await waitFor(() => expect(compartido).toHaveLength(1));
+
+    expect(compartido[0]).toMatch(/Fem, Juan/);
+    expect(compartido[0]).not.toMatch(/Gral, Juan/);
   });
 });

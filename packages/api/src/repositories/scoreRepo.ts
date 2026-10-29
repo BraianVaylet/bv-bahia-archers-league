@@ -26,6 +26,11 @@ export function listScoresOfPatrol(
     .toArray();
 }
 
+/** Todos los puntajes de un arquero en un torneo: uno por blanco tirado. */
+export function listScoresOfParticipant(participantId: ObjectId): Promise<ScoreDoc[]> {
+  return scores().find({ participantId }).sort({ targetIndex: 1 }).toArray();
+}
+
 export async function upsertScore(doc: ScoreDoc, session: ClientSession): Promise<void> {
   await scores().replaceOne(
     { participantId: doc.participantId, targetIndex: doc.targetIndex },

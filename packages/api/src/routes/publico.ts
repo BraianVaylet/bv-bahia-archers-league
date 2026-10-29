@@ -6,30 +6,55 @@
  */
 
 import {
+  ArcherSelfRegisterSchema,
   type ArcherStanding,
-  bestTwoAvgPct,
+  bestNAvgPct,
   distribucionDeModalidades,
   ObjectIdSchema,
-  sortStandings,
+  sortStandingsByGender,
 } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { seasons } from '../db/client.js';
+import { env } from '../env.js';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { publicCache } from '../middleware/cache.js';
-import { parseQuery } from '../middleware/validate.js';
+import { parseJsonBody, parseQuery } from '../middleware/validate.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as standingRepo from '../repositories/standingRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import * as archerService from '../services/archerService.js';
+import * as tarjetaService from '../services/tarjetaService.js';
 
 const RankingQuery = z.strictObject({
   seasonId: ObjectIdSchema,
-  mode: z.enum(['position', 'best_two']).default('position'),
 });
 
 export const publico = new Hono()
   .use('*', publicCache({ maxAge: 60 }))
+
+  /**
+   * Autoregistro público (`BE-20`, `docs/SECURITY.md` §15).
+   *
+   * Nace `pendiente`: no es inscripción a nada, es un pedido de alta que un
+   * admin tiene que aprobar desde WAFA (`BE-22`) antes de que sirva para algo.
+   * La respuesta nunca incluye `dni` ni `registrationStatus` — ninguna ruta
+   * sin sesión los devuelve, ni siquiera el del propio request.
+   */
+  .post('/archers', async (c) => {
+    const input = await parseJsonBody(c, ArcherSelfRegisterSchema);
+    const archer = await archerService.registerPublic(input);
+
+    return c.json({
+      archer: {
+        id: archer.id,
+        firstName: archer.firstName,
+        lastName: archer.lastName,
+        category: archer.category,
+      },
+    });
+  })
 
   .get('/seasons', async (c) => {
     const docs = await seasons().find({}).sort({ startsAt: -1 }).toArray();
@@ -45,13 +70,16 @@ export const publico = new Hono()
   })
 
   /**
-   * Ranking de liga por categoría.
-   *
-   * Los que no llegan al mínimo de torneos vienen en `notYetEligible`, **no se
-   * ocultan**: esconderlos haría creer que se perdió su resultado.
+   * Ranking de liga por categoría, en tres vistas: **General, Femenino y
+   * Masculino** (`SH-10`). Cada una rankea su propia pool —no es el general
+   * filtrado— así que cada una numera desde 1 y los que no llegan a `bestN`
+   * torneos van en su propio `notYetEligible`, **sin ocultarse**: esconderlos
+   * haría creer que se perdió su resultado. Un arquero sin `sex` cargado
+   * entra al general igual que cualquiera, y a ninguna de las otras dos.
    */
   .get('/rankings', async (c) => {
-    const { seasonId, mode } = parseQuery(c, RankingQuery);
+    const { seasonId } = parseQuery(c, RankingQuery);
+    const bestN = env().LEAGUE_BEST_N;
     const docs = await standingRepo.listBySeason(toObjectId(seasonId));
     const dominio = docs.map(standingRepo.toDomain);
 
@@ -62,21 +90,28 @@ export const publico = new Hono()
       else porCategoria.set(s.category, [s]);
     }
 
-    // El promedio de «mejor de 2» se DERIVA al serializar y no se guarda: dos
+    // El promedio de «mejor de N» se DERIVA al serializar y no se guarda: dos
     // copias del mismo número son dos que pueden separarse.
     const conPromedio = <T extends ArcherStanding>(s: T) => ({
       ...s,
-      bestTwoAvgPct: bestTwoAvgPct(s),
+      bestNAvgPct: bestNAvgPct(s),
     });
 
     return c.json({
-      mode,
+      // El front nunca escribe «2» (ni ningún N) en un texto: lo lee de acá.
+      bestN,
       categories: [...porCategoria.entries()].map(([category, entradas]) => {
-        const { ranked, notYetEligible } = sortStandings(entradas, mode);
+        const { general, femenino, masculino } = sortStandingsByGender(entradas, bestN);
+        const vista = (v: typeof general) => ({
+          ranked: v.ranked.map(conPromedio),
+          notYetEligible: v.notYetEligible.map(conPromedio),
+        });
+
         return {
           category,
-          ranked: ranked.map(conPromedio),
-          notYetEligible: notYetEligible.map(conPromedio),
+          general: vista(general),
+          femenino: vista(femenino),
+          masculino: vista(masculino),
         };
       }),
     });
@@ -158,6 +193,9 @@ export const publico = new Hono()
         results: miembros
           .filter((m) => m.status === 'activo')
           .map((m) => ({
+            // Con qué se abre la tarjeta de puntajes del arquero. Es el id de
+            // la participación en este torneo, no el del arquero del padrón.
+            id: m._id.toHexString(),
             firstName: m.firstName,
             lastName: m.lastName,
             category: m.category,
@@ -170,6 +208,22 @@ export const publico = new Hono()
           })),
       },
     });
+  })
+
+  /**
+   * Los puntajes de un arquero en un torneo publicado: cada flecha de cada
+   * blanco. Es a donde lleva cada fila de los resultados.
+   *
+   * Un torneo sin publicar responde 404, igual que su detalle: **ningún puntaje
+   * sale antes de que el admin lo publique**.
+   */
+  .get('/tournaments/:id/participants/:participantId', async (c) => {
+    const tarjeta = await tarjetaService.tarjetaDeParticipante(
+      toObjectId(c.req.param('id')),
+      toObjectId(c.req.param('participantId')),
+    );
+
+    return c.json({ scorecard: tarjeta });
   })
 
   /** Ficha histórica de un arquero. */
@@ -224,12 +278,10 @@ export const publico = new Hono()
         seasons: acumulados.map((s) => ({
           seasonId: s.seasonId.toHexString(),
           category: s.category,
-          leaguePoints: s.leaguePoints,
           tournamentsPlayed: s.tournamentsPlayed,
-          podiums: s.podiums,
           bestNormalizedPct: s.bestNormalizedPct,
           bestRawScore: s.bestRawScore,
-          bestTwoAvgPct: bestTwoAvgPct(standingRepo.toDomain(s)),
+          bestNAvgPct: bestNAvgPct(standingRepo.toDomain(s)),
           totalX: s.totalX,
           totalTens: s.totalTens,
           totalM: s.totalM,

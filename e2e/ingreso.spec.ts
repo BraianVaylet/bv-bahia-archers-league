@@ -21,9 +21,11 @@ test('«Ingresar» lleva de la landing a la PWA', async ({ page }) => {
   await expect(page).toHaveURL(/\/app\/?$/);
 
   // Y del otro lado está la elección de rol, que es lo que reemplaza a los dos
-  // botones que había en la landing.
-  await expect(page.getByRole('button', { name: 'Soy líder de patrulla' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Soy administrador' })).toBeVisible();
+  // botones que había en la landing. Son enlaces, no botones —navegan a una
+  // ruta distinta— y el `role` lo dice: `FE-21` los cambió de un `<button>`
+  // anidado dentro de un `<a>` (HTML inválido) a un `<a>` con esa pinta.
+  await expect(page.getByRole('link', { name: 'Soy líder de patrulla' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Soy administrador' })).toBeVisible();
 });
 
 /**
