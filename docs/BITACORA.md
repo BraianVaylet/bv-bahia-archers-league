@@ -14,6 +14,35 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-29 · Tarjeta de puntajes de un arquero: cada flecha de cada blanco (FE-31)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado.
+
+### Pedido directo del usuario, fuera del plan
+
+En la landing, el torneo publicado mostraba el total de cada arquero pero no cómo se llegó a él: los puntajes por flecha estaban en `scores.arrows` y no se veían en ningún lado. Ahora cada arquero del podio es un enlace a `/torneos/:id/participantes/:participantId`, que muestra cada flecha de cada blanco. Rama `feat/detalle-flechas-arquero`, desde `main`.
+
+### Decisiones
+
+- **La cuenta vive en `@bal/shared`** (`armarTarjetaDePuntajes`), no en el servicio: regla 2. Recibe el recorrido y los puntajes y **no recibe ningún total guardado**, así que no tiene cómo confiar en uno (regla 1). El valor de cada flecha sale del set de la modalidad **del blanco**, no de la del puntaje guardado. TDD: cada test se vio fallar antes de escribir el código; los de borde que cubrían código ya escrito (orden de filas, blanco ajeno, mutación) se verificaron rompiendo la implementación a propósito.
+- **«Sin puntaje» no es cero.** Un blanco sin documento de puntaje devuelve `arrows: null`; uno tirado todo a `M` devuelve sus flechas y vale cero. La pantalla los distingue.
+- **Un token inválido en la base lanza `INVALID_TOKEN`** en vez de mostrarse como cero. Se valida al escribir, así que no debería pasar; si pasa, que se note.
+- **El `id` que se agregó a `results` es el de la participación**, no el del arquero del padrón: es la clave real de `scores` y no obliga a exponer `archerId`. Es opcional en el tipo de la landing (una respuesta vieja en caché no lo trae) y sin id el nombre se muestra sin enlace.
+- **Seguridad (ruta pública nueva).** 404 **sin distinguir** torneo sin publicar / inexistente / participante ajeno / ausente / id malformado: no se puede sondear qué existe. Un torneo sin publicar no expone ningún puntaje, igual que su detalle. Respuesta por **lista blanca**, campo por campo: la firma (`pngDataUrl`), `paid`, DNI, `archerId` y `patrolId` no salen. Cada guarda y la lista blanca tienen un test que falla si se las saca (verificado por mutación).
+- `Dato` (la caja etiqueta/valor de la ficha de arquero) pasó de `Archer.tsx` a `components/ui.tsx` para reusarla. Sin cambios de comportamiento.
+
+### Verificación
+
+`pnpm -r test` (shared 473, api 296, ui 61, app 476, landing 50), `pnpm typecheck` y `biome` sobre los archivos tocados, verdes. E2E nuevo contra el stack real en Chromium (`tarjeta-de-puntajes.spec.ts`: puntaje cargado por API, publicado, y navegación de punta a punta; incluye 360 px sin desborde). Revisado a ojo en escritorio y a 360 px: en el celular el resumen ocupaba cuatro renglones y empujaba las flechas fuera de pantalla; se compactó a dos.
+
+### Deuda / lo que sigue
+
+- No se corrió la suite E2E completa (sólo el spec nuevo): la tarea no toca WAFL/WAFA, pero conviene correrla en CI.
+- `/security-review` sobre el diff: sin hallazgos HIGH/MEDIUM (ids validados con `toObjectId`, guardas de estado/torneo/ausente, respuesta por lista blanca, sin `dangerouslySetInnerHTML`). `aikido:scan` **no se pudo correr**: el MCP de Aikido exige que el usuario inicie sesión (`aikido_login`); queda pendiente antes de mergear.
+- La ficha histórica del arquero (`/arqueros/:id`) no enlaza a estas tarjetas; sería el paso natural para ver sus flechas de torneos pasados.
+
+---
+
 ## 2026-10-27 · DNI único por categoría, no por arquero (padrón)
 
 **Autor:** Claude Sonnet 5 · **Estado:** completado.

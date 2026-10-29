@@ -651,6 +651,15 @@ Dos hallazgos reales corriendo el primer intento contra Chromium de verdad, no c
 
 `pnpm -r typecheck`, `pnpm -r test` (1327 tests) y `pnpm lint` verdes en los cinco paquetes. Las 18 specs E2E del repo, completas, verdes contra el stack real (2,7 min). `/security-review`: fuera de alcance —son tests y docs, sin código de aplicación nuevo.)_
 
+### `[x]` `FE-31` · Tarjeta de puntajes de un arquero: cada flecha de cada blanco · **TDD** (dominio)
+> Pedido urgente del 2026-10-29, fuera del plan original. Los puntajes por flecha ya estaban en la base (`scores.arrows`) pero no se veían en ningún lado.
+
+**Archivos:** `packages/shared/src/tarjeta.ts` (dominio puro), `packages/api/src/services/tarjetaService.ts` + `routes/publico.ts` + `scoreRepo.ts`, `packages/landing/src/pages/Scorecard.tsx` + enlace en `Tournaments.tsx`, `e2e/tarjeta-de-puntajes.spec.ts`.
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3.1 · [`TECHNICAL.md`](TECHNICAL.md) §3.6
+**DoD:** del podio de un torneo **publicado** se entra a cada arquero y se ve el puntaje de cada flecha en cada blanco; un torneo sin publicar, un participante ajeno o ausente dan 404; la respuesta es lista blanca (sin firma, pago, DNI ni `archerId`); sin scroll horizontal a 360 px.
+
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-10-29.)_
+
 ---
 
 ## Orden recomendado de ejecución

@@ -814,6 +814,162 @@ describe('endpoints públicos', () => {
   });
 });
 
+// ── Tarjeta de puntajes de un arquero (flecha por flecha) ───────────────────
+
+/**
+ * Desde los resultados de un torneo publicado se entra a un arquero y se ve
+ * qué sacó en cada flecha de cada blanco. La landing no lee ningún total de
+ * ahí: el servidor deriva el valor de cada flecha desde su token.
+ */
+describe('tarjeta de puntajes de un arquero', () => {
+  /** Deja el torneo publicado y devuelve los resultados tal como los ve la landing. */
+  async function torneoPublicado(c: ReturnType<typeof cliente>) {
+    const { seasonId, archerIds, tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+    await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
+
+    const detalle = (await (
+      await cliente().get(`/api/public/tournaments/${tournamentId}`)
+    ).json()) as { tournament: { results: { id: string; total: number }[] } };
+
+    return { seasonId, archerIds, tournamentId, resultados: detalle.tournament.results };
+  }
+
+  interface Tarjeta {
+    scorecard: {
+      archer: { firstName: string; lastName: string; category: string };
+      total: number;
+      maxTotal: number;
+      rows: {
+        index: number;
+        modality: string;
+        arrows: { token: string; value: number }[] | null;
+        total: number;
+        maxTotal: number;
+      }[];
+    };
+  }
+
+  it('cada resultado trae el id con el que se abre su tarjeta', async () => {
+    const c = await admin();
+    const { resultados } = await torneoPublicado(c);
+
+    expect(resultados.every((r) => /^[0-9a-f]{24}$/.test(r.id))).toBe(true);
+    expect(new Set(resultados.map((r) => r.id)).size).toBe(2);
+  });
+
+  it('muestra cada flecha de cada blanco, con su valor, del arquero elegido', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+    const primero = resultados.find((r) => r.total === 51);
+
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${primero?.id}`,
+    );
+    expect(res.status).toBe(200);
+
+    const { scorecard } = (await res.json()) as Tarjeta;
+    expect(scorecard.rows).toEqual([
+      {
+        index: 1,
+        modality: '3d',
+        arrows: [
+          { token: '11', value: 11 },
+          { token: '11', value: 11 },
+        ],
+        total: 22,
+        maxTotal: 22,
+      },
+      {
+        index: 2,
+        modality: 'sala',
+        arrows: [
+          { token: 'X', value: 10 },
+          { token: '10', value: 10 },
+          { token: '9', value: 9 },
+        ],
+        total: 29,
+        maxTotal: 30,
+      },
+    ]);
+    // El total sale de las flechas y coincide con el del listado de resultados.
+    expect(scorecard.total).toBe(51);
+    expect(scorecard.maxTotal).toBe(52);
+  });
+
+  // El detalle del torneo ya oculta los puntajes si no está publicado; la
+  // tarjeta tiene que hacer lo mismo o sería la puerta de atrás.
+  it('un torneo sin publicar NO expone la tarjeta: 404', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+    await completarTorneo(tournamentId);
+
+    const participante = await participants().findOne({ tournamentId: new ObjectId(tournamentId) });
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${participante?._id.toHexString()}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('el participante de OTRO torneo no se abre bajo este: 404', async () => {
+    const c = await admin();
+    const { seasonId, archerIds, tournamentId } = await torneoPublicado(c);
+    const otroId = await otroTorneoEn(c, seasonId, archerIds);
+    await c.post(`/api/admin/tournaments/${otroId}/start`);
+    await completarTorneo(otroId);
+    await c.post(`/api/admin/tournaments/${otroId}/publish`);
+
+    const ajeno = await participants().findOne({ tournamentId: new ObjectId(otroId) });
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${ajeno?._id.toHexString()}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('un participante ausente no tiene tarjeta: 404', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+    const elegido = resultados[0]?.id ?? '';
+    await participants().updateOne({ _id: new ObjectId(elegido) }, { $set: { status: 'ausente' } });
+
+    const res = await cliente().get(
+      `/api/public/tournaments/${tournamentId}/participants/${elegido}`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it('un id malformado o inexistente responde 404, no 500', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoPublicado(c);
+
+    for (const participante of ['no-es-un-id', '0'.repeat(24), '{"$ne":null}']) {
+      const res = await cliente().get(
+        `/api/public/tournaments/${tournamentId}/participants/${encodeURIComponent(participante)}`,
+      );
+      expect(res.status).toBe(404);
+    }
+  });
+
+  // La ruta es pública: lo que se serializa va por lista blanca.
+  it('NO expone la firma, si pagó, el DNI ni el id del arquero', async () => {
+    const c = await admin();
+    const { tournamentId, resultados } = await torneoPublicado(c);
+
+    const crudo = await (
+      await cliente().get(
+        `/api/public/tournaments/${tournamentId}/participants/${resultados[0]?.id}`,
+      )
+    ).text();
+
+    expect(crudo).not.toMatch(/signature|pngDataUrl|scorecardHash|"paid"|dni|archerId|patrolId/i);
+  });
+});
+
 // ── SH-9 · Ranking «mejor de N» ──────────────────────────────────────────────
 
 /**

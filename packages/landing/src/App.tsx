@@ -14,6 +14,7 @@ import { ArcherPage } from './pages/Archer.js';
 import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
+import { ScorecardPage } from './pages/Scorecard.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 
 export function App() {
@@ -37,13 +38,14 @@ export function App() {
             <Route path="/ranking" element={<RankingPage />} />
             <Route path="/torneos" element={<TournamentsPage />} />
             <Route path="/torneos/:id" element={<TournamentPage />} />
+            <Route path="/torneos/:id/participantes/:participantId" element={<ScorecardPage />} />
             <Route path="/arqueros/:id" element={<ArcherPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
         {/* Uno solo para todo el sitio: es una app de lectura con una sola
-            columna, y el pie es el mismo en las cinco páginas. */}
+            columna, y el pie es el mismo en las seis páginas. */}
         <Footer className="shrink-0" />
       </div>
     </BrowserRouter>
