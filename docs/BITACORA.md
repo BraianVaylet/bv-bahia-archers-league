@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-29 · Auditoría de dependencias: de 38 vulnerabilidades a 1 `low` sin parche
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado
+
+El job «Auditoría de dependencias» de CI (`pnpm audit --audit-level=high`) fallaba en todo PR **y en `origin/main`**: no lo causaba ningún cambio de código, sino advisories nuevos publicados sobre dependencias que ya estaban. Bloqueaba el merge de cualquier rama. Se reprodujo en un worktree limpio de `origin/main` antes de tocar nada: 38 vulnerabilidades (1 critical, 14 high, 18 moderate, 5 low), con los `package.json` y el lockfile idénticos a los de la rama que lo disparó.
+
+### Qué se hizo
+
+`pnpm update -r --depth Infinity` sólo sobre los paquetes afectados, dentro de los rangos `^` que el repo ya declaraba, más `pnpm dedupe`:
+
+- **Directas:** `zod` ^4.4.3 → ^4.6.7 (`shared`, `api`) · `vite` ^8.2.1 → ^8.3.5 (`app`, `landing`) · `vitest` y `@vitest/coverage-v8` ^4.1.10 → ^4.1.12 (todos) · `hono` ^4.13.1 → ^4.13.14 y `@hono/node-server` ^2.1.0 → ^2.1.5 (`api`).
+- **Transitivas:** `fast-uri`, `brace-expansion`, `source-map-js` (1.2.2) y `follow-redirects` (1.16.2).
+- **Override** en el `package.json` raíz: `"shell-quote": "^1.11.0"` (resuelve 1.12.0).
+
+Resultado: `pnpm audit --audit-level=high` sale con código 0. Queda **1 `low`** (`deepmerge`, sin versión parcheada publicada: no hay nada que subir).
+
+### Decisiones
+
+- **La `critical` no se podía arreglar con un `update`.** `shell-quote` llega por `concurrently@9.2.4`, que lo **fija exacto** en 1.9.0. Subir `concurrently` a la 10.x es un salto mayor de una herramienta de desarrollo (sólo se usa en `pnpm dev`) por una dependencia transitiva: se eligió el override acotado a 1.x, y se comprobó que `concurrently` sigue corriendo comandos.
+- **`vite` subió un minor entero (8.2 → 8.3)**, no sólo hasta el primer parche (8.2.4): el rango `^8.2.1` lo permite y pnpm toma el más alto. Arrastró `rolldown`/`babel` nuevos. 95 paquetes cambiaron de versión en el lockfile y **ninguno con salto mayor** (verificado comparando el lockfile viejo y el nuevo, no a ojo). Se aceptó porque tipos, lint, tests, presupuesto de bundle y E2E pasan; si más adelante se prefiere menos movimiento, es `vite@8.2.4` exacto.
+- **`hono` es dependencia de producción de la API**, y 5 de los advisories `moderate` eran suyos. No bloqueaban el job, pero iban en el mismo refresco de lockfile y no tenía sentido dejarlos.
+- **Aviso de pnpm que no es un problema:** el `pnpm` instalado en la máquina de desarrollo (un lanzador más nuevo) imprime «the "pnpm" field in package.json is no longer read». Con el `pnpm@9.15.0` que fija `packageManager` —el que usa CI— el override **sí se aplica**: el lockfile lo registra en `overrides:` y `install --frozen-lockfile` + `audit` dan verde con esa versión exacta. Si el repo sube a pnpm ≥ 10, el override se mueve a `pnpm-workspace.yaml`.
+
+### Verificación
+
+Sobre el código de `origin/main`: `pnpm typecheck` y `pnpm lint` sin errores; `pnpm test` en verde (shared 442, api 264, ui 60, app 464, landing 34); presupuestos de bundle en verde (WAFA + WAFL 132,08 KB de 150; landing 106,08 KB de 120); E2E completo (`pnpm test:e2e`, stack real en Chromium): 15 de 15 en verde, 2,2 min.
+
+### Deuda
+
+- Quitar el override de `shell-quote` cuando `concurrently` publique una versión que lo pinee parcheado (o subir a 10.x en una tarea propia).
+- El job de auditoría vuelve a romperse cada vez que se publique un advisory `high` sobre algo ya instalado; no es una falla de este repo, pero conviene saber que es esperable y que arreglarlo es un refresco de lockfile, no una investigación.
+
+---
+
 ## 2026-08-21 · Recuperar el password del admin sin redesplegar
 
 **Autor:** Claude Opus 5 · **Estado:** completado
