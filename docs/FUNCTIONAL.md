@@ -102,7 +102,19 @@ Torneos **publicados** y **en proceso**, ordenados por fecha descendente.
 
 Al entrar a un torneo:
 - **Si está publicado:** configuración del recorrido (cantidad de blancos, modalidad y flechas de cada uno), podios por categoría y general, mejores puntajes por categoría, puntaje de cada arquero por blanco, totales de `X`, `10` y `M`, estadísticas agregadas.
+- **Si está publicado, además:** cada arquero de los podios es un enlace a su **tarjeta de puntajes** (§5.3.1).
 - **Si está en proceso:** la distribución de patrullas (quién con quién, en qué estaca, desde qué blanco arranca) y el avance (cuántos blancos completó cada patrulla). **No se muestran puntajes** de un torneo sin publicar.
+
+#### 5.3.1 Tarjeta de puntajes de un arquero — `2026-10-29`
+
+Ruta `/torneos/:id/participantes/:participantId`. Se llega tocando el nombre de un arquero en los resultados de un torneo **publicado**.
+
+Muestra, de ese arquero en ese torneo: quién es (categoría, estaca), el puntaje total sobre el máximo del recorrido, el porcentaje, los conteos de `X`, `10` y `M`, y **cada flecha de cada blanco**, en el orden del recorrido y de mayor a menor (notación de planilla).
+
+- Cada flecha lleva su token. Si el token no dice lo que vale —`X` vale 10, `M` vale 0— el valor va debajo; si ya lo dice (`9`), no se repite.
+- Un blanco donde al arquero no se le cargó nada dice «Sin puntaje»: **no es un cero**. Un blanco tirado todo a `M` sí vale cero, y muestra sus flechas.
+- Los valores y los totales los deriva el servidor desde los tokens y la modalidad **de cada blanco** (`armarTarjetaDePuntajes`, en `@bal/shared`). La landing no calcula nada.
+- Un torneo sin publicar, un participante de otro torneo o uno ausente responden **404 sin distinguirse**: no hay forma de sondear qué existe. Es la misma regla de §5.3, que ningún puntaje sale antes de publicar.
 
 ### 5.4 Sección Arquero (ficha)
 Estadísticas históricas del arquero: torneos disputados, mejor y peor puntaje (bruto y %), acumulados de `X`, `10` y `M`, evolución torneo a torneo, y su posición en los rankings de cada temporada.

@@ -414,6 +414,7 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
 | `GET` | `/api/public/rankings?seasonId=&mode=position\|best_two` | Ranking por categoría. `best_two` es el promedio de los dos mejores porcentajes |
 | `GET` | `/api/public/tournaments` | Publicados y en proceso |
 | `GET` | `/api/public/tournaments/:id` | Detalle. Sin puntajes si no está publicado |
+| `GET` | `/api/public/tournaments/:id/participants/:participantId` | Tarjeta de puntajes: cada flecha de cada blanco, con su valor. Sólo torneos **publicados**; 404 en cualquier otro caso (sin distinguir). Lista blanca: sin firma, pago ni `archerId`. `participantId` es el `id` de cada fila de `results` en el detalle del torneo |
 | `GET` | `/api/public/archers/:id` | Ficha histórica |
 
 ### 3.7 Salud

@@ -469,6 +469,57 @@ describe('TournamentPage', () => {
     expect(filas[1]?.textContent).toMatch(/Gómez/);
   });
 
+  // De los resultados se entra a cada arquero para ver flecha por flecha qué
+  // sacó. El enlace usa el id de la participación que manda el servidor.
+  it('cada arquero del podio lleva a su tarjeta de puntajes', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: {
+          tournament: detalle({
+            results: [
+              {
+                id: 'p-juan',
+                firstName: 'Juan',
+                lastName: 'Pérez',
+                category: 'razo',
+                total: 45,
+                normalizedPct: 86.54,
+                innerCount: 3,
+                xCount: 3,
+                tenCount: 4,
+                mCount: 0,
+              },
+              {
+                id: 'p-ana',
+                firstName: 'Ana',
+                lastName: 'Gómez',
+                category: 'razo',
+                total: 40,
+                normalizedPct: 76.92,
+                innerCount: 1,
+                xCount: 1,
+                tenCount: 2,
+                mCount: 1,
+              },
+            ],
+          }),
+        },
+      }),
+    });
+    renderDetalle();
+
+    const podio = await screen.findByTestId('podio-razo');
+
+    expect(within(podio).getByRole('link', { name: /Pérez, Juan/ })).toHaveAttribute(
+      'href',
+      '/torneos/t1/participantes/p-juan',
+    );
+    expect(within(podio).getByRole('link', { name: /Gómez, Ana/ })).toHaveAttribute(
+      'href',
+      '/torneos/t1/participantes/p-ana',
+    );
+  });
+
   // Es una regla del backend —el endpoint no los manda— pero la pantalla lo
   // explica para que nadie crea que está rota.
   it('un torneo EN CURSO muestra patrullas y avance, y NINGÚN puntaje', async () => {

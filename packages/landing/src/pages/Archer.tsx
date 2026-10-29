@@ -11,7 +11,7 @@
 import { type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { GraficoDeEvolucion } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
-import { Cargando, Fallo, Screen } from '../components/ui.js';
+import { Cargando, Dato, Fallo, Screen } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
 
 interface TemporadaDelArquero {
@@ -41,35 +41,6 @@ interface Arquero {
    * quedar en blanco por eso. Ver la entrada de `REF-7` en `BITACORA.md`.
    */
   readonly history?: readonly { seasonId: string; name: string; normalizedPct: number }[];
-}
-
-function Dato({
-  etiqueta,
-  valor,
-  detalle,
-}: {
-  readonly etiqueta: string;
-  readonly valor: string | number;
-  /**
-   * El dato de al lado, en chico y abajo.
-   *
-   * Antes esto iba metido dentro del valor —`89.39% (295)`— y quedaban dos
-   * números peleando el mismo renglón: el que ordena el ranking y el puntaje
-   * bruto. En un celular a 320 px eso además se parte.
-   */
-  readonly detalle?: string;
-}) {
-  return (
-    <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2">
-      <dt className="text-xs text-[var(--ink-muted)]">{etiqueta}</dt>
-      <dd className="text-lg font-semibold tabular-nums">
-        {valor}
-        {detalle && (
-          <span className="block text-xs font-normal text-[var(--ink-muted)]">{detalle}</span>
-        )}
-      </dd>
-    </div>
-  );
 }
 
 /**

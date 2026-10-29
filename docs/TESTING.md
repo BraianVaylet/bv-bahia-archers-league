@@ -294,6 +294,7 @@ tests/e2e/flujo-completo.spec.ts
 | `sesion-vencida.spec.ts` | Un 401 durante la sincronización conserva el outbox |
 | `blanco-bloqueado.spec.ts` | El admin no puede editar un blanco ya tirado |
 | `pwa-instalable.spec.ts` | Manifest válido, service worker registrado, `registerType: 'prompt'` |
+| `tarjeta-de-puntajes.spec.ts` | Del podio de un torneo publicado se entra a un arquero y se ven sus flechas (orden, valor de `X`/`M`, totales), y a 360 px no hay scroll horizontal |
 
 ---
 

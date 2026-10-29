@@ -359,6 +359,15 @@ _(Hecho. Estadísticas por temporada desde los acumulados. El **porcentaje va pr
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.4
 **DoD:** estadísticas históricas y evolución torneo a torneo.
 
+### `[x]` `FE-31` · Tarjeta de puntajes de un arquero: cada flecha de cada blanco · **TDD** (dominio)
+> Pedido urgente del 2026-10-29, fuera del plan original. Los puntajes por flecha ya estaban en la base (`scores.arrows`) pero no se veían en ningún lado.
+
+**Archivos:** `packages/shared/src/tarjeta.ts` (dominio puro), `packages/api/src/services/tarjetaService.ts` + `routes/publico.ts` + `scoreRepo.ts`, `packages/landing/src/pages/Scorecard.tsx` + enlace en `Tournaments.tsx`, `e2e/tarjeta-de-puntajes.spec.ts`.
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3.1 · [`TECHNICAL.md`](TECHNICAL.md) §3.6
+**DoD:** del podio de un torneo **publicado** se entra a cada arquero y se ve el puntaje de cada flecha en cada blanco; un torneo sin publicar, un participante ajeno o ausente dan 404; la respuesta es lista blanca (sin firma, pago ni `archerId`); sin scroll horizontal a 360 px.
+
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-10-29.)_
+
 ---
 
 # Fase 6 — Calidad, seguridad y deploy

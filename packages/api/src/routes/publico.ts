@@ -22,6 +22,7 @@ import { parseQuery } from '../middleware/validate.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as standingRepo from '../repositories/standingRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import * as tarjetaService from '../services/tarjetaService.js';
 
 const RankingQuery = z.strictObject({
   seasonId: ObjectIdSchema,
@@ -158,6 +159,9 @@ export const publico = new Hono()
         results: miembros
           .filter((m) => m.status === 'activo')
           .map((m) => ({
+            // Con qué se abre la tarjeta de puntajes del arquero. Es el id de
+            // la participación en este torneo, no el del arquero del padrón.
+            id: m._id.toHexString(),
             firstName: m.firstName,
             lastName: m.lastName,
             category: m.category,
@@ -170,6 +174,22 @@ export const publico = new Hono()
           })),
       },
     });
+  })
+
+  /**
+   * Los puntajes de un arquero en un torneo publicado: cada flecha de cada
+   * blanco. Es a donde lleva cada fila de los resultados.
+   *
+   * Un torneo sin publicar responde 404, igual que su detalle: **ningún puntaje
+   * sale antes de que el admin lo publique**.
+   */
+  .get('/tournaments/:id/participants/:participantId', async (c) => {
+    const tarjeta = await tarjetaService.tarjetaDeParticipante(
+      toObjectId(c.req.param('id')),
+      toObjectId(c.req.param('participantId')),
+    );
+
+    return c.json({ scorecard: tarjeta });
   })
 
   /** Ficha histórica de un arquero. */

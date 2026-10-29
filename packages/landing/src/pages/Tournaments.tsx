@@ -53,6 +53,13 @@ interface TorneoResumen {
 }
 
 interface Resultado {
+  /**
+   * La participación en este torneo: con esto se abre la tarjeta de puntajes.
+   *
+   * Opcional: una respuesta vieja en caché no lo trae, y el podio no puede
+   * quedar roto por eso. Sin id, el nombre se muestra sin enlace.
+   */
+  readonly id?: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly category: BowCategory;
@@ -143,7 +150,13 @@ export function TournamentsPage() {
 
 // ── Detalle ──────────────────────────────────────────────────────────────────
 
-function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
+function Podios({
+  torneoId,
+  resultados,
+}: {
+  readonly torneoId: string;
+  readonly resultados: readonly Resultado[];
+}) {
   // El mismo `rankByCategory` que usa el servidor al publicar: la landing no
   // reordena por su cuenta ni inventa un criterio de desempate.
   const conId = resultados.map((r, i) => ({
@@ -184,7 +197,19 @@ function Podios({ resultados }: { readonly resultados: readonly Resultado[] }) {
                     {e.tied && <span className="text-[var(--ink-muted)]">=</span>}
                   </Celda>
                   <Celda className="max-sm:font-semibold max-sm:justify-start max-sm:pb-1">
-                    {e.entry.lastName}, {e.entry.firstName}
+                    {/* Al tocar el nombre se abre la tarjeta del arquero: flecha
+                        por flecha. Subrayado y de 44 px: se tiene que ver que
+                        es un enlace y se tiene que poder tocar con guantes. */}
+                    {e.entry.id ? (
+                      <Link
+                        to={`/torneos/${torneoId}/participantes/${e.entry.id}`}
+                        className="inline-flex items-center min-h-[44px] underline underline-offset-2"
+                      >
+                        {e.entry.lastName}, {e.entry.firstName}
+                      </Link>
+                    ) : (
+                      `${e.entry.lastName}, ${e.entry.firstName}`
+                    )}
                   </Celda>
 
                   {/* Las seis cifras, cada una con su nombre al lado. */}
@@ -285,7 +310,7 @@ export function TournamentPage() {
         </p>
       )}
 
-      {t.results && <Podios resultados={t.results} />}
+      {t.results && <Podios torneoId={t.id} resultados={t.results} />}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">Patrullas</h2>
