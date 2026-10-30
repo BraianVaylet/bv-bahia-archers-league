@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublishPage } from './pages/Publish.js';
@@ -542,5 +542,139 @@ describe('volver a sin iniciar', () => {
 
     await screen.findByRole('button', { name: 'Iniciar torneo' });
     expect(screen.queryByRole('button', { name: 'Volver a sin iniciar' })).toBeNull();
+  });
+});
+
+// ── U-6 · El seguimiento se refresca solo ────────────────────────────────────
+
+describe('refresco del seguimiento', () => {
+  const resultados = () => llamadas.filter((l) => l.url.endsWith('/results')).length;
+
+  /** Deja pasar 30 s del reloj falso y que las respuestas se asienten. */
+  const pasan30s = () =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+  function visibilidad(estado: 'visible' | 'hidden') {
+    Object.defineProperty(document, 'visibilityState', { value: estado, configurable: true });
+  }
+
+  beforeEach(() => {
+    // `shouldAdvanceTime`: el reloj sigue andando, así `waitFor` no se cuelga.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    visibilidad('visible');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    visibilidad('visible');
+  });
+
+  it('con el torneo en curso, vuelve a pedir los datos cada 30 segundos', async () => {
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('avance-1');
+    const antes = resultados();
+
+    await pasan30s();
+
+    await waitFor(() => expect(resultados()).toBe(antes + 1));
+  });
+
+  it('muestra lo que cambió, sin recargar', async () => {
+    renderPantalla(TournamentPage);
+    expect(await screen.findByTestId('avance-1')).toHaveTextContent('2 de 4 blancos');
+
+    servidor({
+      'GET /api/admin/tournaments/t1/patrols': () => ({
+        json: { patrols: [{ ...PATRULLAS[0], targetsCompleted: 3 }, PATRULLAS[1]] },
+      }),
+    });
+    await pasan30s();
+
+    await waitFor(() => expect(screen.getByTestId('avance-1')).toHaveTextContent('3 de 4 blancos'));
+  });
+
+  /**
+   * El seguimiento no necesita los PIN, y pedirlos en cada vuelta los descifraba
+   * y los registraba en el audit log cada 30 s (`S-7`).
+   */
+  it('no pide los PIN, ni al cargar ni al refrescar', async () => {
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('avance-1');
+    await pasan30s();
+    await waitFor(() => expect(resultados()).toBeGreaterThan(1));
+
+    const pedidos = llamadas.filter((l) => l.url.includes('/patrols'));
+    expect(pedidos.length).toBeGreaterThan(1);
+    for (const pedido of pedidos) expect(pedido.url).toBe('/api/admin/tournaments/t1/patrols');
+  });
+
+  it('un refresco que falla no tapa lo que ya se ve ni muestra un error', async () => {
+    renderPantalla(TournamentPage);
+    expect(await screen.findByTestId('avance-1')).toHaveTextContent('2 de 4 blancos');
+
+    servidor({
+      'GET /api/admin/tournaments/t1/results': () => ({ status: 503, json: { error: {} } }),
+    });
+    await pasan30s();
+
+    // Un corte de red cada 30 s no puede dejar la pantalla en rojo: lo que ya se
+    // cargó sigue siendo lo mejor que hay.
+    expect(screen.getByTestId('avance-1')).toHaveTextContent('2 de 4 blancos');
+    expect(screen.queryByText(/No se pudo cargar el torneo/)).toBeNull();
+  });
+
+  /**
+   * El admin toca «Volver a sin iniciar» y el servidor dice que no. Ese motivo es la
+   * respuesta a lo que acaba de hacer: que un refresco automático lo borre a los
+   * segundos, sin que lo haya podido leer, sería peor que no mostrarlo.
+   */
+  it('un refresco correcto no borra el error de la última acción', async () => {
+    servidor({
+      'POST /api/admin/tournaments/t1/unstart': () => ({
+        status: 409,
+        json: { error: { code: 'TOURNAMENT_HAS_SCORES', message: 'Ya hay 3 puntajes cargados.' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+    fireEvent.click(await screen.findByRole('button', { name: 'Volver a sin iniciar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/3 puntajes cargados/);
+
+    await pasan30s();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/3 puntajes cargados/);
+  });
+
+  it('un torneo que no está en curso no se refresca', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'completado' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('estado');
+    await waitFor(() => expect(resultados()).toBe(1));
+
+    await pasan30s();
+    await pasan30s();
+
+    expect(resultados()).toBe(1);
+  });
+
+  it('con la pestaña oculta no refresca', async () => {
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('avance-1');
+
+    visibilidad('hidden');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const antes = resultados();
+
+    await pasan30s();
+    await pasan30s();
+
+    expect(resultados()).toBe(antes);
   });
 });

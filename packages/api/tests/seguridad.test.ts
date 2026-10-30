@@ -50,7 +50,7 @@ beforeEach(async () => {
 
 // ── Andamiaje ────────────────────────────────────────────────────────────────
 
-function cliente() {
+function cliente(ip?: string) {
   const app = createApp();
   let sesion = '';
 
@@ -58,6 +58,7 @@ function cliente() {
     const headers = new Headers(init.headers);
     headers.set('cookie', [`bal_csrf=${CSRF}`, sesion].filter(Boolean).join('; '));
     headers.set('x-csrf-token', CSRF);
+    if (ip) headers.set('x-forwarded-for', ip);
     if (init.body) headers.set('content-type', 'application/json');
 
     const res = await app.request(`http://localhost${path}`, { ...init, headers });
@@ -138,8 +139,8 @@ async function escenario(composicion: [BowCategory, number][] = [['razo', 2]]): 
   };
 }
 
-async function lider(e: Escenario) {
-  const c = cliente();
+async function lider(e: Escenario, ip?: string) {
+  const c = cliente(ip);
   const res = await c.post('/api/auth/patrol/login', {
     tournamentId: e.tournamentId,
     username: e.patrolUsername,
@@ -284,6 +285,39 @@ describe('integridad del puntaje', () => {
     ).json()) as { results: { status: string }[] };
 
     expect(res.results[0]?.status).toBe('applied');
+  });
+
+  /**
+   * `REF6-7` / `C-7`. El cierre se registraba como `patrol.manual_edit` con
+   * `meta: { closed: true }`: buscar quién cerró una patrulla obligaba a saber eso, y
+   * se mezclaba con las redistribuciones del admin, que usan el mismo nombre.
+   */
+  it('el cierre queda registrado como patrol.close, con la patrulla y su IP', async () => {
+    const e = await escenario();
+    const c = await lider(e, '198.51.100.7');
+
+    await cargarYFirmar(c, e);
+    expect((await enviar(c, [opCierre()])).results[0]?.status).toBe('applied');
+
+    const cierres = await auditLog().find({ action: 'patrol.close' }).toArray();
+    expect(cierres).toHaveLength(1);
+    expect(cierres[0]?.actorType).toBe('patrol');
+    expect(cierres[0]?.actorId?.toHexString()).toBe(e.patrolId.toHexString());
+    expect(cierres[0]?.entityId.toHexString()).toBe(e.patrolId.toHexString());
+    expect(cierres[0]?.ip).toBe('198.51.100.7');
+
+    // Y ya no se confunde con una edición manual del admin.
+    expect(await auditLog().countDocuments({ action: 'patrol.manual_edit' })).toBe(0);
+  });
+
+  it('un cierre rechazado no deja entrada', async () => {
+    const e = await escenario();
+    const c = await lider(e);
+
+    // Sin cargar nada: faltan puntajes.
+    expect((await enviar(c, [opCierre()])).results[0]?.status).toBe('rejected');
+
+    expect(await auditLog().countDocuments({ action: 'patrol.close' })).toBe(0);
   });
 });
 

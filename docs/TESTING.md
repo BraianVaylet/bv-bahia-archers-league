@@ -165,7 +165,7 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 - `{ "username": { "$ne": null } }` → 400, **sin llegar a la base**.
 - Clave con `$` o `.` en un objeto anidado → rechazada.
 - `ObjectId` malformado → 400, sin excepción del driver.
-- Body > 1 MB → 413.
+- Body > 64 KB → 413 (también chunked, sin `Content-Length`); el sync admite hasta 1 MB.
 
 ### 4.4 Crear torneo
 - Crea torneo + participantes + patrullas + credenciales en **una transacción**.

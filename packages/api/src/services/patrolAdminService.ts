@@ -9,6 +9,7 @@
 import { type PatrolDistributionInput, validatePatrols } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { env } from '../env.js';
+import { liberarCuenta } from '../lib/bloqueoDeIngreso.js';
 import { decryptPin, encryptPin, generatePin, hashSecret } from '../lib/crypto.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { endAllSessionsFor } from '../lib/session.js';
@@ -40,21 +41,28 @@ export interface PatrolView {
 }
 
 /**
- * Lista las patrullas con su composición y, si corresponde, su PIN.
+ * Lista las patrullas con su composición y, si se piden, su PIN.
  *
- * El PIN se descifra **sólo** mientras el torneo no está publicado, y la lectura
- * queda registrada. Una vez publicado, la credencial ya no sirve para nada y no
- * hay motivo para exponerla.
+ * **Los PIN no viajan por defecto** (`REF6-7` / `S-7`). La pantalla del torneo usa
+ * esta lista para mostrar el avance, y descifrar y devolver todos los PIN en cada
+ * visita —y registrar cada una como `patrol.pin.reveal`— llenaba el audit log de
+ * ruido: el control de `SECURITY.md` §9 es «cada visualización queda registrada»,
+ * y sólo sirve si una visualización es una decisión.
+ *
+ * Con `conPins`, el PIN se descifra **sólo** mientras el torneo no está publicado, y
+ * la lectura queda registrada. Una vez publicado, la credencial ya no sirve para
+ * nada y no hay motivo para exponerla.
  */
 export async function listPatrols(
   tournamentId: ObjectId,
   actorId: ObjectId,
   ip: string | null,
+  conPins: boolean,
 ): Promise<PatrolView[]> {
   const torneo = await tournamentRepo.findById(tournamentId);
   if (!torneo) throw notFound();
 
-  const mostrarPin = torneo.status !== 'publicado';
+  const mostrarPin = conPins && torneo.status !== 'publicado';
   const [patrullas, miembros] = await Promise.all([
     patrolRepo.listByTournament(tournamentId),
     tournamentRepo.listParticipants(tournamentId),
@@ -122,6 +130,9 @@ export async function regeneratePin(
   });
 
   await endAllSessionsFor('patrol', patrolId);
+  // Con el PIN nuevo en mano, que el líder siga esperando por los intentos del viejo,
+  // desde la IP que sea, no tiene sentido.
+  liberarCuenta(`patrol:${patrulla.tournamentId.toHexString()}:${patrulla.username}:`);
 
   await auditRepo.record({
     actorType: 'admin',

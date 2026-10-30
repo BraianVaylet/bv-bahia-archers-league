@@ -35,6 +35,20 @@ const app = () => createApp();
 const pedir = (path: string, init?: RequestInit) => app().request(`http://localhost${path}`, init);
 
 describe('healthcheck', () => {
+  /**
+   * `REF6-5`. Cada op de sincronización son varios viajes a la base, en serie: con
+   * Railway y Atlas en regiones distintas cada uno cuesta decenas de milisegundos
+   * y un lote tarda decenas de segundos. Es la forma de comprobar el despliegue
+   * sin entrar a ningún panel: `curl …/api/health` y mirar `dbMs`.
+   */
+  it('dice cuánto tarda la base en contestar', async () => {
+    const res = await pedir('/api/health');
+    const body = (await res.json()) as { dbMs: number | null };
+
+    expect(typeof body.dbMs).toBe('number');
+    expect(body.dbMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('responde 200 con el estado de la base', async () => {
     const res = await pedir('/api/health');
     expect(res.status).toBe(200);

@@ -361,6 +361,31 @@ describe('sincronización', () => {
   });
 
   /**
+   * `REF6-5`. `normalizedPct` se calcula con el total que la op leyó antes de
+   * escribir más el delta, sin volver a leer el documento. El test de arriba aplica
+   * **una** op sobre un arquero sin puntajes: ahí `totalPrevio + delta` y `delta`
+   * valen lo mismo, y un cálculo que ignorara el total previo pasaría igual. Hace
+   * falta que acumule entre blancos y que baje al corregir.
+   */
+  it('normalizedPct acumula entre blancos y baja al corregir uno', async () => {
+    const e = await escenario();
+    const c = await lider(e);
+    const pid = e.participantIds[0] as string;
+    const pct = async () =>
+      (await participants().findOne({ _id: new ObjectId(pid) }))?.normalizedPct;
+
+    await c.post('/api/wafl/sync', { ops: [opScore(pid, 1, ['11', '11'])] });
+    expect(await pct()).toBeCloseTo(42.31, 1); // 22 / 52
+
+    await c.post('/api/wafl/sync', { ops: [opScore(pid, 2, ['X', '10', '9'])] });
+    expect(await pct()).toBeCloseTo(98.08, 1); // (22 + 29) / 52
+
+    // Se corrige el blanco 1: de 22 a 10. Baja, no se acumula.
+    await c.post('/api/wafl/sync', { ops: [opScore(pid, 1, ['5', '5'])] });
+    expect(await pct()).toBeCloseTo(75, 1); // (10 + 29) / 52
+  });
+
+  /**
    * El contador que WAFA muestra como «7 de 8».
    *
    * Se calcula DENTRO de la transacción que escribe el puntaje, así que las
@@ -421,6 +446,76 @@ describe('sincronización', () => {
       expect(p?.total).toBe(19);
     });
 
+    /**
+     * `REF6-4` / `U-3`. Un `duplicate` es lo que recibe quien reenvía una op cuya
+     * respuesta se perdió. No dice qué pasó con ella —puede haberse aplicado, o
+     * haber perdido contra algo más nuevo, o haberse rechazado—, así que el cliente
+     * no puede saber si su puntaje local es el del servidor. Se le dice lo que el
+     * servidor tiene **hoy** en esa celda.
+     */
+    it('un duplicado de score devuelve lo que el servidor tiene hoy, con las flechas', async () => {
+      const e = await escenario();
+      const c = await lider(e);
+      const pid = e.participantIds[0] as string;
+
+      const primera = opScore(pid, 1, ['11', '8'], {
+        clientUpdatedAt: new Date('2026-08-10T14:00:00Z').toISOString(),
+      });
+      const mas_nueva = opScore(pid, 1, ['5', '5'], {
+        clientUpdatedAt: new Date('2026-08-10T15:00:00Z').toISOString(),
+      });
+
+      await c.post('/api/wafl/sync', { ops: [primera] });
+      await c.post('/api/wafl/sync', { ops: [mas_nueva] });
+
+      // Se reenvía la primera, con el mismo opId: la respuesta original se perdió.
+      const res = (await (await c.post('/api/wafl/sync', { ops: [primera] })).json()) as {
+        results: { status: string; score?: { total: number; arrows?: string[] } }[];
+      };
+
+      expect(res.results[0]?.status).toBe('duplicate');
+      expect(res.results[0]?.score?.arrows).toEqual(['5', '5']);
+      expect(res.results[0]?.score?.total).toBe(10);
+    });
+
+    // El duplicado se detecta por `opId` antes de autorizar nada. Si devolviera el
+    // puntaje de cualquier `participantId` que traiga el cuerpo, un líder podría
+    // leer los puntajes de otra patrulla reenviando uno de sus propios opId.
+    it('un duplicado NO devuelve el puntaje de un arquero de otra patrulla', async () => {
+      const e = await escenario([['razo', 8]]);
+      const c = await lider(e);
+
+      const otra = await patrols().findOne({
+        tournamentId: new ObjectId(e.tournamentId),
+        _id: { $ne: e.patrolId },
+      });
+      const ajeno = await participants().findOne({ patrolId: otra?._id });
+      if (!otra || !ajeno) throw new Error('hacen falta al menos dos patrullas');
+
+      // La otra patrulla ya cargó ese blanco: hay algo que filtrar.
+      const cOtra = await lider({
+        ...e,
+        patrolUsername: otra.username,
+        pin: decryptPin(otra.pinEnc, testEnv().PIN_ENC_KEY),
+      });
+      await cOtra.post('/api/wafl/sync', {
+        ops: [opScore(ajeno._id.toHexString(), 1, ['11', '11'])],
+      });
+
+      const propia = opScore(e.participantIds[0] as string, 1, ['11', '8']);
+      await c.post('/api/wafl/sync', { ops: [propia] });
+
+      // El mismo opId, apuntando a un arquero que no es de esta patrulla.
+      const res = (await (
+        await c.post('/api/wafl/sync', {
+          ops: [{ ...propia, participantId: ajeno._id.toHexString() }],
+        })
+      ).json()) as { results: { status: string; score?: unknown }[] };
+
+      expect(res.results[0]?.status).toBe('duplicate');
+      expect(res.results[0]?.score).toBeUndefined();
+    });
+
     it('registra la op para que el TTL la limpie después', async () => {
       const e = await escenario();
       const c = await lider(e);
@@ -473,6 +568,37 @@ describe('sincronización', () => {
       expect(res.results[0]?.status).toBe('superseded');
       expect(res.results[0]?.score?.total).toBe(22);
       expect((await scores().findOne({}))?.total).toBe(22);
+    });
+
+    /**
+     * `REF6-4` / `U-3`. El celular que pierde necesita saber **qué** ganó, no sólo
+     * cuánto suma: con los totales solos no puede corregir las flechas que muestra,
+     * y el arquero firma mirando un puntaje que no es el que el servidor guardó.
+     */
+    it('la op que pierde recibe las flechas que ganaron', async () => {
+      const e = await escenario();
+      const c = await lider(e);
+      const pid = e.participantIds[0] as string;
+
+      await c.post('/api/wafl/sync', {
+        ops: [
+          opScore(pid, 1, ['11', '11'], {
+            clientUpdatedAt: new Date('2026-08-10T15:00:00Z').toISOString(),
+          }),
+        ],
+      });
+      const res = (await (
+        await c.post('/api/wafl/sync', {
+          ops: [
+            opScore(pid, 1, ['5', '5'], {
+              clientUpdatedAt: new Date('2026-08-10T14:00:00Z').toISOString(),
+            }),
+          ],
+        })
+      ).json()) as { results: { status: string; score?: { arrows?: string[] } }[] };
+
+      expect(res.results[0]?.status).toBe('superseded');
+      expect(res.results[0]?.score?.arrows).toEqual(['11', '11']);
     });
 
     it('una op más nueva sí pisa a la anterior', async () => {

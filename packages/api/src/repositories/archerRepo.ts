@@ -46,6 +46,14 @@ export function findById(id: ObjectId): Promise<ArcherDoc | null> {
   return archers().findOne({ _id: id });
 }
 
+/** El arquero con ese DNI en esa categoría: la clave de unicidad del padrón. */
+export function findByDniAndCategory(
+  dni: string,
+  category: ArcherDoc['category'],
+): Promise<ArcherDoc | null> {
+  return archers().findOne({ dni, category });
+}
+
 export function findManyByIds(ids: readonly ObjectId[]): Promise<ArcherDoc[]> {
   return archers()
     .find({ _id: { $in: [...ids] } })

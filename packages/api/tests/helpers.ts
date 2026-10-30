@@ -17,6 +17,7 @@ import { ensureIndexes } from '../src/db/indexes.js';
 import { reset } from '../src/db/reset.js';
 import type { Env } from '../src/env.js';
 import { loadEnv } from '../src/env.js';
+import { resetBloqueos } from '../src/lib/bloqueoDeIngreso.js';
 
 let replSet: MongoMemoryReplSet | undefined;
 
@@ -39,9 +40,13 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
 }
 
 /** Arranca el replica set y conecta. Devuelve la base lista con sus índices. */
-export async function startDb(): Promise<Db> {
+export async function startDb(opciones: { monitorCommands?: boolean } = {}): Promise<Db> {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  const db = await connect({ uri: replSet.getUri(), dbName: 'bal_test' });
+  const db = await connect({
+    uri: replSet.getUri(),
+    dbName: 'bal_test',
+    ...(opciones.monitorCommands ? { monitorCommands: true } : {}),
+  });
   await ensureIndexes(db);
   return db;
 }
@@ -52,8 +57,15 @@ export async function stopDb(): Promise<void> {
   replSet = undefined;
 }
 
-/** Vacía la base entre tests. Ningún test comparte estado con otro. */
+/**
+ * Vacía la base entre tests. Ningún test comparte estado con otro.
+ *
+ * Incluye los bloqueos de ingreso, que viven en memoria: todos los tests entran
+ * como `admin` desde la misma IP (`desconocida`), así que sin esto el par queda
+ * bloqueado para el test siguiente.
+ */
 export async function clearDb(db: Db): Promise<void> {
+  resetBloqueos();
   await reset(db, testEnv());
 }
 
@@ -69,7 +81,13 @@ export async function clearDb(db: Db): Promise<void> {
 const PASSWORD = 'password-de-test-1234';
 const CSRF = 'c'.repeat(43);
 
-export function cliente() {
+/**
+ * Un cliente que mantiene la cookie de sesión, como un navegador.
+ *
+ * Con `ip`, cada request lleva esa IP (`x-forwarded-for`): es la forma de comprobar
+ * qué IP quedó en el audit log.
+ */
+export function cliente(ip?: string) {
   const app = createApp();
   let sesion = '';
 
@@ -77,6 +95,7 @@ export function cliente() {
     const headers = new Headers(init.headers);
     headers.set('cookie', [`bal_csrf=${CSRF}`, sesion].filter(Boolean).join('; '));
     headers.set('x-csrf-token', CSRF);
+    if (ip) headers.set('x-forwarded-for', ip);
     if (init.body) headers.set('content-type', 'application/json');
 
     const res = await app.request(`http://localhost${path}`, { ...init, headers });
@@ -97,9 +116,12 @@ export function cliente() {
 
 export type Cliente = ReturnType<typeof cliente>;
 
-/** Admin con el password ya cambiado, para poder usar las rutas protegidas. */
-export async function adminListo(): Promise<Cliente> {
-  const c = cliente();
+/**
+ * Admin con el password ya cambiado, para poder usar las rutas protegidas.
+ * Con `ip`, todos sus requests llevan esa IP (ver `cliente`).
+ */
+export async function adminListo(ip?: string): Promise<Cliente> {
+  const c = cliente(ip);
   await c.post('/api/auth/admin/login', { username: 'admin', password: PASSWORD });
   await c.post('/api/auth/admin/password', {
     currentPassword: PASSWORD,

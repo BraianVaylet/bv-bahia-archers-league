@@ -30,6 +30,7 @@ import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { conTransaccion } from './tournamentService.js';
 import { transition } from './tournamentStateService.js';
 
 export type OpStatus = 'applied' | 'duplicate' | 'superseded' | 'rejected';
@@ -37,12 +38,19 @@ export type OpStatus = 'applied' | 'duplicate' | 'superseded' | 'rejected';
 export interface OpResult {
   readonly opId: string;
   readonly status: OpStatus;
+  /**
+   * En `applied`, los totales que **recalculó** el servidor. En `superseded` y
+   * `duplicate`, lo que el servidor tiene **hoy** en esa celda, con sus `arrows`:
+   * el celular que perdió —o que no llegó a enterarse— necesita saber qué ganó,
+   * no sólo cuánto suma.
+   */
   readonly score?: {
     total: number;
     innerCount: number;
     xCount: number;
     tenCount: number;
     mCount: number;
+    arrows?: string[];
   };
   readonly error?: { code: string; message: string };
 }
@@ -80,6 +88,7 @@ export async function sync(
   batch: SyncBatchInput,
   patrolId: ObjectId,
   tournamentId: ObjectId,
+  ip: string | null,
 ): Promise<SyncResult> {
   const torneo = await tournamentRepo.findById(tournamentId);
   if (!torneo) {
@@ -124,10 +133,14 @@ export async function sync(
 
   const results: OpResult[] = [];
   for (const op of batch.ops) {
-    const resultado = await procesarOp(op, patrolId, torneo, cerrada);
+    const resultado = await procesarOp(op, patrolId, torneo, cerrada, ip);
     results.push(resultado);
     if (op.type === 'close' && resultado.status === 'applied') cerrada = true;
   }
+
+  // Una vez por lote, y antes de leer la patrulla para responder: el número que
+  // vuelve en `patrol.targetsCompleted` tiene que ser el recién contado.
+  if (hayQueRecontar(batch.ops, results)) await recalcularAvanceDePatrulla(patrolId);
 
   const patrulla = await patrolRepo.findById(patrolId);
 
@@ -139,6 +152,39 @@ export async function sync(
     },
     serverTime: new Date().toISOString(),
   };
+}
+
+/** Lo que el servidor tiene guardado en una celda, tal como se le devuelve al cliente. */
+const puntajeVigente = (doc: ScoreDoc): NonNullable<OpResult['score']> => ({
+  total: doc.total,
+  innerCount: doc.innerCount,
+  xCount: doc.xCount,
+  tenCount: doc.tenCount,
+  mCount: doc.mCount,
+  arrows: [...doc.arrows],
+});
+
+/**
+ * Qué se le responde a una op que ya se había procesado.
+ *
+ * `duplicate` es lo que recibe quien reenvía una op cuya respuesta se perdió, y no
+ * dice qué pasó con ella: puede haberse aplicado, haber perdido contra algo más
+ * nuevo o haberse rechazado. Para un score, entonces, se le dice lo que el
+ * servidor tiene **hoy** en esa celda, y el cliente alinea su pantalla con eso.
+ *
+ * **El duplicado se detecta por `opId` antes de autorizar nada.** Sin la
+ * comprobación de abajo, reenviar un `opId` propio con el `participantId` de otra
+ * patrulla devolvería el puntaje ajeno.
+ */
+async function respuestaDeDuplicada(op: SyncOpInput, patrolId: ObjectId): Promise<OpResult> {
+  const sinDetalle: OpResult = { opId: op.opId, status: 'duplicate' };
+  if (op.type !== 'score') return sinDetalle;
+
+  const participante = await scoreRepo.findParticipant(new ObjectId(op.participantId));
+  if (!participante?.patrolId.equals(patrolId)) return sinDetalle;
+
+  const vigente = await scoreRepo.findScore(participante._id, op.targetIndex);
+  return vigente ? { ...sinDetalle, score: puntajeVigente(vigente) } : sinDetalle;
 }
 
 /**
@@ -160,11 +206,12 @@ async function procesarOp(
   patrolId: ObjectId,
   torneo: TournamentDoc,
   patrullaCerrada: boolean,
+  ip: string | null,
 ): Promise<OpResult> {
   // Paso 1 — DEDUP. Insert atómico contra el índice único: no hay ventana entre
   // comprobar y escribir, como sí la habría con un `findOne` previo.
   if (!(await scoreRepo.claimOp(op.opId, patrolId, op.type, 'applied'))) {
-    return { opId: op.opId, status: 'duplicate' };
+    return respuestaDeDuplicada(op, patrolId);
   }
 
   const session = getClient().startSession();
@@ -178,7 +225,7 @@ async function procesarOp(
           ? await aplicarScore(op, patrolId, torneo, patrullaCerrada, session)
           : op.type === 'signature'
             ? await aplicarFirma(op, patrolId, patrullaCerrada, session)
-            : await aplicarCierre(op, patrolId, torneo, session);
+            : await aplicarCierre(op, patrolId, torneo, ip, session);
     });
 
     // Una op rechazada queda registrada como tal: si el cliente la reenvía con
@@ -321,17 +368,7 @@ async function aplicarScore(
         session,
       );
 
-      return {
-        opId: op.opId,
-        status: 'superseded',
-        score: {
-          total: existente.total,
-          innerCount: existente.innerCount,
-          xCount: existente.xCount,
-          tenCount: existente.tenCount,
-          mCount: existente.mCount,
-        },
-      };
+      return { opId: op.opId, status: 'superseded', score: puntajeVigente(existente) };
     }
   }
 
@@ -361,12 +398,14 @@ async function aplicarScore(
 
   await scoreRepo.applyRollupDelta(
     participante._id,
+    participante.total,
     deltaDeRollup(computo, existente, blanco.modality),
     torneo.maxPossibleScore,
     session,
   );
 
-  await actualizarAvanceDePatrulla(patrolId, session);
+  // El avance de la patrulla NO se recalcula acá: se cuenta una vez por lote, al
+  // final de `sync`. Hacerlo en cada op eran 3 comandos más por score.
 
   return {
     opId: op.opId,
@@ -382,34 +421,54 @@ async function aplicarScore(
 }
 
 /**
+ * ¿Hay algo que recontar? Sí si el lote trae algún score que no se rechazó.
+ *
+ * - `applied`: cambió un puntaje, es el caso obvio.
+ * - `duplicate` y `superseded`: no cambiaron nada **ahora**, pero cuentan a
+ *   propósito. El recálculo ya no es parte de la transacción de cada op: si el
+ *   proceso muere entre los commits y el recálculo, el avance queda
+ *   desactualizado, y el reenvío del lote —que el cliente hace solo, porque no
+ *   recibió respuesta— vuelve con todo `duplicate`. Es lo que lo repara.
+ * - `rejected`: no cambió nada, y un lote entero de rechazos no paga el recálculo.
+ *   Una op mala **no** impide recontar si las buenas del mismo lote lo piden.
+ */
+const hayQueRecontar = (ops: SyncBatchInput['ops'], resultados: readonly OpResult[]): boolean =>
+  ops.some((op, i) => op.type === 'score' && resultados[i]?.status !== 'rejected');
+
+/**
  * Blancos en los que TODOS los participantes de la patrulla ya tienen puntaje.
  *
- * Las dos lecturas van **con la `session`**: corren después de escribir el
- * puntaje y dentro de la misma transacción, así que sin ella no lo ven y el
- * blanco recién completado no cuenta hasta la op siguiente. Es el «7 de 8».
+ * Se cuenta **una vez por lote**, en su propia transacción corta. Antes iba dentro
+ * de la transacción de cada score, y eran 3 comandos más por op —dos listas y una
+ * escritura—, cada uno una ida y vuelta a la base (`REF6-5`). La transacción propia
+ * conserva lo que importaba de estar adentro: dos lotes de la misma patrulla que
+ * corren a la vez escriben el mismo documento, el segundo recibe un
+ * `WriteConflict` y se reintenta releyendo, así que ninguno deja un número viejo.
+ *
+ * Las lecturas van **con la `session`**: sin ella no ven lo que la transacción
+ * escribe. Es el «7 de 8».
  */
-async function actualizarAvanceDePatrulla(
-  patrolId: ObjectId,
-  session: ClientSession,
-): Promise<void> {
-  const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
-  const puntajes = await scoreRepo.listScoresOfPatrol(patrolId, session);
+async function recalcularAvanceDePatrulla(patrolId: ObjectId): Promise<void> {
+  await conTransaccion(async (session) => {
+    const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
+    const puntajes = await scoreRepo.listScoresOfPatrol(patrolId, session);
 
-  // `miembros` nunca viene vacío: sólo se llega acá después de autorizar a un
-  // participante DE esta patrulla, así que hay al menos uno. En el cliente no
-  // vale la misma garantía —ahí el bundle sí puede estar vacío— y por eso
-  // `CircuitPage` necesita su propia guarda.
-  const porBlanco = new Map<number, number>();
-  for (const s of puntajes) {
-    porBlanco.set(s.targetIndex, (porBlanco.get(s.targetIndex) ?? 0) + 1);
-  }
+    const porBlanco = new Map<number, number>();
+    for (const s of puntajes) {
+      porBlanco.set(s.targetIndex, (porBlanco.get(s.targetIndex) ?? 0) + 1);
+    }
 
-  let completos = 0;
-  for (const cantidad of porBlanco.values()) {
-    if (cantidad >= miembros.length) completos++;
-  }
+    // `miembros` no viene vacío si hay puntajes: reacomodar las patrullas sólo se
+    // puede con el torneo `sin_iniciar`, y ahí no hay puntajes. En el cliente no
+    // vale la misma garantía —el bundle sí puede estar vacío— y por eso
+    // `CircuitPage` necesita su propia guarda.
+    let completos = 0;
+    for (const cantidad of porBlanco.values()) {
+      if (cantidad >= miembros.length) completos++;
+    }
 
-  await patrolRepo.setTargetsCompleted(patrolId, completos, session);
+    await patrolRepo.setTargetsCompleted(patrolId, completos, session);
+  });
 }
 
 // ── Firma ────────────────────────────────────────────────────────────────────
@@ -480,6 +539,7 @@ async function aplicarCierre(
   op: Extract<SyncOpInput, { type: 'close' }>,
   patrolId: ObjectId,
   torneo: TournamentDoc,
+  ip: string | null,
   session: ClientSession,
 ): Promise<OpResult> {
   const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
@@ -531,10 +591,10 @@ async function aplicarCierre(
     {
       actorType: 'patrol',
       actorId: patrolId,
-      action: 'patrol.manual_edit',
+      action: 'patrol.close',
       entity: 'patrol',
       entityId: patrolId,
-      meta: { closed: true },
+      ip,
     },
     session,
   );

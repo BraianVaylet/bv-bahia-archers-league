@@ -482,6 +482,24 @@ describe('redistribución de patrullas', () => {
     expect(meta?.violations).toBeGreaterThan(0);
   });
 
+  /**
+   * `REF6-7` / `S-7`. La lista sin pedir los PIN ya no los trae, pero guardar una
+   * redistribución se hace desde la pantalla de credenciales, que los muestra: la
+   * respuesta los lleva, y queda registrado como cualquier otra vez que se muestran.
+   */
+  it('la respuesta de guardar trae los PIN, porque es la pantalla de credenciales', async () => {
+    const c = await adminListo();
+    const { tournamentId } = await torneoConPatrullas(c);
+    const { patrols } = await leerPatrullas(c, tournamentId);
+
+    const res = await c.put(`/api/admin/tournaments/${tournamentId}/patrols`, talCual(patrols));
+    expect(res.status).toBe(200);
+
+    const cuerpo = (await res.json()) as { patrols: { pin?: string }[] };
+    for (const patrulla of cuerpo.patrols) expect(patrulla.pin).toMatch(/^\d{6}$/);
+    expect(await auditLog().countDocuments({ action: 'patrol.pin.reveal' })).toBe(1);
+  });
+
   it('sin sesión de admin no se puede redistribuir', async () => {
     const c = await adminListo();
     const { tournamentId } = await torneoConPatrullas(c);

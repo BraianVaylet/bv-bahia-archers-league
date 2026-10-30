@@ -9,7 +9,7 @@
 
 import { formatearFecha, type SCORING, type TournamentStatus } from '@bal/shared';
 import { BadgeEstado, ChipCategoria, ChipModalidad, IconoCandado } from '@bal/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Button,
@@ -23,6 +23,7 @@ import {
 } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
+import { useRefrescoPeriodico } from '../refrescoPeriodico.js';
 import {
   type AvanceDePatrulla,
   avanceDePatrullas,
@@ -192,27 +193,47 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [editando, setEditando] = useState<Torneo>();
 
-  const cargar = useCallback(async () => {
-    try {
-      const [t, p, r, b] = await Promise.all([
-        api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`),
-        api.get<{ patrols: PatrullaSeguimiento[] }>(`/admin/tournaments/${id}/patrols`),
-        api.get<{ participants: ResultadoParticipante[] }>(`/admin/tournaments/${id}/results`),
-        api.get<{ lockedTargets: number[] }>(`/admin/tournaments/${id}/locked-targets`),
-      ]);
-      setTorneo(t.tournament);
-      setPatrullas(p.patrols);
-      setParticipantes(r.participants);
-      setBloqueados(b.lockedTargets);
-      setError(undefined);
-    } catch {
-      setError('No se pudo cargar el torneo. Revisá la conexión.');
-    }
-  }, [id]);
+  /** Hay una carga en vuelo: un refresco lento no se pisa con el siguiente. */
+  const cargando = useRef(false);
+
+  /**
+   * Con `silencioso` (el refresco automático) un fallo no muestra nada y un éxito no
+   * borra un error de la última acción del admin: lo que ya se ve sigue siendo lo
+   * mejor que hay, y un corte de red cada 30 s no puede dejar la pantalla en rojo.
+   */
+  const cargar = useCallback(
+    async (silencioso = false) => {
+      if (silencioso && cargando.current) return;
+      cargando.current = true;
+      try {
+        // Sin `?pins=1`: el seguimiento no necesita los PIN, y pedirlos los descifraba
+        // y los registraba en el audit log en cada vuelta.
+        const [t, p, r, b] = await Promise.all([
+          api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`),
+          api.get<{ patrols: PatrullaSeguimiento[] }>(`/admin/tournaments/${id}/patrols`),
+          api.get<{ participants: ResultadoParticipante[] }>(`/admin/tournaments/${id}/results`),
+          api.get<{ lockedTargets: number[] }>(`/admin/tournaments/${id}/locked-targets`),
+        ]);
+        setTorneo(t.tournament);
+        setPatrullas(p.patrols);
+        setParticipantes(r.participants);
+        setBloqueados(b.lockedTargets);
+        if (!silencioso) setError(undefined);
+      } catch {
+        if (!silencioso) setError('No se pudo cargar el torneo. Revisá la conexión.');
+      } finally {
+        cargando.current = false;
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  // Sólo un torneo en curso cambia solo: ahí las patrullas están anotando.
+  useRefrescoPeriodico(() => void cargar(true), torneo?.status === 'en_proceso');
 
   /**
    * Volver a `sin_iniciar`.

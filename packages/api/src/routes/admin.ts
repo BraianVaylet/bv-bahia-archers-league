@@ -19,8 +19,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
+import { ipDelCliente } from '../lib/ip.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
-import { clientIp } from '../middleware/rateLimit.js';
 import { parseJsonBody, parseQuery } from '../middleware/validate.js';
 import * as seasonRepo from '../repositories/seasonRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
@@ -28,6 +28,7 @@ import * as archerService from '../services/archerService.js';
 import * as patrolAdminService from '../services/patrolAdminService.js';
 import * as paymentService from '../services/paymentService.js';
 import * as publishService from '../services/publishService.js';
+import * as seasonService from '../services/seasonService.js';
 import * as tournamentEditService from '../services/tournamentEditService.js';
 import * as tournamentService from '../services/tournamentService.js';
 import * as tournamentStateService from '../services/tournamentStateService.js';
@@ -41,6 +42,14 @@ const ListArchersQuery = z
     status: z.enum(['pendiente', 'aprobado']).optional(),
   })
   .transform((v) => ({ archived: v.archived === 'true', query: v.q, status: v.status }));
+
+/**
+ * Los PIN se piden con `?pins=1` y con nada más: un valor distinto o un parámetro
+ * desconocido es un `400`, no un «no» silencioso (`REF6-7` / `S-7`).
+ */
+const ListPatrolsQuery = z
+  .strictObject({ pins: z.literal('1').optional() })
+  .transform((v) => ({ conPins: v.pins === '1' }));
 
 const ListTournamentsQuery = z.strictObject({
   status: z.enum(['sin_iniciar', 'en_proceso', 'completado', 'publicado']).optional(),
@@ -65,21 +74,43 @@ export const admin = new Hono()
 
   .post('/archers', async (c) => {
     const input = await parseJsonBody(c, ArcherInputSchema);
-    return c.json({ archer: await archerService.create(input) }, 201);
+    return c.json(
+      { archer: await archerService.create(input, currentAdminId(c), ipDelCliente(c)) },
+      201,
+    );
   })
 
   .patch('/archers/:id', async (c) => {
     const input = await parseJsonBody(c, ArcherInputSchema);
-    return c.json({ archer: await archerService.update(toObjectId(c.req.param('id')), input) });
+    return c.json({
+      archer: await archerService.update(
+        toObjectId(c.req.param('id')),
+        input,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    });
   })
 
   .post('/archers/:id/archive', async (c) => {
-    return c.json({ archer: await archerService.setArchived(toObjectId(c.req.param('id')), true) });
+    return c.json({
+      archer: await archerService.setArchived(
+        toObjectId(c.req.param('id')),
+        true,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    });
   })
 
   .post('/archers/:id/restore', async (c) => {
     return c.json({
-      archer: await archerService.setArchived(toObjectId(c.req.param('id')), false),
+      archer: await archerService.setArchived(
+        toObjectId(c.req.param('id')),
+        false,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
     });
   })
 
@@ -95,7 +126,7 @@ export const admin = new Hono()
   })
 
   .delete('/archers/:id', async (c) => {
-    await archerService.remove(toObjectId(c.req.param('id')));
+    await archerService.remove(toObjectId(c.req.param('id')), currentAdminId(c), ipDelCliente(c));
     return c.json({ ok: true });
   })
 
@@ -116,14 +147,18 @@ export const admin = new Hono()
 
   .post('/seasons', async (c) => {
     const input = await parseJsonBody(c, SeasonInputSchema);
-    const doc = await seasonRepo.create(input);
+    const doc = await seasonService.create(input, currentAdminId(c), ipDelCliente(c));
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } }, 201);
   })
 
   .patch('/seasons/:id', async (c) => {
     const input = await parseJsonBody(c, SeasonInputSchema);
-    const doc = await seasonRepo.update(toObjectId(c.req.param('id')), input);
-    if (!doc) throw notFound();
+    const doc = await seasonService.update(
+      toObjectId(c.req.param('id')),
+      input,
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } });
   })
 
@@ -134,14 +169,22 @@ export const admin = new Hono()
    * curso cuando hay varias, que es el caso normal a fin de año.
    */
   .post('/seasons/:id/archive', async (c) => {
-    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'cerrada');
-    if (!doc) throw notFound();
+    const doc = await seasonService.setStatus(
+      toObjectId(c.req.param('id')),
+      'cerrada',
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
   })
 
   .post('/seasons/:id/restore', async (c) => {
-    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'activa');
-    if (!doc) throw notFound();
+    const doc = await seasonService.setStatus(
+      toObjectId(c.req.param('id')),
+      'activa',
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
   })
 
@@ -179,7 +222,11 @@ export const admin = new Hono()
   })
 
   .post('/tournaments/:id/start', async (c) => {
-    const doc = await tournamentStateService.start(toObjectId(c.req.param('id')));
+    const doc = await tournamentStateService.start(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
@@ -196,7 +243,11 @@ export const admin = new Hono()
   })
 
   .delete('/tournaments/:id', async (c) => {
-    await tournamentEditService.removeTournament(toObjectId(c.req.param('id')));
+    await tournamentEditService.removeTournament(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ ok: true });
   })
 
@@ -208,7 +259,11 @@ export const admin = new Hono()
    * todavía no se enteró de que alguien anotó.
    */
   .post('/tournaments/:id/unstart', async (c) => {
-    const doc = await tournamentStateService.unstart(toObjectId(c.req.param('id')));
+    const doc = await tournamentStateService.unstart(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
@@ -228,8 +283,9 @@ export const admin = new Hono()
 
   .get('/tournaments/:id/patrols', async (c) => {
     const id = toObjectId(c.req.param('id'));
+    const { conPins } = parseQuery(c, ListPatrolsQuery);
     const [patrols, violations] = await Promise.all([
-      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), conPins),
       patrolAdminService.validateCurrentDistribution(id),
     ]);
     return c.json({ patrols, violations });
@@ -243,10 +299,11 @@ export const admin = new Hono()
     const id = toObjectId(c.req.param('id'));
     const input = await parseJsonBody(c, PatrolDistributionSchema);
 
-    await patrolAdminService.redistribute(id, input, currentAdminId(c), clientIp(c));
+    await patrolAdminService.redistribute(id, input, currentAdminId(c), ipDelCliente(c));
 
+    // Guardar se hace desde la pantalla de credenciales, que muestra los PIN: acá sí.
     const [patrols, violations] = await Promise.all([
-      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), true),
       patrolAdminService.validateCurrentDistribution(id),
     ]);
     return c.json({ patrols, violations });
@@ -313,7 +370,14 @@ export const admin = new Hono()
 
   .post('/participants/:id/payment', async (c) => {
     const { paid } = await parseJsonBody(c, MarkPaymentSchema);
-    return c.json(await paymentService.setPaid(toObjectId(c.req.param('id')), paid));
+    return c.json(
+      await paymentService.setPaid(
+        toObjectId(c.req.param('id')),
+        paid,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    );
   })
 
   .get('/tournaments/:id/locked-targets', async (c) => {
@@ -337,7 +401,7 @@ export const admin = new Hono()
       toObjectId(c.req.param('id')),
       reason,
       currentAdminId(c),
-      clientIp(c),
+      ipDelCliente(c),
     );
     return c.json({ ok: true });
   })

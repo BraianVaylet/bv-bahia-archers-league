@@ -5,7 +5,7 @@
  * desde un handler. Ver `docs/OFFLINE_SYNC.md` §5.3 y §12.
  */
 
-import { ApiError, api } from '../lib/apiClient.js';
+import { ApiError, request } from '../lib/apiClient.js';
 import {
   countOutbox,
   getDb,
@@ -84,7 +84,19 @@ function esperaDe(intentos: number): number {
 interface OpResult {
   opId: string;
   status: 'applied' | 'duplicate' | 'superseded' | 'rejected';
-  score?: { total: number; innerCount: number; xCount: number; tenCount: number; mCount: number };
+  /**
+   * En `applied`, los totales que recalculó el servidor. En `superseded` y
+   * `duplicate` (de un score), lo que el servidor tiene hoy en esa celda, con
+   * sus `arrows`: es lo que permite alinear la pantalla con el servidor.
+   */
+  score?: {
+    total: number;
+    innerCount: number;
+    xCount: number;
+    tenCount: number;
+    mCount: number;
+    arrows?: string[];
+  };
   error?: { code: string; message: string };
 }
 
@@ -109,6 +121,50 @@ export interface SyncDeps {
 }
 
 /**
+ * Cuánto se espera la respuesta de `/wafl/sync` antes de cortar y reintentar.
+ *
+ * `REF6-4` / `P-2`. Con señal intermitente un POST puede quedar colgado minutos, y
+ * mientras `flush` espera `corriendo` está en `true`: el evento `online`, el
+ * intervalo y el foco llaman a `flush()` y salen de inmediato, así que **nada más
+ * puede vaciar el outbox** aunque la señal ya haya vuelto. Un lote de 50 ops tarda
+ * unos segundos con señal buena; 20 s es holgado para eso y corto para la espera.
+ */
+const SYNC_TIMEOUT_MS = 20_000;
+
+/**
+ * Manda el lote con plazo. Cubre el pedido entero, token CSRF incluido.
+ *
+ * Es un `setTimeout` propio y no `AbortSignal.timeout`: este último no se puede
+ * controlar con relojes falsos, y ese plazo es justo lo que hay que probar. El
+ * error que sale no es un `ApiError`, así que `esReintentable` lo trata como lo
+ * que es: no hay nada que el servidor haya dicho, se reintenta.
+ */
+async function postConPlazo(ops: Record<string, unknown>[]): Promise<SyncResponse> {
+  const control = new AbortController();
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+  const vencido = new Promise<never>((_resolve, reject) => {
+    temporizador = setTimeout(() => {
+      control.abort();
+      reject(new Error('El servidor no respondió a tiempo.'));
+    }, SYNC_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([
+      request<SyncResponse>('/wafl/sync', {
+        method: 'POST',
+        body: { ops },
+        signal: control.signal,
+      }),
+      vencido,
+    ]);
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
+/**
  * Lo que hace de verdad: mandar el lote a `/wafl/sync`.
  *
  * Es el **valor por defecto**, no algo que haya que configurar. Cuando había que
@@ -117,7 +173,7 @@ export interface SyncDeps {
  * entrada de `TEST-1`.
  */
 const DEPS_REALES: SyncDeps = {
-  post: (ops) => api.post<SyncResponse>('/wafl/sync', { ops }),
+  post: postConPlazo,
 };
 
 let deps: SyncDeps = DEPS_REALES;
@@ -178,8 +234,46 @@ export async function flush(): Promise<boolean> {
   }
 }
 
+/** La celda (arquero + blanco) a la que se refiere una op de score. */
+function celdaDe(op: OutboxOp): { participantId: string; targetIndex: number } | undefined {
+  const participantId = op.payload.participantId as string | undefined;
+  const targetIndex = op.payload.targetIndex as number | undefined;
+  return participantId !== undefined && targetIndex !== undefined
+    ? { participantId, targetIndex }
+    : undefined;
+}
+
+/**
+ * Lo que el celular hace con una op que el servidor **no** rechazó.
+ *
+ * `applied`, `duplicate` y `superseded` se resuelven igual en el outbox —la op ya
+ * no tiene nada que hacer ahí—, pero no en la pantalla:
+ *
+ * - `applied`: gana el total del servidor, que es la autoridad.
+ * - `superseded` y `duplicate`: sacar la op no alcanza. El puntaje local seguía en
+ *   `pending` con las flechas que perdieron (o que quizás nunca llegaron), y
+ *   `sembrarPuntajes` no pisa lo que no está `synced`. Se alinea con lo que el
+ *   servidor tiene. Sin `score` en la respuesta (un `duplicate` de una firma, o
+ *   un servidor viejo) no hay con qué alinear y no se toca nada.
+ */
+async function reflejarResultado(op: OutboxOp, resultado: OpResult): Promise<void> {
+  const { score } = resultado;
+  if (!score) return;
+
+  if (resultado.status === 'applied') {
+    const celda = celdaDe(op);
+    if (!celda) return;
+
+    const db = await getDb();
+    const local = await db.get('scores', [celda.participantId, celda.targetIndex]);
+    if (local) await db.put('scores', { ...local, ...score, syncState: 'synced' });
+    return;
+  }
+
+  if (score.arrows) await alinearConServidor(op, { ...score, arrows: score.arrows });
+}
+
 async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Promise<boolean> {
-  const db = await getDb();
   const porId = new Map(respuesta.results.map((r) => [r.opId, r]));
   let hayConflicto = false;
 
@@ -199,25 +293,61 @@ async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Pro
       continue;
     }
 
-    // `applied`, `duplicate` y `superseded` se resuelven igual: la op ya no
-    // tiene nada que hacer en el outbox.
-    if (resultado.status === 'applied' && resultado.score) {
-      const participantId = op.payload.participantId as string | undefined;
-      const targetIndex = op.payload.targetIndex as number | undefined;
-
-      if (participantId !== undefined && targetIndex !== undefined) {
-        const score = await db.get('scores', [participantId, targetIndex]);
-        if (score) {
-          // Gana el total del servidor: es la autoridad.
-          await db.put('scores', { ...score, ...resultado.score, syncState: 'synced' });
-        }
-      }
-    }
-
+    await reflejarResultado(op, resultado);
     await removeOp(op.opId);
   }
 
   return hayConflicto;
+}
+
+/**
+ * Deja el puntaje local igual al del servidor, ya sincronizado.
+ *
+ * `REF6-4` / `U-3`. Dos celulares con la misma credencial pueden cargar el mismo
+ * blanco; gana el `clientUpdatedAt` más reciente. El que pierde se quedaba
+ * mostrando —y haciendo firmar— un número que no es el que el servidor guardó.
+ * Lo mismo cuando se perdió la respuesta y el reenvío vuelve como `duplicate`.
+ *
+ * **No pisa una edición más nueva que todavía está en camino.** Si hay otra op de
+ * score para la misma celda en el outbox, el líder volvió a tocar el blanco
+ * mientras el lote viajaba: esa edición es más nueva que lo que el servidor
+ * devuelve, y se resuelve sola cuando le toque.
+ */
+async function alinearConServidor(
+  op: OutboxOp,
+  vigente: NonNullable<OpResult['score']> & { arrows: string[] },
+): Promise<void> {
+  // Una firma no tiene blanco, así que no tiene celda: `celdaDe` la descarta sola.
+  const celda = celdaDe(op);
+  if (!celda) return;
+  const { participantId, targetIndex } = celda;
+
+  const hayOtraEnCamino = (await readOutbox()).some(
+    (o) =>
+      o.opId !== op.opId &&
+      o.type === 'score' &&
+      o.payload.participantId === participantId &&
+      o.payload.targetIndex === targetIndex,
+  );
+  if (hayOtraEnCamino) return;
+
+  const db = await getDb();
+  const local = await db.get('scores', [participantId, targetIndex]);
+
+  await db.put('scores', {
+    participantId,
+    targetIndex,
+    arrows: vigente.arrows,
+    total: vigente.total,
+    innerCount: vigente.innerCount,
+    xCount: vigente.xCount,
+    tenCount: vigente.tenCount,
+    mCount: vigente.mCount,
+    // Sin `error`: un rechazo anterior no puede quedar pegado a un puntaje que ya
+    // coincide con el del servidor.
+    clientUpdatedAt: local?.clientUpdatedAt ?? Date.now(),
+    syncState: 'synced',
+  });
 }
 
 /**

@@ -108,7 +108,7 @@ test.describe('alta pública de arqueros', () => {
 
     const { patrols } = await api.get<{
       patrols: { id: string; number: number; username: string; pin: string }[];
-    }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+    }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
     const patrulla = patrols[0];
     if (!patrulla) throw new Error('El torneo no armó ninguna patrulla');
 

@@ -826,14 +826,15 @@ describe('ArcherRegisterPage', () => {
     expect(confirmacion.textContent ?? '').not.toMatch(/ya está(s)? anotad[oa]/i);
   });
 
-  // El error del servidor se muestra tal cual, sin reinterpretarlo: es el
-  // caso del DNI repetido, que no dice con qué nombre ya está cargado.
+  // El error del servidor se muestra tal cual, sin reinterpretarlo. Antes el caso
+  // era el DNI repetido (409); desde `REF6-6` ese caso responde como un alta nueva
+  // para no ser un oráculo, y el error que sí puede llegar es el del cupo por hora.
   it('un error del servidor se muestra tal cual lo manda', async () => {
     servidor({
       '/api/public/archers': () => ({
-        status: 409,
+        status: 429,
         json: {
-          error: { code: 'ARCHER_DNI_DUPLICATE', message: 'Ya existe un arquero con ese DNI.' },
+          error: { code: 'RATE_LIMITED', message: 'Demasiados intentos. Esperá un momento.' },
         },
       }),
     });
@@ -841,7 +842,71 @@ describe('ArcherRegisterPage', () => {
     completar();
     fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un arquero con ese DNI.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Demasiados intentos. Esperá un momento.',
+    );
+  });
+
+  /**
+   * `REF6-6` / `S-6`. Un campo que ningún humano ve: un bot que rellena el
+   * formulario entero lo rellena también, y el servidor descarta esa alta en
+   * silencio. Tiene que ser invisible **y** inalcanzable —ni con Tab ni con un
+   * lector de pantalla—, o a una persona real le anunciaría un campo sin sentido.
+   */
+  describe('el campo trampa', () => {
+    const trampa = () => document.querySelector<HTMLInputElement>('input[name="sitioWeb"]');
+
+    it('existe, pero un humano no puede verlo ni llegar a él', () => {
+      renderAlta();
+      const campo = trampa();
+
+      expect(campo).not.toBeNull();
+      // Fuera del árbol de accesibilidad, fuera del orden de tabulación y sin
+      // autocompletado del navegador.
+      expect(campo?.closest('[aria-hidden="true"]')).not.toBeNull();
+      expect(campo?.tabIndex).toBe(-1);
+      expect(campo?.autocomplete).toBe('off');
+      // Y no escondido con `hidden`/`display:none`: muchos bots saltean esos.
+      expect(campo?.closest('[hidden]')).toBeNull();
+      // Sin etiqueta que un lector de pantalla pudiera anunciar.
+      expect(screen.queryByLabelText(/sitio/i)).toBeNull();
+    });
+
+    it('un humano lo deja vacío y el alta sale igual', async () => {
+      servidor({
+        '/api/public/archers': () => ({
+          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+        }),
+      });
+      renderAlta();
+      completar();
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+      await screen.findByRole('status');
+
+      const llamada = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/archers'));
+      const cuerpo = JSON.parse(String(llamada?.[1]?.body)) as { sitioWeb?: string };
+      expect(cuerpo.sitioWeb ?? '').toBe('');
+    });
+
+    it('si lo llena un bot, el valor viaja tal cual al servidor para que lo descarte', async () => {
+      servidor({
+        '/api/public/archers': () => ({
+          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+        }),
+      });
+      renderAlta();
+      completar();
+      const campo = trampa();
+      if (!campo) throw new Error('el campo trampa tendría que existir');
+      fireEvent.change(campo, { target: { value: 'http://ofertas.example' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+      await screen.findByRole('status');
+
+      const llamada = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/archers'));
+      expect(JSON.parse(String(llamada?.[1]?.body))).toMatchObject({
+        sitioWeb: 'http://ofertas.example',
+      });
+    });
   });
 
   it('el DNI filtra letras al tipear, y corta en 8 dígitos', () => {

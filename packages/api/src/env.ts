@@ -53,6 +53,12 @@ const EnvSchema = z.object({
   RATE_LIMIT_LOGIN: entero(60),
   RATE_LIMIT_LOGIN_WINDOW_MIN: entero(15),
   /**
+   * Altas públicas por hora y por IP. El alta escribe, y cada una es una fila que
+   * el admin tiene que revisar. Generoso a propósito: el día de la inscripción
+   * varios arqueros se anotan a la vez desde el wifi del club, que es una sola IP.
+   */
+  RATE_LIMIT_REGISTER: entero(20),
+  /**
    * Intentos fallidos por IP al recuperar el password. Más corto que el login:
    * es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por
    * cuenta, así que el cupo de la IP es lo único que frena adivinar el código.

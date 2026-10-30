@@ -307,10 +307,9 @@ Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert`
   at: Date,
   actorType: "admin" | "patrol" | "system",
   actorId: ObjectId | null,
-  action: "tournament.publish" | "tournament.unpublish" | "signature.unlock"
-        | "patrol.pin.regenerate" | "patrol.manual_edit" | "tournament.target_edit"
-        | "sync.conflict",
-  entity: "tournament" | "patrol" | "participant",
+  action: String,                       // la lista completa y qué guarda cada una: SECURITY.md §9 bis
+                                        // p. ej. "tournament.start" | "payment.set" | "patrol.close"
+  entity: "tournament" | "patrol" | "participant" | "user" | "archer" | "season",
   entityId: ObjectId,
   meta: Object,                         // sin datos sensibles
   ip: String | null
@@ -359,7 +358,7 @@ Base `/api`. JSON. Errores con forma uniforme:
 | `DELETE` | `/api/admin/archers/:id` | **409** si participó de algún torneo |
 | `GET` `POST` `PATCH` | `/api/admin/seasons[/:id]` | CRUD de temporadas |
 
-Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`. El mismo DNI en otra categoría se permite: es como una misma persona se anota en más de una.
+Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`. En el alta **pública** (`POST /api/public/archers`) no: responde igual que para un DNI nuevo, para no confirmar quién está en el padrón (`SECURITY.md` §15). El mismo DNI en otra categoría se permite: es como una misma persona se anota en más de una.
 
 ### 3.3 Admin — torneos
 
@@ -378,8 +377,8 @@ Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve
 
 | Método | Ruta | Notas |
 |---|---|---|
-| `GET` | `/api/admin/tournaments/:id/patrols` | Composición + credenciales (PIN descifrado) |
-| `PUT` | `/api/admin/tournaments/:id/patrols` | Reemplaza la distribución. Solo `sin_iniciar`. Devuelve violaciones sin bloquear |
+| `GET` | `/api/admin/tournaments/:id/patrols` | Composición y avance. **Sin PIN** por defecto; con `?pins=1` trae el PIN descifrado y lo registra en el audit log (`SECURITY.md` §9). Cualquier otro parámetro es un `400` |
+| `PUT` | `/api/admin/tournaments/:id/patrols` | Reemplaza la distribución. Solo `sin_iniciar`. Devuelve violaciones sin bloquear, y las patrullas **con PIN** (se guarda desde la pantalla de credenciales) |
 | `POST` | `/api/admin/patrols/:id/pin/regenerate` | Nuevo PIN; invalida sesiones de esa patrulla |
 | `POST` | `/api/admin/participants/:id/signature/unlock` | `{ reason }` — desbloqueo auditado |
 
@@ -430,7 +429,7 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
 
 ### 3.7 Salud
 
-| `GET` | `/api/health` | `{ status, version, db: "ok" \| "degraded", uptime }`. Usado por el healthcheck de Railway |
+| `GET` | `/api/health` | `{ status, version, db: "ok" \| "degraded", dbMs, uptime }`. Usado por el healthcheck de Railway. `dbMs` es lo que tardó el `ping` a la base (`null` si está caída): sirve para comprobar que Railway y Atlas están en la misma región |
 
 ### 3.8 Ejemplo — sync
 
@@ -549,7 +548,23 @@ export const SyncBatchSchema = z.object({
 | JS inicial de la landing | < 120 KB gz |
 | LCP de la landing | < 2.5 s |
 | `GET /api/public/rankings` p95 | < 200 ms |
-| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms |
+| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms — **no se cumple todavía**, ver abajo |
+
+#### Sincronización, medida (`REF6-5`)
+
+`pnpm --filter @bal/api bench:sync` pone un proxy con retardo entre la API y MongoDB y mide un lote de ops de score. `tests/sync-viajes.test.ts` cuenta los comandos y falla si crecen. Cada comando es una ida y vuelta, **en serie**.
+
+| RTT a la base | ops | antes | después |
+|---|---|---|---|
+| 0 ms | 20 | 204 comandos · 291 ms | 128 comandos · 227 ms |
+| 2 ms | 20 | 204 comandos · 707 ms | 128 comandos · **487 ms** |
+| 30 ms | 50 | 554 comandos · 17,6 s | 309 comandos · 9,9 s |
+| 120 ms | 50 | 554 comandos · 67,6 s | 309 comandos · 37,8 s |
+
+*Peor de 3 corridas a 20 ops; una a 50. Windows, `mongod` en memoria, API y proxy en el mismo proceso: sirve para comparar antes y después, no como cifra absoluta de producción. Re-medir contra el despliegue real.*
+
+- **−37 % de comandos a 20 ops, −44 % a 50.** Por score: 10 → 6 (el avance de la patrulla se cuenta una vez por lote, y los rollups son una escritura en vez de dos).
+- **El presupuesto de 400 ms no se cumple:** 487 ms a 2 ms de RTT. Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops no bajan de ~230 ms ni con RTT cero, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op, y eso es tocar la idempotencia (dedup en bloque con `insertMany`) o unir las transacciones de un lote: decisiones de diseño, no de ajuste. O recalibrar el número: se escribió antes de medir.
 
 Los presupuestos de bundle se hacen fallar el build con `rollup-plugin-visualizer` + un check de tamaño.
 

@@ -171,7 +171,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
     try {
       const [t, r] = await Promise.all([
         api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`),
-        api.get<Respuesta>(`/admin/tournaments/${id}/patrols`),
+        api.get<Respuesta>(`/admin/tournaments/${id}/patrols?pins=1`),
       ]);
       setTorneo(t.tournament);
       setPatrullas(r.patrols);

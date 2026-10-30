@@ -278,6 +278,227 @@ describe('flush', () => {
     expect(await countOutbox()).toBe(0);
   });
 
+  /**
+   * `REF6-4` / `U-3`. Sacar la op del outbox no alcanza: el puntaje local seguía
+   * en `pending` con las flechas que **perdieron**, y `sembrarPuntajes` nunca pisa
+   * lo que no está `synced`. El celular que perdía el last-write-wins mostraba
+   * para siempre un número que no era el del servidor, y el arquero firmaba
+   * mirándolo.
+   */
+  describe('el celular alinea su pantalla con lo que el servidor tiene', () => {
+    const vigente = {
+      total: 22,
+      innerCount: 2,
+      xCount: 0,
+      tenCount: 0,
+      mCount: 0,
+      arrows: ['11', '11'],
+    };
+
+    const respondiendo = (status: 'superseded' | 'duplicate', score?: typeof vigente) =>
+      configureSync({
+        post: async (ops) => ({
+          results: ops.map((o) => ({
+            opId: o.opId as string,
+            status,
+            ...(score ? { score } : {}),
+          })),
+          patrol: { status: 'en_curso', targetsCompleted: 0 },
+          serverTime: new Date().toISOString(),
+        }),
+      });
+
+    it.each(['superseded', 'duplicate'] as const)(
+      '`%s` deja las flechas y los totales del servidor, ya sincronizados',
+      async (status) => {
+        await writeScore(P1, 1, ['5', '5']);
+        expect((await readScore(P1, 1))?.total).toBe(10);
+
+        respondiendo(status, vigente);
+        await flush();
+
+        expect(await readScore(P1, 1)).toMatchObject({
+          arrows: ['11', '11'],
+          total: 22,
+          innerCount: 2,
+          syncState: 'synced',
+        });
+        expect(await countOutbox()).toBe(0);
+      },
+    );
+
+    // Un rechazo previo marcó el puntaje con su motivo. Si el servidor ya tiene
+    // otra cosa y el celular la adopta, el motivo viejo no puede quedarse pegado.
+    it('limpia el error que hubiera quedado marcado', async () => {
+      await writeScore(P1, 1, ['5', '5']);
+      const db = await (await import('./db.js')).getDb();
+      const previo = await db.get('scores', [P1, 1]);
+      if (!previo) throw new Error('el puntaje tendría que existir: se acaba de escribir');
+      await db.put('scores', { ...previo, syncState: 'conflict', error: 'viejo' });
+
+      respondiendo('superseded', vigente);
+      await flush();
+
+      const despues = await readScore(P1, 1);
+      expect(despues?.syncState).toBe('synced');
+      expect(despues?.error).toBeUndefined();
+    });
+
+    /**
+     * Si el líder volvió a editar el blanco mientras el lote viajaba, esa edición
+     * es **más nueva** que lo que el servidor devuelve: pisarla la perdería.
+     */
+    it('NO pisa una edición más nueva que todavía está en camino', async () => {
+      await writeScore(P1, 1, ['5', '5']);
+
+      let llamadas = 0;
+      configureSync({
+        post: async (ops) => {
+          llamadas++;
+          if (llamadas === 1) {
+            // El líder corrige el blanco mientras el primer lote está en el aire.
+            const edicion = await writeScore(P1, 1, ['8', '8']);
+            // Si esta edición no entrara, el test no probaría nada.
+            expect(edicion.ok).toBe(true);
+          }
+          return {
+            results: ops.map((o) =>
+              llamadas === 1
+                ? { opId: o.opId as string, status: 'superseded' as const, score: vigente }
+                : { opId: o.opId as string, status: 'applied' as const },
+            ),
+            patrol: { status: 'en_curso', targetsCompleted: 0 },
+            serverTime: new Date().toISOString(),
+          };
+        },
+      });
+
+      await flush();
+
+      expect(llamadas).toBe(2);
+      expect((await readScore(P1, 1))?.arrows).toEqual(['8', '8']);
+    });
+
+    // Un servidor viejo, o un `duplicate` de una firma, no manda `score`.
+    it('sin `score` en la respuesta no toca nada y la op igual sale', async () => {
+      await writeScore(P1, 1, ['5', '5']);
+
+      respondiendo('duplicate');
+      await flush();
+
+      expect((await readScore(P1, 1))?.arrows).toEqual(['5', '5']);
+      expect(await countOutbox()).toBe(0);
+    });
+  });
+
+  /**
+   * `REF6-4` / `P-2`. Con señal intermitente un POST puede quedar colgado
+   * minutos. Mientras tanto `corriendo` está en `true` y **ningún otro disparador
+   * puede vaciar el outbox**, aunque la señal haya vuelto: el evento `online`, el
+   * intervalo y el foco llaman a `flush()` y salen de inmediato. Se prueba con el
+   * transporte real, no con `configureSync`: el plazo vive ahí.
+   */
+  describe('el POST de sync tiene plazo', () => {
+    const PLAZO_MS = 20_000;
+
+    // Un servidor que no contesta nunca, pero que respeta la cancelación. Devuelve
+    // las señales que recibió cada pedido: que se haya cancelado o no es lo que
+    // dice si el plazo corrió, sin depender de cuánto tarda IndexedDB.
+    const sinRespuesta = () => {
+      const señales: AbortSignal[] = [];
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            const señal = init?.signal;
+            if (!señal) return;
+            señales.push(señal);
+            señal.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            );
+          }),
+      );
+      return señales;
+    };
+
+    // Un servidor que acepta todo lo que le mandan.
+    const aceptandoTodo = () =>
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+        const { ops } = JSON.parse(String(init?.body)) as { ops: { opId: string }[] };
+        return new Response(
+          JSON.stringify({
+            results: ops.map((o) => ({ opId: o.opId, status: 'applied' })),
+            patrol: { status: 'en_curso', targetsCompleted: 1 },
+            serverTime: new Date().toISOString(),
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      });
+
+    // `setImmediate` no está falseado: deja correr a `fake-indexeddb` entre vuelta y vuelta.
+    const hastaQue = async (condicion: () => boolean | Promise<boolean>) => {
+      for (let i = 0; i < 500 && !(await condicion()); i++) {
+        await new Promise<void>((r) => setImmediate(r));
+      }
+    };
+
+    beforeEach(() => {
+      // Sólo los temporizadores: `fake-indexeddb` agenda con `setImmediate`.
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      // Con la cookie puesta no se pide el token CSRF, que es otro `fetch`.
+      // biome-ignore lint/suspicious/noDocumentCookie: `apiClient` lee el token CSRF de `document.cookie`; en jsdom es la única forma de dejarlo puesto.
+      document.cookie = 'bal_csrf=token-de-prueba';
+    });
+
+    it('si el servidor no contesta en 20 s se corta, y la op se queda para reintentar', async () => {
+      const señales = sinRespuesta();
+      await writeScore(P1, 1, ['11', '8']);
+
+      const vaciado = flush();
+      // El reloj corre recién cuando el pedido ya salió: antes no hay plazo que medir.
+      await hastaQue(() => señales.length > 0);
+      await vi.advanceTimersByTimeAsync(PLAZO_MS);
+
+      expect(señales[0]?.aborted).toBe(true);
+      expect(await vaciado).toBe(false);
+      expect(await countOutbox()).toBe(1);
+      expect((await readOutbox())[0]?.attempts).toBe(1);
+    });
+
+    it('un POST colgado no traba el outbox: cuando vuelve la señal, se vacía', async () => {
+      const señales = sinRespuesta();
+      await writeScore(P1, 1, ['11', '8']);
+
+      const vaciado = flush();
+      await hastaQue(() => señales.length > 0);
+      await vi.advanceTimersByTimeAsync(PLAZO_MS);
+      await vaciado;
+
+      // Vuelve la señal. El reintento programado tiene que poder entrar: antes del
+      // plazo, `corriendo` quedaba en `true` y ningún disparador podía vaciar.
+      aceptandoTodo();
+      await vi.advanceTimersByTimeAsync(60_000);
+      await hastaQue(async () => (await countOutbox()) === 0);
+
+      expect(await countOutbox()).toBe(0);
+    });
+
+    it('antes del plazo no corta: un servidor lento pero vivo tiene tiempo', async () => {
+      const señales = sinRespuesta();
+      await writeScore(P1, 1, ['11', '8']);
+
+      const vaciado = flush();
+      await hastaQue(() => señales.length > 0);
+
+      await vi.advanceTimersByTimeAsync(PLAZO_MS - 1_000);
+      expect(señales[0]?.aborted).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(señales[0]?.aborted).toBe(true);
+
+      await vaciado;
+    });
+  });
+
   // Es el antipatrón número uno de docs/OFFLINE_SYNC.md §12.
   it('un error de red NO descarta las ops', async () => {
     await writeScore(P1, 1, ['11', '8']);
@@ -504,6 +725,28 @@ describe('requestClose', () => {
   });
 
   // Sin motivo guardado, no hubo respuesta del servidor: ahí SÍ es la señal.
+  /**
+   * `REF6-4`. El mensaje decía «El servidor respondió: …» ante cualquier error
+   * guardado, y el último intento puede no haber tenido respuesta: un `Failed to
+   * fetch`, o el corte por plazo. «El servidor respondió: El servidor no
+   * respondió a tiempo» se contradice a sí mismo, justo en la pantalla del líder
+   * que no puede cerrar el circuito.
+   */
+  it('si el último intento no tuvo respuesta, no dice que el servidor respondió', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    const [op] = await readOutbox();
+    if (!op) throw new Error('no se encoló nada');
+    await updateOp({ ...op, attempts: 1, lastError: 'El servidor no respondió a tiempo.' });
+
+    const r = await requestClose();
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.message).toContain('El servidor no respondió a tiempo.');
+      expect(r.message).not.toContain('El servidor respondió');
+    }
+  });
+
   it('sin error registrado sigue diciendo que busque señal', async () => {
     await writeScore(P1, 1, ['11', '8']);
 

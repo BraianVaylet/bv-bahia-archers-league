@@ -176,7 +176,11 @@ export async function updateTournament(
 }
 
 /** Elimina un torneo. Sólo si nunca arrancó. */
-export async function removeTournament(tournamentId: ObjectId): Promise<void> {
+export async function removeTournament(
+  tournamentId: ObjectId,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<void> {
   const torneo = await tournamentRepo.findById(tournamentId);
   if (!torneo) throw notFound();
 
@@ -187,6 +191,18 @@ export async function removeTournament(tournamentId: ObjectId): Promise<void> {
   }
 
   await tournamentRepo.remove(tournamentId);
+
+  // El documento ya no existe: el nombre queda acá, que es lo único que dirá
+  // después qué torneo fue.
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action: 'tournament.delete',
+    entity: 'tournament',
+    entityId: tournamentId,
+    meta: { name: torneo.name, date: torneo.date },
+    ip,
+  });
 }
 
 /**

@@ -14,6 +14,189 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-30 · PIN y audit log (REF6-7)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, con un punto abierto que no es del DoD (los ingresos fallidos del admin no se registran, a propósito). Séptima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-7`, `S-9`, `C-7` y `U-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Los PIN no viajan por defecto.** `GET /tournaments/:id/patrols` devuelve el avance sin PIN y sin escribir `patrol.pin.reveal`; con `?pins=1` los trae y lo registra. Es lo único que se acepta: otro valor o un parámetro desconocido es un `400`. La pantalla del torneo usaba esa lista para mostrar el avance, así que cada vistazo descifraba todos los PIN y llenaba el log.
+- **Se audita lo que faltaba:** `admin.login`, `tournament.start/unstart/delete`, `payment.set`, `archer.create/update/archive/restore/delete` y `season.create/update/close/reopen`. Cada entrada con actor e IP, y un `meta` que dice qué pasó sin copiar nombres ni DNI. Las rutas de temporadas llamaban al repositorio directo: ahora pasan por un `seasonService`.
+- **El cierre es `patrol.close`**, con la IP de quien cerró (la IP se pasa ahora de la ruta del sync hasta el cierre). Antes era `patrol.manual_edit` con `closed:true`, el mismo nombre que usan las redistribuciones del admin.
+- **El seguimiento se refresca cada 30 s** mientras la pestaña está visible y el torneo está en curso (`useRefrescoPeriodico`). Con la pestaña oculta se pausa; al volver refresca una vez, de inmediato.
+- **En las rutas del admin, la IP del audit log sale de un solo lugar** (`ipDelCliente`, con `null` si no se sabe). Las tres entradas que ya existían usaban `clientIp`, que devuelve el texto `'desconocida'`: en el log podían figurar las dos cosas para el mismo caso.
+
+### Decisiones
+
+- **Parámetro y no endpoint propio** (`?pins=1`). El plan dejaba las dos opciones. El parámetro cambia una línea en cada pantalla y deja una sola ruta que autorizar; y como es estricto, no hay un «sí» ambiguo.
+- **El `PUT` sigue devolviendo PIN.** Guardar una redistribución se hace desde la pantalla de credenciales, que los muestra. Sacarlos obligaba a esa pantalla a pedirlos de nuevo.
+- **Los ingresos fallidos no se registran.** Un `401` por request llenaría el log con el ruido de cualquier bot, que es justo lo que se quería evitar con los PIN. Ya tienen su freno (`REF6-6`). El plan decía «login de admin» a secas: queda escrito en `SECURITY.md` §9 bis.
+- **El refresco silencioso no toca los errores.** Si falla no muestra nada, y si anda bien no borra el error de la última acción: el motivo por el que el servidor rechazó «volver a sin iniciar» tiene que poder leerse.
+- **`?pins=1&pins=2` se acepta como `pins=1`** (Hono toma el primer valor). No lo rechacé: pide lo mismo que el admin ya pidió.
+
+### Errores míos en el camino
+
+- **Tres mutaciones sobrevivieron y apuntaban a huecos reales.** Archivar↔restaurar y cerrar↔reabrir al revés: mi test comprobaba que existiera una entrada de cada acción, no que cada endpoint dejara la suya; un test que sólo mira el conjunto no ve un intercambio. Y el refresco que borraba el error de la última acción: no había test.
+- **Los tests de `patrol.close` los escribí después de implementar**, y pasaron a la primera: no los vi fallar. La mutación (volver al nombre viejo, o sin IP) es lo que demuestra que sí detectan.
+- **Una mentira mía de la tanda anterior.** En `REF6-6` anoté que el duplicado del alta «entra naturalmente en `REF6-7`, que audita y expone el log». `REF6-7` audita, no muestra nada: esa pantalla no está en el plan. Corregido en el plan y en la bitácora de `REF6-6`.
+- **Un regex sin su barra** (`/^d{6}$/`) que perdió el `\` al pasar por el shell: un test pasó a esperar «d» seguido de seis veces nada. Lo vio el propio test al fallar con un PIN real.
+
+### Verificación
+
+`@bal/api` **381** (+19), `@bal/app` **505** (+17: 10 del hook, 7 de la pantalla), `@bal/shared` 497, `@bal/ui` 61, `@bal/landing` 53. Tipos del workspace limpios; Biome sin errores (las advertencias que quedan son anteriores, incluida la complejidad de `Tournament.tsx`, que ya era 24 en HEAD). **24 mutaciones, todas detectadas** (tres tras escribir el test que faltaba). E2E **32/32** contra el stack reconstruido, con los cuatro specs que leen PIN pidiéndolos con `?pins=1`.
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre estos cambios.
+
+### Deuda / lo que sigue
+
+- **Ninguna pantalla muestra el audit log.** Está en la base y se consulta ahí. Falta una pantalla de auditoría en WAFA, y no tiene tarea en el plan; es lo que haría visible el duplicado del alta (`REF6-6`).
+- **Sin retención ni índice por acción.** El log sólo crece. Con la lista de acciones ahora más larga, conviene decidir cuánto se guarda.
+
+---
+
+## 2026-10-30 · Entradas públicas endurecidas (REF6-6)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, con dos puntos abiertos que no son del DoD (el duplicado no se ve en WAFA; la cola de pendientes no tiene tope). Sexta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-4`, `S-5` y `S-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **El body se mide en bytes reales** (`middleware/limiteDeBody.ts`, `bodyLimit` de Hono): 64 KB en cualquier ruta salvo `POST /api/wafl/sync`, que admite 1 MB. `parseJsonBody` sólo miraba el `Content-Length` declarado; con `Transfer-Encoding: chunked` no hay header y el body entero se leía a memoria antes de decidir nada. El error conserva la forma `{ error: { code, message } }` del resto de la API.
+- **El alta pública ya no es un oráculo de DNI.** Un DNI nuevo y uno ya anotado en esa categoría reciben la misma respuesta (`200`, mismo cuerpo, un `_id` inventado en el duplicado); el duplicado no crea nada y deja `archer.register_duplicate` en el audit log. `POST /api/admin/archers` conserva el `409`: el admin tiene sesión.
+- **El alta tiene cupo propio** (`RATE_LIMIT_REGISTER`, 20 por hora e IP) **y un campo trampa** (`sitioWeb`, fuera de pantalla). Si llega lleno se responde como si hubiera funcionado y no se guarda nada.
+- **El bloqueo de las cuentas es por (cuenta, IP)** con backoff progresivo (`lib/bloqueoDeIngreso.ts`): admin 15 → 30 → 60 min, patrulla 5 → 10 → 20 min, cinco intentos por par. Por debajo queda el contador por cuenta de la base, ahora con umbral **30** entre todas las IPs.
+- **El intento se reserva al entrar.** Antes se leía el contador, se verificaba y se anotaba el fallo: una ráfaga de 30 requests pasaba entera. Ahora pasan cinco. Se aplica también a cuentas que no existen.
+- **Recuperar el password y regenerar el PIN sueltan el bloqueo** de todas las IPs de esa cuenta.
+
+### Decisiones
+
+- **Se revirtieron dos decisiones de `BE-20`**, a propósito y con la razón a la vista. (1) «DNI duplicado → 409 sin filtrar el nombre»: el `409` ya confirmaba que el DNI estaba en el padrón, que es justo lo que se quería ocultar; ocultar el nombre no alcanzaba. (2) «Sin límite propio: el freno real es la cola de aprobación»: la cola es un freno *humano*, y cada alta basura es una fila que el admin tiene que descartar. Quedó anotado en `SECURITY.md` §15 y se marcó en `docs/ACTION_PLAN.md` (`BE-20`).
+- **El tope por cuenta en la base es 30**, ni 5 ni «sin tope». A cinco, volvía a ser el problema original (cinco requests dejan afuera al dueño); sin tope, un PIN de seis dígitos se puede probar desde muchas IPs, cinco por cada una. Con 30 el dueño tiene margen y el atacante tiene techo.
+- **El costo de reservar al entrar está documentado**: un mismo par (cuenta, IP) no admite más de cinco intentos *en vuelo* a la vez, aunque la clave sea buena. Seis logins simultáneos al mismo usuario desde la misma IP no los manda una persona, y argon2 hace corta la ventana. Un test que mandaba diez ingresos buenos a la vez desde la misma IP se reescribió como dos tandas de cinco.
+- **El techo de la patrulla es 20 min, no 30** como decía `SECURITY.md` §3.2: un líder trabado en el monte es un torneo parado. Se corrigió el documento y no el código.
+- **El bloqueo por par vive en memoria**, como el rate limit: se pierde al reiniciar y no se comparte entre instancias. Alcanza para un solo contenedor (`ARCHITECTURE.md` §3); la capa de la base sobrevive a un reinicio.
+- **La clave de una patrulla usa el id canónico del torneo** y no el texto del request: el esquema acepta hexadecimal en mayúsculas, y el mismo torneo escrito distinto habría dado un cupo nuevo.
+- **`clearDb` de los tests también limpia los bloqueos.** Todos los tests entran como `admin` desde la misma IP (`desconocida`); sin esto el par quedaba bloqueado para el test siguiente (trece tests de `auth.test.ts` en rojo en la primera corrida completa).
+
+### Errores míos en el camino
+
+- **El campo trampa rompió el E2E de objetivos táctiles** y los tests unitarios no podían verlo: jsdom no hace layout. El `input` estaba recortado por su contenedor pero conservaba su caja de 181×24 px, y `e2e/objetivos-tactiles.spec.ts` mide todo lo tocable de la landing. Se arregló quitándole la caja al propio input (`h-0 w-0 border-0 p-0`), que además es lo correcto: no hay nada que tocar.
+- **Una mutación sobrevivió y apuntaba a un hueco real.** Subir el tope de la base de las patrullas a 1000 no rompía nada: el test de «muchas IPs, cinco cada una» sólo existía para el admin. Se escribió el de la patrulla, que es justamente la cuenta con 10⁶ combinaciones.
+- **La ráfaga de ingresos buenos** (ver arriba) la detectó un test de `REF6-2` que asumía que diez ingresos simultáneos caben siempre. Era una consecuencia del diseño y no un error del diseño, pero la suposición del test estaba implícita.
+- **Un script de edición con comillas anidadas falló en el shell** (`unexpected EOF`) y hubo que pasarlo a un archivo. Sin consecuencias en el repo.
+
+### Verificación
+
+`@bal/api` **362** (+34: `limite-de-body`, `bloqueoDeIngreso` unitario con 10, `bloqueo-de-cuentas` con 12, y los de alta pública), `@bal/landing` **53** (+3 del campo trampa), `@bal/shared` 497, `@bal/ui` 61, `@bal/app` 488. Tipos del workspace limpios. Biome: cero errores; los avisos que quedan son anteriores y están en archivos que esta tanda no tocó salvo `syncService.ts` (los dos `useOptionalChain` de siempre). **22 mutaciones, todas detectadas** (13 del bloqueo, 3 del límite de body, 6 del alta pública), una de ellas tras escribir el test que faltaba. E2E **32/32** contra el stack construido (la primera corrida dio 31/32: el campo trampa, ver arriba).
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre estos cambios (ni sobre los de `REF6-2` en adelante): el plan los pide para `REF6-6`.
+
+### Deuda / lo que sigue
+
+- **El duplicado no se ve en WAFA.** La decisión 2 decía «el admin ve el duplicado en la cola»; hoy sólo está en el audit log, que ninguna pantalla muestra. `REF6-7` audita pero no muestra el log, así que esto no tiene tarea: falta una pantalla de auditoría en WAFA.
+- **La cola de altas pendientes no tiene tope.** El cupo por IP frena el volumen, no a quien tiene muchas IPs.
+- **El bloqueo depende de que `ipDelCliente` sea cierta** (`INF-4`, verificar `X-Real-IP` en el primer deploy). Si el borde no pisara el header, cada IP inventada traería cinco intentos nuevos; el tope de 30 por cuenta en la base es lo que acota ese daño.
+- Si algún día hay más de una instancia, el bloqueo por par pasa a la base.
+
+---
+
+## 2026-10-30 · Sincronización que viaja menos a la base (REF6-5)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con un punto del DoD sin cumplir** (el presupuesto de 400 ms). Quinta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `P-1` y `T-5`, parcial, de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Primero se midió: la estimación del informe era correcta
+
+El informe decía «~9-10 viajes a Mongo por op» leyendo el código, y daba 1 s / 15 s / 60 s por lote de 50 como estimación. Para no optimizar a ciegas, `connect` ganó una opción `monitorCommands` (opt-in, sólo para medir) y un test cuenta los comandos que el driver manda. **204 comandos para 20 ops: 10 por op**, y el desglose coincide con el código (`find×84 update×60 insert×20 findAndModify×20 commitTransaction×20`). Con un proxy que inyecta latencia, el código de entonces daba 17,6 s a 30 ms y 67,6 s a 120 ms para 50 ops: las estimaciones quedaron dentro de ~15 %.
+
+### Qué cambió
+
+- **El avance de la patrulla se cuenta una vez por lote**, en su propia transacción corta, no dentro de la de cada score. Eran 3 comandos por op (dos listas y una escritura). La transacción propia conserva lo que importaba de estar adentro: dos lotes de la misma patrulla escriben el mismo documento, el segundo recibe un `WriteConflict` y se reintenta releyendo.
+- **Los rollups son una escritura, no dos.** `normalizedPct` salía de releer el documento después del `$inc`; ahora sale del total que la op ya leyó en su transacción más el delta. Seguro por la misma razón: la segunda transacción que toque al mismo arquero se reintenta entera.
+- **`/api/health` dice `dbMs`**: lo que tarda su `ping` a la base. Es la forma de comprobar una región equivocada sin entrar a ningún panel.
+- **Medido: 204 → 128 comandos en 20 ops (−37 %) y 554 → 309 en 50 ops (−44 %)**; 17,6 s → 9,9 s a 30 ms y 67,6 s → 37,8 s a 120 ms. Por score, 10 → 6.
+
+### Decisiones
+
+- **Los `duplicate` también disparan el recálculo.** El avance dejó de ser parte de la transacción de cada op: si el proceso muere entre los commits y el recálculo, queda desactualizado. El reenvío del lote —que el cliente hace solo— vuelve con todo `duplicate`, y es lo que lo repara. Un lote donde todo se rechaza no paga el recálculo; una op mala no lo impide si las buenas lo piden. Tres de las mutaciones salen de acá.
+- **Dos medidas distintas para dos cosas.** En CI, el **conteo de comandos** (determinista: cuenta lo que el tiempo multiplica por la latencia). A demanda, `pnpm --filter @bal/api bench:sync` con tiempos (depende de la máquina; un umbral de reloj en un test sería inestable).
+- **No se tocó la idempotencia** (dedup en bloque con `insertMany`) ni se unieron las transacciones de un lote. Es lo que haría falta para bajar de 6 por op y es una decisión de diseño: ver abajo.
+
+### El presupuesto de 400 ms no se cumple, y esto hay que decirlo
+
+`TECHNICAL.md` §5 fija «lote de 20 ops p95 < 400 ms». **Medido: 487 ms** a 2 ms de RTT (peor de 3). Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops cuestan ~230 ms aun sin latencia, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op. El número se escribió antes de medir; hay dos salidas honestas —tocar la idempotencia o recalibrar el presupuesto— y ninguna es un ajuste. Lo dejé escrito como «no se cumple todavía» en `TECHNICAL.md` en vez de moverlo.
+
+### Una interacción con `REF6-4` que hay que decidir
+
+El plazo de 20 s que agregué en la tanda anterior **choca con la latencia**: un lote de 50 ops son ~309 viajes en serie, y a partir de ~60 ms de RTT supera los 20 s (a 120 ms tarda 38 s). El cliente corta, reintenta, y el servidor sigue procesando el pedido cortado; el reintento vuelve `duplicate`, así que no se pierde ni se duplica nada, pero el outbox se vacía a los tropezones. Con Railway y Atlas en la misma región no pasa. Por eso `CONFIG.md` §7 lo exige y da la forma de verificarlo. Si se quiere blindar, la salida es bajar el lote del cliente de 50 a 20 (128 comandos × (RTT + 2 ms) < 20 s hasta ~150 ms de RTT): **no lo cambié**, es una decisión del dueño.
+
+### Errores míos en el camino
+
+- **El benchmark midió mal tres veces antes de medir bien.** Primero sospeché de Nagle (el proxy sin `TCP_NODELAY`): puse `setNoDelay` y no cambió nada. La pista era que el sobrecosto *bajaba* al subir la latencia (37, 49 y 130 ms por comando a 2, 30 y 120 ms de RTT): en **Windows los temporizadores de Node tienen granularidad de ~15,6 ms**, y un `setTimeout(…, 1)` dispara a ~15. Se reemplazó por una cola con bombeo por `setImmediate`. A 2 ms de RTT el mismo lote pasó de 3,9 s a 0,5 s. Las primeras cifras eran artefactos del proxy.
+- **Un test de viajes con un escenario que no se puede repetir** (`adminListo()` dos veces: la segunda, la contraseña inicial ya no sirve) y un umbral mal contado (cada pedido HTTP hace además un `find` de la sesión, así que el mínimo de lecturas era 5 y no 4).
+- **Una guarda que era código muerto, otra vez** (`miembros.length > 0` en el recálculo): reacomodar patrullas sólo se puede con el torneo `sin_iniciar`, donde no hay puntajes, así que una patrulla vacía con puntajes no existe. Se sacó y el invariante quedó escrito en el comentario.
+- **Una mutación sobrevivió y apuntaba a un hueco real de cobertura.** Calcular `normalizedPct` sin el total previo no rompía ningún test: el único que lo verificaba aplicaba **una** op sobre un arquero sin puntajes, donde `totalPrevio + delta` y `delta` valen lo mismo. Se escribió un test que acumula entre blancos y baja al corregir.
+- **Una cifra extrapolada que estuve a punto de presentar como medida** (2 ms a 50 ops en `CONFIG.md`): quedó marcada como calculada, con la cuenta a la vista.
+
+### Verificación
+
+`@bal/api` **328** (+7: 5 de viajes y avance, 1 de `normalizedPct`, 1 del healthcheck). Tipos del workspace limpios; Biome sobre los archivos tocados, sólo los dos `useOptionalChain` de `syncService.ts` que ya estaban. Mutaciones, todas detectadas: no recalcular al final · recalcular sólo si todas las ops se aplicaron · recalcular siempre · no contar los duplicados · recalcular dentro de cada op · `normalizedPct` sin el total previo (esta última, recién después del test nuevo). **Suites completas, verdes:** `pnpm test` en los cinco paquetes (shared 497, api 328, ui 61, app 488, landing 50) y E2E entero, **32 de 32** (3,1 min) contra el stack real.
+
+### Deuda / lo que sigue
+
+- Decidir qué hacer con el presupuesto de 400 ms (tocar la idempotencia o recalibrar) y con el tamaño del lote del cliente (50 → 20).
+- Re-medir contra el despliegue real (`bench:sync` no puede apuntar a Atlas: escribe) y comprobar `dbMs`.
+- `bench/` no entra en `tsc` (`rootDir: src`) ni en CI; lo corre `tsx`. Si se rompe por un cambio de API, nadie se entera hasta que alguien lo corra.
+
+---
+
+## 2026-10-29 · El celular muestra lo que tiene el servidor (REF6-4)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Cuarta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `U-2`, `U-3` y `P-2` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema: la pantalla que el arquero mira para firmar podía no ser la del servidor
+
+- **`U-2` · X, 10 y M en cero.** `sembrarPuntajes` guardaba los puntajes que ya estaban en el servidor —el caso del líder que cambia de celular— con `innerCount`, `xCount`, `tenCount` y `mCount` en 0. La pantalla de resultados suma esos campos: mostraba menos X y menos 10 que los reales.
+- **`U-3` · el celular que perdía el last-write-wins se quedaba con su número.** Dos celulares con la misma credencial cargan el mismo blanco, gana el `clientUpdatedAt` más reciente, y al que pierde se le respondía `superseded`. El cliente sacaba la op del outbox y nada más: el puntaje local seguía en `pending` con las flechas que perdieron, y `sembrarPuntajes` **nunca pisa lo que no está `synced`**. Quedaba mostrando —y haciendo firmar— un número que no era el que el servidor guardó. `OFFLINE_SYNC.md` §5.3 ya decía «superseded → … refrescar desde el servidor; syncState = 'synced'»: otra promesa del documento que el código no cumplía.
+- **`P-2` · un POST colgado trababa todo.** Sin plazo, un `fetch` sin respuesta dejaba `corriendo = true` y **ningún otro disparador podía vaciar el outbox**: `online`, el intervalo y el foco llaman a `flush()` y salen de inmediato.
+
+### Qué cambió
+
+- **Siembra:** los conteos salen de `validateTargetScore` con la modalidad del blanco que ya trae el bundle, la misma función que usa el servidor. El `total` sigue siendo el del servidor (regla 1). Un blanco que no está en el recorrido no rompe la entrada.
+- **Servidor:** `superseded` y `duplicate` de un score ahora traen `score.arrows` —lo que el servidor tiene **hoy** en esa celda—. Antes `superseded` devolvía sólo totales: el celular sabía cuánto sumaba lo que ganó, no cuáles eran las flechas.
+- **Cliente:** `alinearConServidor` reemplaza flechas y totales por los del servidor, sin `error`, en `synced`. **No pisa una edición más nueva que todavía está en camino**: si hay otra op de score para la misma celda en el outbox, el líder volvió a tocar el blanco mientras el lote viajaba.
+- **Plazo de 20 s** en el POST de sync, token CSRF incluido. El corte es un error sin respuesta, así que `esReintentable` lo trata como cualquier error de red: la op se conserva.
+
+### Decisiones y desvíos
+
+- **`duplicate` no se marca `synced` a secas**, como decía el plan. Un `duplicate` es lo que recibe quien reenvía una op cuya respuesta se perdió, y no dice qué pasó con ella: pudo haberse aplicado, haber perdido o haberse rechazado. Marcarlo `synced` escondería un rechazo —y desde `REF6-1` hay rechazos nuevos, `PATROL_CLOSED` y `SIGNATURE_LOCKED`, que perfectamente pueden perderse en una respuesta—. Se le devuelve la verdad actual de la celda y el cliente se alinea con ella.
+- **Eso abre una puerta que hay que cerrar.** El duplicado se detecta por `opId` *antes* de autorizar nada. Si devolviera el puntaje de cualquier `participantId` que traiga el cuerpo, un líder podría leer los puntajes de otra patrulla reenviando uno de sus propios `opId` con el `participantId` ajeno. `respuestaDeDuplicada` comprueba que el arquero sea de la patrulla; hay un test, una mutación que lo prueba (quitar la comprobación lo hace fallar) y un ítem nuevo en el checklist de `SECURITY.md` §13.
+- **`setTimeout` propio y no `AbortSignal.timeout`.** Este último no se puede controlar con relojes falsos y el plazo es justo lo que hay que probar. Se usa `Promise.race` contra el pedido para que cubra también el `fetch` del token CSRF, que no lleva señal.
+- **El mensaje de «no se pudo cerrar» decía «El servidor respondió: …» ante cualquier error guardado.** Con el plazo eso queda «El servidor respondió: El servidor no respondió a tiempo», y ya era falso para un `Failed to fetch`. Ahora dice «El último intento falló: …». Es un cambio de texto fuera del alcance estricto, pero lo introducía mi propio mensaje.
+- **Dos funciones salieron de `aplicarResultados`** (`celdaDe` y `reflejarResultado`): con mi bloque nuevo pasó el límite de complejidad cognitiva. Es un movimiento sin cambio de comportamiento, cubierto por los tests de `flush`.
+
+### Errores míos en el camino, para que no se repitan
+
+- **Un test con tokens inválidos que no probaba nada.** Usé `'9'` en un blanco 3D; `writeScore` devolvió `INVALID_TOKEN` y la «edición más nueva» que quería provocar nunca ocurrió. Lo vi porque el segundo lote no salió; ahora el test **afirma** que la edición entró.
+- **Un test de plazo que no discriminaba.** La mutación «plazo de 5 s en vez de 20» sobrevivió. «`flush` todavía no volvió» depende de una carrera entre relojes falsos e IndexedDB real, no del plazo. Se rehízo observando la **señal de cancelación** (`aborted`), que se activa de forma sincrónica en el timer, y esperando a que el pedido salga antes de correr el reloj. Ahora los plazos de 5 s, 60 s y sin plazo se detectan.
+- **Dos mutaciones que no compilaban.** Dejé una función sin uso, `noUnusedLocals` rompió el build, el E2E «falló» y no probaba nada. Es la segunda vez en dos tandas (ya pasó en `REF6-2`). La regla para mutar: que **compile** (`Date.now() < 0 &&`), y comprobar que el E2E falla por la aserción y no por `ELIFECYCLE`.
+- **Dos guardas que eran código muerto**, igual que en `REF6-2`: `op.type === 'score'` en `alinearConServidor` (una firma no tiene `targetIndex`, `celdaDe` ya la descarta). Se sacó.
+- **Supuestos sobre la interfaz** al armar el E2E: la tecla de fallo no se llama «Puntaje M» sino «Miss, flecha sin puntaje», y «Resultados finales» sigue **deshabilitado hasta que está todo el recorrido**, así que cada celular tiene que cargar los dos blancos.
+
+### Verificación
+
+`@bal/api` **321** (3 nuevos), `@bal/app` **488** (+12: 3 de siembra, 5 de alineación, 3 de plazo y 1 de mensaje), `@bal/shared` 497, `@bal/ui` 61, `@bal/landing` 50. E2E completo contra el stack real: **32 de 32**. Tipos del workspace limpios. Biome sobre los archivos tocados, sin warnings nuevos (quedan los dos `useOptionalChain` de `syncService.ts` que ya estaban).
+
+**E2E nuevo** en `dos-dispositivos.spec.ts`, por la interfaz y sin timestamps a mano: el que va a perder carga primero y sin señal, el que gana carga después y sincroniza; se comprueba que las pantallas de resultados *difieren* antes de reconectar, y *coinciden* después. Contra el bug, con la alineación apagada, el celular que perdió muestra **39** de total contra **48**, con 1 contra 2 en inner y 10 contra 19.
+
+Mutaciones, todas detectadas salvo la equivalente: conteos en cero · modalidad equivocada en la siembra · no alinear · alinear pisando una edición en camino · error viejo pegado · `applied` sin fijar totales · sin plazo, 5 s y 60 s · plazo tratado como rechazo definitivo · servidor sin flechas · servidor filtrando puntajes ajenos · servidor sin detalle en el duplicado.
+
+### Deuda / lo que sigue
+
+- **Un `rejected` deja el valor del celular en `conflict` y no lo alinea.** Es a propósito: el líder tiene que ver que algo salió mal, no que el número cambie solo. Pero el `error` de cada puntaje no se dibuja en ninguna pantalla; sólo llega al indicador del encabezado. Con `PATROL_CLOSED` y `SIGNATURE_LOCKED` esto pasa a ser más probable.
+- **El E2E de dos dispositivos cubre un caso, no el espacio.** No hay uno para el `duplicate` por respuesta perdida; está cubierto en los unitarios (cliente y servidor) pero no de punta a punta.
+- El indicador de sincronización sigue sin distinguir «sin señal» de «el servidor rechazó» más allá del texto.
+
+---
+
 ## 2026-10-29 · El tema oscuro llega antes de pintar, y la consola sin violaciones de CSP (REF6-3)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** completado. Tercera tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `U-1` de [`INFORME.md`](post/ref-6/INFORME.md)).

@@ -126,7 +126,7 @@ export async function torneoIniciado(
 
   const { patrols } = await api.get<{
     patrols: { id: string; number: number; username: string; pin: string }[];
-  }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+  }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
 
   return { tournamentId: tournament.id, seasonId: season.id, patrols };
 }
@@ -167,8 +167,16 @@ export async function entrarComoLider(
  * La condición de corte es el **conteo de puntajes completos**, que es estado
  * del dominio y no del DOM: preguntarle al botón «Continuar» si hay que seguir
  * es frágil, porque se re-renderiza cuando termina una sincronización de fondo.
+ *
+ * `fichas` pisa las de `FLECHAS`: hace falta cuando dos celulares tienen que cargar
+ * **cosas distintas** en el mismo blanco para provocar un conflicto.
  */
-export async function cargarBlanco(page: Page, posicion: number, modality: string): Promise<void> {
+export async function cargarBlanco(
+  page: Page,
+  posicion: number,
+  modality: string,
+  fichas?: readonly string[],
+): Promise<void> {
   const tarjetas = page.getByTestId('numero-blanco');
   await tarjetas.nth(posicion).click();
 
@@ -181,7 +189,7 @@ export async function cargarBlanco(page: Page, posicion: number, modality: strin
   const arqueros = await tarjetasDeArquero.count();
 
   for (let cargados = 0; cargados < arqueros; cargados++) {
-    for (const token of FLECHAS[modality] ?? []) {
+    for (const token of fichas ?? FLECHAS[modality] ?? []) {
       await page.getByRole('button', { name: `Puntaje ${token}` }).click();
     }
     await expect(completos).toHaveCount(cargados + 1, { timeout: 15_000 });

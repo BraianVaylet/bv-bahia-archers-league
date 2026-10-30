@@ -149,11 +149,14 @@ describe('ráfagas simultáneas', () => {
   });
 
   it('un ingreso correcto devuelve el lugar: una tanda de ingresos buenos no gasta nada', async () => {
-    // Diez a la vez, con un cupo de diez: todos caben mientras están en vuelo...
-    const tanda = await Promise.all(
-      Array.from({ length: 10 }, () => loginDeAdmin('203.0.113.80', 'admin', PASSWORD)),
-    );
-    expect(tanda.map((r) => r.status)).toEqual(Array(10).fill(200));
+    // Dos tandas de cinco a la vez: el par (cuenta, IP) admite cinco intentos en
+    // vuelo, y entre las dos suman el cupo de diez de la IP mientras están en vuelo...
+    for (let tanda = 0; tanda < 2; tanda++) {
+      const respuestas = await Promise.all(
+        Array.from({ length: 5 }, () => loginDeAdmin('203.0.113.80', 'admin', PASSWORD)),
+      );
+      expect(respuestas.map((r) => r.status)).toEqual(Array(5).fill(200));
+    }
 
     // ...y como salieron bien, la IP sigue teniendo el cupo entero.
     for (let i = 0; i < 10; i++) {

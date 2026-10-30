@@ -8,14 +8,38 @@
 import type { PatrolLoginInput } from '@bal/shared';
 import type { Context } from 'hono';
 import type { ObjectId } from 'mongodb';
+import {
+  errorDeBloqueo,
+  liberar,
+  type PoliticaDeBloqueo,
+  reservarIntento,
+} from '../lib/bloqueoDeIngreso.js';
 import { getDummyHash, verifySecret } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
+import { ipDelCliente } from '../lib/ip.js';
 import { startSession } from '../lib/session.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
-const MAX_INTENTOS = 5;
+/**
+ * El bloqueo de una IP contra una patrulla: cinco intentos, y después 5 minutos que
+ * se duplican con cada bloqueo seguido hasta 20. El techo es corto a propósito: un
+ * líder trabado en el monte es un torneo parado. Ver `lib/bloqueoDeIngreso.ts`.
+ */
+export const POLITICA_PATRULLA: PoliticaDeBloqueo = {
+  intentos: 5,
+  baseMs: 5 * 60_000,
+  techoMs: 20 * 60_000,
+  olvidoMs: 60 * 60_000,
+};
+
+/**
+ * El tope por patrulla, sumando todas las IPs, persistido en la base. A cinco volvía
+ * a ser lo de antes —el usuario de cada patrulla es público— y sin él, un PIN de seis
+ * dígitos probado desde muchas IPs no tiene techo. Ver `authService`.
+ */
+const MAX_INTENTOS_POR_CUENTA = 30;
 const BLOQUEO_MS = 5 * 60_000;
 
 export interface PatrolSessionInfo {
@@ -33,6 +57,15 @@ const credencialesInvalidas = () =>
 
 export async function loginPatrol(c: Context, input: PatrolLoginInput): Promise<PatrolSessionInfo> {
   const tournamentId = toObjectId(input.tournamentId);
+
+  // El id canónico y no el texto que mandó el cliente: el mismo torneo en
+  // mayúsculas o minúsculas es el mismo torneo, y no puede dar un cupo nuevo.
+  const clave = `patrol:${tournamentId.toHexString()}:${input.username}:${ipDelCliente(c) ?? 'desconocida'}`;
+  const espera = reservarIntento(clave, POLITICA_PATRULLA);
+  if (espera !== null) {
+    throw errorDeBloqueo(espera, 'Demasiados intentos. Esperá un momento.');
+  }
+
   const torneo = await tournamentRepo.findById(tournamentId);
   const patrulla = torneo ? await patrolRepo.findByUsername(tournamentId, input.username) : null;
 
@@ -50,7 +83,9 @@ export async function loginPatrol(c: Context, input: PatrolLoginInput): Promise<
   const coincide = await verifySecret(hash, input.pin);
 
   if (!patrulla || !coincide) {
-    if (patrulla) await patrolRepo.registerFailedAttempt(patrulla._id, MAX_INTENTOS, BLOQUEO_MS);
+    if (patrulla) {
+      await patrolRepo.registerFailedAttempt(patrulla._id, MAX_INTENTOS_POR_CUENTA, BLOQUEO_MS);
+    }
     throw credencialesInvalidas();
   }
 
@@ -65,6 +100,7 @@ export async function loginPatrol(c: Context, input: PatrolLoginInput): Promise<
     });
   }
 
+  liberar(clave);
   await patrolRepo.registerSuccessfulLogin(patrulla._id);
   if (patrulla.status === 'pendiente') {
     await patrolRepo.setStatus(patrulla._id, 'en_curso');
@@ -88,4 +124,7 @@ export function patrolIdOf(subject: { type: string; id: ObjectId }): ObjectId {
   return subject.id;
 }
 
-export const PATROL_LOCK_POLICY = { maxAttempts: MAX_INTENTOS, lockMs: BLOQUEO_MS } as const;
+export const PATROL_LOCK_POLICY = {
+  maxAttempts: MAX_INTENTOS_POR_CUENTA,
+  lockMs: BLOQUEO_MS,
+} as const;

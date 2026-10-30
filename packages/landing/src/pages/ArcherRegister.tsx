@@ -30,9 +30,18 @@ interface Borrador {
   readonly dni: string;
   readonly sex: Sex | '';
   readonly category: BowCategory;
+  /** El campo trampa. Un humano nunca lo ve, así que nunca lo llena. */
+  readonly sitioWeb: string;
 }
 
-const VACIO: Borrador = { firstName: '', lastName: '', dni: '', sex: '', category: 'razo' };
+const VACIO: Borrador = {
+  firstName: '',
+  lastName: '',
+  dni: '',
+  sex: '',
+  category: 'razo',
+  sitioWeb: '',
+};
 
 const ETIQUETA_DE_SEXO: Record<Sex, string> = { femenino: 'Femenino', masculino: 'Masculino' };
 
@@ -254,6 +263,31 @@ export function ArcherRegisterPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/*
+          Campo trampa (`REF6-6`). Un bot que rellena todos los campos lo rellena
+          también, y el servidor descarta esa alta en silencio.
+
+          Fuera de pantalla y no `display:none`: muchos bots saltean los campos que no
+          se renderizan. `aria-hidden` y `tabIndex={-1}` lo sacan del lector de
+          pantalla y del orden de tabulación, y sin etiqueta: una persona real nunca
+          tiene que enterarse de que existe.
+
+          El `input` también mide cero: el contenedor lo recorta, pero el elemento
+          conserva su caja, y `e2e/objetivos-tactiles.spec.ts` mide todo lo tocable
+          de la landing (un campo de 181×24 fuera de pantalla figuraba como defecto).
+        */}
+        <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+          <input
+            type="text"
+            name="sitioWeb"
+            className="h-0 w-0 border-0 p-0"
+            tabIndex={-1}
+            autoComplete="off"
+            value={borrador.sitioWeb}
+            onChange={(e) => setBorrador({ ...borrador, sitioWeb: e.target.value })}
+          />
         </div>
 
         {error && (

@@ -124,9 +124,9 @@ Formulario público, sin sesión, accesible desde la Introducción (§5.1). Pide
 
 **No inscribe a nada.** El arquero queda `pendiente` de aprobación — no aparece en el padrón que el admin usa para armar un torneo (`BE-22` lo revisa y aprueba o rechaza, desde WAFA). La pantalla lo dice explícitamente al confirmar: «tu alta quedó pendiente de que el club la revise», nunca «ya estás anotado».
 
-Un DNI que ya existe **en esa misma categoría** devuelve un error, pero **sin decir con qué nombre está cargado** — el formulario no puede volverse una forma de averiguar si una persona concreta ya está en la liga. El mismo DNI en otra categoría se permite: es así como una misma persona se anota en más de una.
+Un DNI que ya existe **en esa misma categoría** recibe **la misma respuesta que uno nuevo**: la pantalla confirma igual que «tu alta quedó pendiente», y no se crea nada. Un error le diría a cualquiera que ese DNI ya está en la liga, y el formulario no puede volverse una forma de averiguar si una persona concreta está inscripta. El intento queda en el registro de auditoría (`archer.register_duplicate`). El mismo DNI en otra categoría se permite: es así como una misma persona se anota en más de una.
 
-Es la **primera ruta pública que escribe**, no sólo lee. Comparte el límite de `RATE_LIMIT_PUBLIC` con el resto de `/api/public/*`. Ver `docs/SECURITY.md` §16.
+Es la **primera ruta pública que escribe**, no sólo lee. Además de `RATE_LIMIT_PUBLIC`, tiene su propio tope por hora (`RATE_LIMIT_REGISTER`) y un campo trampa oculto contra bots. Ver `docs/SECURITY.md` §15.
 
 ---
 
@@ -188,7 +188,7 @@ Vista de todas las patrullas: composición, unidades `A`/`B`, posición izquierd
 **Sin iniciar:** configuración completamente editable. Botón **Iniciar torneo**.
 
 **En proceso:**
-- Seguimiento en vivo: blancos completados por patrulla, puntajes cargados, patrullas pendientes de firma.
+- Seguimiento en vivo: blancos completados por patrulla, puntajes cargados, patrullas pendientes de firma. La pantalla **se refresca sola cada 30 s** mientras la pestaña está visible (en pausa con la pestaña oculta; al volver refresca de inmediato). Un refresco que falla no muestra nada: lo que ya se ve sigue siendo lo mejor que hay.
 - Solo se pueden editar los blancos **en los que ninguna patrulla cargó puntajes**. Un blanco con al menos un puntaje queda bloqueado.
 - Acción de **desbloquear firma** si un arquero se fue sin firmar (queda en el audit log con motivo).
 

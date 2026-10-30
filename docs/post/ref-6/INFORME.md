@@ -156,6 +156,8 @@ Por op de score: `claimOp` + `startSession` + `findParticipant` + `findScore` + 
 
 `TECHNICAL.md` §5 fija «batch de 20 ops p95 < 400 ms» y **nadie lo mide**. La patrulla que vuelve del monte con tres horas de puntajes es la que sufre.
 
+> **Medido en `REF6-5`.** Las cifras de arriba eran estimaciones mías, hechas leyendo el código. Con un proxy que inyecta latencia entre la API y MongoDB, el código de entonces daba **554 comandos y 17,6 s a 30 ms, 67,6 s a 120 ms** para 50 ops: la estimación del 10 por op era correcta (204 comandos para 20 ops) y los tiempos quedaron dentro de ~15 %. Después de la tanda: 309 comandos, 9,9 s y 37,8 s. Detalle y tabla completa en `TECHNICAL.md` §5.
+
 **Recomendación:**
 1. Recalcular el avance **una vez por lote**, al final, en una transacción corta — o de forma incremental: un `$inc` cuando un blanco pasa a completo.
 2. Dedup en bloque (`insertMany` con `ordered: false`) en vez de un insert por op.

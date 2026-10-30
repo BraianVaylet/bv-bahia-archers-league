@@ -99,71 +99,82 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-4` · El celular muestra lo que tiene el servidor · **P0** · M
+### `[x] REF6-4` · El celular muestra lo que tiene el servidor · **P0** · M
 
 **Hallazgos:** `U-2`, `U-3`, `P-2`. **Skill:** `tdd`.
-**Archivos:** `app/src/wafl/sesion.ts`, `app/src/offline/syncWorker.ts`, `api/src/services/syncService.ts`, `app/src/offline/offline.test.ts`, `e2e/dos-dispositivos.spec.ts`
+**Archivos:** `app/src/wafl/sesion.ts`, `app/src/offline/syncWorker.ts`, `api/src/services/syncService.ts`, `app/src/offline/offline.test.ts`, `app/src/wafl/wafl.test.tsx`, `api/tests/wafl.test.ts`, `e2e/dos-dispositivos.spec.ts`, `e2e/ayudas.ts`
 
-- [ ] `sembrarPuntajes` recomputa inner, X, 10 y M con `validateTargetScore` y la modalidad del blanco del bundle
-- [ ] `superseded` devuelve las flechas ganadoras; el cliente las escribe como `synced`
-- [ ] `duplicate` marca el puntaje local como `synced`
-- [ ] El POST de sync lleva `AbortSignal.timeout(20_000)`; el aborto es reintentable
+- [x] `sembrarPuntajes` recomputa inner, X, 10 y M con `validateTargetScore` y la modalidad del blanco del bundle. El `total` sigue siendo el del servidor (regla 1)
+- [x] `superseded` devuelve las flechas ganadoras; el cliente las escribe como `synced`
+- [x] `duplicate` de un score devuelve **lo que el servidor tiene hoy** en la celda, y el cliente se alinea con eso. *(El plan decía «marca el puntaje local como `synced`» a secas: eso esconde un rechazo si la respuesta original se perdió. Ver la bitácora.)*
+- [x] **No pisa una edición más nueva** que todavía está en camino para la misma celda
+- [x] El POST de sync tiene plazo de 20 s, con `setTimeout` propio y no `AbortSignal.timeout` (no se puede controlar con relojes falsos), y cubre el pedido entero, token CSRF incluido. El corte es reintentable
+- [x] El `duplicate` **no devuelve el puntaje de un arquero de otra patrulla** (se detecta por `opId` antes de autorizar; hace falta comprobarlo)
 
 **DoD:** tras cambiar de celular, la pantalla de resultados muestra los mismos X/10/M que el servidor · después de un conflicto, **los dos** dispositivos muestran el puntaje ganador · un request colgado no traba el outbox más de 20 s.
-**Tests:** re-sembrar un blanco con `X` y `M` → conteos correctos · `superseded` pisa lo local · `duplicate` deja `synced` · `post` que nunca resuelve → a los 20 s se programa reintento · el E2E de dos dispositivos compara las dos pantallas.
-**Mutaciones:** dejar los conteos en 0 · ignorar `superseded` · sacar el timeout.
+**Tests:** re-sembrar con `X` y `M` → conteos correctos · el total del servidor manda sobre el recalculado · `superseded` y `duplicate` alinean flechas y totales · limpian un error previo · no pisan una edición más nueva · el plazo corta a los 20 s, no antes, y el outbox se vacía al volver la señal · servidor: las flechas vigentes en `superseded` y `duplicate`, y nada de puntajes ajenos · **E2E: los dos celulares terminan con las mismas pantallas de resultados**.
+**Mutaciones:** conteos en cero · modalidad equivocada en la siembra · no alinear · alinear pisando una edición en camino · error viejo pegado · sin plazo, plazo de 5 s y de 60 s · plazo tratado como rechazo definitivo · servidor sin flechas · servidor filtrando puntajes ajenos · servidor sin detalle en el duplicado. Todas detectadas, salvo una que resultó **equivalente** (una guarda que había escrito y era código muerto: se sacó). Una más, el plazo de 5 s, sobrevivió al principio por un defecto del **test**, que se rehízo. El E2E se verificó contra el bug: con la alineación apagada, el celular que perdió muestra 39 contra 48.
 
 > Es la pantalla que el arquero mira **para firmar**. Lo que ve tiene que ser lo que se guarda.
 
 ---
 
-### `[ ] REF6-5` · Sync que aguanta la latencia · **P0** · M
+### `[~] REF6-5` · Sync que aguanta la latencia · **P0** · M
+
+> **Estado: hecho, salvo un punto del DoD que no se cumple y es decisión del dueño** (el presupuesto de 400 ms, ver abajo).
 
 **Hallazgos:** `P-1`, `T-5` (parcial). **Skill:** `tdd`.
-**Archivos:** `api/src/services/syncService.ts`, `api/src/repositories/scoreRepo.ts`, `api/tests/` (benchmark nuevo), `docs/CONFIG.md` §7
+**Archivos:** `api/src/services/syncService.ts`, `api/src/repositories/scoreRepo.ts`, `api/src/db/client.ts`, `api/src/routes/health.ts`, `api/tests/sync-viajes.test.ts` (nuevo), `api/bench/sync.ts` (nuevo), `docs/CONFIG.md` §3, §7 y §10, `docs/TECHNICAL.md` §5
 
-- [ ] El avance de la patrulla (`targetsCompleted`) se calcula **una vez por lote**, al final, y no dentro de cada op
-- [ ] Las transacciones por op se mantienen: el aislamiento de fallas no se negocia
-- [ ] Benchmark de un lote de 50 ops con latencia inyectada a la base, con umbral
-- [ ] `CONFIG.md` exige Railway y Atlas en la misma región, y dice cómo verificarlo
+- [x] El avance de la patrulla (`targetsCompleted`) se calcula **una vez por lote**, al final, en su propia transacción corta, y no dentro de cada op. Sólo si el lote trae algún score que no se rechazó; **los `duplicate` cuentan**, así un reenvío repara un avance que quedó desactualizado
+- [x] Las transacciones por op se mantienen: el aislamiento de fallas no se negocia
+- [x] Los rollups son **una** escritura en vez de dos: `normalizedPct` sale del total que la op ya leyó en su transacción, sin releer el documento
+- [x] Benchmark con latencia inyectada: `pnpm --filter @bal/api bench:sync`, **a demanda y no en CI** (el tiempo depende de la máquina; un umbral de reloj sería inestable). La guarda en CI es determinista: `tests/sync-viajes.test.ts` cuenta los comandos que el driver manda y falla si crecen
+- [x] `CONFIG.md` exige Railway y Atlas en la misma región, con la tabla medida, y dice cómo verificarlo: `curl …/api/health` y mirar `dbMs`
+- [ ] **El presupuesto de 400 ms para 20 ops no se cumple: 487 ms** a 2 ms de RTT (ver la tabla en `TECHNICAL.md` §5)
 
-**DoD:** viajes a la base por op de score de ~10 a ≤ 6 · lote de 20 ops < 400 ms p95 en misma región (`TECHNICAL.md` §5) · el avance de la patrulla sigue siendo exacto.
-**Tests:** el «7 de 8» de siempre sigue verde · un lote mixto (scores de varios blancos + una op rechazada) deja `targetsCompleted` correcto · benchmark con umbral.
-**Mutaciones:** no recalcular al final del lote · recalcular sólo si todas las ops se aplicaron.
+**DoD:** viajes por op de score de 10 a 6 ✅ (medido: 204 → 128 comandos en 20 ops) · avance exacto ✅ · **lote de 20 ops < 400 ms p95 ❌** (487 ms, peor de 3, en esta máquina).
+**Tests:** viajes por lote y por op (y que el costo por op no crezca con el tamaño del lote) · lote mixto con una op rechazada deja el avance exacto · un reenvío todo-`duplicate` repara un avance desactualizado · un lote sin cambios no recalcula · `normalizedPct` acumula entre blancos y baja al corregir · `dbMs` en el healthcheck.
+**Mutaciones:** no recalcular al final · recalcular sólo si TODAS las ops se aplicaron · recalcular siempre · no contar los duplicados · recalcular dentro de cada op · `normalizedPct` sin el total previo. Todas detectadas; la última **sobrevivía** hasta que se escribió un test que acumulara entre blancos (el existente aplicaba una sola op, donde `totalPrevio + delta` y `delta` valen lo mismo).
 
 ---
 
 # P1 — Necesario
 
-### `[ ] REF6-6` · Entradas públicas endurecidas · **P1** · M
+### `[x] REF6-6` · Entradas públicas endurecidas · **P1** · M
 
 **Hallazgos:** `S-4`, `S-5`, `S-6`. **Skill:** `tdd`, `/security-review`.
 **Archivos:** `api/src/app.ts`, `api/src/middleware/validate.ts`, `api/src/routes/publico.ts`, `api/src/services/{archerService,authService,patrolAuthService}.ts`, `api/src/repositories/{userRepo,patrolRepo}.ts`, `landing/src/pages/ArcherRegister.tsx`
 
-- [ ] `bodyLimit` de Hono sobre `/api/*`: 1 MB en sync, 64 KB en el resto
-- [ ] Alta pública: misma respuesta para DNI nuevo y repetido *(decisión 2)*; el duplicado se marca para el admin
-- [ ] Rate limit propio de `POST /api/public/archers` y campo *honeypot*
-- [ ] Bloqueo por **(cuenta, IP)** con backoff progresivo, para admin y patrulla
-- [ ] El bloqueo por cuenta **reserva el intento al entrar** (hoy lo evalúa antes de verificar y lo anota después, y una ráfaga contra una cuenta pasa de cinco; `REF6-2` ya lo corrigió para el cupo de la IP, no para esto)
+- [x] `bodyLimit` de Hono sobre `/api/*`: 1 MB en sync, 64 KB en el resto. Cuenta bytes reales, no el `Content-Length` declarado; responde con la misma forma de error que el resto de la API
+- [x] Alta pública: misma respuesta para DNI nuevo y repetido *(decisión 2)*. El duplicado no crea nada, devuelve un `_id` inventado y deja `archer.register_duplicate` en el audit log
+- [ ] **El duplicado no se ve en la cola de WAFA.** La decisión 2 decía «el admin ve el duplicado en la cola»; hoy sólo queda en el audit log, que ninguna pantalla muestra. Mostrarlo pide una pantalla o un filtro nuevo. **`REF6-7` audita pero no muestra el log** (su lista no incluye esa pantalla), así que esto no tiene tarea asignada: falta una pantalla de auditoría en WAFA
+- [x] Rate limit propio de `POST /api/public/archers` (`RATE_LIMIT_REGISTER`, 20 por hora e IP) y campo *honeypot* `sitioWeb`, que se acepta en silencio
+- [x] Bloqueo por **(cuenta, IP)** con backoff progresivo, para admin (15 → 60 min) y patrulla (5 → 20 min), más un tope por cuenta de 30 fallos entre todas las IPs en la base
+- [x] El bloqueo **reserva el intento al entrar**: una ráfaga de 30 contra una cuenta deja pasar cinco. Se aplica también a cuentas que no existen (si no, el bloqueo sería un oráculo de usuarios)
+- [x] Recuperar el password y regenerar el PIN sueltan el bloqueo de todas las IPs de esa cuenta
+- [ ] **No se topó la cola de altas pendientes.** El rate limit frena el volumen por IP, pero un atacante con muchas IPs puede llenar la cola. No estaba en el plan; queda como decisión si aparece
 
-**DoD:** un body chunked de 5 MB se corta sin leerse entero · el alta no revela si un DNI existe · cinco intentos desde una IP no bloquean a la cuenta desde otra.
-**Tests:** body chunked sin `Content-Length` → 413 · respuesta idéntica en los dos casos de DNI · honeypot lleno → descartado sin error visible · bloqueo por par.
-**Mutaciones:** chequear sólo `Content-Length` · devolver `ARCHER_DNI_DUPLICATE`.
+**DoD:** un body chunked que se pasa se corta sin leerse entero ✅ · el alta no revela si un DNI existe ✅ · cinco intentos desde una IP no bloquean a la cuenta desde otra ✅.
+**Tests:** body chunked sin `Content-Length` → 413 · respuesta idéntica en los dos casos de DNI · honeypot lleno → descartado sin error visible · cupo por IP del alta · bloqueo por par, ráfaga, cuenta inexistente, tope por cuenta, ingreso correcto que reinicia, torneo en mayúsculas, y recuperar/regenerar que sueltan.
+**Mutaciones:** Bloqueo (13): sin reserva · clave sin IP · sin liberar al entrar (admin y patrulla) · recuperar y regenerar sin soltar · torneo sin canonizar · tope de la base en 5 y en 1000 (admin y patrulla) · sin Retry-After. Límite de body (3): sólo Content-Length · el del sync para todo · el general para el sync. Alta pública (6): devolver el 409 · duplicado sin auditar · honeypot sin efecto · honeypot que responde error · sin cupo propio · landing sin el campo. **Todas detectadas**, pero una **sobrevivía**: el tope de la base en 1000 para las patrullas, porque el test de «muchas IPs» sólo existía para el admin; ahora existe también para la patrulla.
 
 ---
 
-### `[ ] REF6-7` · PIN y audit log · **P1** · M
+### `[x] REF6-7` · PIN y audit log · **P1** · M
 
-**Hallazgos:** `S-7`, `S-9`, `C-7`, `U-6`.
-**Archivos:** `api/src/routes/admin.ts`, `api/src/services/{patrolAdminService,tournamentEditService,tournamentStateService,paymentService,archerService,authService}.ts`, `api/src/services/syncService.ts`, `app/src/wafa/pages/{Tournament,Patrols}.tsx`
+**Hallazgos:** `S-7`, `S-9`, `C-7`, `U-6`. **Skill:** `tdd`.
+**Archivos:** `api/src/routes/admin.ts`, `api/src/services/{patrolAdminService,tournamentEditService,tournamentStateService,paymentService,archerService,authService,seasonService}.ts` (`seasonService` es nuevo), `api/src/services/syncService.ts`, `api/src/routes/wafl.ts`, `api/src/db/types.ts`, `app/src/wafa/pages/{Tournament,Patrols}.tsx`, `app/src/wafa/refrescoPeriodico.ts` (nuevo)
 
-- [ ] `GET /patrols` sin PIN por defecto; los PIN, sólo desde la pantalla de credenciales
-- [ ] Se auditan: borrar torneo, iniciar y volver atrás, marcar pago, CRUD de arqueros y temporadas, login de admin
-- [ ] El cierre se registra como `patrol.close`
-- [ ] El seguimiento del torneo se refresca cada 30 s mientras la pestaña está visible
+- [x] `GET /patrols` sin PIN por defecto; `?pins=1` los trae y es lo único que se acepta (otro valor o parámetro: `400`). El `PUT` que guarda desde la pantalla de credenciales sigue devolviéndolos
+- [x] Se auditan: borrar torneo, iniciar y volver atrás, marcar pago (con el estado y el torneo), CRUD de arqueros y de temporadas, y los ingresos **correctos** del admin. Cada entrada con actor e IP; el `meta` sin nombres ni DNI
+- [x] El cierre se registra como `patrol.close`, con la IP de quien cerró (antes `patrol.manual_edit` con `closed:true`)
+- [x] El seguimiento del torneo se refresca cada 30 s mientras la pestaña está visible y el torneo está en curso. Un fallo del refresco no muestra error ni borra el de la última acción
+- [ ] **Los ingresos fallidos del admin no se registran.** Es a propósito (un `401` por request llenaría el log de ruido de bots), pero el plan decía «login de admin» a secas; queda anotado en `SECURITY.md` §9 bis
 
-**DoD:** abrir el seguimiento no escribe `patrol.pin.reveal` ni recibe un PIN · cada acción listada deja su entrada con actor e IP.
-**Tests:** `/patrols` sin parámetro no trae `pin` · cada acción auditada tiene su test · el refresco se pausa en `hidden`.
+**DoD:** abrir el seguimiento no escribe `patrol.pin.reveal` ni recibe un PIN ✅ · cada acción listada deja su entrada con actor e IP ✅.
+**Tests:** `/patrols` sin parámetro no trae `pin` (ni la clave) y no escribe en el log · parámetro estricto · publicado no expone aun pidiéndolo · cada acción auditada, con su actor, su IP y su `meta` · lo que falla no deja entrada · el `meta` no copia datos personales · `patrol.close` con IP · el hook de refresco (ritmo, pausa, vuelta, render nuevo, desmontaje) y su uso en la pantalla (sin PIN, error silencioso, sólo en curso, pestaña oculta).
+**Mutaciones (24):** login sin registrar o sin IP · el alta copia el nombre · archivar↔restaurar y cerrar↔reabrir al revés · IP nula en padrón, inicio y cierre · borrar sin nombre · pago con estado fijo · cierre con el nombre viejo · PIN siempre · guardar sin PIN · query no estricta · `pins=0` válido · hook sin pausa, con 60 s, sin refresco al volver, con función vieja · refresco que muestra el error, que no mira el estado, que borra el error de la acción · el seguimiento pidiendo PIN · credenciales sin pedirlos. **Todas detectadas**; tres **sobrevivían** y apuntaban a huecos reales: archivar↔restaurar y cerrar↔reabrir (el test sólo comprobaba que existiera una entrada de cada una, no que cada endpoint dejara la suya) y el refresco que borraba el error de la última acción (sin test).
 
 ---
 

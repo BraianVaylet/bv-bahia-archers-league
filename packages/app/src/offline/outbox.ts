@@ -255,6 +255,11 @@ export type CloseResult =
  * El motivo ya se guardaba en cada op —`marcarIntentos` escribe `lastError`—
  * pero no se mostraba en ningún lado. Se toma el de la op que más veces se
  * intentó, que es la que mejor representa por qué está trabada.
+ *
+ * **«El último intento falló», no «el servidor respondió».** El error guardado
+ * puede ser de una respuesta del servidor, pero también de una que nunca llegó:
+ * un `Failed to fetch` o el corte por plazo. Decir que el servidor respondió
+ * cuando el motivo es que no respondió se contradice a sí mismo.
  */
 async function motivoDelPendiente(pendientes: number): Promise<string> {
   const cuantos = `${pendientes} ${pendientes === 1 ? 'cambio' : 'cambios'}`;
@@ -264,7 +269,7 @@ async function motivoDelPendiente(pendientes: number): Promise<string> {
   const masIntentada = ops.filter((o) => o.lastError).sort((a, b) => b.attempts - a.attempts)[0];
 
   if (masIntentada?.lastError) {
-    return `Falta sincronizar ${cuantos}. El servidor respondió: ${masIntentada.lastError} ${aSalvo}`;
+    return `Falta sincronizar ${cuantos}. El último intento falló: ${masIntentada.lastError} ${aSalvo}`;
   }
 
   return `Falta sincronizar ${cuantos}. Buscá señal y probá de nuevo. ${aSalvo}`;

@@ -44,16 +44,7 @@ export const publico = new Hono()
    */
   .post('/archers', async (c) => {
     const input = await parseJsonBody(c, ArcherSelfRegisterSchema);
-    const archer = await archerService.registerPublic(input);
-
-    return c.json({
-      archer: {
-        id: archer.id,
-        firstName: archer.firstName,
-        lastName: archer.lastName,
-        category: archer.category,
-      },
-    });
+    return c.json({ archer: await archerService.registerPublic(input) });
   })
 
   .get('/seasons', async (c) => {

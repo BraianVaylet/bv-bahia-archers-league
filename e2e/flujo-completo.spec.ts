@@ -220,7 +220,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
       pin: string;
       members: { category: string }[];
     }[];
-  }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+  }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
 
   expect(patrols.length).toBeGreaterThan(0);
   for (const p of patrols) {

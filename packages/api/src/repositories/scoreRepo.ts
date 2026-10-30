@@ -71,9 +71,17 @@ export function findParticipant(
  * Se hace **por delta y en la misma transacción que el puntaje**: es lo que
  * permite que podios y estadísticas no tengan que recorrer flechas.
  * Ver `docs/ARCHITECTURE.md` §5, decisión 3.
+ *
+ * **Una sola escritura.** `normalizedPct` sale del total que quien llama ya leyó
+ * dentro de esta misma transacción (`totalPrevio`) más el delta, en vez de releer
+ * el documento para calcularlo: era un comando más por op, y cada comando es una
+ * ida y vuelta a la base (`REF6-5`). Es seguro: dos transacciones que tocan al
+ * mismo arquero modifican el mismo documento, y la segunda en commitear recibe un
+ * `WriteConflict` y se reintenta entera, releyendo el total.
  */
 export async function applyRollupDelta(
   participantId: ObjectId,
+  totalPrevio: number,
   delta: {
     total: number;
     innerCount: number;
@@ -99,19 +107,12 @@ export async function applyRollupDelta(
     if (valor !== 0) inc[`byModality.${modalidad}`] = valor;
   }
 
-  const doc = await participants().findOneAndUpdate(
-    { _id: participantId },
-    { $inc: inc, $set: { updatedAt: new Date() } },
-    { returnDocument: 'after', session },
-  );
-
-  if (doc && maxPossibleScore > 0) {
-    await participants().updateOne(
-      { _id: participantId },
-      { $set: { normalizedPct: Math.round((doc.total / maxPossibleScore) * 10_000) / 100 } },
-      { session },
-    );
+  const set: Record<string, number | Date> = { updatedAt: new Date() };
+  if (maxPossibleScore > 0) {
+    set.normalizedPct = Math.round(((totalPrevio + delta.total) / maxPossibleScore) * 10_000) / 100;
   }
+
+  await participants().updateOne({ _id: participantId }, { $inc: inc, $set: set }, { session });
 }
 
 /**

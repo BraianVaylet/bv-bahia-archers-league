@@ -196,9 +196,16 @@ Se dispara ante:
 2. POST /api/wafl/sync { ops }
 3. Por cada resultado:
      applied    → scores.syncState = 'synced'; escribir totales del servidor; borrar la op
-     duplicate  → borrar la op (ya estaba aplicada)
-     superseded → borrar la op; refrescar desde el servidor; syncState = 'synced'
+     duplicate  → borrar la op; alinear la celda con el `score` que trae (lo que el servidor tiene hoy)
+     superseded → borrar la op; alinear la celda con el `score` que trae; syncState = 'synced'
      rejected   → NO borrar; marcar syncState = 'conflict'; mostrar el error al usuario
+
+   «Alinear» = reemplazar flechas y totales locales por los del servidor, sin `error`, en
+   `synced`. Salvo que haya **otra op de score pendiente para la misma celda**: el líder
+   volvió a editar mientras el lote viajaba, esa edición es más nueva que lo que el servidor
+   devuelve, y se resuelve sola cuando le toque. (`REF6-4`: hasta ahí, el puntaje local se
+   quedaba en `pending` con las flechas que perdieron, y `sembrarPuntajes` no pisa lo que no
+   está `synced`.)
 4. Actualizar clockSkewMs con el serverTime de la respuesta
 5. Si quedan ops, repetir
 ```
@@ -208,6 +215,8 @@ Se dispara ante:
 Backoff exponencial con jitter: `min(2^attempts × 1000ms, 60s) × (0.5 + random × 0.5)`.
 
 - **Errores de red** (`TypeError: Failed to fetch`, timeout): se reintenta indefinidamente. Es el caso normal en el monte.
+- **El POST tiene plazo: 20 s** (token CSRF incluido). Un pedido colgado mantiene `corriendo` en `true`, y el evento `online`, el intervalo y el foco llaman a `flush()` y salen de inmediato: sin plazo, **nada más puede vaciar el outbox** aunque la señal ya haya vuelto. Vencido el plazo se cancela el `fetch` y se trata como cualquier error de red: la op se conserva y se reintenta.
+  **Ojo con la latencia a la base:** un lote de 50 ops son ~309 viajes a MongoDB en serie, y a partir de ~60 ms de RTT supera los 20 s (a 120 ms tarda ~38 s). El servidor sigue procesando el pedido cortado y el reintento vuelve como `duplicate`, así que no se pierde ni se duplica nada, pero el outbox se vacía a los tropezones. Railway y Atlas tienen que estar en la misma región (`CONFIG.md` §7).
 - **5xx**: se reintenta con backoff.
 - **401 / 403**: se detiene la sincronización y se pide reingresar. Las ops **se conservan** y se envían tras reautenticar. Nunca se descarta trabajo por un problema de sesión.
 - **408 / 429**: transitorios por definición, se reintentan.
@@ -251,7 +260,7 @@ El servidor valida server-side que estén todos los puntajes y todas las firmas.
 }
 ```
 
-Máximo **200 ops** por batch, **1 MB** de body. El cliente parte en batches de 50.
+Máximo **200 ops** por batch, **1 MB** de body (el único endpoint con ese techo; el resto admite 64 KB, medidos en bytes reales). El cliente parte en batches de 50.
 
 ### Procesamiento server-side, por op
 
@@ -295,7 +304,11 @@ Máximo **200 ops** por batch, **1 MB** de body. El cliente parte en batches de 
   "results": [
     { "opId": "0192f3a1-...", "status": "applied",
       "score": { "total": 11, "innerCount": 0, "xCount": 0, "tenCount": 0, "mCount": 1 } },
-    { "opId": "0192f3a2-...", "status": "duplicate" },
+    // `duplicate` y `superseded` de un score traen lo que el servidor tiene HOY en esa
+    // celda, con sus `arrows`: el celular necesita saber qué ganó, no sólo cuánto suma.
+    { "opId": "0192f3a2-...", "status": "duplicate",
+      "score": { "total": 22, "innerCount": 2, "xCount": 0, "tenCount": 0, "mCount": 0,
+                 "arrows": ["11", "11"] } },
     { "opId": "0192f3a3-...", "status": "rejected",
       "error": { "code": "SIGNATURES_MISSING", "message": "Faltan 2 firmas" } }
   ],

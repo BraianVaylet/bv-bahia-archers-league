@@ -19,6 +19,7 @@ import { env } from './env.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { hayBuild, montarEstaticos, RUTAS_POR_DEFECTO } from './middleware/estaticos.js';
+import { limiteDeBody } from './middleware/limiteDeBody.js';
 import { failedAttemptsLimit, rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
@@ -79,6 +80,14 @@ export function createApp(options: AppOptions = {}): Hono {
     }),
   );
 
+  // El alta pública escribe sin sesión, así que tiene un cupo propio además del de
+  // lectura. Sólo el POST: la ficha de un arquero (GET) no lo gasta.
+  app.on(
+    'POST',
+    '/api/public/archers',
+    rateLimit({ limit: cfg.RATE_LIMIT_REGISTER, windowMs: 3_600_000, scope: 'alta' }),
+  );
+
   // Generoso a propósito: una patrulla que vuelve de tres horas sin señal manda
   // cientos de operaciones de golpe y NUNCA debe ser rechazada. Ese endpoint lo
   // protegen la autenticación y la autorización, no el rate limit.
@@ -86,6 +95,10 @@ export function createApp(options: AppOptions = {}): Hono {
     '/api/wafl/sync',
     rateLimit({ limit: cfg.RATE_LIMIT_SYNC, windowMs: 60_000, scope: 'sync' }),
   );
+
+  // Después de los rate limits y antes de cualquier handler: un body de más se corta
+  // antes de que algo lo lea entero.
+  app.use('/api/*', limiteDeBody());
 
   app.use('/api/*', csrfProtection());
 
