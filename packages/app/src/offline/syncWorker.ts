@@ -221,8 +221,20 @@ export async function flush(): Promise<boolean> {
         return false;
       }
 
-      const cortar = await aplicarResultados(lote, respuesta);
-      if (cortar) {
+      const { hayConflicto, sinResultado } = await aplicarResultados(lote, respuesta);
+
+      // **Se corta la vuelta.** Seguir leyendo el outbox volvería a mandar la misma op,
+      // sin pausa: el único freno era el 429 del rate limit —300 por minuto y por IP, y el
+      // wifi del club es una sola IP—, así que un celular así dejaba sin cuota a las demás
+      // patrullas. Se anota el intento y se reintenta con backoff, como un corte de red.
+      if (sinResultado.length > 0) {
+        await marcarIntentos(sinResultado, MOTIVO_SIN_RESULTADO);
+        programarReintento(sinResultado);
+        await refrescarPendientes();
+        return false;
+      }
+
+      if (hayConflicto) {
         await refrescarPendientes();
         return false;
       }
@@ -273,13 +285,39 @@ async function reflejarResultado(op: OutboxOp, resultado: OpResult): Promise<voi
   if (score.arrows) await alinearConServidor(op, { ...score, arrows: score.arrows });
 }
 
-async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Promise<boolean> {
+/** Lo que quedó de aplicar una respuesta del servidor a un lote. */
+interface Aplicado {
+  /** Alguna op fue rechazada: el líder tiene que ver qué pasó. */
+  readonly hayConflicto: boolean;
+  /**
+   * Las ops que **la respuesta no mencionó**. Siguen en el outbox y hay que tratarlas
+   * como un intento fallido: saltearlas sin más dejaba que `flush` las leyera y las
+   * mandara de nuevo en la vuelta siguiente, sin pausa. Ver `MOTIVO_SIN_RESULTADO`.
+   */
+  readonly sinResultado: OutboxOp[];
+}
+
+/**
+ * Por qué una op sigue en el outbox cuando el servidor contestó pero no la nombró.
+ * Es lo que lee `requestClose` para explicarle al líder por qué falta sincronizar.
+ */
+const MOTIVO_SIN_RESULTADO = 'El servidor no devolvió el resultado de este cambio.';
+
+async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Promise<Aplicado> {
   const porId = new Map(respuesta.results.map((r) => [r.opId, r]));
   let hayConflicto = false;
+  const sinResultado: OutboxOp[] = [];
 
   for (const op of lote) {
     const resultado = porId.get(op.opId);
-    if (!resultado) continue;
+    if (!resultado) {
+      // Un servidor que cumple el contrato devuelve un resultado por op. Que falte
+      // pasa con un desfase de versiones (la PWA se actualiza con `prompt`, así que
+      // hay celulares con el cliente viejo durante días) o con un proxy que altere
+      // la respuesta. **No se descarta**: el puntaje es del líder.
+      sinResultado.push(op);
+      continue;
+    }
 
     if (resultado.status === 'rejected') {
       // No se reintenta: el servidor ya dijo que no. Se marca para que el
@@ -297,7 +335,7 @@ async function aplicarResultados(lote: OutboxOp[], respuesta: SyncResponse): Pro
     await removeOp(op.opId);
   }
 
-  return hayConflicto;
+  return { hayConflicto, sinResultado };
 }
 
 /**
@@ -398,7 +436,9 @@ async function aislarIrrecuperables(lote: OutboxOp[], error: unknown): Promise<v
 
   for (const op of lote) {
     try {
-      await aplicarResultados([op], await deps.post([aPayload(op)]));
+      const { sinResultado } = await aplicarResultados([op], await deps.post([aPayload(op)]));
+      // Sin resultado tampoco puede quedar sin anotar: sigue en el outbox.
+      if (sinResultado.length > 0) await marcarIntentos(sinResultado, MOTIVO_SIN_RESULTADO);
     } catch (e) {
       if (esReintentable(e)) {
         // Esta no era la culpable; se queda para el próximo intento.

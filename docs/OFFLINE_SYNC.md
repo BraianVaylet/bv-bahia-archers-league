@@ -221,6 +221,7 @@ Backoff exponencial con jitter: `min(2^attempts × 1000ms, 60s) × (0.5 + random
 - **401 / 403**: se detiene la sincronización y se pide reingresar. Las ops **se conservan** y se envían tras reautenticar. Nunca se descarta trabajo por un problema de sesión.
 - **408 / 429**: transitorios por definición, se reintentan.
 - **400 / 409** (op inválida): no se reintenta. Se marca `conflict` y se muestra al usuario qué pasó y con qué arquero y blanco.
+- **200 pero sin resultado para una op**: se trata como un intento fallido, igual que un corte de red. Se anota el intento (con el motivo «El servidor no devolvió el resultado de este cambio.», que es lo que lee `requestClose`), **se corta la vuelta del vaciado** y se reintenta con backoff. La op **nunca se descarta**. Ver abajo.
 
 **El 400 llega a nivel de lote, no de op.** La validación de Zod corre sobre el array entero, así que una sola op mala hace fallar el `POST` completo y arrastra a las buenas. Cuando el lote se rechaza con un código que no se reintenta, se **reenvía op por op** para aislar la culpable: el puntaje de un arquero no puede quedar rehén de la firma rota de otro.
 
@@ -395,6 +396,10 @@ Al tocarlo se abre un panel con: última sincronización exitosa, cantidad de op
 
 ---
 
+**Una respuesta que no menciona una op** (`REF6-9`, hallazgo de la tanda). El contrato dice que el servidor devuelve un resultado por op, y el actual lo cumple en todos sus caminos. Pero la PWA se actualiza con `prompt` (regla 7): hay celulares con el cliente viejo durante días, y un desfase de versiones —o un proxy que altere la respuesta— puede traer una respuesta sin el resultado de alguna op. Antes, `aplicarResultados` la saltaba sin sacarla ni anotar nada, y el `for (;;)` de `flush` volvía a leer el outbox y a mandarla **sin pausa**. Lo único que frenaba el bucle era el 429 del rate limit (300 por minuto y por IP), y el wifi del club es una sola IP: un celular así dejaba sin cuota a las demás patrullas, y volvía a empezar con cada ventana de un minuto.
+
+Ahora `aplicarResultados` devuelve también las ops sin resultado, y `flush` las anota como intento fallido, programa el reintento con backoff y **sale**. En el camino de aislamiento de un lote rechazado, la op sin resultado también cuenta un intento. En ningún caso se descarta: el puntaje es del líder, y que el servidor no lo haya contestado no lo vuelve basura.
+
 ## 10. Matriz de escenarios de falla
 
 | # | Escenario | Comportamiento esperado |
@@ -409,6 +414,7 @@ Al tocarlo se abre un panel con: última sincronización exitosa, cantidad de op
 | 8 | Dos dispositivos en paralelo | LWW por blanco y arquero. Conflictos registrados en el audit log. |
 | 9 | El mismo batch se envía dos veces | Deduplicado por `opId`. `status: 'duplicate'`. Cero duplicados en base. |
 | 10 | El servidor está caído | Reintentos con backoff, indefinidamente. La app sigue plenamente usable. |
+| 10b | El servidor contesta 200 sin el resultado de una op | Un solo intento por vuelta, anotado con su motivo; reintento con backoff. La op no se descarta ni se reenvía en bucle. |
 | 11 | Se llena el almacenamiento del dispositivo | Se detecta con `navigator.storage.estimate()`. Aviso al usuario. Se solicita `persist()` al entrar para evitar el desalojo. |
 | 12 | Token de flecha inválido | Rechazado **en el cliente** antes de encolar. No llega al outbox. |
 | 13 | El admin cambia el torneo mientras se anota | Solo puede editar blancos sin puntajes. Si un blanco cambió, la sincronización devuelve `rejected` con explicación y el bundle se refresca. |

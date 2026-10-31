@@ -14,6 +14,42 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-31 · Un servidor que no devuelve el resultado de una op (hallazgo de REF6-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Surgió al escribir los tests de `offline/` de [`REF6-9`](post/ref-6/ACTION_PLAN.md) y no estaba en el informe. Toca `syncWorker.ts` (`FE-2`, una de las cuatro tareas que definen el proyecto).
+
+### Qué pasaba
+
+`aplicarResultados` saltaba (`continue`) una op sin resultado en la respuesta sin sacarla del outbox, sin contar un intento y sin marcar nada. El `for (;;)` de `flush` volvía a leer el outbox, encontraba la misma op y la mandaba de nuevo, **sin pausa ni backoff**. Reproducido con un servidor de mentira que contesta `200` con `results: []`: **300 pedidos en 46 ms**, con la op todavía en el outbox.
+
+Con el servidor de hoy no pasa: `syncService.sync` devuelve un resultado por op en todos sus caminos. El caso realista es un **desfase de versiones**: la PWA se actualiza con `prompt` (regla 7), así que hay celulares con el cliente viejo durante días, y un cambio futuro en la forma de `results` —o un proxy que altere la respuesta— los metería en el bucle. Lo único que lo frenaba era el 429 del rate limit (300 por minuto y por IP), y el wifi del club es una sola IP: un celular así dejaba sin cuota a las demás patrullas, y volvía a empezar con cada ventana. **No perdía datos**: la op nunca se descartaba.
+
+### Qué cambió
+
+- `aplicarResultados` devuelve `{ hayConflicto, sinResultado }`. Las ops sin resultado se tratan como un **intento fallido**, igual que un corte de red: se anota el intento con el motivo «El servidor no devolvió el resultado de este cambio.» (es lo que lee `requestClose` para explicarle al líder por qué falta sincronizar), se programa el reintento con backoff y **`flush` sale**.
+- En el camino de aislamiento de un lote rechazado, la op sin resultado también cuenta un intento.
+- **La op nunca se descarta.** El puntaje es del líder, y que el servidor no lo haya contestado no lo vuelve basura. Es la misma regla que el 401 y los errores de red.
+
+### Decisiones
+
+- **Se arregló el comportamiento y no el síntoma.** Una guarda genérica («si el lote es idéntico al anterior, cortar») habría frenado este bucle y dejado pasar el siguiente: acá se nombra la causa —una op sin resultado— y se la trata como lo que es.
+- **Sin estado `error` en la pantalla.** Se comporta como un corte de red: el indicador sigue en «pendiente» y el motivo queda en la op. El líder no tiene nada que hacer; marcarle un error que no puede resolver sería ruido.
+
+### Errores míos en el camino
+
+- **Un test mío era flaky y yo no lo sabía.** «Con un lote parcial» asumía que la primera op del lote era la de P1, pero el orden del outbox sale del uuid v7, que **empata a ras de milisegundo** y desempata al azar. Pasó dos veces por suerte y falló en la tercera corrida, con el E2E andando en paralelo. Ahora el servidor de prueba contesta por arquero y no por posición; 8 corridas seguidas verdes y las 9 mutaciones otra vez detectadas.
+- **Lo encontré por accidente.** Una respuesta de prueba que omitía una op colgó mi test hasta el timeout de 5 s. Si hubiera escrito la respuesta completa, el hueco seguiría ahí.
+
+### Verificación
+
+`@bal/app` **527** (+5 nuevos, rojos antes del arreglo por la razón correcta: «expected 6 to be 1», el bucle corriendo hasta el tope del test). `offline/` sube a **90,2 %** de ramas (umbral 85, y los umbrales pasan). 9 mutaciones, todas detectadas: volver al `continue` · anotar el intento pero seguir la vuelta · cortar sin programar el reintento · cortar sin anotar el intento · descartar la op · no registrar las ops sin resultado · el aislamiento sin anotar · sin motivo a la vista · lote parcial que deja a todas sin resultado.
+
+### Deuda / lo que sigue
+
+- **No hay un tope de reintentos ni un aviso al líder** si una op queda sin resultado durante mucho tiempo. Con backoff (hasta 60 s) es barato, pero un cliente viejo contra un servidor nuevo seguiría reintentando para siempre: lo que debería pasar entonces es avisar que hay que actualizar la app. Es una decisión de producto, no de este arreglo.
+
+---
+
 ## 2026-10-31 · Cobertura que bloquea y E2E en celular (REF6-9)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con una parte sin verificar** (el proyecto de WebKit no se corrió) y **un hallazgo nuevo** que no es de esta tanda (abajo). Novena tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `T-1`, `T-2` y `T-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
@@ -49,7 +85,7 @@ Formato: entradas nuevas **arriba**.
 
 ### Deuda / lo que sigue
 
-- **`flush()` puede quedar en un bucle sin fin si el servidor omite una op en `results`.** `aplicarResultados` hace `continue` sobre una op sin resultado y no la saca del outbox; el `for (;;)` de `flush` vuelve a leer el mismo lote y a mandarlo, sin pausa. Un servidor que cumple el contrato siempre devuelve un resultado por op, así que hoy no pasa; pero un proxy que corte la respuesta, o una versión vieja del servidor, convertirían al celular en un cliente que hace POST sin parar. Hace falta una guarda (contar la op como intento fallido y salir) y un test. **No lo toqué:** no es de esta tanda y es la capa más delicada del proyecto.
+- ~~**`flush()` puede quedar en un bucle sin fin si el servidor omite una op en `results`.**~~ **Resuelto** (entrada de arriba). Se dejó el texto original: `aplicarResultados` hace `continue` sobre una op sin resultado y no la saca del outbox; el `for (;;)` de `flush` vuelve a leer el mismo lote y a mandarlo, sin pausa. Un servidor que cumple el contrato siempre devuelve un resultado por op, así que hoy no pasa; pero un proxy que corte la respuesta, o una versión vieja del servidor, convertirían al celular en un cliente que hace POST sin parar. Hace falta una guarda (contar la op como intento fallido y salir) y un test. **No lo toqué:** no es de esta tanda y es la capa más delicada del proyecto.
 - **Correr WebKit** (`pnpm exec playwright install webkit`, y luego `playwright test --project="iPhone 14"`). Puede fallar por diferencias reales: `objetivos-tactiles` incluye un test de foco por teclado, y Safari no tabula a los botones por defecto.
 - **`e2e/tsconfig.json` no pasa `tsc`** (`NodeListOf` sin iterador, en tres archivos que no toqué) y no está en `pnpm typecheck`: los errores no los ve nadie.
 - `outbox.ts` tiene una rama que el propio código llama «inalcanzable» (`computoParcial` tras un `!r.ok`): código muerto que cuenta como rama sin cubrir.

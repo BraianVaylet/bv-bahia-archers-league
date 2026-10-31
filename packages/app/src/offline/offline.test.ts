@@ -1205,3 +1205,154 @@ describe('el intervalo del worker', () => {
     detener();
   });
 });
+
+// ── El servidor que no devuelve el resultado de una op ───────────────────────
+
+/**
+ * `flush()` volvía a leer el outbox después de cada respuesta. Una op sin resultado en
+ * la respuesta se saltaba (`continue`) sin sacarla, sin contar un intento y sin marcar
+ * nada, así que la vuelta siguiente la leía de nuevo y la mandaba de nuevo, **sin
+ * pausa ni backoff**. Un servidor que cumple el contrato devuelve un resultado por op
+ * y esto no pasa; pasa con un desfase de versiones —la PWA se actualiza con `prompt`,
+ * así que hay celulares con el cliente viejo durante días—, o con un proxy que altere
+ * la respuesta.
+ *
+ * Lo único que frenaba el bucle era el 429 del rate limit (300 por minuto y por IP),
+ * y el wifi del club es una sola IP: un celular así dejaba sin cuota a las demás
+ * patrullas. Ahora una op sin resultado es un intento fallido, como un corte de red:
+ * se anota, se corta la vuelta y se reintenta con backoff. **Nunca se descarta**: el
+ * puntaje es del líder, y que el servidor no lo haya contestado no lo vuelve basura.
+ */
+describe('un servidor que no devuelve el resultado de una op', () => {
+  type Respuesta = Awaited<ReturnType<Parameters<typeof configureSync>[0]['post']>>;
+
+  const respuesta = (results: Record<string, unknown>[]) =>
+    ({
+      results,
+      patrol: { status: 'en_curso', targetsCompleted: 0 },
+      serverTime: new Date().toISOString(),
+    }) as unknown as Respuesta;
+
+  const aplicada = (opId: unknown) => ({
+    opId,
+    status: 'applied',
+    score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+  });
+
+  /**
+   * Un servidor de mentira con un tope: si el cliente insiste más de `TOPE` veces,
+   * contesta 429, como haría el rate limit real. Sin el tope, el bucle de antes no
+   * terminaría nunca y el test colgaría en vez de fallar.
+   */
+  const TOPE = 5;
+  let pedidos: number;
+  const servidor = (cuando: (n: number, ops: Record<string, unknown>[]) => Respuesta) =>
+    configureSync({
+      post: async (ops) => {
+        pedidos++;
+        if (pedidos > TOPE) throw new ApiError(429, 'RATE_LIMITED', 'Demasiados pedidos.');
+        return cuando(pedidos, ops);
+      },
+    });
+
+  beforeEach(() => {
+    pedidos = 0;
+    // Sólo los temporizadores: `fake-indexeddb` agenda con `setImmediate`. El
+    // reintento con backoff queda armado y no se dispara solo.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('no la reenvía sin pausa: un solo pedido, y la op sigue ahí con un intento', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    servidor(() => respuesta([]));
+
+    expect(await flush()).toBe(false);
+
+    expect(pedidos).toBe(1);
+    const [op] = await readOutbox();
+    expect(op?.attempts).toBe(1);
+    // El motivo queda a la vista: es lo que lee `requestClose` para explicarle al líder
+    // por qué falta sincronizar.
+    expect(op?.lastError).toMatch(/no devolvió/i);
+    expect((await readScore(P1, 1))?.syncState).toBe('pending');
+  });
+
+  it('con un lote parcial, la op con resultado sale y la omitida se queda', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    await writeScore(P2, 1, ['10', '8']);
+    // Se contesta por **arquero**, no por posición: dos puntajes escritos en el mismo
+    // milisegundo empatan en el uuid v7 y el orden en el outbox no está garantizado.
+    servidor((_, ops) =>
+      respuesta(ops.filter((o) => o.participantId === P1).map((o) => aplicada(o.opId))),
+    );
+
+    expect(await flush()).toBe(false);
+
+    expect(pedidos).toBe(1);
+    const quedan = await readOutbox();
+    expect(quedan).toHaveLength(1);
+    expect(quedan[0]?.payload.participantId).toBe(P2);
+    expect(quedan[0]?.attempts).toBe(1);
+    expect((await readScore(P1, 1))?.syncState).toBe('synced');
+  });
+
+  // No se abandona: con backoff, se vuelve a intentar, y si ahora el servidor contesta,
+  // la op sale.
+  it('reintenta con backoff, y cuando el servidor contesta la op sale', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    servidor((n, ops) => (n === 1 ? respuesta([]) : respuesta(ops.map((o) => aplicada(o.opId)))));
+
+    await flush();
+    expect(pedidos).toBe(1);
+
+    // El reintento corre solo, después de la espera.
+    await vi.advanceTimersByTimeAsync(60_000);
+    for (let i = 0; i < 500 && pedidos < 2; i++) await new Promise<void>((r) => setImmediate(r));
+    for (let i = 0; i < 500 && (await countOutbox()) > 0; i++) {
+      await new Promise<void>((r) => setImmediate(r));
+    }
+
+    expect(pedidos).toBe(2);
+    expect(await countOutbox()).toBe(0);
+    expect((await readScore(P1, 1))?.syncState).toBe('synced');
+  });
+
+  it('por más veces que pase, la op no se descarta', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    servidor(() => respuesta([]));
+
+    await flush();
+    await flush();
+    await flush();
+
+    expect(pedidos).toBe(3);
+    const [op] = await readOutbox();
+    expect(op?.attempts).toBe(3);
+    expect(await countOutbox()).toBe(1);
+  });
+
+  // Aislando la op culpable de un lote rechazado, una que el servidor no contesta
+  // tampoco puede quedar sin anotar: es la misma situación en otro camino.
+  it('al aislar un lote rechazado, la op sin resultado también cuenta un intento', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    await writeScore(P2, 1, ['10', '8']);
+
+    servidor((n, ops) => {
+      if (n === 1)
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Los datos enviados no son válidos.');
+      // Una por una: la de P1 sin resultado, la de P2 aplicada.
+      const [op] = ops;
+      return op?.participantId === P1 ? respuesta([]) : respuesta([aplicada(op?.opId)]);
+    });
+
+    await flush();
+
+    const quedan = await readOutbox();
+    expect(quedan).toHaveLength(1);
+    expect(quedan[0]?.payload.participantId).toBe(P1);
+    expect(quedan[0]?.attempts).toBe(1);
+    expect(quedan[0]?.lastError).toMatch(/no devolvió/i);
+  });
+});
