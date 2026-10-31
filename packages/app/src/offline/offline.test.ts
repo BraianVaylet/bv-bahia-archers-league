@@ -6,6 +6,7 @@ import {
   closeDb,
   countOutbox,
   deleteDb,
+  getDb,
   readBundle,
   readOutbox,
   readScore,
@@ -15,8 +16,14 @@ import {
   saveBundle,
   updateOp,
 } from './db.js';
-import { requestClose, uuidv7, writeScore, writeSignature } from './outbox.js';
-import { configureSync, flush, getSyncState, resetSyncWorker } from './syncWorker.js';
+import { ahoraCorregido, requestClose, uuidv7, writeScore, writeSignature } from './outbox.js';
+import {
+  configureSync,
+  flush,
+  getSyncState,
+  resetSyncWorker,
+  startSyncWorker,
+} from './syncWorker.js';
 import { syncLabel } from './useSyncStatus.js';
 
 /**
@@ -826,5 +833,375 @@ describe('syncLabel', () => {
 
   it('sin conexión aclara que lo cargado está en el celular', () => {
     expect(syncLabel({ ...base, status: 'offline', pending: 3 })).toMatch(/en el celular/);
+  });
+});
+
+// ── REF6-9 · Las ramas que nadie probaba ─────────────────────────────────────
+
+/**
+ * `REF6-9` / `T-1`. La cobertura de ramas de `offline/` estaba en 76 %, bajo el 85 %
+ * que `TESTING.md` §8 exige, y **nadie lo sabía porque el CI no medía**. Es la capa
+ * donde viven `U-3` y `P-2`. Lo que sigue son los caminos que ningún test recorría,
+ * y cada uno es un comportamiento, no una línea: qué pasa sin recorrido descargado,
+ * qué pasa con la red caída *mientras* se aísla la op culpable, qué dispara el worker.
+ */
+describe('sin recorrido descargado', () => {
+  // El líder abre la app, nunca descargó el recorrido, y toca un blanco. No hay
+  // contra qué validar ni de qué torneo es: no se escribe nada y se le dice por qué.
+  it('un puntaje no se guarda ni se encola', async () => {
+    await deleteDb();
+
+    const r = await writeScore(P1, 1, ['11', '8']);
+
+    expect(r).toMatchObject({ ok: false, code: 'NO_BUNDLE' });
+    expect(await countOutbox()).toBe(0);
+    expect(await readScore(P1, 1)).toBeUndefined();
+  });
+
+  it('una firma tampoco', async () => {
+    await deleteDb();
+
+    const r = await writeSignature(P1, 'data:image/png;base64,AAA');
+
+    expect(r).toMatchObject({ ok: false, code: 'NO_BUNDLE' });
+    expect(await countOutbox()).toBe(0);
+    expect(await readSignatures()).toEqual([]);
+  });
+
+  it('el reloj corregido es el del dispositivo, sin desfase que aplicar', async () => {
+    await deleteDb();
+
+    const antes = Date.now();
+    const ahora = await ahoraCorregido();
+
+    expect(ahora).toBeGreaterThanOrEqual(antes);
+    expect(ahora).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+describe('mensajes en singular', () => {
+  it('un blanco de una flecha dice «flecha», no «flechas»', async () => {
+    await saveBundle(
+      bundle({
+        tournament: {
+          ...bundle().tournament,
+          targets: [{ index: 1, modality: '3d', arrows: 1, description: null }],
+        },
+      }),
+    );
+
+    const r = await writeScore(P1, 1, ['11', '8']);
+
+    expect(r).toMatchObject({ ok: false, code: 'ARROW_COUNT' });
+    expect(r.ok ? '' : r.message).toBe('Este blanco es de 1 flecha.');
+  });
+
+  it('sin conexión, un solo cambio guardado, y ninguno', () => {
+    const base = { lastSyncAt: null, lastError: null, status: 'offline' } as const;
+
+    expect(syncLabel({ ...base, pending: 1 })).toBe(
+      'Sin conexión · 1 cambio guardado en el celular',
+    );
+    expect(syncLabel({ ...base, pending: 0 })).toBe('Sin conexión');
+  });
+});
+
+describe('aislar la op culpable con la red caída', () => {
+  const respuestaOk = (ops: Record<string, unknown>[]) => ({
+    results: ops.map((o) => ({
+      opId: o.opId as string,
+      status: 'applied' as const,
+      score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+    })),
+    patrol: { status: 'en_curso', targetsCompleted: 0 },
+    serverTime: new Date().toISOString(),
+  });
+
+  /**
+   * El servidor rechaza el lote entero por una op mala, y al reenviar de a una la red
+   * se cae justo con otra. Esa op **no era la culpable**: se queda en el outbox para
+   * el próximo intento. Descartarla por un corte de señal sería perder trabajo por
+   * una suposición, que es lo único que el outbox no puede hacer.
+   */
+  it('una op que falla por la red durante el aislamiento no se descarta', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    await writeScore(P2, 1, ['10', '8']);
+    await writeSignature(P1, 'data:image/png;base64,rota');
+
+    let vez = 0;
+    configureSync({
+      post: async (ops) => {
+        vez++;
+        // 1.º: el lote entero, rechazado por la firma rota.
+        if (vez === 1)
+          throw new ApiError(400, 'VALIDATION_ERROR', 'Los datos enviados no son válidos.');
+        // Al reenviar de a una: el puntaje de P1 se cae por la red, el de P2 pasa y la
+        // firma sigue siendo rechazada.
+        const [op] = ops;
+        if (op?.type === 'score' && op.participantId === P1) throw new TypeError('Failed to fetch');
+        if (op?.type === 'signature') {
+          throw new ApiError(400, 'VALIDATION_ERROR', 'Los datos enviados no son válidos.');
+        }
+        return respuestaOk(ops);
+      },
+    });
+
+    await flush();
+
+    const quedan = await readOutbox();
+    // Sólo el puntaje de P1 sigue: con un intento anotado, para el backoff.
+    expect(quedan).toHaveLength(1);
+    expect(quedan[0]?.type).toBe('score');
+    expect(quedan[0]?.payload.participantId).toBe(P1);
+    expect(quedan[0]?.attempts).toBeGreaterThan(0);
+
+    expect((await readScore(P2, 1))?.syncState).toBe('synced');
+    expect((await readSignatures()).find((f) => f.participantId === P1)?.syncState).toBe(
+      'conflict',
+    );
+  });
+
+  // `fetch` puede tirar cualquier cosa, no sólo un `Error`.
+  it('un error que no es un Error igual queda registrado como motivo', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    configureSync({
+      post: async () => {
+        throw 'sin señal';
+      },
+    });
+
+    await flush();
+
+    expect(await countOutbox()).toBe(1);
+    expect((await readOutbox())[0]?.lastError).toBe('sin señal');
+  });
+});
+
+describe('lo que el servidor contesta sobre ops que no son de un puntaje', () => {
+  // Lo que el servidor contesta, sin atarse al tipo interno del worker.
+  type Respuesta = Awaited<ReturnType<Parameters<typeof configureSync>[0]['post']>>;
+  const ok = (ops: Record<string, unknown>[], extra: Record<string, unknown>) =>
+    ({
+      results: ops.map((o) => ({ opId: o.opId as string, ...extra })),
+      patrol: { status: 'en_curso', targetsCompleted: 0 },
+      serverTime: new Date().toISOString(),
+    }) as unknown as Respuesta;
+
+  // Un cierre no tiene arquero ni blanco: rechazado, no hay dónde dejar la marca de
+  // conflicto, y eso no puede romper el resto del lote.
+  it('un cierre rechazado sale del outbox y avisa, sin buscar un puntaje', async () => {
+    await requestClose();
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'rejected',
+          error: { code: 'SIGNATURES_MISSING', message: 'Faltan firmas.' },
+        }),
+    });
+    // `requestClose` exige el outbox vacío para encolar: ya quedó encolado.
+    await flush();
+
+    expect(await countOutbox()).toBe(0);
+    expect(getSyncState().status).toBe('error');
+    expect(getSyncState().lastError).toBe('Faltan firmas.');
+  });
+
+  it('una firma aplicada con puntaje en la respuesta no toca ningún puntaje', async () => {
+    // Un puntaje ya sincronizado, que no está en el outbox.
+    await writeScore(P2, 1, ['10', '8']);
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'applied',
+          score: { total: 18, innerCount: 0, xCount: 0, tenCount: 1, mCount: 0 },
+        }),
+    });
+    await flush();
+    const antes = await readScore(P2, 1);
+
+    // Ahora una firma, y el servidor contesta con un `score` que no le corresponde.
+    await writeSignature(P1, 'data:image/png;base64,AAA');
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'applied',
+          score: { total: 999, innerCount: 9, xCount: 9, tenCount: 9, mCount: 9 },
+        }),
+    });
+    await flush();
+
+    expect(await countOutbox()).toBe(0);
+    expect(await readScore(P2, 1)).toEqual(antes);
+    expect((await readScores()).every((p) => p.total !== 999)).toBe(true);
+  });
+
+  it('un `duplicate` de una firma con flechas en la respuesta no inventa un puntaje', async () => {
+    await writeSignature(P1, 'data:image/png;base64,AAA');
+
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'duplicate',
+          score: {
+            arrows: ['5', '5'],
+            total: 10,
+            innerCount: 0,
+            xCount: 0,
+            tenCount: 0,
+            mCount: 0,
+          },
+        }),
+    });
+    await flush();
+
+    expect(await countOutbox()).toBe(0);
+    expect(await readScores()).toEqual([]);
+  });
+
+  // El líder pudo haber borrado el dato local (cerrar sesión en otra pestaña): el
+  // total del servidor no puede resucitar un puntaje que ya no está.
+  it('un puntaje aplicado cuya fila local ya no existe no se vuelve a crear', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    const db = await getDb();
+    await db.delete('scores', [P1, 1]);
+
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'applied',
+          score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+        }),
+    });
+    await flush();
+
+    expect(await readScore(P1, 1)).toBeUndefined();
+    expect(await countOutbox()).toBe(0);
+  });
+
+  // Sin recorrido guardado no hay desfase de reloj que recalcular, y no se inventa uno.
+  it('sin recorrido descargado, sincronizar no crea uno', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    await (await getDb()).delete('bundle', 'current');
+
+    configureSync({
+      post: async (ops) =>
+        ok(ops, {
+          status: 'applied',
+          score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+        }),
+    });
+    await flush();
+
+    expect(await readBundle()).toBeUndefined();
+  });
+});
+
+describe('los disparadores del worker', () => {
+  let detener: () => void = () => {};
+  const llamadas: number[] = [];
+
+  beforeEach(() => {
+    llamadas.length = 0;
+    configureSync({
+      post: async (ops) => {
+        llamadas.push(ops.length);
+        return {
+          results: ops.map((o) => ({
+            opId: o.opId as string,
+            status: 'applied' as const,
+            score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+          })),
+          patrol: { status: 'en_curso', targetsCompleted: 0 },
+          serverTime: new Date().toISOString(),
+        };
+      },
+    });
+    detener = startSyncWorker();
+  });
+
+  afterEach(() => {
+    detener();
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  });
+
+  it('al volver la señal pasa a «pendiente» y vacía el outbox', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    window.dispatchEvent(new Event('online'));
+
+    await vi.waitFor(() => expect(llamadas).toEqual([1]));
+    expect(await countOutbox()).toBe(0);
+  });
+
+  it('al perder la señal lo dice, sin tocar el outbox', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    window.dispatchEvent(new Event('offline'));
+
+    expect(getSyncState().status).toBe('offline');
+    expect(llamadas).toEqual([]);
+    expect(await countOutbox()).toBe(1);
+  });
+
+  it('al recuperar el foco sincroniza, y con la pestaña oculta no', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(llamadas).toEqual([]);
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(llamadas).toEqual([1]));
+  });
+
+  it('una vez detenido, la señal ya no dispara nada', async () => {
+    detener();
+    await writeScore(P1, 1, ['11', '8']);
+
+    window.dispatchEvent(new Event('online'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(llamadas).toEqual([]);
+  });
+});
+
+describe('el intervalo del worker', () => {
+  afterEach(() => vi.useRealTimers());
+
+  // Es la red de seguridad: si ningún evento avisó (el navegador no siempre manda
+  // `online`), cada 30 s se mira el outbox y, si hay algo, se intenta.
+  it('cada 30 s sincroniza lo pendiente, y si no hay nada no manda nada', async () => {
+    const llamadas: number[] = [];
+    configureSync({
+      post: async (ops) => {
+        llamadas.push(ops.length);
+        return {
+          results: ops.map((o) => ({
+            opId: o.opId as string,
+            status: 'applied' as const,
+            score: { total: 19, innerCount: 1, xCount: 0, tenCount: 0, mCount: 0 },
+          })),
+          patrol: { status: 'en_curso', targetsCompleted: 0 },
+          serverTime: new Date().toISOString(),
+        };
+      },
+    });
+
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
+    const detener = startSyncWorker();
+
+    // Con el outbox vacío no hay request.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(llamadas).toEqual([]);
+
+    await writeScore(P1, 1, ['11', '8']);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await vi.waitFor(() => expect(llamadas).toEqual([1]));
+
+    detener();
   });
 });

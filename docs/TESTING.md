@@ -295,6 +295,16 @@ tests/e2e/flujo-completo.spec.ts
 23. Verifica que el resultado se aplicó a la liga —«mejor de N», sin puntos por posición desde `SH-9`—
 ```
 
+### En qué navegadores corre
+
+| Proyecto | Motor | Qué corre |
+|---|---|---|
+| `chromium` | Chrome de escritorio | **Toda** la suite |
+| `Pixel 7` | Chromium, con el viewport, el user agent y el táctil de un Android | `offline-recarga`, `objetivos-tactiles` y `flujo-corto` |
+| `iPhone 14` | **WebKit** | Los mismos tres |
+
+La app se usa en celulares, y **Safari en iPhone** es donde IndexedDB, el service worker, `storage.persist()` y la política de desalojo de datos se comportan distinto (`REF6-9` / `T-2`). Los proyectos móviles no repiten la suite: corren lo que más importa en un teléfono —recargar sin señal, los objetivos táctiles y un recorrido corto—. WebKit de Playwright **no reemplaza al dispositivo real** (`FE-21`), pero encuentra la mayoría de las diferencias antes. Las specs que corren en los tres navegadores se mantienen independientes del orden: eligen el torneo por **id** y no por nombre, porque cada navegador crea el suyo en la misma base.
+
 ### Escenarios E2E adicionales
 
 | Test | Verifica |
@@ -369,6 +379,18 @@ Modo watch durante el desarrollo: agregar `--watch` a cualquiera de los anterior
 | `@bal/api` — `middleware/auth` y autorización de sync | **100%** | **100%** | Sí |
 | `@bal/app` — `offline/` | 90% | 85% | Sí |
 | `@bal/app` — resto | 70% | 60% | No |
+
+**Dónde viven y quién los aplica (`REF6-9` / `T-1`).** Los umbrales están en el `vitest.config.ts` de cada paquete, por carpeta y no sobre el total —un 95 % global deja pasar un servicio entero sin probar si el resto está muy cubierto—, y el CI corre `pnpm test:coverage` en **todos** los paquetes. Hasta entonces el CI ejecutaba `vitest run` sin `--coverage`: los umbrales estaban escritos y no corría nada, y `middleware/auth` llevaba semanas en 88 % de ramas contra un 100 % exigido, y `offline/` en 76 % contra 85 %. Un test verde con la cobertura por debajo del umbral **falla igual** (se verificó sacando los tests y mirando que el comando salga con 1).
+
+| Alcance | Umbral aplicado | Medido |
+|---|---|---|
+| `@bal/shared` | 95 / 95 / 95 / 95 | 99,6 líneas · 98,1 ramas |
+| `@bal/api` — `src/services/**` | 85 líneas · 80 ramas | 97,2 · 85,5 |
+| `@bal/api` — `src/middleware/auth.ts` | 100 en todo | 100 |
+| `@bal/app` — `src/offline/**` | 90 líneas · 85 ramas | 99,3 · 89,2 |
+| `@bal/app` — resto | **no bloquea**: se mide, no se exige | 89 · 82 |
+
+«Autorización de sync» (`§8` pedía 100 % también ahí) vive dentro de `syncService.ts`, que comparte archivo con el resto de la sincronización: no se puede separar por carpeta, y queda cubierta por el umbral de `services/`. Y `--passWithNoTests` se sacó de `app` y `landing`: un cambio de glob que dejara de encontrar los tests daba verde con cero tests.
 
 CI bloquea el merge ante: lint, typecheck, cualquier test rojo, umbral de cobertura no alcanzado, `pnpm audit` con crítico o alto, o presupuesto de bundle excedido.
 

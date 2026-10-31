@@ -19,6 +19,7 @@
     "start": "pnpm --filter @bal/api start",
     "test": "pnpm run build:libs && pnpm -r --workspace-concurrency=1 test",
     "test:e2e": "playwright test",
+    "test:coverage": "pnpm run build:libs && pnpm -r --workspace-concurrency=1 test:coverage",
     "typecheck": "pnpm run build:libs && pnpm -r typecheck",
     "lint": "biome check .",
     "format": "biome format --write .",

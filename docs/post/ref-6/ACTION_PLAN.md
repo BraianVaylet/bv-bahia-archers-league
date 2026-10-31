@@ -200,21 +200,22 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-9` · Cobertura que bloquea y E2E en celular · **P1** · M
+### `[~] REF6-9` · Cobertura que bloquea y E2E en celular · **P1** · M
 
-**Hallazgos:** `T-1`, `T-2`, `T-6`.
-**Archivos:** `*/vitest.config.ts`, `*/package.json`, `.github/workflows/ci.yml`, `playwright.config.ts`
+> **Estado: hecho, salvo una cosa que no pude verificar:** el proyecto `iPhone 14` (WebKit) está configurado y listado, pero **no se corrió**: WebKit no está instalado en esta máquina y bajarlo es una descarga que no hice sin tu OK. El CI lo instala.
 
-- [ ] `thresholds` por glob según `TESTING.md` §8 en `api` y `app`
-- [ ] El job `quality` corre `test:coverage` en todos los paquetes
-- [ ] Subir `offline/` a 85% de ramas y `middleware/auth` a 100%
-- [ ] Proyectos `Pixel 7` y `iPhone 14` (WebKit) para `offline-recarga`, `objetivos-tactiles` y un flujo corto
-- [ ] Fuera `--passWithNoTests`
+**Hallazgos:** `T-1`, `T-2`, `T-6`. **Skill:** `tdd`.
+**Archivos:** `api/vitest.config.ts`, `app/vitest.config.ts`, `{app,landing}/package.json`, `package.json`, `.github/workflows/ci.yml`, `playwright.config.ts`, `e2e/{ayudas,flujo-corto}.ts`, `app/src/offline/offline.test.ts`, `api/tests/auth-middleware.test.ts` (nuevo)
 
-**DoD:** bajar la cobertura de `offline/` rompe el CI · los E2E móviles corren en cada PR.
-**Mutaciones:** borrar un test de `offline/` → CI rojo.
+- [x] `thresholds` por carpeta según `TESTING.md` §8: `api` → `services/**` 85/80 y `middleware/auth.ts` 100; `app` → `offline/**` 90/85. «Autorización de sync» no se puede separar de `syncService.ts` por carpeta: queda bajo el de `services/`
+- [x] El job `quality` corre `pnpm test:coverage` en todos los paquetes (script nuevo en la raíz, en `app` y en `landing`; a `landing` hubo que agregarle `@vitest/coverage-v8`)
+- [x] `offline/` sube de **75,5 a 89,2 %** de ramas y `middleware/auth` de 88 a **100 %**. Son tests de comportamiento (qué pasa sin recorrido descargado, con la red caída mientras se aísla una op, qué dispara el worker), no de líneas
+- [~] Proyectos `Pixel 7` y `iPhone 14` para `offline-recarga`, `objetivos-tactiles` y un flujo corto (`flujo-corto.spec.ts`, nuevo). **Pixel 7 corrió: 9/9. iPhone 14 (WebKit) no se corrió.** El CI instala Chromium y WebKit
+- [x] Fuera `--passWithNoTests` de `app` y `landing`
 
-> Es lo que habría encontrado `REF6-4` antes que esta auditoría.
+**DoD:** bajar la cobertura de `offline/` rompe el CI ✅ (con los tests en verde y la cobertura en 75,5 %, `vitest --coverage` sale con 1) · **los E2E móviles corren en cada PR** ⚠️ configurado, verificado en Pixel 7 y **sin verificar en WebKit**.
+**Medido:** `shared` 99,6 / 98,1 · `api` services 97,2 / 85,5 · `app` offline 99,3 / 89,2. Tests: `api` 405 (+5), `app` 522 (+17), `shared` 499, `landing` 53, `ui` 61. E2E: `chromium` 43 + `Pixel 7` 9 = 52/52.
+**Mutaciones:** sacar los tests nuevos de `offline/` → `Coverage for branches (75.53%) does not meet "src/offline/**" threshold (85%)`, exit 1 · sacar `auth-middleware.test.ts` → `branches (88.23%) does not meet "src/middleware/auth.ts" threshold (100%)`, exit 1 · un glob que no encuentra tests → exit 1 sin `--passWithNoTests`, 0 con él. **No se pudo probar contra el CI real** (no hay corrida de GitHub Actions a mano): se probó el comando que corre.
 
 ---
 

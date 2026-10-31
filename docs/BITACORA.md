@@ -14,6 +14,48 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-31 · Cobertura que bloquea y E2E en celular (REF6-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con una parte sin verificar** (el proyecto de WebKit no se corrió) y **un hallazgo nuevo** que no es de esta tanda (abajo). Novena tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `T-1`, `T-2` y `T-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Los umbrales de cobertura se aplican.** Estaban en `TESTING.md` §8 como «bloquea: sí», y el CI corría `vitest run` sin `--coverage`: ni uno se evaluaba. Ahora están en el `vitest.config.ts` de `api` y `app`, por carpeta, y el CI corre `pnpm test:coverage` en todos los paquetes.
+- **`offline/` sube de 75,5 a 89,2 % de ramas** (exigido: 85) y **`middleware/auth` de 88 a 100 %** (exigido: 100). Es la capa donde viven `U-3` y `P-2`, y era la que más cobertura de ramas debía tener.
+- **Proyectos móviles de Playwright:** `Pixel 7` (Chromium) y `iPhone 14` (WebKit) corren `offline-recarga`, `objetivos-tactiles` y un `flujo-corto` nuevo. El resto sigue sólo en escritorio.
+- **Fuera `--passWithNoTests`** de `app` y `landing`.
+
+### Decisiones
+
+- **Umbrales por carpeta y no sobre el total.** Un 95 % global deja pasar un servicio entero sin probar si el resto está muy cubierto.
+- **«Autorización de sync» no tiene umbral propio.** `TESTING.md` §8 pedía 100 % ahí; vive dentro de `syncService.ts`, que comparte archivo con el resto de la sincronización, y vitest aplica umbrales por archivo o carpeta, no por función. Queda bajo el de `services/` (85/80, medido 97/85,5). Queda escrito en el documento.
+- **El resto de `app` no bloquea**, como dice el documento (70/60, «No»): se mide, no se exige.
+- **Los márgenes son chicos a propósito de cómo se midió**: `offline/` 89,2 contra 85 y `services/` 85,5 contra 80. No les agregué relleno para ensancharlos: un test que existe para subir un número es peor que el hueco.
+- **Las specs que corren en tres navegadores eligen el torneo por id.** Cada navegador crea el suyo en la misma base, y el selector por nombre (`getByRole('option', { name: /Recarga/ })`) encontraba varios y Playwright se negaba a elegir.
+- **`landing` ganó `@vitest/coverage-v8`** (ya estaba en los otros cuatro paquetes) para poder correr `test:coverage` en todos. Sin umbral: sólo se mide.
+
+### Errores míos en el camino
+
+- **Agregar la dependencia rompió los enlaces del workspace.** `pnpm add --offline` cambió las variantes de `vitest` en el store y `packages/api/node_modules/vitest` quedó apuntando a una carpeta que ya no existía: `Cannot find module ...vitest.mjs`. Lo arregló un `pnpm install --offline`. La diferencia en `pnpm-lock.yaml` es de tres líneas.
+- **Un test mío cuelga el worker, y eso es un hallazgo (abajo).** Escribí una respuesta del servidor que omitía una op del lote; el test no terminó nunca. No era mi test el roto.
+- **Otra vez un token inválido en 3D** (`'9'` en un blanco 3D): el puntaje no se guardó y el test fallaba mirando otra cosa. Es la tercera vez que me pasa en esta serie.
+- **El heredoc del shell se comió una barra** (`/\.ts/` quedó `/.ts/`) y los argumentos que empiezan con `/` se reescriben como rutas de Windows. Sin consecuencias en el repo; los scripts van a un archivo.
+
+### Verificación
+
+`pnpm test:coverage` en todo el workspace, exit 0: `shared` 499, `api` 405 (+5), `ui` 61, `app` 522 (+17), `landing` 53. **Los umbrales bloquean de verdad:** con los tests nuevos de `offline/` sacados, la corrida queda con todos los tests en verde y sale con 1 por `branches (75.53%) … threshold (85%)`; sin `auth-middleware.test.ts`, por `branches (88.23%) … threshold (100%)`. E2E: `chromium` + `Pixel 7` **52/52** (43 + 9). Lint sin errores.
+
+**No se pudo verificar:** el proyecto `iPhone 14`. WebKit no está instalado en esta máquina y bajarlo es la descarga de un binario que no hice sin tu autorización; `playwright test --list` lo muestra con sus 9 tests. Tampoco se corrió el CI real (GitHub Actions): se probó el comando que corre, no el workflow. **No se hizo** `/security-review` ni `aikido:scan`.
+
+### Deuda / lo que sigue
+
+- **`flush()` puede quedar en un bucle sin fin si el servidor omite una op en `results`.** `aplicarResultados` hace `continue` sobre una op sin resultado y no la saca del outbox; el `for (;;)` de `flush` vuelve a leer el mismo lote y a mandarlo, sin pausa. Un servidor que cumple el contrato siempre devuelve un resultado por op, así que hoy no pasa; pero un proxy que corte la respuesta, o una versión vieja del servidor, convertirían al celular en un cliente que hace POST sin parar. Hace falta una guarda (contar la op como intento fallido y salir) y un test. **No lo toqué:** no es de esta tanda y es la capa más delicada del proyecto.
+- **Correr WebKit** (`pnpm exec playwright install webkit`, y luego `playwright test --project="iPhone 14"`). Puede fallar por diferencias reales: `objetivos-tactiles` incluye un test de foco por teclado, y Safari no tabula a los botones por defecto.
+- **`e2e/tsconfig.json` no pasa `tsc`** (`NodeListOf` sin iterador, en tres archivos que no toqué) y no está en `pnpm typecheck`: los errores no los ve nadie.
+- `outbox.ts` tiene una rama que el propio código llama «inalcanzable» (`computoParcial` tras un `!r.ok`): código muerto que cuenta como rama sin cubrir.
+
+---
+
 ## 2026-10-31 · Entrega de assets y PWA (REF6-8)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con dos puntos del plan sin verificar** (si el borde de Railway ya comprime; Lighthouse «installable»). Octava tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `P-3`, `P-4`, `P-5`, `U-4` y `S-8` de [`INFORME.md`](post/ref-6/INFORME.md)).

@@ -152,7 +152,11 @@ export async function entrarComoLider(
 
   // Se espera la OPCIÓN, no el select: elegir un valor cuya opción todavía no
   // cargó no hace nada, y el formulario quedaría vacío sin que se note.
-  await expect(page.getByRole('option', { name: new RegExp(nombreTorneo) })).toBeAttached();
+  //
+  // Por **id** y no por nombre: la misma spec corre en tres navegadores contra la
+  // misma base, y con un torneo del mismo nombre por navegador el selector por texto
+  // encontraría varios y Playwright se negaría a elegir.
+  await expect(page.locator(`option[value="${tournamentId}"]`), nombreTorneo).toBeAttached();
   await page.getByLabel('Torneo').selectOption(tournamentId);
   await page.getByLabel('Patrulla').fill(username);
   await page.getByLabel('PIN').fill(pin);

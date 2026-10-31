@@ -63,8 +63,11 @@ jobs:
       - name: Tipos
         run: pnpm typecheck
 
-      - name: Tests
-        run: pnpm test
+      # Con cobertura, y los umbrales BLOQUEAN (`docs/TESTING.md` §8). Hasta `REF6-9`
+      # esto corría `pnpm test` a secas: los umbrales estaban escritos y nadie los
+      # aplicaba, y `offline/` llegó a 76 % de ramas contra un 85 % exigido.
+      - name: Tests con cobertura
+        run: pnpm test:coverage
 
   budget:
     name: Presupuestos de bundle
@@ -121,9 +124,10 @@ jobs:
       #
       # El timeout no lo evita; lo convierte en un fallo de 6 minutos que se
       # relanza, en vez de uno de 30 que hay que ir a cancelar a mano.
-      - name: Instalar Chromium
+      # Chromium (escritorio y Pixel 7) y WebKit (iPhone 14): `REF6-9` / `T-2`.
+      - name: Instalar Chromium y WebKit
         timeout-minutes: 6
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       # El servidor de E2E levanta su propio MongoDB en memoria y construye los
       # frontends: no hace falta ningún servicio externo.
