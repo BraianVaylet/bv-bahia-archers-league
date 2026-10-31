@@ -352,13 +352,11 @@ VitePWA({
   registerType: 'prompt',              // NUNCA autoUpdate
   scope: '/app/',
   workbox: {
-    globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+    // `webp` y `png` tienen que estar: el logo del CBA (`cba.webp`, 18 KB) está en el login de
+    // WAFL y en el pie siempre visible, y sin señal se veía roto.
+    globPatterns: ['**/*.{js,css,html,svg,woff2,webp,png}'],
     navigateFallback: '/app/index.html',
-    runtimeCaching: [{
-      urlPattern: /^\/api\/(?!wafl\/sync)/,
-      handler: 'NetworkFirst',
-      options: { networkTimeoutSeconds: 3, cacheName: 'api-cache' },
-    }],
+    // Sin `runtimeCaching`: ver la regla de abajo.
   },
 })
 ```
@@ -368,7 +366,8 @@ Reglas:
 | Regla | Motivo |
 |---|---|
 | `registerType: 'prompt'`, nunca `autoUpdate` | `autoUpdate` recarga la app sola. A mitad de recorrido es inaceptable. |
-| `POST /api/wafl/sync` **excluido** del runtime caching | Cachear una escritura no tiene sentido y podría enmascarar fallos. |
+| **Sin `runtimeCaching` para la API** (`REF6-8` / `S-8`) | WAFL lee de IndexedDB (regla 6) y WAFA es online por diseño: no hay nada de la API que valga guardar. Había una regla `NetworkFirst` con `/^\/api\/(?!wafl\/sync)/` que **nunca matcheaba** (Workbox evalúa la regex contra la URL completa, y `^\/api` no empieza una URL), así que no hacía nada; pero si alguien la «arreglaba», habría guardado 24 h las respuestas de `/api/admin/*` —**con los PIN en claro**— y de `/api/auth/me`, y el logout no limpia ese caché. Hay un test E2E que mira que el `sw.js` no tenga ninguna. |
+| Los chunks de cada app (`WafaApp`, `WaflApp`) están en el precaché | Se cargan con `React.lazy`, pero el service worker los baja todos al instalarse: sin señal, la app elegida abre igual. |
 | Actualizar el SW **no toca IndexedDB** | Los datos pendientes sobreviven a cualquier actualización. |
 | Si hay ops pendientes, el aviso de actualización lo advierte | "Tenés 12 cambios sin sincronizar. Se conservan al actualizar." Se informa, no se bloquea. |
 | La versión de la app se muestra en la UI | Diagnosticar en el campo sin acceso a devtools. |

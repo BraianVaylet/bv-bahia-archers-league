@@ -528,10 +528,11 @@ export const SyncBatchSchema = z.object({
 ### Backend
 - Respuestas públicas con `Cache-Control: public, max-age=60, stale-while-revalidate=300` + `ETag`.
 - Caché en memoria (LRU, TTL 60 s) para rankings, invalidada al publicar.
-- Compresión Brotli/gzip para respuestas > 1 KB.
+- **Compresión.** Los estáticos van **precomprimidos**: `scripts/precomprimir.mjs` (al final de `pnpm build`) deja un `.br` y un `.gz` junto a cada archivo de texto del `dist`, y `serveStatic({ precompressed: true })` entrega el que el cliente acepta, sin comprimir nada por request. El JS de la PWA pasa de 439 KB a 109 KB en brotli. El JSON de la API se comprime con `gzip` si pasa de 1 KB (`middleware/compresion.ts`; `hono/compress` sólo mira el umbral si la respuesta trae `Content-Length`, y `c.json()` no lo trae, así que el middleware lo declara antes).
+- **Caché de los estáticos** (`middleware/estaticos.ts`): lo que está bajo `/assets/` lleva el hash en el nombre y va `public, max-age=31536000, immutable`; todo lo demás —`index.html`, `sw.js`, el manifest, los íconos— va `no-cache` (se guarda y se pregunta antes de usar: con `Last-Modified` cuesta un `304`). `Vary: Accept-Encoding` siempre. Los dos `index.html` se leen una vez al montar, no en cada fallback de SPA.
 
 ### Frontend
-- Code splitting por ruta con `React.lazy`. WAFA y WAFL son chunks separados: entrar como líder no descarga el código de administración.
+- Code splitting con `React.lazy`. WAFA y WAFL son chunks separados (`WafaApp-<hash>.js`, `WaflApp-<hash>.js`): entrar como líder no descarga el código de administración. Sin señal sigue funcionando: el service worker precachea **todos** los `.js` al instalarse. **La landing no se partió**: se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes, y no ganó nada —esas tres pantallas pesan ≈4 KB gz entre las tres; lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que se necesita en todas— y la carga inicial no bajó (102,2 KB gz contra 101,9 del chunk único: la sobrecarga de partirlo se come lo que se saca). Un `React.lazy` que no baja el inicial sólo agrega una espera.
 - `memo` en las filas de scoring y en el teclado.
 - La UI de scoring lee de IndexedDB: no hay estado de carga en el camino crítico.
 - Tailwind purga el CSS no usado.
@@ -544,8 +545,10 @@ export const SyncBatchSchema = z.object({
 | Registrar una flecha (percibido) | **< 50 ms** |
 | Navegar entre blancos | < 100 ms |
 | Primera carga de WAFL en 3G simulado | < 2.5 s |
-| JS inicial de WAFL | **< 150 KB** gz |
-| JS inicial de la landing | < 120 KB gz |
+| JS que baja la pantalla de elegir rol (`/app/`) | < 105 KB gz · medido 99 |
+| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz · medido 111 |
+| JS que baja WAFA (inicial + su chunk) | < 135 KB gz · medido 119 |
+| JS inicial de la landing | < 120 KB gz · medido 102 |
 | LCP de la landing | < 2.5 s |
 | `GET /api/public/rankings` p95 | < 200 ms |
 | `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms — **no se cumple todavía**, ver abajo |
@@ -566,7 +569,7 @@ export const SyncBatchSchema = z.object({
 - **−37 % de comandos a 20 ops, −44 % a 50.** Por score: 10 → 6 (el avance de la patrulla se cuenta una vez por lote, y los rollups son una escritura en vez de dos).
 - **El presupuesto de 400 ms no se cumple:** 487 ms a 2 ms de RTT. Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops no bajan de ~230 ms ni con RTT cero, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op, y eso es tocar la idempotencia (dedup en bloque con `insertMany`) o unir las transacciones de un lote: decisiones de diseño, no de ajuste. O recalibrar el número: se escribió antes de medir.
 
-Los presupuestos de bundle se hacen fallar el build con `rollup-plugin-visualizer` + un check de tamaño.
+Los presupuestos de bundle los verifica `scripts/presupuesto.mjs` en CI. **Mide lo que una pantalla descarga**, no lo que hay en `assets/`: arma el grafo de chunks del `index.html` (entrada y `modulepreload`) más, para WAFL y WAFA, el chunk de su app y lo que éste importa de forma estática. Y falla si WAFL baja código de WAFA, o al revés: es lo que detecta que alguien volvió a un `import` estático. Hasta `REF6-8` sumaba todo el JS del `dist`, que con las dos apps en un solo chunk coincidía con la carga inicial y con el code splitting dejó de hacerlo.
 
 ---
 

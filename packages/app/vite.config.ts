@@ -30,30 +30,37 @@ export default defineConfig({
         start_url: '/app/',
         display: 'standalone',
         orientation: 'portrait',
-        theme_color: '#16170f',
+        // El mismo que el `meta theme-color` de `index.html`: barra del sistema de un
+        // color con la app instalada y de otro en la pestaña son dos productos.
+        theme_color: '#fbfaf5',
         background_color: '#fbfaf5',
         icons: [
-          { src: '/app/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          // Android e iOS esperan PNG; el SVG queda para quien lo entienda.
+          { src: '/app/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/app/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          // Aparte, con aire alrededor: con `any maskable` en uno solo Android lo
+          // recorta sin zona segura y se come el borde del logo.
+          {
+            src: '/app/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+          { src: '/app/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
 
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // `webp` y `png` tienen que estar: `cba.webp` pesa 18 KB, por encima del límite de
+        // inline de Vite, y lo usan el login de WAFL y el pie, que está siempre visible.
+        // Sin señal se veía roto.
+        globPatterns: ['**/*.{js,css,html,svg,woff2,webp,png}'],
         navigateFallback: '/app/index.html',
 
-        runtimeCaching: [
-          {
-            // El endpoint de sincronización queda EXCLUIDO a propósito: cachear
-            // una escritura no tiene sentido y podría enmascarar fallos.
-            urlPattern: /^\/api\/(?!wafl\/sync)/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 3,
-              expiration: { maxEntries: 60, maxAgeSeconds: 86_400 },
-            },
-          },
-        ],
+        // Sin `runtimeCaching`, a propósito. WAFL lee de IndexedDB (regla 6) y WAFA es
+        // online por diseño: no hay nada de la API que valga guardar. Y había uno que
+        // nunca matcheaba (Workbox evalúa la regex contra la URL completa), que si
+        // alguien "arreglaba" habría guardado 24 h `/api/admin/*` —con los PIN en claro—.
       },
     }),
   ],

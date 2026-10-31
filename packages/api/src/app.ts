@@ -16,6 +16,7 @@
 
 import { Hono } from 'hono';
 import { env } from './env.js';
+import { compresionDeJson } from './middleware/compresion.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { hayBuild, montarEstaticos, RUTAS_POR_DEFECTO } from './middleware/estaticos.js';
@@ -98,6 +99,10 @@ export function createApp(options: AppOptions = {}): Hono {
 
   // Después de los rate limits y antes de cualquier handler: un body de más se corta
   // antes de que algo lo lea entero.
+  // El JSON grande (el bundle de una patrulla, los resultados) viaja comprimido si el
+  // cliente lo acepta. Hono lo omite por debajo de 1 KB, donde no vale la pena.
+  app.use('/api/*', compresionDeJson());
+
   app.use('/api/*', limiteDeBody());
 
   app.use('/api/*', csrfProtection());

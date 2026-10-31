@@ -8,9 +8,13 @@
  * todo sigue andando, pero el navegador igual lo reporta como violación en cada
  * carga. `jitless` evita el probe y deja a Zod en su camino sin compilación.
  *
- * **Tiene que correr antes de que cargue `schemas.ts`**: el probe se evalúa al
- * construir cada schema, no al parsear. De ahí que sea un import de efecto y que
- * tenga que ir antes de todo lo que arrastre `@bal/shared`.
+ * **Ya no es lo único que lo garantiza.** El probe se evalúa al construir cada
+ * schema, y este import de efecto dependía de evaluarse antes que `schemas.ts`: con
+ * `React.lazy` (`REF6-8`) no es cierto, porque el chunk de los schemas es una
+ * dependencia estática de la entrada y corre antes que su cuerpo. Ahora `schemas.ts`
+ * importa `configuracionZod.ts`, que hace lo mismo cuando hay un DOM, y el orden no
+ * depende de cómo se reparta el código. Este módulo queda como declaración explícita
+ * en cada `main.tsx` y para quien lo importe sin los schemas.
  *
  * **Sólo en el navegador.** El backend corre sin CSP y se beneficia del JIT: valida
  * hasta 200 operaciones por lote de sincronización.

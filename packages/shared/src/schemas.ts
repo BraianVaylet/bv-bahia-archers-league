@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import './configuracionZod.js';
 import {
   MAX_ARROWS_PER_TARGET,
   MAX_PATROL_SIZE,

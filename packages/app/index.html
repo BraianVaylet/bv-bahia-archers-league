@@ -6,6 +6,8 @@
     <!-- La app del admin y la de scoring no tienen nada que buscar acá afuera. -->
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#fbfaf5" />
+    <!-- iOS no usa el manifest para el ícono de inicio. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Anti-FOUC: aplica el tema antes del primer pintado. Externo y bloqueante a
          propósito: la CSP (`script-src 'self'`) bloquea los inline. Ver public/theme-init.js. -->
     <script src="/theme-init.js"></script>

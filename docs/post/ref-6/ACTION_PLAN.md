@@ -178,20 +178,25 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-8` · Entrega de assets y PWA · **P1** · M
+### `[x] REF6-8` · Entrega de assets y PWA · **P1** · M
 
-**Hallazgos:** `P-3`, `P-4`, `P-5`, `U-4`, `S-8`.
-**Archivos:** `api/src/middleware/estaticos.ts`, `app/vite.config.ts`, `landing/vite.config.ts`, `app/src/App.tsx`, `landing/src/App.tsx`, `app/public/` (íconos), `scripts/presupuesto.mjs`
+> **Estado: hecho, con dos puntos sin verificar** (si el borde de Railway ya comprime; la auditoría Lighthouse en sí). Ver abajo.
 
-- [ ] Compresión: precomprimir en el build y `serveStatic({ precompressed: true })`; `compress` para el JSON — **primero verificar si el borde de Railway ya comprime**
-- [ ] `Cache-Control`: `immutable` para `/assets/*`, `no-cache` para `index.html`, `sw.js` y el manifest; `index.html` en memoria
-- [ ] `React.lazy` para `WafaApp`, `WaflApp` y las rutas pesadas de la landing
-- [ ] `globPatterns` incluye `webp` y `png`; manifest con PNG 192/512, maskable aparte y `apple-touch-icon`; `theme_color` coherente
-- [ ] Se borra `runtimeCaching`
+**Hallazgos:** `P-3`, `P-4`, `P-5`, `U-4`, `S-8`. **Skill:** `tdd`.
+**Archivos:** `api/src/middleware/{estaticos,compresion}.ts` (`compresion` es nuevo), `api/src/app.ts`, `app/vite.config.ts`, `app/index.html`, `app/src/App.tsx`, `app/public/` (íconos), `shared/src/{configuracionZod,schemas,navegador}.ts`, `scripts/{precomprimir,presupuesto,imagenes}.mjs`, `package.json`
 
-**DoD:** WAFL no descarga el código de WAFA · el logo del CBA se ve sin señal · Lighthouse «installable» en verde · los presupuestos se miden sobre el chunk inicial.
-**Tests:** E2E offline verifica que todas las imágenes del login de WAFL cargan · `presupuesto.mjs` falla si WAFL inicial supera su presupuesto · test de headers de caché en `estaticos.test.ts`.
-**Mutaciones:** volver al import estático · sacar `webp` del glob.
+- [x] Compresión: `scripts/precomprimir.mjs` (al final de `pnpm build`) deja `.br` y `.gz` junto a cada asset de texto, y `serveStatic({ precompressed: true })` los entrega; `gzip` para el JSON de la API si pasa de 1 KB. JS de la PWA: 439 → 109 KB en brotli
+- [ ] **«Primero verificar si el borde de Railway ya comprime» no se hizo**: no hay un deploy contra el cual medirlo. El servidor comprime de todos modos. Queda para el primer deploy: `curl -sI -H 'Accept-Encoding: br' …/app/assets/<index>.js`
+- [x] `Cache-Control`: `immutable` para `/assets/*` (hay hash), `no-cache` para todo lo demás (`index.html`, `sw.js`, el manifest, los íconos); `Vary: Accept-Encoding` siempre; los dos `index.html` en memoria
+- [x] `React.lazy` para `WafaApp` y `WaflApp`. **Landing: probado y revertido.** Las tres pantallas candidatas pesan ~4 KB gz entre todas y la carga inicial no bajó (102,2 contra 101,9 KB): un `React.lazy` que no baja el inicial sólo agrega una espera
+- [x] `globPatterns` incluye `webp` y `png`; manifest con PNG 192/512 y un maskable aparte con zona segura (nuevo, generado por `imagenes.mjs`), `apple-touch-icon` enlazado, `theme_color` igual al de la página
+- [x] Se borra `runtimeCaching`
+- [x] **No estaba en el plan, y hizo falta:** el code splitting rompió el orden en que se apagaba el JIT de Zod (`REF6-3`) y volvió el `eval` en la CSP. `schemas.ts` ahora trae su propia configuración (`configuracionZod.ts`), con un test por lado (con DOM sin JIT, sin DOM con JIT)
+
+**DoD:** WAFL no descarga el código de WAFA ✅ (E2E y presupuesto) · el logo del CBA se ve sin señal ✅ (E2E con el celular sin conexión) · **Lighthouse «installable» en verde ❌ no se corrió** (se cubre lo que mira: manifest con PNG 192/512, maskable, `start_url`, `display`, SW registrado, íconos que existen) · los presupuestos se miden sobre lo que una pantalla descarga ✅.
+**Medido:** pantalla de elegir rol 99 KB gz · **WAFL 111** (antes 126, todo junto) · WAFA 119 · landing 102.
+**Tests:** E2E `entrega-de-assets.spec.ts` (10): sin código de la otra app en las tres entradas, caché, brotli, íconos, apple-touch, `theme_color`, imágenes sin conexión, `sw.js` sin reglas para la API · `presupuesto.mjs` falla si WAFL baja WAFA o pasa su presupuesto · `estaticos.test.ts` (caché, `Vary`, precomprimidos, index en memoria, compresión del JSON) · `navegador-orden` y `navegador-backend`.
+**Mutaciones (18):** servidor y Zod (11): assets sin caché larga · todo inmutable · sólo la landing inmutable · sin `Vary` · sin precomprimidos · index leído por request · fallback sin revalidar · compresión sin declarar el largo · sin compresión de la API · el backend sin JIT · schemas sin su configuración. Presupuesto (1): el import estático de WAFA. PWA (6, por E2E): sin `webp` en el glob · `runtimeCaching` de vuelta · `theme_color` oscuro · maskable junto con `any` · sin `apple-touch-icon` · el build sin precomprimir. **Todas detectadas.** La primera mutación del import estático no compilaba (`WafaApp` sin usar) y el presupuesto no cambió: se rehízo con un `void WafaApp`.
 
 ---
 

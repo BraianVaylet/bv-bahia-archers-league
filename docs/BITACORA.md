@@ -14,6 +14,49 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-31 · Entrega de assets y PWA (REF6-8)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con dos puntos del plan sin verificar** (si el borde de Railway ya comprime; Lighthouse «installable»). Octava tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `P-3`, `P-4`, `P-5`, `U-4` y `S-8` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Compresión.** `scripts/precomprimir.mjs`, al final de `pnpm build`, deja un `.br` y un `.gz` junto a cada archivo de texto del `dist`; el servidor entrega el que el cliente acepta (`serveStatic({ precompressed: true })`). El JS de la PWA pasa de 439 KB a **109 KB** en brotli. El JSON de la API se comprime con gzip si pasa de 1 KB (`middleware/compresion.ts`).
+- **Caché.** Lo que está bajo `/assets/` lleva hash y va `immutable` por un año; todo lo demás (`index.html`, `sw.js`, el manifest, los íconos) va `no-cache`. `Vary: Accept-Encoding` siempre. Los dos `index.html` se leen una vez al montar.
+- **Code splitting.** `WafaApp` y `WaflApp` se cargan con `React.lazy`. El líder ya no baja el panel del admin: **WAFL pasa de 126 a 111 KB gz**, WAFA a 119, y la pantalla de elegir rol a 99.
+- **Presupuestos sobre lo que una pantalla descarga.** `presupuesto.mjs` arma el grafo de chunks del `index.html` y, para WAFL y WAFA, de su app, y **falla si una baja código de la otra**. Antes sumaba todo el JS del `dist`, que con las dos apps en un solo chunk coincidía con la carga inicial y con el splitting dejó de hacerlo.
+- **PWA.** El precaché incluye `webp` y `png` (el logo del CBA se veía roto sin señal). El manifest declara PNG 192 y 512 más un maskable aparte, con zona segura (nuevo `icon-maskable-512.png`, generado por `scripts/imagenes.mjs`); `apple-touch-icon` enlazado; `theme_color` igual al de la página. **Se borró `runtimeCaching`.**
+
+### Decisiones
+
+- **La landing no se partió.** Se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes: esas tres pantallas pesan ~4 KB gz entre las tres, lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que necesita toda pantalla, y la carga inicial no bajó (102,2 KB contra 101,9 del chunk único). Un `React.lazy` que no baja el inicial sólo agrega una espera: se revirtió. El plan decía «rutas pesadas de la landing»; no hay ninguna.
+- **El presupuesto de WAFL se apretó de 150 a 125 KB.** Con 150 un `import` estático que trajera WAFA de vuelta (126 KB) habría pasado; los 125 más el chequeo de «no baja la otra app» lo detectan los dos.
+- **`Vary` también en la respuesta sin comprimir.** `serveStatic` sólo lo agrega cuando elige un precomprimido; una caché intermedia que guardó el original podría servírselo a quien aceptaba brotli.
+- **`manifest.theme_color` claro (`#fbfaf5`)**, el de la página. Un manifest no se adapta al tema; se eligió el claro, que es el default.
+- **`hono/compress` no alcanza solo**: su umbral de 1 KB sólo se mira si la respuesta trae `Content-Length`, y `c.json()` no lo trae, así que comprimía hasta `{ "ok": true }`. El middleware declara el largo antes.
+
+### Errores míos en el camino
+
+- **El code splitting rompió una garantía de `REF6-3`, y sólo la vio el E2E.** `REF6-3` apagó el JIT de Zod con un `import '@bal/shared/navegador'` puesto primero en cada `main.tsx`, y dejó escrito que tenía que evaluarse antes de `schemas.ts`. Era cierto con un solo chunk. Con `React.lazy`, el chunk de los schemas es una dependencia estática de la entrada y se evalúa **antes** que su cuerpo, donde estaba el import de efecto: volvió el `eval` en la CSP, en las cuatro rutas (`tema-sin-parpadeo`). Los tests unitarios no lo ven: no hay empaquetador. Arreglo de raíz: `schemas.ts` importa `configuracionZod.ts`, que apaga el JIT si hay un DOM. «Un módulo depende de otro» sí es un orden garantizado; «el empaquetador evalúa esto primero», no. Dos tests nuevos (con DOM, sin importar `navegador`; sin DOM, el JIT sigue encendido) y mutaciones en ambos sentidos.
+- **Un test existente asumía que todos los íconos eran SVG** (`pwa-instalable`: «devolvió el HTML del SPA» si el cuerpo no empezaba con `<svg`). Con PNG fallaba por un motivo que no era el que decía. Ahora comprueba la firma de 8 bytes de un PNG.
+- **`page.getAttribute` sobre un elemento que no existe espera 5 minutos** (el timeout del test). La primera corrida en rojo de la spec nueva tardó 5,6 min por eso; se pasó a `toHaveCount(1)`.
+- **La primera mutación del import estático no compilaba** (`WafaApp` quedaba sin usar y `tsc` cortaba el build): el presupuesto seguía en verde por no haber cambiado nada. Se rehízo con un `void WafaApp` y ahí sí falló, por la razón correcta. Es la misma trampa de `REF6-2` y `REF6-4`.
+- **Un presupuesto inventado antes de medir**: puse 24 KB al ícono maskable y salió de 25,6. Se subió a 40, como el de 512 común.
+- **Una afirmación mía en la documentación que era falsa.** Escribí que partir la landing ganaba «≈4 KB»; al medirlo, no ganaba nada. Corregida antes de commitear.
+
+### Verificación
+
+`@bal/api` **400** (+19, casi todos de `estaticos.test.ts`), `@bal/shared` **499** (+2), `@bal/app` 505, `@bal/landing` 53, `@bal/ui` 61. Tipos del workspace limpios; Biome sin errores (las advertencias nuevas son de `scripts/`, que antes no entraba en el alcance: `noConsole` en los CLI y la complejidad de `main()` en `presupuesto.mjs`). E2E **42/42** (10 nuevos, en `entrega-de-assets.spec.ts`: sin código de la otra app, caché, brotli, íconos, apple-touch, `theme_color`, imágenes sin conexión, y que el `sw.js` no tenga reglas para la API). **Mutaciones, todas detectadas**: 11 del servidor y de Zod, la del import estático (por el presupuesto) y las de la PWA (E2E).
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre los cambios de `REF6-2` en adelante.
+
+### Deuda / lo que sigue
+
+- **No se verificó si el borde de Railway ya comprime** (el plan pedía hacerlo primero): no hay deploy contra el cual medirlo. El servidor comprime de todos modos; si el borde también lo hiciera, recibe contenido ya codificado y lo deja pasar. Al primer deploy: `curl -sI -H 'Accept-Encoding: br' https://…/app/assets/<index>.js` y mirar `content-encoding`.
+- **Lighthouse «installable» no se corrió.** Se cubre lo que Lighthouse mira (manifest con PNG 192/512, maskable, `start_url` y `display`, service worker registrado, íconos que existen), pero no la auditoría misma.
+- **`/api/*` ahora puede venir comprimido con gzip**: con BREACH en mente, ninguna respuesta refleja datos del request junto a un secreto en el mismo cuerpo (`/api/auth/csrf` devuelve el token sin eco), así que no hay con qué montarlo. Queda anotado por si esa respuesta cambia.
+
+---
+
 ## 2026-10-30 · PIN y audit log (REF6-7)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** hecho, con un punto abierto que no es del DoD (los ingresos fallidos del admin no se registran, a propósito). Séptima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-7`, `S-9`, `C-7` y `U-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
