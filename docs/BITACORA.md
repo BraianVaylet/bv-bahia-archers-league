@@ -14,6 +14,47 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-10-31 · La regla 3 sin excepciones (REF6-10)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Décima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `B-1` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Un chequeo de CI para las capas** (`scripts/verificar-capas.mjs`, paso «Capas del backend»): falla si algo fuera de `repositories/` y `db/` importa `db/client`, o si una ruta importa un repositorio. La regla 3 de `CLAUDE.md` estaba escrita desde el principio y se rompía sin que nadie lo viera: una ruta pública llevaba semanas haciendo `seasons().find(…)`.
+- **Las rutas hablan con servicios.** `rankingService` (ranking y ficha del arquero), `tournamentQueryService` (las lecturas de torneo de la landing y de WAFA) y `seasonService.listar`. La ruta valida, llama y serializa.
+- **Las consultas que vivían en servicios pasaron al repositorio** (`tournamentRepo.updateIfStatus`), y **las transacciones abren su sesión por `db/sesion`**, que no expone colecciones.
+- **El healthcheck** consultaba la base desde la ruta: ahora `saludService` → `saludRepo`.
+
+### Lo que el hallazgo no decía
+
+`B-1` hablaba de una ruta con una consulta. Al escribir el chequeo —que es lo que impide que vuelva— aparecieron **13 infracciones**, no una: la de `publico.ts`, `admin.ts` y `publico.ts` importando repositorios, el healthcheck, y **siete servicios** que importaban el cliente de Mongo. De esos, cinco sólo lo hacían para abrir una sesión de transacción; dos —`tournamentStateService` y `tournamentEditService`— **consultaban la base directamente**, con la misma violación que la ruta.
+
+### Decisiones
+
+- **`db/sesion.ts` en vez de una excepción para los servicios.** Prohibirle a un servicio importar `db/client` obligaba a decidir qué hacer con las transacciones. Dejarlas como excepción abría justo el hueco que el chequeo quería cerrar: el mismo import da acceso a todas las colecciones. `iniciarSesion()` expone una sola cosa —abrir una sesión—: la transacción se agrupa en el servicio y cada consulta sigue pasando por un repositorio.
+- **Las rutas tampoco importan repositorios**, aunque el plan sólo pedía lo de `db/client`. Con la regla a medias, la ruta que arma su respuesta con repositorios habría seguido ahí, que es lo que `B-1` señalaba en su segunda viñeta. Eran 8 imports más.
+- **`index.ts` queda permitido**: es la raíz de composición, conecta y desconecta la base. Es la única excepción y está escrita en el script.
+- **Se mira lo que se importa, no cada llamada.** Es barato, no se confunde con un alias y alcanza para que la regla no se pueda romper sin que alguien lo vea. Lo que no ve: un repositorio que reciba una colección por parámetro. No existe hoy.
+
+### Errores míos en el camino
+
+- **El script de edición se cortó a la mitad** (esperaba un `}` al final de `admin.ts` que no estaba) y dejó `publico.ts` reescrito y `admin.ts` sin tocar. Se rehízo sólo la parte que faltaba; el golden, que se comparó después de las dos, es lo que dice que quedó bien.
+- **El primer escenario del golden no probaba el ranking**: con un solo torneo publicado, nadie llegaba a `bestN` y todas las vistas salían vacías (`ranked: 0`). Un golden sobre respuestas vacías no compara nada. Se agregó un segundo torneo publicado y un torneo en proceso, y se verificó que el ranking, la ficha y los resultados tuvieran datos antes de congelarlos.
+- **Rutas con `\` en Windows**: el chequeo imprimía `routes\publico.ts` y el test esperaba `/`. Normalizado.
+
+### Verificación
+
+`@bal/api` **418** (+13 de `capas.test.ts`), cobertura de `services/` 96,4 % de líneas y 83,8 % de ramas (umbral 85/80: el margen de ramas bajó de 85,5 a 83,8 porque el código movido de las rutas a los servicios cuenta ahora acá). Tipos y Biome sin errores. **30 respuestas congeladas antes y después: idénticas, 33 218 bytes.** 11 mutaciones del chequeo, todas detectadas. E2E: 43/43 en Chromium de escritorio.
+
+**No se hizo** `/security-review` ni `aikido:scan`.
+
+### Deuda / lo que sigue
+
+- **`tarjetaService`, `archerService` y otros todavía arman respuestas con vistas propias**, cada uno a su manera; no se unificó el estilo de las vistas. No es de esta tanda.
+- **`tournamentQueryService` importa `blancosBloqueados` de `tournamentEditService`**: una lectura que vive en un servicio de escritura. Es el único acoplamiento entre los dos y conviene separarlo cuando se toque la edición.
+
+---
+
 ## 2026-10-31 · Un servidor que no devuelve el resultado de una op (hallazgo de REF6-9)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Surgió al escribir los tests de `offline/` de [`REF6-9`](post/ref-6/ACTION_PLAN.md) y no estaba en el informe. Toca `syncWorker.ts` (`FE-2`, una de las cuatro tareas que definen el proyecto).

@@ -11,11 +11,11 @@
 
 import type { TournamentStatus } from '@bal/shared';
 import type { ClientSession, ObjectId } from 'mongodb';
-import { tournaments } from '../db/client.js';
 import type { TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
+import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
 /** Transiciones permitidas. Lo que no está acá, no se puede. */
 const TRANSICIONES: Readonly<Record<TournamentStatus, readonly TournamentStatus[]>> = {
@@ -46,7 +46,7 @@ export async function transition(
   extra: Partial<TournamentDoc> = {},
   session?: ClientSession,
 ): Promise<TournamentDoc> {
-  const doc = await tournaments().findOne({ _id: tournamentId });
+  const doc = await tournamentRepo.findById(tournamentId);
   if (!doc) throw notFound();
 
   if (doc.status === hasta) {
@@ -62,10 +62,11 @@ export async function transition(
     });
   }
 
-  const actualizado = await tournaments().findOneAndUpdate(
-    { _id: tournamentId, status: doc.status },
-    { $set: { status: hasta, ...extra } },
-    { returnDocument: 'after', ...(session ? { session } : {}) },
+  const actualizado = await tournamentRepo.updateIfStatus(
+    tournamentId,
+    doc.status,
+    { status: hasta, ...extra },
+    session,
   );
 
   if (!actualizado) {

@@ -18,6 +18,28 @@ export async function insert(doc: TournamentDoc, session?: ClientSession): Promi
   return insertedId;
 }
 
+/**
+ * Actualiza el torneo **sólo si todavía está en `status`**, y devuelve el resultado.
+ *
+ * La guarda va en el filtro y no en un `findOne` previo: entre leer y escribir otro
+ * request puede haber cambiado el estado (dos clicks seguidos en «publicar»), y la
+ * comprobación y la escritura tienen que ser una sola operación atómica.
+ *
+ * @returns el documento nuevo, o `null` si el estado ya no era `status`.
+ */
+export function updateIfStatus(
+  id: ObjectId,
+  status: TournamentDoc['status'],
+  cambios: Partial<TournamentDoc>,
+  session?: ClientSession,
+): Promise<TournamentDoc | null> {
+  return tournaments().findOneAndUpdate(
+    { _id: id, status },
+    { $set: cambios },
+    { returnDocument: 'after', ...(session ? { session } : {}) },
+  );
+}
+
 export function findById(id: ObjectId): Promise<TournamentDoc | null> {
   return tournaments().findOne({ _id: id });
 }

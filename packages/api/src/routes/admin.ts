@@ -8,7 +8,6 @@
 import {
   ArcherInputSchema,
   CreateTournamentSchema,
-  distribucionDeModalidades,
   MarkPaymentSchema,
   ObjectIdSchema,
   PatrolDistributionSchema,
@@ -17,19 +16,17 @@ import {
 } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { ipDelCliente } from '../lib/ip.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
 import { parseJsonBody, parseQuery } from '../middleware/validate.js';
-import * as seasonRepo from '../repositories/seasonRepo.js';
-import * as tournamentRepo from '../repositories/tournamentRepo.js';
 import * as archerService from '../services/archerService.js';
 import * as patrolAdminService from '../services/patrolAdminService.js';
 import * as paymentService from '../services/paymentService.js';
 import * as publishService from '../services/publishService.js';
 import * as seasonService from '../services/seasonService.js';
 import * as tournamentEditService from '../services/tournamentEditService.js';
+import * as tournamentQueryService from '../services/tournamentQueryService.js';
 import * as tournamentService from '../services/tournamentService.js';
 import * as tournamentStateService from '../services/tournamentStateService.js';
 
@@ -132,18 +129,7 @@ export const admin = new Hono()
 
   // ── Temporadas ─────────────────────────────────────────────────────────────
 
-  .get('/seasons', async (c) => {
-    const docs = await seasonRepo.list();
-    return c.json({
-      seasons: docs.map((s) => ({
-        id: s._id.toHexString(),
-        name: s.name,
-        startsAt: s.startsAt,
-        endsAt: s.endsAt,
-        status: s.status,
-      })),
-    });
-  })
+  .get('/seasons', async (c) => c.json({ seasons: await seasonService.listar() }))
 
   .post('/seasons', async (c) => {
     const input = await parseJsonBody(c, SeasonInputSchema);
@@ -198,29 +184,13 @@ export const admin = new Hono()
 
   .get('/tournaments', async (c) => {
     const q = parseQuery(c, ListTournamentsQuery);
-    const docs = await tournamentRepo.list({
-      ...(q.status ? { status: q.status } : {}),
-      ...(q.seasonId ? { seasonId: toObjectId(q.seasonId) } : {}),
-    });
-
-    return c.json({
-      tournaments: docs.map((t) => ({
-        id: t._id.toHexString(),
-        name: t.name,
-        date: t.date,
-        status: t.status,
-        targetCount: t.targets.length,
-        patrolCount: t.patrolCount,
-        participantCount: t.participantCount,
-        maxPossibleScore: t.maxPossibleScore,
-        // La distribución se calcula acá y no en el cliente: el listado no
-        // manda los blancos, y mandarlos para que el cliente los cuente sería
-        // enviar catorce objetos por torneo para mostrar cuatro números.
-        modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
-      })),
-    });
+    return c.json(
+      await tournamentQueryService.listadoAdmin({
+        ...(q.status ? { status: q.status } : {}),
+        ...(q.seasonId ? { seasonId: toObjectId(q.seasonId) } : {}),
+      }),
+    );
   })
-
   .post('/tournaments/:id/start', async (c) => {
     const doc = await tournamentStateService.start(
       toObjectId(c.req.param('id')),
@@ -309,50 +279,10 @@ export const admin = new Hono()
     return c.json({ patrols, violations });
   })
 
-  /**
-   * Resultados con los rollups de cada participante.
-   *
-   * Es lo que le falta a WAFA para seguir un torneo en curso y para previsualizar
-   * los podios **antes** de publicar. A diferencia del endpoint público, acá sí se
-   * ven los puntajes de un torneo `completado`: el admin tiene que poder revisar
-   * lo que está por aplicar a la liga.
-   */
-  .get('/tournaments/:id/results', async (c) => {
-    const id = toObjectId(c.req.param('id'));
-    const doc = await tournamentRepo.findById(id);
-    if (!doc) throw notFound();
-
-    const [miembros, patrullas] = await Promise.all([
-      tournamentRepo.listParticipants(id),
-      tournamentRepo.listPatrols(id),
-    ]);
-    const numeroDePatrulla = new Map(patrullas.map((p) => [p._id.toHexString(), p.number]));
-
-    return c.json({
-      maxPossibleScore: doc.maxPossibleScore,
-      participants: miembros.map((m) => ({
-        id: m._id.toHexString(),
-        archerId: m.archerId.toHexString(),
-        firstName: m.firstName,
-        lastName: m.lastName,
-        category: m.category,
-        stake: m.stake,
-        patrolNumber: numeroDePatrulla.get(m.patrolId.toHexString()) ?? 0,
-        total: m.total,
-        normalizedPct: m.normalizedPct,
-        innerCount: m.innerCount,
-        tenCount: m.tenCount,
-        mCount: m.mCount,
-        targetsCompleted: m.targetsCompleted,
-        status: m.status,
-        signed: m.signature !== null,
-        // Que la firma haya sido desbloqueada no se oculta: el podio se mira
-        // distinto si alguien no firmó de puño y letra.
-        signatureUnlocked: m.signature?.unlockedBy != null,
-      })),
-    });
-  })
-
+  /** Resultados con los rollups de cada participante. Ver `tournamentQueryService`. */
+  .get('/tournaments/:id/results', async (c) =>
+    c.json(await tournamentQueryService.resultadosAdmin(toObjectId(c.req.param('id')))),
+  )
   /**
    * Estado de los pagos, con la recaudación derivada.
    *
@@ -380,12 +310,9 @@ export const admin = new Hono()
     );
   })
 
-  .get('/tournaments/:id/locked-targets', async (c) => {
-    const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
-    if (!doc) throw notFound();
-    return c.json({ lockedTargets: await tournamentEditService.blancosBloqueados(doc) });
-  })
-
+  .get('/tournaments/:id/locked-targets', async (c) =>
+    c.json(await tournamentQueryService.blancosBloqueados(toObjectId(c.req.param('id')))),
+  )
   .post('/patrols/:id/pin/regenerate', async (c) => {
     return c.json(
       await patrolAdminService.regeneratePin(toObjectId(c.req.param('id')), currentAdminId(c)),
@@ -406,24 +333,6 @@ export const admin = new Hono()
     return c.json({ ok: true });
   })
 
-  .get('/tournaments/:id', async (c) => {
-    const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
-    if (!doc) throw notFound();
-
-    return c.json({
-      tournament: {
-        id: doc._id.toHexString(),
-        seasonId: doc.seasonId.toHexString(),
-        name: doc.name,
-        date: doc.date,
-        description: doc.description,
-        status: doc.status,
-        payment: doc.payment,
-        targets: doc.targets,
-        maxPossibleScore: doc.maxPossibleScore,
-        stakeMap: doc.stakeMap,
-        patrolCount: doc.patrolCount,
-        participantCount: doc.participantCount,
-      },
-    });
-  });
+  .get('/tournaments/:id', async (c) =>
+    c.json(await tournamentQueryService.detalleAdmin(toObjectId(c.req.param('id')))),
+  );

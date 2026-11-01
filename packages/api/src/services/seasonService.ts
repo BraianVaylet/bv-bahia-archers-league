@@ -31,6 +31,22 @@ async function auditar(
   });
 }
 
+/**
+ * Las temporadas, de la más nueva a la más vieja. La misma lista para WAFA y para la
+ * landing: no hay nada en una temporada que el público no pueda ver.
+ */
+export async function listar() {
+  const docs = await seasonRepo.list();
+
+  return docs.map((s) => ({
+    id: s._id.toHexString(),
+    name: s.name,
+    startsAt: s.startsAt,
+    endsAt: s.endsAt,
+    status: s.status,
+  }));
+}
+
 export async function create(
   input: SeasonInput,
   actorId: ObjectId,

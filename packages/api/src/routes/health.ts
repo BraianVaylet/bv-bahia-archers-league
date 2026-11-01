@@ -3,16 +3,14 @@
  */
 
 import { Hono } from 'hono';
-import { ping } from '../db/client.js';
+import * as saludService from '../services/saludService.js';
 
 export const APP_VERSION = process.env.npm_package_version ?? '0.1.0';
 
 const arranque = Date.now();
 
 export const health = new Hono().get('/', async (c) => {
-  const desde = performance.now();
-  const dbOk = await ping();
-  const dbMs = Math.round(performance.now() - desde);
+  const { ok: dbOk, ms: dbMs } = await saludService.estadoDeLaBase();
 
   return c.json({
     status: dbOk ? 'ok' : 'degraded',

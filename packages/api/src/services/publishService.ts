@@ -15,7 +15,7 @@ import {
   type TournamentContribution,
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
-import { getClient } from '../db/client.js';
+import { iniciarSesion } from '../db/sesion.js';
 import type { ParticipantDoc, TournamentDoc } from '../db/types.js';
 import { env } from '../env.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -79,7 +79,7 @@ export async function recalcularTemporada(
 }
 
 async function conTransaccion<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
-  const session = getClient().startSession();
+  const session = iniciarSesion();
   try {
     let resultado!: T;
     await session.withTransaction(async () => {

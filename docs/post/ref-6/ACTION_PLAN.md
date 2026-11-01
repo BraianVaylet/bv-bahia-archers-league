@@ -219,17 +219,19 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-10` · La regla 3 sin excepciones · **P1** · S
+### `[x] REF6-10` · La regla 3 sin excepciones · **P1** · S
 
-**Hallazgo:** `B-1`.
-**Archivos:** `api/src/routes/{publico,admin}.ts`, `api/src/services/` (`rankingService.ts`, `tournamentQueryService.ts` nuevos), `scripts/verificar-capas.mjs` (nuevo), `.github/workflows/ci.yml`
+**Hallazgo:** `B-1`. **Skill:** `tdd`.
+**Archivos:** `api/src/routes/{publico,admin,health}.ts`, `api/src/services/{rankingService,tournamentQueryService,saludService}.ts` (nuevos), `api/src/services/{seasonService,tournamentStateService,tournamentEditService,tournamentService,publishService,syncService,patrolAdminService}.ts`, `api/src/repositories/{tournamentRepo,saludRepo}.ts`, `api/src/db/sesion.ts` (nuevo), `scripts/verificar-capas.mjs` (nuevo), `api/tests/capas.test.ts` (nuevo), `.github/workflows/ci.yml`
 
-- [ ] `GET /public/seasons` usa `seasonRepo.list()`
-- [ ] El armado del ranking público y las lecturas de torneo de `admin.ts` pasan a servicios
-- [ ] Un script de CI falla si algo fuera de `repositories/` y `db/` importa `db/client`
+- [x] `GET /public/seasons` usa `seasonService.listar()` (que usa `seasonRepo.list()`); WAFA comparte la misma lista
+- [x] El armado del ranking público y de la ficha del arquero pasa a `rankingService`; las lecturas de torneo de la landing y de WAFA (listado, detalle, resultados, blancos bloqueados) a `tournamentQueryService`
+- [x] `scripts/verificar-capas.mjs` falla si algo fuera de `repositories/` y `db/` importa `db/client`, y corre en el CI (paso «Capas del backend»)
+- [x] **Más de lo que decía el plan, y hizo falta para que el chequeo no tuviera excepciones:** (a) el script también prohíbe que una **ruta** importe repositorios o sesiones —eran 8 imports más, en `admin.ts` y `publico.ts`—; (b) siete servicios importaban `db/client` para abrir una transacción o, dos de ellos, para **consultar** (`tournamentStateService`, `tournamentEditService`): las consultas pasaron a `tournamentRepo.updateIfStatus` y las sesiones a `db/sesion.iniciarSesion()`, que no expone colecciones; (c) el healthcheck consultaba la base desde la ruta: ahora `saludService` → `saludRepo`
 
-**DoD:** cero imports de `db/client` fuera de las capas permitidas, verificado en CI · las respuestas no cambian un byte.
-**Tests:** los de rutas existentes, sin tocar · el script falla con el import actual de `publico.ts`.
+**DoD:** cero imports de `db/client` fuera de las capas permitidas, verificado en CI ✅ (13 infracciones antes, 0 ahora) · **las respuestas no cambian un byte ✅**: se congelaron 30 respuestas (landing y WAFA, incluidos los 404 y las cabeceras de caché) antes del refactor y se compararon después: 33 218 bytes, idénticos.
+**Tests:** `capas.test.ts` (13): el script prohíbe el import estático y el dinámico, en rutas y en servicios; lo permite en `repositories/`, `db/` e `index.ts`; no se deja engañar por un comentario ni corre los números de línea; y **el `src` real lo cumple** (rojo con las 13 infracciones antes del refactor) · los tests de rutas existentes, sin tocar. `@bal/api` 418 (+13).
+**Mutaciones (11):** quitar la regla de `db/client` · quitar la de las rutas · dejar de reconocer `index.ts` · permitir los servicios · no detectar el import dinámico · no ignorar los comentarios · los comentarios que corren las líneas · las rutas abriendo sesiones · prohibir también los tipos y las sesiones · una ruta que vuelve a consultar Mongo · un servicio que vuelve a importar el cliente. **Todas detectadas.** E2E: 43/43 en Chromium de escritorio.
 
 ---
 

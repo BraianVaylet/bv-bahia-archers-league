@@ -576,7 +576,7 @@ Los presupuestos de bundle los verifica `scripts/presupuesto.mjs` en CI. **Mide 
 ## 6. Convenciones de código
 
 - TypeScript `strict`. Sin `any` salvo justificación en comentario.
-- **Ninguna consulta a MongoDB fuera de `repositories/`.** Sin excepciones.
+- **Ninguna consulta a MongoDB fuera de `repositories/`.** Sin excepciones, y `scripts/verificar-capas.mjs` lo comprueba en el CI (`ARCHITECTURE.md` §4). Las rutas no importan repositorios: hablan con servicios.
 - **Ninguna regla de negocio fuera de `@bal/shared`.** Los servicios orquestan y persisten; no deciden.
 - Programación funcional donde aplique: funciones puras, sin mutación de los argumentos, composición sobre herencia.
 - Nombres: componentes `PascalCase`, hooks `useX`, módulos de dominio `camelCase`, colecciones en plural.

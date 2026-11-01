@@ -56,6 +56,12 @@ jobs:
       - name: Coherencia del workspace
         run: node scripts/verificar-workspace.mjs
 
+      # La regla 3 de `CLAUDE.md` (ninguna consulta a Mongo fuera de `repositories/`) y las
+      # capas `routes → services → repositories`, que sólo estaban escritas: una ruta pública
+      # llevaba semanas consultando la base directo (`REF6-10` / `B-1`).
+      - name: Capas del backend
+        run: node scripts/verificar-capas.mjs
+
       # `biome check` incluye formato y lint. Falla si algo no está formateado.
       - name: Lint
         run: pnpm lint

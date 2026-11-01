@@ -13,7 +13,6 @@ import {
   type UpdateTournamentInput,
 } from '@bal/shared';
 import { ObjectId } from 'mongodb';
-import { tournaments } from '../db/client.js';
 import type { TargetDoc, TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
@@ -123,11 +122,7 @@ export async function updateTournament(
     cambios.participantCount = nuevosParticipantes.participantDocs.length;
   }
 
-  const actualizado = await tournaments().findOneAndUpdate(
-    { _id: tournamentId, status: torneo.status },
-    { $set: cambios },
-    { returnDocument: 'after' },
-  );
+  const actualizado = await tournamentRepo.updateIfStatus(tournamentId, torneo.status, cambios);
 
   if (!actualizado) {
     throw new AppError('INVALID_STATE_TRANSITION', {

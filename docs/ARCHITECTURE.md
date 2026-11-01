@@ -125,18 +125,24 @@ repositories   único lugar donde se toca MongoDB
 ```
 src/
   app.ts  index.ts  env.ts
-  db/            client (pool), indexes, migrations/, seed, reset
+  db/            client (pool), sesion (transacciones), indexes, migrations/, seed, reset
   lib/           crypto (argon2id, AES-GCM), session, csrf, tokens, errors, time
   middleware/    auth (admin | patrol), csrf, validate, error, security, rateLimit, cache
   repositories/  userRepo · archerRepo · seasonRepo · tournamentRepo · patrolRepo
                  participantRepo · scoreRepo · syncOpRepo · standingRepo · auditRepo
   services/      authService · archerService · seasonService · tournamentService
                  patrolService · syncService · signatureService · publishService
-                 rankingService · statsService
+                 rankingService · tournamentQueryService · saludService · statsService
   routes/        auth · admin/* · wafl/* · public/* · health
 ```
 
 **Ninguna consulta a Mongo fuera de `repositories/`.** Esto es lo que hace posible auditar la seguridad de la capa de datos en un solo lugar.
+
+**Y no sólo está escrito: lo verifica el CI** (`scripts/verificar-capas.mjs`, `REF6-10` / `B-1`). Falla si algo fuera de `repositories/` y `db/` importa `db/client` —el módulo que da acceso a todas las colecciones—, salvo `index.ts`, la raíz de composición que conecta la base; y falla si una ruta importa un repositorio o abre una sesión: las rutas hablan con servicios. Una ruta pública llevaba semanas haciendo `seasons().find(…)` con un repositorio que ya existía para eso, porque la regla sólo vivía en un documento.
+
+**Las transacciones.** Un servicio que necesita agrupar escrituras en una transacción abre una sesión con `db/sesion.iniciarSesion()`, que **no expone colecciones**: la transacción se agrupa en el servicio, pero cada consulta sigue pasando por un repositorio. Si hiciera falta agregarle otra cosa a `db/sesion`, es el síntoma de que algo está en la capa equivocada.
+
+**Las respuestas de las rutas se arman en servicios**: `rankingService` (ranking y ficha del arquero), `tournamentQueryService` (lecturas de torneos para la landing y para WAFA) y `seasonService.listar`. La ruta valida la entrada, llama y serializa.
 
 ### `@bal/app` — WAFA + WAFL
 

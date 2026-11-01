@@ -23,7 +23,7 @@ import {
   validateTargetScore,
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
-import { getClient } from '../db/client.js';
+import { iniciarSesion } from '../db/sesion.js';
 import type { ParticipantDoc, ScoreDoc, TournamentDoc } from '../db/types.js';
 import { AppError, type ErrorCode } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
@@ -214,7 +214,7 @@ async function procesarOp(
     return respuestaDeDuplicada(op, patrolId);
   }
 
-  const session = getClient().startSession();
+  const session = iniciarSesion();
 
   try {
     let resultado: OpResult = rechazo(op.opId, 'INTERNAL', 'No se pudo procesar.');

@@ -24,6 +24,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "budget": "node scripts/presupuesto.mjs",
+    "capas": "node scripts/verificar-capas.mjs",
     "docker:build": "docker build -t bal ."
   },
   "devDependencies": {

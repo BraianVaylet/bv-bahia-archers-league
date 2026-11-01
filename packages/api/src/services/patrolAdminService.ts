@@ -8,6 +8,7 @@
 
 import { type PatrolDistributionInput, validatePatrols } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
+import { iniciarSesion } from '../db/sesion.js';
 import { env } from '../env.js';
 import { liberarCuenta } from '../lib/bloqueoDeIngreso.js';
 import { decryptPin, encryptPin, generatePin, hashSecret } from '../lib/crypto.js';
@@ -173,7 +174,7 @@ export async function unlockSignature(
   // después. Si cambia, el cierre lo sigue frenando con SIGNATURE_MISMATCH.
   const scorecardHash = await scoreRepo.scorecardHashOf(participante);
 
-  const session = (await import('../db/client.js')).getClient().startSession();
+  const session = iniciarSesion();
   try {
     await session.withTransaction(async () => {
       await scoreRepo.setSignature(
