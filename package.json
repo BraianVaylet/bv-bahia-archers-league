@@ -10,11 +10,11 @@
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm run build:libs && concurrently -n shared,ui,api,app,landing -c gray,cyan,blue,magenta,green \"pnpm --filter @bal/shared dev\" \"pnpm --filter @bal/ui dev\" \"pnpm --filter @bal/api dev\" \"pnpm --filter @bal/app dev\" \"pnpm --filter @bal/landing dev\"",
+    "dev": "pnpm run build:libs && concurrently -n shared,ui,cliente,api,app,landing -c gray,cyan,yellow,blue,magenta,green \"pnpm --filter @bal/shared dev\" \"pnpm --filter @bal/ui dev\" \"pnpm --filter @bal/cliente dev\" \"pnpm --filter @bal/api dev\" \"pnpm --filter @bal/app dev\" \"pnpm --filter @bal/landing dev\"",
     "dev:api": "pnpm --filter @bal/api dev",
     "dev:app": "pnpm --filter @bal/app dev",
     "dev:landing": "pnpm --filter @bal/landing dev",
-    "build:libs": "pnpm --filter @bal/shared build && pnpm --filter @bal/ui build",
+    "build:libs": "pnpm --filter @bal/shared build && pnpm --filter @bal/ui build && pnpm --filter @bal/cliente build",
     "build": "pnpm run build:libs && pnpm --filter @bal/api build && pnpm --filter @bal/app build && pnpm --filter @bal/landing build && node scripts/precomprimir.mjs",
     "start": "pnpm --filter @bal/api start",
     "test": "pnpm run build:libs && pnpm -r --workspace-concurrency=1 test",

@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-01 · Un cliente HTTP y un hook de carga (REF6-11, entrega 1 de 3)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** primera entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgos `C-2` y `C-4` de [`INFORME.md`](post/ref-6/INFORME.md)). **Faltan** los tipos de punta a punta (`C-3`) y partir las páginas (`C-1`).
+
+### Por qué en partes
+
+`REF6-11` es la única tanda de tamaño L, y su propio riesgo dice «refactor amplio sin cambio funcional — una página por PR, con los tests de UI como red». Hacerla de una vez dejaba un cambio imposible de revisar y de revertir. Esta entrega es la que **no toca ninguna página**: crea las piezas que las demás necesitan y deja los tests de UI donde estaban.
+
+### Qué cambió
+
+- **Un paquete nuevo, `@bal/cliente`**, con el cliente HTTP y el hook de carga. Había dos clientes (`app/src/lib/apiClient.ts`, `landing/src/lib/api.ts`) que duplicaban el CSRF y tenían dos `ApiError` con formas distintas. Ahora los dos son delgados —dicen dónde cuelga la API y qué mensaje dar por defecto— y **ningún sitio de llamada cambió**: `app` 527 tests y `landing` 53, sin tocar uno.
+- **`useCarga`** reemplaza el `useState` + `useEffect` + `try/catch` + `setError` que cada página reimplementaba, y que la landing tenía por su cuenta como `useRecurso`. Decisión 3 del informe: **hook propio**, no react-query.
+- **Se sacó `@tanstack/react-query`** de las dependencias de `@bal/app`: nunca se importó. De paso, `ARCHITECTURE.md` y `TECHNICAL.md` decían que se usaba.
+
+### Decisiones
+
+- **Un paquete nuevo y no `@bal/ui` ni `@bal/shared`.** `@bal/ui` dice «sin I/O» en su descripción, y `@bal/shared` es el dominio puro: poner un cliente HTTP en cualquiera de los dos ensucia lo que cada uno promete. El costo es tocar los cuatro lugares donde hay que acordarse de un paquete nuevo (scripts de la raíz, `dev`, el Dockerfile y el CI); `scripts/verificar-workspace.mjs`, que existe por ese olvido, confirma que quedaron cubiertos.
+- **`useCarga` conserva lo que se ve al recargar y lo descarta al cambiar de recurso.** Son dos cosas distintas: después de «iniciar torneo», la pantalla no puede parpadear a «cargando»; pero al pasar del torneo A al B no puede mostrar ni un instante los datos de A.
+- **La recarga silenciosa generaliza lo que `REF6-7` había escrito a mano en `Tournament.tsx`**: no pasa por «cargando», un fallo no muestra nada, un éxito no borra el error de la última acción, y si ya hay una carga en vuelo no manda otra.
+- **Una respuesta que no es JSON sigue saliendo como `SyntaxError`, y está escrito en un test.** Lo descubrí al unificar: si el cliente la convirtiera en un `ApiError(200, …)` —lo más prolijo—, `esReintentable` del outbox diría que no, porque no es 5xx ni 4xx transitorio, y la op se descartaría. El wifi del club tiene un portal cautivo que contesta `200` con una página HTML: sería un puntaje perdido por un portal.
+
+### Errores míos en el camino
+
+- **Un error de lint que el CI habría marcado**: `useEffect(..., claves)` no es un array literal, y mi comentario de supresión estaba en la línea equivocada (la del `useEffect`, no la de la lista). Biome lo contó como un error, no un aviso.
+- **Una mutación sobrevivió**: que `recargar` cambie de identidad cuando llegan datos nuevos. Mi test sólo comparaba la identidad entre dos renders sin datos nuevos. Importa: es lo que se pasa de dependencia al refresco de 30 s, que se reiniciaría con cada dato. Ahora el test pasa por una recarga con datos distintos.
+
+### Verificación
+
+`@bal/cliente` **36** tests nuevos (rojos antes: el módulo no existía), `@bal/app` **527** y `@bal/landing` **53** sin tocar, `@bal/api` 418, `@bal/shared` 499, `@bal/ui` 61. Tipos del workspace limpios; `verificar-workspace` reconoce el paquete. **22 mutaciones, todas detectadas**. E2E: Chromium de escritorio 43/43.
+
+### Deuda / lo que sigue
+
+- **Entrega 2 — tipos de punta a punta (`C-3`).** `AppType` + cliente RPC de Hono, o DTOs compartidos. Hace falta decidir cómo se integra con el CSRF y el `ApiError` de `@bal/cliente`.
+- **Entrega 3 — las páginas (`C-1`).** Siete pasan de 250 líneas: `Archers` 668, `Tournament` 624, `TournamentCreate` 527, `Patrols` 486, `Ranking` 311, `Publish` 260 y `Seasons` 256. Cada una adopta `useCarga` al partirse.
+- **`@bal/cliente` no tiene umbral de cobertura** (como `landing` y `ui`): se mide, no se exige.
+
+---
+
 ## 2026-10-31 · La regla 3 sin excepciones (REF6-10)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Décima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `B-1` de [`INFORME.md`](post/ref-6/INFORME.md)).

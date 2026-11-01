@@ -86,6 +86,7 @@ bv-bahia-archers-league/
 ├─ docs/                     esta documentación
 └─ packages/
    ├─ shared/    @bal/shared    dominio puro, sin I/O
+   ├─ cliente/   @bal/cliente   cliente HTTP (CSRF, ApiError) y hook de carga, compartidos por la PWA y la landing
    ├─ api/       @bal/api       Hono + mongodb + Zod
    ├─ app/       @bal/app       React PWA — WAFA + WAFL
    └─ landing/   @bal/landing   React público
@@ -149,7 +150,7 @@ src/
 ```
 src/
   main.tsx  App.tsx  theme.tsx
-  lib/         apiClient (CSRF) · queryClient · pwaInstall · cn · errorMessage
+  lib/         apiClient (el cliente de `@bal/cliente`, con la base de la PWA) · pwaInstall · cn · errorMessage
   offline/     db.ts (IndexedDB) · outbox.ts · syncWorker.ts · useSyncStatus.ts
   auth/        useSession · AdminRoute · PatrolRoute
   wafa/        pages/ (Login, Home, TournamentCreate, Tournament, Patrols,
@@ -304,12 +305,14 @@ POST /api/admin/tournaments/:id/publish
 
 | Capa | WAFA | WAFL | Landing |
 |---|---|---|---|
-| Estado del servidor | TanStack Query | **IndexedDB** (fuente de verdad local) | TanStack Query |
+| Estado del servidor | `useCarga` (`@bal/cliente`) | **IndexedDB** (fuente de verdad local) | `useRecurso` (`@bal/cliente`) |
 | Escrituras | Directas a la API | Outbox → sync | — |
 | Sin conexión | Lectura de caché; escrituras bloqueadas con aviso | **Totalmente funcional** | Última respuesta cacheada |
 | Estado local | tema, preferencias (`localStorage`) | ídem + estado de sync | tema |
 
-En WAFL, TanStack Query se usa solo para la descarga inicial del bundle y para reflejar el estado de sincronización. **Toda la UI de scoring lee de IndexedDB.** Esta es la decisión que hace que el modo offline no requiera ramas condicionales por toda la aplicación: no hay un "modo offline", hay un solo modo que resulta funcionar sin red.
+**No se usa TanStack Query** (`REF6-11`, decisión 3): WAFA es chica y un hook propio suma cero bytes al bundle. `useCarga` (`@bal/cliente`) carga con cancelación, conserva lo que ya se ve mientras recarga, y su recarga silenciosa —la del seguimiento del torneo cada 30 s— no pasa por «cargando», no muestra un fallo y no borra el error de la última acción. La dependencia estaba declarada y no se importaba en ningún lado.
+
+En WAFL, la descarga inicial del bundle y el estado de sincronización van por el cliente directo. **Toda la UI de scoring lee de IndexedDB.** Esta es la decisión que hace que el modo offline no requiera ramas condicionales por toda la aplicación: no hay un "modo offline", hay un solo modo que resulta funcionar sin red.
 
 ---
 

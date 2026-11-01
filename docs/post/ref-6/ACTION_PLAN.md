@@ -237,17 +237,27 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 # P2 — Mejora
 
-### `[ ] REF6-11` · WAFA: páginas chicas y contratos tipados · **P2** · L
+### `[~] REF6-11` · WAFA: páginas chicas y contratos tipados · **P2** · L
+
+> **Estado: 1 de 3 entregas hechas** (el cliente y el hook). Faltan los tipos de punta a punta y partir las páginas. Es la tanda grande, y su propio riesgo dice «una página por PR»: se entrega en partes, cada una verde por sí sola.
 
 **Hallazgos:** `C-1`, `C-2`, `C-3`, `C-4`. **Skill:** `vercel-react-best-practices`.
 
-- [ ] Un hook de carga común para WAFA *(decisión 3)*; fuera `@tanstack/react-query`
-- [ ] `Tournament`, `Archers`, `TournamentCreate` y `Patrols` partidos en subcomponentes y hooks; sin warning de complejidad
-- [ ] Tipos de respuesta de punta a punta: `AppType` exportado y cliente RPC de Hono, o DTOs en un paquete compartido
-- [ ] Un solo cliente HTTP con CSRF y un solo `ApiError`
+**Entrega 1 — hecha: un cliente y un hook** (`C-2`, `C-4`)
+- [x] **Un solo cliente HTTP con CSRF y un solo `ApiError`**: paquete nuevo `@bal/cliente` (`crearCliente`, `ApiError` con `status`/`code`/`details`). `app/src/lib/apiClient.ts` y `landing/src/lib/api.ts` son ahora delgados —sólo dicen dónde cuelga la API— y **ningún sitio de llamada cambió**
+- [x] **`useCarga`** (WAFA) y `useRecurso` (landing, ahora sobre `useCarga`): carga con cancelación, conserva lo que se ve al recargar, recarga silenciosa que no pasa por «cargando», no muestra un fallo y no borra el error de la última acción *(decisión 3: hook propio)*
+- [x] **Fuera `@tanstack/react-query`**: estaba declarada y no se importaba en ningún lado
+- [ ] **Las páginas de WAFA todavía no usan `useCarga`**: se adopta al partir cada una (entrega 3). Hoy cada página sigue con su `useState` + `useEffect` a mano
 
-**DoD:** ninguna página de WAFA pasa de 250 líneas · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend · los tests de UI existentes siguen verdes sin cambios de comportamiento.
-**Riesgo:** refactor amplio sin cambio funcional — una página por PR, con los tests de UI como red.
+**Entrega 2 — pendiente: tipos de punta a punta** (`C-3`)
+- [ ] `AppType` exportado y cliente RPC de Hono, o DTOs en un paquete compartido. Cambiar el nombre de un campo en una ruta tiene que romper el `typecheck` del frontend
+
+**Entrega 3 — pendiente: páginas chicas** (`C-1`)
+- [ ] `Tournament` (624 líneas), `Archers` (668), `TournamentCreate` (527) y `Patrols` (486) en subcomponentes y hooks, sin warning de complejidad; y también pasan de 250 `Ranking` (311), `Publish` (260) y `Seasons` (256)
+
+**DoD:** ninguna página de WAFA pasa de 250 líneas ❌ · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend ❌ · los tests de UI existentes siguen verdes sin cambios de comportamiento ✅ (la entrega 1 no tocó ni uno: `app` 527 y `landing` 53, como antes).
+**Tests de la entrega 1:** `@bal/cliente` 36 (cliente: token en cada mutación y en ninguna lectura, ruta absoluta del CSRF, 204, errores con código/mensaje/detalles, mensajes por defecto de lectura y escritura, **un HTML con 200 sale como `SyntaxError` y no como `ApiError`**; hook: cancelación, carrera entre recursos, datos del recurso anterior descartados, recarga y recarga silenciosa).
+**Mutaciones (22):** todas detectadas, una tras reforzar el test (la identidad de `recargar` sólo se probaba sin cambio de datos). E2E: Chromium de escritorio 43/43.
 
 ---
 

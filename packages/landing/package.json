@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@bal/cliente": "workspace:*",
     "@bal/shared": "workspace:*",
     "@bal/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
