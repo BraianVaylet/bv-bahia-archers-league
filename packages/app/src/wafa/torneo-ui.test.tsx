@@ -486,6 +486,33 @@ describe('iniciar el torneo', () => {
   });
 });
 
+/**
+ * Después de una acción la pantalla **se actualiza sola** con lo que dice el servidor: el botón de
+ * «Iniciar» tiene que dar paso al de «Volver a sin iniciar» sin que el admin recargue. Nada lo
+ * comprobaba: los tests de arriba miran que el pedido salga, no que la pantalla lo refleje.
+ */
+describe('tras una acción, la pantalla se actualiza', () => {
+  it('al iniciar el torneo, pasa a mostrar el estado nuevo', async () => {
+    let iniciado = false;
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: iniciado ? 'en_proceso' : 'sin_iniciar' } },
+      }),
+      'POST /api/admin/tournaments/t1/start': () => {
+        iniciado = true;
+        return { json: { tournament: { id: 't1', status: 'en_proceso' } } };
+      },
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Iniciar torneo' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, iniciar' }));
+
+    expect(await screen.findByRole('button', { name: 'Volver a sin iniciar' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Iniciar torneo' })).toBeNull();
+  });
+});
+
 describe('volver a sin iniciar', () => {
   it('un torneo en proceso ofrece volver atrás', async () => {
     servidor({

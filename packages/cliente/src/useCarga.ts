@@ -19,6 +19,14 @@ export interface OpcionesDeCarga {
    * defecto: el mensaje de un `ApiError`, o uno de conexión para cualquier otra cosa.
    */
   readonly mensajeDeError?: string | ((error: unknown) => string);
+  /**
+   * Al cambiar las claves, **conserva lo que ya se ve** hasta que lleguen los datos nuevos, en vez de
+   * descartarlo. Para los filtros de una lista: la búsqueda o «ver archivados» piden el mismo recurso
+   * con otra consulta, y si cada tecla vaciara la lista para mostrar «Cargando…», el padrón
+   * parpadearía mientras se escribe. Por defecto no: pasar del torneo A al B no puede mostrar, ni un
+   * instante, los datos de A.
+   */
+  readonly conservarDatos?: boolean;
 }
 
 export interface Carga<T> {
@@ -94,9 +102,12 @@ export function useCarga<T>(
   }, []);
 
   useEffect(() => {
-    // Otro recurso: lo del anterior no se muestra ni un instante.
-    setDatos(undefined);
-    setError(undefined);
+    // Otro recurso: lo del anterior no se muestra ni un instante. Salvo que sea el mismo con otra
+    // consulta (`conservarDatos`): ahí se queda hasta que llegue lo nuevo.
+    if (!ultima.current.opciones.conservarDatos) {
+      setDatos(undefined);
+      setError(undefined);
+    }
     void pedir(false);
 
     return () => control.current?.abort();

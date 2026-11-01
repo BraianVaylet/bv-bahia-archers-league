@@ -1,323 +1,56 @@
 /**
  * Detalle y seguimiento de un torneo.
  *
- * La pantalla cambia según el estado. En proceso es una **pantalla de mirar**:
- * el admin sigue el avance desde el club mientras las patrullas caminan.
+ * La pantalla cambia según el estado. En proceso es una **pantalla de mirar**: el admin sigue el
+ * avance desde el club mientras las patrullas caminan.
+ *
+ * Es sólo la composición (`REF6-11` / `C-1`): los datos salen de `useTorneo` y cada acción vive
+ * en su componente de `wafa/detalle/`.
  *
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { formatearFecha, type SCORING, type TournamentStatus } from '@bal/shared';
-import { BadgeEstado, ChipCategoria, ChipModalidad, IconoCandado } from '@bal/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatearFecha } from '@bal/shared';
+import { BadgeEstado } from '@bal/ui';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  Button,
-  botonClases,
-  clasesDeTarjeta,
-  cn,
-  Encabezado,
-  Field,
-  Pantalla,
-  Screen,
-} from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
-import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
+import { botonClases, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { ControlesDeEstado } from '../detalle/ControlesDeEstado.js';
+import { EdicionDelTorneo } from '../detalle/EdicionDelTorneo.js';
+import { EdicionDeParticipantes } from '../detalle/EdicionDeParticipantes.js';
+import { ParticipantesDelTorneo } from '../detalle/ParticipantesDelTorneo.js';
+import { RecorridoDelTorneo } from '../detalle/RecorridoDelTorneo.js';
+import { TarjetaDePatrulla } from '../detalle/TarjetaDePatrulla.js';
+import { useTorneo } from '../detalle/useTorneo.js';
 import { useRefrescoPeriodico } from '../refrescoPeriodico.js';
-import {
-  type AvanceDePatrulla,
-  avanceDePatrullas,
-  motivoDeBloqueo,
-  type PatrullaSeguimiento,
-  type ResultadoParticipante,
-} from '../torneo.js';
-import type { ArqueroElegible } from '../wizard.js';
-
-interface Torneo {
-  readonly id: string;
-  readonly name: string;
-  readonly date: string;
-  readonly status: TournamentStatus;
-  readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
-  readonly maxPossibleScore: number;
-  readonly participantCount: number;
-}
-
-// ── Desbloqueo de firma ──────────────────────────────────────────────────────
-
-function DesbloquearFirma({
-  participante,
-  onHecho,
-}: {
-  readonly participante: ResultadoParticipante;
-  readonly onHecho: () => void;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const [motivo, setMotivo] = useState('');
-  const [error, setError] = useState<string>();
-
-  const desbloquear = async () => {
-    try {
-      await api.post(`/admin/participants/${participante.id}/signature/unlock`, {
-        reason: motivo.trim(),
-      });
-      setAbierto(false);
-      setMotivo('');
-      onHecho();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo desbloquear.');
-    }
-  };
-
-  if (!abierto) {
-    return (
-      <Button variante="secundario" onClick={() => setAbierto(true)}>
-        Desbloquear firma
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border p-3">
-      {/* El motivo es obligatorio y queda en el audit log: desbloquear una firma
-          es saltarse el control que valida el puntaje. */}
-      <label className="text-sm" htmlFor={`motivo-${participante.id}`}>
-        Por qué {participante.lastName} no firma
-      </label>
-      <textarea
-        id={`motivo-${participante.id}`}
-        value={motivo}
-        onChange={(e) => setMotivo(e.target.value)}
-        rows={2}
-        className="px-3 py-2 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-        placeholder="Se fue antes de cerrar el circuito."
-      />
-
-      {error && (
-        <p role="alert" className="text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <Button variante="secundario" onClick={() => setAbierto(false)}>
-          Cancelar
-        </Button>
-        <Button
-          ancho
-          variante="peligro"
-          disabled={motivo.trim().length < 5}
-          onClick={() => void desbloquear()}
-        >
-          Desbloquear
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ── Seguimiento ──────────────────────────────────────────────────────────────
-
-function TarjetaDePatrulla({
-  avance,
-  puedeDesbloquear,
-  onCambio,
-}: {
-  readonly avance: AvanceDePatrulla;
-  readonly puedeDesbloquear: boolean;
-  readonly onCambio: () => void;
-}) {
-  return (
-    <article
-      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
-      data-testid={`avance-${avance.number}`}
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold">Patrulla {avance.number}</span>
-        <span className="text-sm tabular-nums text-[var(--ink-muted)]">
-          {avance.targetsCompleted} de {avance.totalTargets} blancos
-        </span>
-      </div>
-
-      <div
-        className="h-2 rounded-full bg-[var(--surface-2)] overflow-hidden"
-        role="progressbar"
-        aria-label={`Avance de la patrulla ${avance.number}`}
-        aria-valuenow={avance.pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        <div className="h-full bg-[var(--nock)]" style={{ width: `${avance.pct}%` }} />
-      </div>
-
-      {avance.sinFirmar.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-[var(--ink-muted)]">
-            Falta la firma de {avance.sinFirmar.map((m) => m.lastName).join(', ')}.
-          </p>
-
-          {puedeDesbloquear &&
-            avance.sinFirmar.map((m) => (
-              <DesbloquearFirma key={m.id} participante={m} onHecho={onCambio} />
-            ))}
-        </div>
-      ) : (
-        <p className="text-sm text-[var(--ok)]">Todos firmaron.</p>
-      )}
-    </article>
-  );
-}
-
-// ── Pantalla ─────────────────────────────────────────────────────────────────
+import { avanceDePatrullas } from '../torneo.js';
 
 export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
-  const [torneo, setTorneo] = useState<Torneo>();
-  const [patrullas, setPatrullas] = useState<PatrullaSeguimiento[]>([]);
-  const [participantes, setParticipantes] = useState<ResultadoParticipante[]>([]);
-  const [bloqueados, setBloqueados] = useState<number[]>([]);
-  const [error, setError] = useState<string>();
-  const [iniciando, setIniciando] = useState(false);
-  const [confirmandoInicio, setConfirmandoInicio] = useState(false);
-  /** Los participantes en edición. `undefined` = el panel está cerrado. */
-  const [editandoArqueros, setEditandoArqueros] = useState<ArqueroElegible[]>();
-  const [eliminando, setEliminando] = useState(false);
+  const {
+    torneo,
+    patrullas,
+    participantes,
+    bloqueados,
+    error: errorDeCarga,
+    recargar,
+  } = useTorneo(id);
 
   /**
-   * Borrar pide dos toques.
-   *
-   * No hay `confirm()` —bloquea el hilo y en un celular sale del contexto— ni
-   * modal: el segundo toque sobre el mismo botón, con el texto cambiado, dice
-   * lo mismo y no tapa la pantalla.
+   * El error de la última acción, aparte del de la carga: un refresco automático que sale bien no
+   * puede borrar el motivo por el que el servidor rechazó lo que el admin acaba de hacer.
    */
-  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
-  const [editando, setEditando] = useState<Torneo>();
+  const [errorDeAccion, setErrorDeAccion] = useState<string>();
+  const error = errorDeAccion ?? errorDeCarga;
 
-  /** Hay una carga en vuelo: un refresco lento no se pisa con el siguiente. */
-  const cargando = useRef(false);
-
-  /**
-   * Con `silencioso` (el refresco automático) un fallo no muestra nada y un éxito no
-   * borra un error de la última acción del admin: lo que ya se ve sigue siendo lo
-   * mejor que hay, y un corte de red cada 30 s no puede dejar la pantalla en rojo.
-   */
-  const cargar = useCallback(
-    async (silencioso = false) => {
-      if (silencioso && cargando.current) return;
-      cargando.current = true;
-      try {
-        // Sin `?pins=1`: el seguimiento no necesita los PIN, y pedirlos los descifraba
-        // y los registraba en el audit log en cada vuelta.
-        const [t, p, r, b] = await Promise.all([
-          api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`),
-          api.get<{ patrols: PatrullaSeguimiento[] }>(`/admin/tournaments/${id}/patrols`),
-          api.get<{ participants: ResultadoParticipante[] }>(`/admin/tournaments/${id}/results`),
-          api.get<{ lockedTargets: number[] }>(`/admin/tournaments/${id}/locked-targets`),
-        ]);
-        setTorneo(t.tournament);
-        setPatrullas(p.patrols);
-        setParticipantes(r.participants);
-        setBloqueados(b.lockedTargets);
-        if (!silencioso) setError(undefined);
-      } catch {
-        if (!silencioso) setError('No se pudo cargar el torneo. Revisá la conexión.');
-      } finally {
-        cargando.current = false;
-      }
-    },
-    [id],
-  );
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  /** Algo cambió en el servidor: se vuelve a cargar, y lo que había fallado ya no corre. */
+  const alCambiar = () => {
+    setErrorDeAccion(undefined);
+    return recargar();
+  };
 
   // Sólo un torneo en curso cambia solo: ahí las patrullas están anotando.
-  useRefrescoPeriodico(() => void cargar(true), torneo?.status === 'en_proceso');
-
-  /**
-   * Volver a `sin_iniciar`.
-   *
-   * La guarda —que no haya ni un puntaje— **es del servidor**. Acá no se
-   * adivina: se pide y se muestra lo que conteste. Una pantalla que decide sola
-   * puede estar mirando datos de hace un minuto.
-   */
-  const volverAtras = async () => {
-    setIniciando(true);
-    try {
-      await api.post(`/admin/tournaments/${id}/unstart`);
-      await cargar();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo volver atrás.');
-    } finally {
-      setIniciando(false);
-    }
-  };
-
-  const iniciar = async () => {
-    setIniciando(true);
-    try {
-      await api.post(`/admin/tournaments/${id}/start`);
-      await cargar();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo iniciar el torneo.');
-    } finally {
-      setIniciando(false);
-    }
-  };
-
-  const guardarDatos = async () => {
-    if (!editando) return;
-    try {
-      await api.patch(`/admin/tournaments/${id}`, {
-        name: editando.name.trim(),
-        date: editando.date.slice(0, 10),
-      });
-      setEditando(undefined);
-      await cargar();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar los cambios.');
-    }
-  };
-
-  /**
-   * Cambiar quiénes participan.
-   *
-   * **Rearma las patrullas**, y eso lo hace el servidor: las patrullas se
-   * derivan de la lista de arqueros y de las restricciones del dominio, así que
-   * agregar a alguien sin rehacerlas daría una patrulla de cinco o una 100%
-   * escuela. Los PIN cambian, y por eso se avisa antes.
-   */
-  const guardarArqueros = async () => {
-    if (!editandoArqueros) return;
-    try {
-      await api.patch(`/admin/tournaments/${id}`, {
-        archerIds: editandoArqueros.map((a) => a.id),
-      });
-      setEditandoArqueros(undefined);
-      await cargar();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudieron guardar los participantes.');
-    }
-  };
-
-  const eliminar = async () => {
-    if (!confirmandoBorrado) {
-      setConfirmandoBorrado(true);
-      return;
-    }
-
-    setEliminando(true);
-    try {
-      await api.del(`/admin/tournaments/${id}`);
-      onVolver();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo eliminar el torneo.');
-      setConfirmandoBorrado(false);
-    } finally {
-      setEliminando(false);
-    }
-  };
+  useRefrescoPeriodico(() => void recargar({ silencioso: true }), torneo?.status === 'en_proceso');
 
   const avances = torneo ? avanceDePatrullas(patrullas, participantes, torneo.targets.length) : [];
 
@@ -361,177 +94,21 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                 Arqueros y pagos
               </Link>
 
-              {/*
-                Iniciar pide confirmación. No es una formalidad: a partir de acá
-                las patrullas quedan congeladas y los líderes bajan el recorrido
-                al celular. Dos toques sobre el mismo botón, sin `confirm()` ni
-                modal — igual que eliminar, que es la otra acción de ida.
-              */}
-              {torneo.status === 'sin_iniciar' && (
-                <div className="flex flex-col gap-2">
-                  {confirmandoInicio && (
-                    <p className="text-sm text-[var(--warn)]" role="status">
-                      A partir de acá las patrullas quedan congeladas y los líderes bajan el
-                      recorrido. ¿Iniciar el torneo?
-                    </p>
-                  )}
-                  <Button
-                    ancho
-                    disabled={iniciando}
-                    onClick={() =>
-                      confirmandoInicio ? void iniciar() : setConfirmandoInicio(true)
-                    }
-                  >
-                    {iniciando
-                      ? 'Iniciando…'
-                      : confirmandoInicio
-                        ? 'Sí, iniciar'
-                        : 'Iniciar torneo'}
-                  </Button>
-                </div>
-              )}
+              <ControlesDeEstado torneo={torneo} onCambio={alCambiar} onError={setErrorDeAccion} />
 
-              {/*
-                Y la vuelta atrás, para el arranque por error. El servidor la
-                rechaza si ya hay un puntaje: acá no se esconde el botón por las
-                dudas, se muestra el motivo cuando dice que no.
-              */}
-              {torneo.status === 'en_proceso' && (
-                <Button
-                  variante="secundario"
-                  ancho
-                  disabled={iniciando}
-                  onClick={() => void volverAtras()}
-                >
-                  {iniciando ? 'Volviendo…' : 'Volver a sin iniciar'}
-                </Button>
-              )}
+              <EdicionDelTorneo
+                torneo={torneo}
+                onCambio={alCambiar}
+                onError={setErrorDeAccion}
+                onEliminado={onVolver}
+              />
 
-              {(torneo.status === 'completado' || torneo.status === 'publicado') && (
-                <Link to={`/wafa/torneos/${id}/publicar`} className={botonClases({ ancho: true })}>
-                  {torneo.status === 'publicado' ? 'Ver resultados' : 'Revisar y publicar'}
-                </Link>
-              )}
-
-              {/* Sólo mientras nadie tiró. Una vez iniciado, el recorrido está
-                  descargado en los celulares de los líderes y cambiarlo dejaría
-                  la app y el papel diciendo cosas distintas. */}
-              {torneo.status === 'sin_iniciar' && (
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variante="secundario"
-                    className="flex-1"
-                    onClick={() => setEditando(editando ? undefined : { ...torneo })}
-                  >
-                    {editando ? 'Cancelar edición' : 'Editar'}
-                  </Button>
-
-                  <Button
-                    variante="peligro"
-                    disabled={eliminando}
-                    onClick={() => void eliminar()}
-                    className="flex-1"
-                  >
-                    {confirmandoBorrado ? 'Confirmar borrado' : 'Eliminar'}
-                  </Button>
-                </div>
-              )}
-
-              {confirmandoBorrado && (
-                <p role="status" className="text-sm text-[var(--danger)]">
-                  Se van a borrar el torneo, sus patrullas y sus credenciales. Tocá de nuevo para
-                  confirmar.
-                </p>
-              )}
-
-              {/* Sólo nombre, fecha y descripción. El recorrido tiene sus
-                  propias reglas —un blanco con puntajes está bloqueado— y se
-                  edita desde su pantalla, no de refilón acá. */}
-              {editando && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void guardarDatos();
-                  }}
-                  className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
-                  data-testid="editar-torneo"
-                >
-                  <Field
-                    label="Nombre"
-                    value={editando.name}
-                    onChange={(e) => setEditando({ ...editando, name: e.target.value })}
-                    required
-                  />
-                  <Field
-                    label="Fecha"
-                    type="date"
-                    value={editando.date.slice(0, 10)}
-                    onChange={(e) => setEditando({ ...editando, date: e.target.value })}
-                    required
-                  />
-
-                  <Button type="submit" ancho disabled={editando.name.trim().length < 3}>
-                    Guardar cambios
-                  </Button>
-                </form>
-              )}
-
-              {/*
-                Los participantes, en su propio panel.
-                
-                Van aparte del formulario de datos porque **tienen otra
-                consecuencia**: cambiar la lista rearma las patrullas y les
-                cambia el PIN. Meterlo en el mismo «Guardar cambios» que el
-                nombre haría que corregir una tilde reimprima las planillas.
-              */}
-              {torneo.status === 'sin_iniciar' && (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variante="secundario"
-                    ancho
-                    onClick={() =>
-                      setEditandoArqueros(
-                        editandoArqueros
-                          ? undefined
-                          : participantes.map((p) => ({
-                              id: p.archerId,
-                              firstName: p.firstName,
-                              lastName: p.lastName,
-                              category: p.category,
-                            })),
-                      )
-                    }
-                  >
-                    {editandoArqueros ? 'Cancelar' : 'Editar participantes'}
-                  </Button>
-
-                  {editandoArqueros && (
-                    <div
-                      className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
-                      data-testid="editar-participantes"
-                    >
-                      <p className="text-sm text-[var(--warn)]">
-                        Cambiar quiénes participan <strong>rearma las patrullas</strong> y les
-                        cambia el PIN. Si ya imprimiste las planillas, hay que reimprimirlas.
-                      </p>
-
-                      <SelectorDeArqueros
-                        elegidos={editandoArqueros}
-                        blancos={torneo.targets.length}
-                        onCambio={setEditandoArqueros}
-                      />
-
-                      <Button
-                        ancho
-                        disabled={editandoArqueros.length < 2}
-                        onClick={() => void guardarArqueros()}
-                      >
-                        Guardar participantes
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+              <EdicionDeParticipantes
+                torneo={torneo}
+                participantes={participantes}
+                onCambio={alCambiar}
+                onError={setErrorDeAccion}
+              />
             </nav>
 
             {torneo.status !== 'sin_iniciar' && (
@@ -545,76 +122,19 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
                     key={a.number}
                     avance={a}
                     puedeDesbloquear={torneo.status === 'en_proceso'}
-                    onCambio={() => void cargar()}
+                    onCambio={() => void alCambiar()}
                   />
                 ))}
               </section>
             )}
 
-            <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                Recorrido
-              </h2>
-
-              <ul className="flex flex-col gap-1.5">
-                {torneo.targets.map((t) => {
-                  const bloqueo = motivoDeBloqueo(t.index, bloqueados, torneo.status);
-
-                  return (
-                    <li
-                      key={t.index}
-                      className={cn(
-                        'rounded-[var(--radius-md)] border px-3 py-2 bg-[var(--surface)]',
-                        bloqueo && 'opacity-70',
-                      )}
-                      data-testid={`blanco-${t.index}`}
-                    >
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="flex items-center gap-2">
-                          {t.index}.
-                          <ChipModalidad modality={t.modality} compacto />
-                        </span>
-                        <span className="text-sm text-[var(--ink-muted)] tabular-nums">
-                          {t.arrows} flechas
-                        </span>
-                      </div>
-
-                      {/* Un blanco bloqueado dice POR QUÉ: si no, parece un error. */}
-                      {bloqueo && (
-                        <p className="text-sm text-[var(--ink-muted)]">
-                          <IconoCandado size={14} className="inline-block mr-1 align-[-2px]" />
-                          {bloqueo}
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            <RecorridoDelTorneo torneo={torneo} bloqueados={bloqueados} />
 
             {participantes.length > 0 && torneo.status !== 'sin_iniciar' && (
-              <section className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                  Participantes
-                </h2>
-
-                <ul className="flex flex-col gap-1.5">
-                  {participantes.map((p) => (
-                    <li
-                      key={p.id}
-                      className="rounded-[var(--radius-md)] border px-3 py-2 bg-[var(--surface)] flex items-baseline justify-between gap-2"
-                      data-testid={`participante-${p.lastName}`}
-                    >
-                      <span className="min-w-0 truncate">
-                        {p.lastName}, {p.firstName} <ChipCategoria category={p.category} compacto />
-                      </span>
-                      <span className="tabular-nums font-medium shrink-0">
-                        {p.targetsCompleted}/{torneo.targets.length}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <ParticipantesDelTorneo
+                participantes={participantes}
+                totalBlancos={torneo.targets.length}
+              />
             )}
           </>
         )}

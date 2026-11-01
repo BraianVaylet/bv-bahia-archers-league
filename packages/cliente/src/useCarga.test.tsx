@@ -138,6 +138,98 @@ describe('useCarga', () => {
     });
   });
 
+  /**
+   * Los filtros de una lista (la búsqueda, «ver archivados») piden **el mismo recurso con otra
+   * consulta**: no es otra pantalla. Si cada tecla descartara la lista para mostrar «Cargando…»,
+   * el padrón parpadearía mientras se escribe.
+   */
+  describe('conservarDatos', () => {
+    it('al cambiar las claves no descarta lo que ya se ve mientras llegan los datos nuevos', async () => {
+      const b = diferida<string>();
+      const { result, rerender } = renderHook(
+        ({ q }) =>
+          useCarga(() => (q === 'a' ? Promise.resolve('A') : b.promesa), [q], {
+            conservarDatos: true,
+          }),
+        { initialProps: { q: 'a' } },
+      );
+      await waitFor(() => expect(result.current.datos).toBe('A'));
+
+      rerender({ q: 'b' });
+
+      expect(result.current.datos).toBe('A');
+      expect(result.current.cargando).toBe(true);
+
+      await act(async () => {
+        b.resolver('B');
+        await b.promesa;
+      });
+      expect(result.current.datos).toBe('B');
+      expect(result.current.cargando).toBe(false);
+    });
+
+    it('sigue cancelando la carga anterior y una respuesta vieja no pisa a la nueva', async () => {
+      const a = diferida<string>();
+      const b = diferida<string>();
+      const señales: AbortSignal[] = [];
+      const { result, rerender } = renderHook(
+        ({ q }) =>
+          useCarga(
+            (signal) => {
+              señales.push(signal);
+              return q === 'a' ? a.promesa : b.promesa;
+            },
+            [q],
+            { conservarDatos: true },
+          ),
+        { initialProps: { q: 'a' } },
+      );
+
+      rerender({ q: 'b' });
+      expect(señales[0]?.aborted).toBe(true);
+
+      await act(async () => {
+        b.resolver('B');
+        await b.promesa;
+      });
+      await act(async () => {
+        a.resolver('A');
+        await a.promesa;
+      });
+
+      expect(result.current.datos).toBe('B');
+    });
+
+    // Con el error pasa lo mismo que con los datos: el anterior se queda hasta que la nueva
+    // consulta salga bien, y ahí se limpia.
+    it('un error anterior se queda hasta que la nueva carga sale bien', async () => {
+      const b = diferida<string>();
+      const { result, rerender } = renderHook(
+        ({ q }) =>
+          useCarga(
+            () => {
+              if (q === 'a') throw new ApiError(500, 'INTERNAL', 'Se cayó.');
+              return b.promesa;
+            },
+            [q],
+            { conservarDatos: true },
+          ),
+        { initialProps: { q: 'a' } },
+      );
+      await waitFor(() => expect(result.current.error).toBe('Se cayó.'));
+
+      rerender({ q: 'b' });
+      expect(result.current.error).toBe('Se cayó.');
+
+      await act(async () => {
+        b.resolver('B');
+        await b.promesa;
+      });
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.datos).toBe('B');
+    });
+  });
+
   describe('recargar', () => {
     it('vuelve a pedir, y mientras tanto conserva lo que ya se veía', async () => {
       let n = 0;

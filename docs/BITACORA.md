@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-01 · WAFA: páginas chicas (REF6-11, las páginas)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** segunda entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-1`, y el resto de `C-2`). **Falta** la que da los tipos de punta a punta (`C-3`).
+
+### Qué cambió
+
+- **Siete páginas de WAFA pasaron de 250 a ~100-175 líneas**: `Archers` 668 → 146, `Tournament` 624 → 144, `TournamentCreate` 527 → 144, `Patrols` 486 → 106, `Ranking` 311 → 141, `Publish` 260 → 159 y `Seasons` 256 → 111. Cada una es sólo la composición; los datos salen de un hook por pantalla y cada pieza tiene nombre y archivo.
+- **Todas las cargas de WAFA usan `useCarga`**, incluidas las tres que no estaban en la lista (`Home`, `Payments`, `SelectorDeArqueros`). Antes cada pantalla reimplementaba `useState` + `useEffect` + `try/catch`, sin cancelación.
+- **`useCarga` ganó `conservarDatos`.** Lo pidió `Archers`: sus filtros (búsqueda, «ver archivados») recargan **el mismo recurso con otra consulta** y hoy conservan la lista mientras llega la nueva. `useCarga` descartaba los datos al cambiar de claves —correcto para pasar del torneo A al B, que no puede mostrar ni un instante lo de A—, y con eso el padrón habría parpadeado con cada tecla.
+
+### Cómo se hizo sin romper nada
+
+El plan decía «una página por PR, con los tests de UI como red». Se partió **una página por vez, con los 256 tests de UI de WAFA corriendo después de cada una**, y las partes se **cortaron del archivo original por marcadores en vez de retiparlas**: el JSX que ya funcionaba se movió, no se reescribió. **No se modificó ni un test existente.**
+
+### Decisiones
+
+- **El error de la última acción, aparte del de la carga**, en cada página (`errorDeAccion ?? carga.error`). Con un solo slot, un refresco o una recarga que sale bien borraba el motivo por el que el servidor había rechazado lo que el admin acababa de hacer (el mismo caso de `REF6-7`).
+- **Cada componente es dueño de su estado y de su pedido**, y avisa a la página con `onCambio` (que recarga y se **espera**: el botón sigue deshabilitado hasta que llegan los datos) y `onError`. La página no sabe cómo se hace «iniciar» ni «eliminar».
+- **Carpetas por pantalla (`detalle/`, `padron/`…) y no un `components/` único**: ya existía `wafa/torneo.ts` (el dominio del seguimiento) y una carpeta `wafa/torneo/` al lado se confundía con él.
+- **Se conservó un comportamiento discutible a propósito**: si falla la carga de temporadas en el wizard o en el ranking, se ve «no hay temporadas», como antes. Es engañoso (la carga falló, no están vacías), pero cambiarlo es otra decisión.
+
+### Errores míos en el camino
+
+- **Pisé un archivo antes de leerlo.** Escribí la página nueva de `Ranking` antes de correr el generador que cortaba piezas del original, y el generador leyó la versión ya reescrita. Estaba commiteada: se recuperó de `HEAD` y los generadores siguientes leen de `HEAD`, no del disco.
+- **Cinco mutaciones sobrevivieron, y las cinco eran huecos que ya existían antes del refactor.** Nada comprobaba que la pantalla del torneo se actualizara después de «iniciar», que un pago rechazado mostrara su motivo, que marcar un pago se viera reflejado, ni cómo se comporta el selector del wizard cuando la búsqueda falla. La refactorización no los creó; la mutación los encontró. Los tests de UI «de red» sólo eran una red donde los agujeros ya estaban.
+- **Un test de iconografía recorre cada `.tsx` de `app/src`** y cuenta uno por archivo: los 26 componentes nuevos sumaron 26 tests a la corrida (527 → 553) sin que yo escribiera ninguno. Todos pasan, pero el número de tests sube con la cantidad de archivos y no con el comportamiento cubierto.
+
+### Verificación
+
+`@bal/app` **560** (527 de antes de las páginas, 26 de la iconografía y 7 nuevos), `@bal/cliente` **39**, `@bal/api` 418, `@bal/shared` 499, `@bal/ui` 61, `@bal/landing` 53. Tipos y Biome sin errores; ni un warning en `app/src`. **16 mutaciones, todas detectadas**, cinco tras escribir el test que faltaba. E2E: Chromium de escritorio 43/43.
+
+### Deuda / lo que sigue
+
+- **Entrega 2 — tipos de punta a punta (`C-3`).** Sigue siendo lo único que falta de `REF6-11`. Ahora es más fácil: cada pantalla tiene un hook con **un solo lugar** donde se piden sus datos, así que migrar a `AppType`/RPC es tocar `useTorneo`, `usePadron`… y no cien sitios de llamada.
+- **WAFL (`wafl/*`) sigue con sus cargas a mano**: no estaba en el alcance (la lista era de WAFA), y su capa de datos es IndexedDB, no HTTP.
+
+---
+
 ## 2026-11-01 · Un cliente HTTP y un hook de carga (REF6-11, entrega 1 de 3)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** primera entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgos `C-2` y `C-4` de [`INFORME.md`](post/ref-6/INFORME.md)). **Faltan** los tipos de punta a punta (`C-3`) y partir las páginas (`C-1`).

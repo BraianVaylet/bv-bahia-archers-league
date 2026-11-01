@@ -9,9 +9,10 @@
  * Ver `docs/SECURITY.md` §2.
  */
 
+import { useCarga } from '@bal/cliente';
 import { type BowCategory, formatearMonto } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
@@ -31,29 +32,26 @@ export interface ResumenDePagos {
 }
 
 export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string }) {
-  const [resumen, setResumen] = useState<ResumenDePagos>();
-  const [error, setError] = useState<string>();
+  const carga = useCarga(
+    (signal) => api.get<ResumenDePagos>(`/admin/tournaments/${tournamentId}/payments`, signal),
+    [tournamentId],
+    { mensajeDeError: 'No se pudieron cargar los pagos. Revisá la conexión.' },
+  );
+  const resumen = carga.datos;
 
-  const cargar = useCallback(async () => {
-    try {
-      setResumen(await api.get<ResumenDePagos>(`/admin/tournaments/${tournamentId}/payments`));
-      setError(undefined);
-    } catch {
-      setError('No se pudieron cargar los pagos. Revisá la conexión.');
-    }
-  }, [tournamentId]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  // El error de la última acción, aparte del de la carga: marcar un pago que el servidor rechaza no
+  // lo borra una recarga que sale bien por otro lado.
+  const [errorDeAccion, setErrorDeAccion] = useState<string>();
+  const error = errorDeAccion ?? carga.error;
 
   const marcar = async (participantId: string, paid: boolean) => {
     try {
       // Sólo el booleano: el monto lo pone el servidor leyendo el torneo.
       await api.post(`/admin/participants/${participantId}/payment`, { paid });
-      await cargar();
+      setErrorDeAccion(undefined);
+      await carga.recargar();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo marcar el pago.');
+      setErrorDeAccion(err instanceof ApiError ? err.message : 'No se pudo marcar el pago.');
     }
   };
 

@@ -7,6 +7,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.2.
  */
 
+import { useCarga } from '@bal/cliente';
 import {
   ESTADO_DE_TORNEO,
   formatearFecha,
@@ -14,7 +15,7 @@ import {
   type TournamentStatus,
 } from '@bal/shared';
 import { ChipModalidad } from '@bal/ui';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
 import {
@@ -82,16 +83,15 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
 }
 
 export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
-  const [torneos, setTorneos] = useState<TournamentRow[]>();
   const [cerrando, setCerrando] = useState(false);
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    api
-      .get<{ tournaments: TournamentRow[] }>('/admin/tournaments')
-      .then((r) => setTorneos(r.tournaments))
-      .catch(() => setError('No se pudieron cargar los torneos. Revisá la conexión.'));
-  }, []);
+  const carga = useCarga(
+    async (signal) =>
+      (await api.get<{ tournaments: TournamentRow[] }>('/admin/tournaments', signal)).tournaments,
+    [],
+    { mensajeDeError: 'No se pudieron cargar los torneos. Revisá la conexión.' },
+  );
+  const torneos = carga.datos;
+  const error = carga.error;
 
   return (
     <Pantalla>

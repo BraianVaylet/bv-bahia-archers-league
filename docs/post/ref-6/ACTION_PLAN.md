@@ -239,25 +239,26 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ### `[~] REF6-11` · WAFA: páginas chicas y contratos tipados · **P2** · L
 
-> **Estado: 1 de 3 entregas hechas** (el cliente y el hook). Faltan los tipos de punta a punta y partir las páginas. Es la tanda grande, y su propio riesgo dice «una página por PR»: se entrega en partes, cada una verde por sí sola.
+> **Estado: 2 de 3 entregas hechas** (el cliente y el hook, y las páginas). Falta la entrega 2: los tipos de punta a punta. Es la tanda grande, y su propio riesgo dice «una página por PR»: se entrega en partes, cada una verde por sí sola.
 
 **Hallazgos:** `C-1`, `C-2`, `C-3`, `C-4`. **Skill:** `vercel-react-best-practices`.
 
 **Entrega 1 — hecha: un cliente y un hook** (`C-2`, `C-4`)
-- [x] **Un solo cliente HTTP con CSRF y un solo `ApiError`**: paquete nuevo `@bal/cliente` (`crearCliente`, `ApiError` con `status`/`code`/`details`). `app/src/lib/apiClient.ts` y `landing/src/lib/api.ts` son ahora delgados —sólo dicen dónde cuelga la API— y **ningún sitio de llamada cambió**
-- [x] **`useCarga`** (WAFA) y `useRecurso` (landing, ahora sobre `useCarga`): carga con cancelación, conserva lo que se ve al recargar, recarga silenciosa que no pasa por «cargando», no muestra un fallo y no borra el error de la última acción *(decisión 3: hook propio)*
+- [x] **Un solo cliente HTTP con CSRF y un solo `ApiError`**: paquete nuevo `@bal/cliente`. `apiClient.ts` y `api.ts` quedan delgados
+- [x] **`useCarga`** (WAFA) y `useRecurso` (landing): carga con cancelación, conserva lo que se ve al recargar, recarga silenciosa. Opción `conservarDatos` para los filtros de una lista *(decisión 3: hook propio)*
 - [x] **Fuera `@tanstack/react-query`**: estaba declarada y no se importaba en ningún lado
-- [ ] **Las páginas de WAFA todavía no usan `useCarga`**: se adopta al partir cada una (entrega 3). Hoy cada página sigue con su `useState` + `useEffect` a mano
+
+**Entrega 3 — hecha: páginas chicas** (`C-1`, y el resto de `C-2`)
+- [x] `Tournament` (624 → 144 líneas), `Archers` (668 → 146), `TournamentCreate` (527 → 144) y `Patrols` (486 → 106), más `Ranking` (311 → 141), `Publish` (260 → 159) y `Seasons` (256 → 111). **La más grande de WAFA ahora tiene 173 líneas.** Cada una quedó como composición: los datos salen de un hook (`useTorneo`, `usePadron`, `usePatrullas`, `useRanking`) y cada pieza vive en su carpeta (`detalle/`, `padron/`, `crear/`, `distribucion/`, `ranking/`, `publicacion/`, `temporadas/`)
+- [x] **Todas las cargas de WAFA usan `useCarga`**: se migraron también `Home`, `Payments` y `SelectorDeArqueros`, que no estaban en la lista pero dejaban tres `useState` + `useEffect` a mano. Ya no queda ninguno en `wafa/pages` ni `wafa/components`
+- [x] El warning de complejidad cognitiva de `Tournament.tsx` desapareció, y no hay ninguno en `app/src`
 
 **Entrega 2 — pendiente: tipos de punta a punta** (`C-3`)
-- [ ] `AppType` exportado y cliente RPC de Hono, o DTOs en un paquete compartido. Cambiar el nombre de un campo en una ruta tiene que romper el `typecheck` del frontend
+- [ ] `AppType` exportado y cliente RPC de Hono, o DTOs en un paquete compartido. Cambiar el nombre de un campo en una ruta tiene que romper el `typecheck` del frontend. Hace falta decidir cómo se integra con el CSRF y el `ApiError` de `@bal/cliente`
 
-**Entrega 3 — pendiente: páginas chicas** (`C-1`)
-- [ ] `Tournament` (624 líneas), `Archers` (668), `TournamentCreate` (527) y `Patrols` (486) en subcomponentes y hooks, sin warning de complejidad; y también pasan de 250 `Ranking` (311), `Publish` (260) y `Seasons` (256)
-
-**DoD:** ninguna página de WAFA pasa de 250 líneas ❌ · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend ❌ · los tests de UI existentes siguen verdes sin cambios de comportamiento ✅ (la entrega 1 no tocó ni uno: `app` 527 y `landing` 53, como antes).
-**Tests de la entrega 1:** `@bal/cliente` 36 (cliente: token en cada mutación y en ninguna lectura, ruta absoluta del CSRF, 204, errores con código/mensaje/detalles, mensajes por defecto de lectura y escritura, **un HTML con 200 sale como `SyntaxError` y no como `ApiError`**; hook: cancelación, carrera entre recursos, datos del recurso anterior descartados, recarga y recarga silenciosa).
-**Mutaciones (22):** todas detectadas, una tras reforzar el test (la identidad de `recargar` sólo se probaba sin cambio de datos). E2E: Chromium de escritorio 43/43.
+**DoD:** ninguna página de WAFA pasa de 250 líneas ✅ (173) · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend ❌ · los tests de UI existentes siguen verdes sin cambios de comportamiento ✅ (**no se modificó ni uno**; se agregaron 7).
+**Tests nuevos de esta entrega:** `@bal/cliente` +3 (`conservarDatos`) · `@bal/app` +7: el padrón y el ranking **no vacían la lista** mientras llega la consulta nueva, el selector igual y **se ve vacío si la búsqueda falla**, el torneo **se actualiza solo tras iniciar**, y un pago rechazado **muestra el motivo** y uno marcado **se ve pagado**. Tres de estos cubren huecos que ya existían antes del refactor (nada comprobaba que la pantalla se actualizara tras una acción).
+**Mutaciones (16):** cableado de `useCarga` en las páginas partidas (8) y en las tres últimas cargas (5), y las 3 de `conservarDatos`. **Cinco sobrevivían** y apuntaban a huecos reales; se escribió el test que faltaba en cada caso. E2E: Chromium de escritorio 43/43.
 
 ---
 

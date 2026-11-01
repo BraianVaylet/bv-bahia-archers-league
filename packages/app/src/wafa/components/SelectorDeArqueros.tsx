@@ -10,9 +10,10 @@
  * lo que se ve en vivo no es una aproximación.
  */
 
+import { useCarga } from '@bal/cliente';
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, api } from '../../lib/apiClient.js';
 import { type ArqueroElegible, avisoDeComposicion, conteoPorCategoria } from '../wizard.js';
@@ -106,22 +107,20 @@ export function SelectorDeArqueros({
   blancos,
   onCambio,
 }: SelectorDeArquerosProps) {
-  const [padron, setPadron] = useState<ArqueroElegible[]>();
   const [busqueda, setBusqueda] = useState('');
 
-  const cargar = useCallback(async () => {
-    const params = busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : '';
-    try {
-      const r = await api.get<{ archers: ArqueroElegible[] }>(`/admin/archers${params}`);
-      setPadron(r.archers);
-    } catch {
-      setPadron([]);
-    }
-  }, [busqueda]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  const carga = useCarga(
+    async (signal) => {
+      const params = busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : '';
+      const r = await api.get<{ archers: ArqueroElegible[] }>(`/admin/archers${params}`, signal);
+      return r.archers;
+    },
+    [busqueda],
+    // Buscar es el mismo padrón con otra consulta: la lista se queda mientras llega la nueva.
+    { conservarDatos: true },
+  );
+  // Si el padrón no carga, se ve vacío —no hay a quién elegir— en vez de mostrar uno viejo.
+  const padron = carga.error === undefined ? carga.datos : [];
 
   const elegidos = new Set(elegidosLista.map((a) => a.id));
 
