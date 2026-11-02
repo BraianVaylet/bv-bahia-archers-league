@@ -52,6 +52,47 @@ function mensajeDe(error: unknown, opcion: OpcionesDeCarga['mensajeDeError']): s
   return error instanceof ApiError ? error.message : MENSAJE_DE_CONEXION;
 }
 
+/** El resultado de un pedido, sin lanzar: así quien lo usa decide qué hacer sin `try/catch`. */
+type Resultado<T> =
+  | { readonly ok: true; readonly datos: T }
+  | { readonly ok: false; readonly error: unknown };
+
+async function intentar<T>(
+  cargar: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal,
+): Promise<Resultado<T>> {
+  try {
+    return { ok: true, datos: await cargar(signal) };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+interface Efectos<T> {
+  readonly setDatos: (datos: T) => void;
+  readonly setError: (mensaje: string | undefined) => void;
+}
+
+/**
+ * Qué se ve cuando terminó un pedido que no se canceló.
+ *
+ * Una recarga silenciosa no toca el error: si falla, no se ve, y si sale bien no borra el motivo por
+ * el que otra cosa había fallado.
+ */
+function mostrar<T>(
+  resultado: Resultado<T>,
+  silencioso: boolean,
+  mensajeDeError: OpcionesDeCarga['mensajeDeError'],
+  { setDatos, setError }: Efectos<T>,
+): void {
+  if (resultado.ok) {
+    setDatos(resultado.datos);
+    if (!silencioso) setError(undefined);
+  } else if (!silencioso) {
+    setError(mensajeDe(resultado.error, mensajeDeError));
+  }
+}
+
 /**
  * @param cargar lo que se pide. Recibe la señal de cancelación.
  * @param claves de qué depende lo que se pide (un id, una ruta): al cambiar, es **otro recurso**.
@@ -83,21 +124,19 @@ export function useCarga<T>(
     enVuelo.current = true;
     if (!silencioso) setCargando(true);
 
-    try {
-      const nuevos = await ultima.current.cargar(propio.signal);
-      if (propio.signal.aborted) return;
+    const resultado = await intentar(ultima.current.cargar, propio.signal);
 
-      setDatos(nuevos);
-      if (!silencioso) setError(undefined);
-    } catch (e) {
-      // Un aborto no es un error: pasa al cambiar de pantalla antes de que llegue.
-      if (propio.signal.aborted) return;
-      if (!silencioso) setError(mensajeDe(e, ultima.current.opciones.mensajeDeError));
-    } finally {
-      if (control.current === propio) {
-        enVuelo.current = false;
-        if (!silencioso) setCargando(false);
-      }
+    // Un aborto no es un error ni un dato: pasa al cambiar de pantalla antes de que llegue.
+    if (!propio.signal.aborted) {
+      mostrar(resultado, silencioso, ultima.current.opciones.mensajeDeError, {
+        setDatos,
+        setError,
+      });
+    }
+
+    if (control.current === propio) {
+      enVuelo.current = false;
+      if (!silencioso) setCargando(false);
     }
   }, []);
 

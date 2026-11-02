@@ -252,7 +252,7 @@ async function main() {
   const logo = readFileSync(join(RAIZ, LOGO));
   for (const { destino, porQue } of COPIAS) {
     escribir(destino, logo);
-    console.log(`✓ ${destino} · ${kb(logo.length)} KB · ${porQue}`);
+    console.info(`✓ ${destino} · ${kb(logo.length)} KB · ${porQue}`);
   }
 
   const navegador = await chromium.launch();
@@ -264,7 +264,7 @@ async function main() {
       escribir(tarea.destino, salida);
 
       const marca = kb(salida.length) > tarea.maxKb ? '\u2717' : '\u2713';
-      console.log(
+      console.info(
         `${marca} ${tarea.destino} \u00b7 ${kb(salida.length)} KB ` +
           `(m\u00e1x ${tarea.maxKb}) \u00b7 ${tarea.lado}px \u00b7 ${tarea.porQue}`,
       );
@@ -279,7 +279,7 @@ async function main() {
       escribir(MASKABLE.destino, salida);
 
       const marca = kb(salida.length) > MASKABLE.maxKb ? '\u2717' : '\u2713';
-      console.log(
+      console.info(
         `${marca} ${MASKABLE.destino} \u00b7 ${kb(salida.length)} KB ` +
           `(m\u00e1x ${MASKABLE.maxKb}) \u00b7 ${MASKABLE.lado}px \u00b7 ${MASKABLE.porQue}`,
       );
@@ -302,7 +302,7 @@ async function main() {
       escribir(tarea.destino, salida);
 
       const marca = kb(salida.length) > tarea.maxKb ? '✗' : '✓';
-      console.log(
+      console.info(
         `${marca} ${tarea.destino} · ${kb(antes)} KB → ${kb(salida.length)} KB ` +
           `(máx ${tarea.maxKb}) · ${tarea.ancho}px · ${tarea.porQue}`,
       );
@@ -320,7 +320,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\nTodas las imágenes dentro de presupuesto.');
+  console.info('\nTodas las imágenes dentro de presupuesto.');
 }
 
 await main();

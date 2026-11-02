@@ -324,15 +324,22 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-14` · Calidad continua · **P2** · M
+### `[~] REF6-14` · Calidad continua · **P2** · M
+
+> **Estado: la mitad hecha, y el resto necesita una decisión o red que no tenía.** Hecho y verificado: `C-8` y `P-7`, y la parte segura de `S-10`. Sin hacer: `C-9`, `T-7` y el resto de `S-10`. Ver abajo.
 
 **Hallazgos:** `C-8`, `C-9`, `P-7`, `S-10`, `T-7`.
 
-- [ ] Biome en cero warnings y `--error-on-warnings` en CI
-- [ ] Lo visual de `@bal/shared` (`paleta`, `tema`, `tokens.css`, assets) pasa a `@bal/ui`
-- [ ] `memo` en `ArrowRow` y `ScoreKeypad`; `TargetPage` lee por índice; medición de «registrar una flecha»
-- [ ] CI con `permissions: contents: read`, actions fijadas por SHA, Renovate o Dependabot; imagen base por digest; cerrar `aikido:scan` de `BE-14`
-- [ ] Stryker nocturno sobre `@bal/shared` y `syncService`
+- [x] **Biome en cero warnings** (`C-8`) y `--error-on-warnings` en el `pnpm lint` de la raíz, que es el que corre el CI. Eran 15: cinco `?.`, un template, un `String.raw`, cinco `console.log` y **tres funciones de complejidad cognitiva > 20** (`updateTournament`, `useCarga`, `presupuesto.mjs`), que se partieron sin cambiar comportamiento (la salida de `presupuesto.mjs` es idéntica byte a byte). Se comprobó que la guarda frena: con un warning a propósito, sale 1
+- [ ] **Lo visual de `@bal/shared` a `@bal/ui`** (`C-9`): **no se hizo**. Son `paleta`, `tema`, `despliegue`, `tokens.css` y cuatro imágenes. El código es fácil de mover; lo que no es fácil es que `@bal/ui` compila con `tsc` y **no copia `.webp` a `dist`**, así que `Footer` dejaría de encontrar su imagen en el build. Hace falta decidir cómo se empaquetan los assets (copiarlos en el build, o un export propio) y es un cambio de build sin beneficio para quien usa la app. Se puede hacer aparte, con el E2E de entrega de assets como red
+- [x] **Camino de scoring** (`P-7`): `memo` en `ArrowRow` y `ScoreKeypad`, callbacks estables, y `TargetPage` lee los puntajes del blanco por el índice `by-target`, ya no el almacén entero. Al anotar una flecha, **las filas de los demás arqueros no se repintan**. Medición: «registrar una flecha» pasó de una mediana de **23.9 a 16.3 ms** en jsdom con IndexedDB falso (el presupuesto es de 50 ms en el celular, que no medí)
+- [~] **Cadena de suministro del CI** (`S-10`): hecho `permissions: contents: read` (ningún job escribe). **Sin hacer**: actions por SHA, Dependabot/Renovate, imagen base por digest y `aikido:scan`. Van juntos: fijar por SHA o por digest **sin un actualizador congela los parches de seguridad**, y activar Dependabot empieza a abrir PR en el repo. Los SHA y el digest además requieren red, y uno mal puesto rompe el CI
+- [ ] **Stryker nocturno** (`T-7`): no se hizo. Requiere instalar paquetes nuevos y agregar un job nocturno al CI, y no tenía red para lo primero
+
+**DoD:** el lint falla si vuelve un warning ✅ · «registrar una flecha» se mide ⚠️ (en jsdom; falta el celular) · la cadena de suministro del CI está fijada ❌ (falta lo que necesita decisión).
+**Tests nuevos:** `@bal/app` +15 (`wafl/rendimiento.test.tsx`: lectura por índice, repintado por fila, `ArrowRow` comparado por contenido, el teclado es `memo`, que un cambio real de firmados llegue a la pantalla, y la medición).
+**Mutaciones (14, todas detectadas):** sobre la lectura por índice, los callbacks estables, el comparador de `ArrowRow` (flechas por referencia, ignorar el total, la firma o la selección), el `memo` del teclado y del `ArrowRow`, y el conjunto de firmados. Una «sobrevivió»: `SIN_FLECHAS`, una constante que el comparador por contenido volvía innecesaria; se sacó el código en vez de agregar un test. Otra señaló un hueco real: nada comprobaba que un cambio de **quién** firmó, con el mismo tamaño, llegara a la pantalla
+**Verificación:** tipos y Biome estricto sin errores · tests: cliente 57, shared 499, api 492, ui 77, app 631, landing 64 · E2E: Chromium de escritorio 43/43 (3.6 min).
 
 ---
 

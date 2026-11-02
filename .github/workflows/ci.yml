@@ -13,6 +13,12 @@ on:
   push:
     branches: [main]
 
+# El token del workflow sólo lee el repositorio (`REF6-14` / `S-10`). Ningún job escribe: no comenta,
+# no publica la imagen (`docker build` sin push) y `upload-artifact` usa su propio token. Sin esto el
+# token tenía los permisos por defecto del repo, que pueden ser de escritura.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -62,7 +68,8 @@ jobs:
       - name: Capas del backend
         run: node scripts/verificar-capas.mjs
 
-      # `biome check` incluye formato y lint. Falla si algo no está formateado.
+      # `biome check` incluye formato y lint. Falla si algo no está formateado y también si queda un
+      # warning (`--error-on-warnings`, `REF6-14` / `C-8`): un warning tolerado es uno que se acumula.
       - name: Lint
         run: pnpm lint
 

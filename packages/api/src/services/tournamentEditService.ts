@@ -43,6 +43,53 @@ function mismoBlanco(a: TargetDoc, b: TargetDoc | undefined): boolean {
   );
 }
 
+/** Los campos que se editan tal cual vienen: el nombre, la fecha, la descripción y el pago. */
+function cambiosSimples(input: UpdateTournamentInput): Partial<TournamentDoc> {
+  const cambios: Partial<TournamentDoc> = {};
+  if (input.name !== undefined) cambios.name = input.name;
+  if (input.date !== undefined) cambios.date = input.date;
+  if (input.description !== undefined) cambios.description = input.description;
+  if (input.payment) cambios.payment = { ...input.payment };
+  return cambios;
+}
+
+/**
+ * Los blancos que quedan después de la edición.
+ *
+ * Con el torneo en proceso, un blanco que ya tiene puntajes tiene que seguir existiendo y seguir
+ * siendo idéntico.
+ *
+ * @throws {AppError} `TARGET_LOCKED`.
+ */
+async function blancosEditados(
+  torneo: TournamentDoc,
+  targets: NonNullable<UpdateTournamentInput['targets']>,
+): Promise<TargetDoc[]> {
+  const nuevos: TargetDoc[] = targets.map((t) => ({
+    index: t.index,
+    modality: t.modality,
+    arrows: t.arrows,
+    description: t.description,
+  }));
+
+  if (torneo.status !== 'en_proceso') return nuevos;
+
+  const bloqueados = await blancosBloqueados(torneo);
+  const porIndice = new Map(nuevos.map((t) => [t.index, t]));
+
+  for (const indice of bloqueados) {
+    const antes = torneo.targets.find((t) => t.index === indice);
+    if (!antes || !mismoBlanco(antes, porIndice.get(indice))) {
+      throw new AppError('TARGET_LOCKED', {
+        details: { targetIndex: indice },
+        message: `El blanco ${indice} ya tiene puntajes cargados y no se puede modificar.`,
+      });
+    }
+  }
+
+  return nuevos;
+}
+
 /**
  * Actualiza el torneo.
  *
@@ -66,40 +113,13 @@ export async function updateTournament(
     });
   }
 
-  const cambios: Partial<TournamentDoc> = {};
-  if (input.name !== undefined) cambios.name = input.name;
-  if (input.date !== undefined) cambios.date = input.date;
-  if (input.description !== undefined) cambios.description = input.description;
+  const cambios = cambiosSimples(input);
 
   if (input.targets) {
-    const nuevos: TargetDoc[] = input.targets.map((t) => ({
-      index: t.index,
-      modality: t.modality,
-      arrows: t.arrows,
-      description: t.description,
-    }));
-
-    if (torneo.status === 'en_proceso') {
-      const bloqueados = await blancosBloqueados(torneo);
-      const porIndice = new Map(nuevos.map((t) => [t.index, t]));
-
-      for (const indice of bloqueados) {
-        const antes = torneo.targets.find((t) => t.index === indice);
-        // Un blanco bloqueado tiene que seguir existiendo y seguir siendo idéntico.
-        if (!antes || !mismoBlanco(antes, porIndice.get(indice))) {
-          throw new AppError('TARGET_LOCKED', {
-            details: { targetIndex: indice },
-            message: `El blanco ${indice} ya tiene puntajes cargados y no se puede modificar.`,
-          });
-        }
-      }
-    }
-
+    const nuevos = await blancosEditados(torneo, input.targets);
     cambios.targets = nuevos;
     cambios.maxPossibleScore = maxPossibleScore(nuevos);
   }
-
-  if (input.payment) cambios.payment = { ...input.payment };
 
   /**
    * Cambiar quiénes participan **rearma las patrullas**.

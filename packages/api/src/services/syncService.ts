@@ -349,11 +349,7 @@ async function aplicarScore(
   // el IDOR entre patrullas. Ver docs/SECURITY.md §4.
   const participante = await scoreRepo.findParticipant(new ObjectId(op.participantId), session);
 
-  if (
-    !participante ||
-    !participante.patrolId.equals(patrolId) ||
-    !participante.tournamentId.equals(torneo._id)
-  ) {
+  if (!participante?.patrolId.equals(patrolId) || !participante.tournamentId.equals(torneo._id)) {
     await auditRepo.record(
       {
         actorType: 'patrol',
@@ -562,7 +558,7 @@ async function aplicarFirma(
 ): Promise<OpResult> {
   const participante = await scoreRepo.findParticipant(new ObjectId(op.participantId), session);
 
-  if (!participante || !participante.patrolId.equals(patrolId)) {
+  if (!participante?.patrolId.equals(patrolId)) {
     return rechazo(op.opId, 'FORBIDDEN', 'Ese arquero no es de tu patrulla.');
   }
 

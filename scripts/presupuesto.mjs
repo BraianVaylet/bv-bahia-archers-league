@@ -98,61 +98,87 @@ export function grafoDe(assets, inicio) {
 const hojasDeEstilo = (assets) =>
   readdirSync(assets, { recursive: true, encoding: 'utf8' }).filter((f) => f.endsWith('.css'));
 
-function main() {
+/**
+ * Revisa **una** carga de un frontend: que exista su chunk, que no baje código de la otra app y que
+ * entre en el presupuesto.
+ *
+ * @returns `true` si hay alguna falla.
+ */
+function revisarCarga(
+  { nombre, assets, inicial, todos },
+  { nombre: carga, chunk, excluye, maxKb },
+) {
+  const propios = chunk ? todos.filter((f) => chunk.test(f)) : [];
+
+  if (chunk && propios.length === 0) {
+    console.error(
+      `✗ ${nombre} · ${carga}: no hay ningún chunk ${chunk}. ` +
+        'Si se volvió a un import estático, la app quedó en el chunk principal.',
+    );
+    return true;
+  }
+
+  const archivos = grafoDe(assets, [...inicial, ...propios]);
   let hayFallas = false;
 
-  for (const { nombre, dist, exigeCss, cargas } of FRONTENDS) {
-    const assets = join(dist, 'assets');
-
-    if (!existsSync(join(dist, 'index.html'))) {
-      console.error(`✗ ${nombre}: no está construido (falta ${dist}/index.html).`);
-      hayFallas = true;
-      continue;
-    }
-
-    const inicial = chunksDeIndex(readFileSync(join(dist, 'index.html'), 'utf8'));
-    const todos = readdirSync(assets).filter((f) => f.endsWith('.js'));
-
-    for (const { nombre: carga, chunk, excluye, maxKb } of cargas) {
-      const propios = chunk ? todos.filter((f) => chunk.test(f)) : [];
-
-      if (chunk && propios.length === 0) {
-        console.error(
-          `✗ ${nombre} · ${carga}: no hay ningún chunk ${chunk}. ` +
-            'Si se volvió a un import estático, la app quedó en el chunk principal.',
-        );
-        hayFallas = true;
-        continue;
-      }
-
-      const archivos = grafoDe(assets, [...inicial, ...propios]);
-
-      const ajeno = excluye ? archivos.filter((f) => excluye.test(f)) : [];
-      if (ajeno.length > 0) {
-        console.error(`✗ ${nombre} · ${carga}: baja código de la otra app (${ajeno.join(', ')}).`);
-        hayFallas = true;
-      }
-
-      const bytes = archivos.reduce((total, f) => total + gz(join(assets, f)), 0);
-      if (kb(bytes) > maxKb) {
-        console.error(`✗ ${nombre} · ${carga}: ${kb(bytes)} KB gz de JS, presupuesto ${maxKb} KB.`);
-        hayFallas = true;
-      } else {
-        console.info(`✓ ${nombre} · ${carga}: ${kb(bytes)} KB gz de JS (presupuesto ${maxKb} KB).`);
-      }
-    }
-
-    const css = hojasDeEstilo(assets);
-    if (exigeCss && css.length === 0) {
-      console.error(
-        `✗ ${nombre}: el build NO emitió ninguna hoja de estilos. Suele significar que el punto de entrada no importa su CSS.`,
-      );
-      hayFallas = true;
-    } else if (exigeCss) {
-      const bytes = css.reduce((total, f) => total + gz(join(assets, f)), 0);
-      console.info(`✓ ${nombre}: ${kb(bytes)} KB gz de CSS en ${css.length} archivo(s).`);
-    }
+  const ajeno = excluye ? archivos.filter((f) => excluye.test(f)) : [];
+  if (ajeno.length > 0) {
+    console.error(`✗ ${nombre} · ${carga}: baja código de la otra app (${ajeno.join(', ')}).`);
+    hayFallas = true;
   }
+
+  const bytes = archivos.reduce((total, f) => total + gz(join(assets, f)), 0);
+  if (kb(bytes) > maxKb) {
+    console.error(`✗ ${nombre} · ${carga}: ${kb(bytes)} KB gz de JS, presupuesto ${maxKb} KB.`);
+    return true;
+  }
+
+  console.info(`✓ ${nombre} · ${carga}: ${kb(bytes)} KB gz de JS (presupuesto ${maxKb} KB).`);
+  return hayFallas;
+}
+
+/** Revisa que el build haya emitido una hoja de estilos (`exigeCss`). @returns `true` si falla. */
+function revisarCss({ nombre, exigeCss }, assets) {
+  if (!exigeCss) return false;
+
+  const css = hojasDeEstilo(assets);
+  if (css.length === 0) {
+    console.error(
+      `✗ ${nombre}: el build NO emitió ninguna hoja de estilos. Suele significar que el punto de entrada no importa su CSS.`,
+    );
+    return true;
+  }
+
+  const bytes = css.reduce((total, f) => total + gz(join(assets, f)), 0);
+  console.info(`✓ ${nombre}: ${kb(bytes)} KB gz de CSS en ${css.length} archivo(s).`);
+  return false;
+}
+
+/** Revisa un frontend entero. @returns `true` si hay alguna falla. */
+function revisarFrontend(frontend) {
+  const { nombre, dist, cargas } = frontend;
+  const assets = join(dist, 'assets');
+
+  if (!existsSync(join(dist, 'index.html'))) {
+    console.error(`✗ ${nombre}: no está construido (falta ${dist}/index.html).`);
+    return true;
+  }
+
+  const contexto = {
+    nombre,
+    assets,
+    inicial: chunksDeIndex(readFileSync(join(dist, 'index.html'), 'utf8')),
+    todos: readdirSync(assets).filter((f) => f.endsWith('.js')),
+  };
+
+  // Se revisan todas, no se corta en la primera: quien lee la salida quiere ver cuáles fallan.
+  const fallas = cargas.map((carga) => revisarCarga(contexto, carga));
+  fallas.push(revisarCss(frontend, assets));
+  return fallas.some(Boolean);
+}
+
+function main() {
+  const hayFallas = FRONTENDS.map(revisarFrontend).some(Boolean);
 
   if (hayFallas) {
     console.error('\nPresupuestos incumplidos.');

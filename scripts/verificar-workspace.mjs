@@ -123,7 +123,7 @@ const dockerfile = readFileSync(join(raiz, 'Dockerfile'), 'utf8');
 for (const p of paquetes) {
   const dir = directorioDe(p.name);
   exigir(
-    new RegExp(String.raw`^COPY packages/${dir}/package.json`, 'm').test(dockerfile),
+    new RegExp(`^COPY packages/${dir}/package.json`, 'm').test(dockerfile),
     `el Dockerfile no copia el manifiesto de ${p.name} (packages/${dir}/package.json). La imagen no va a construir.`,
   );
 }

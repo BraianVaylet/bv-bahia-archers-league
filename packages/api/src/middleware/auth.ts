@@ -42,7 +42,7 @@ export const requireAdmin = (
 ): MiddlewareHandler => {
   return async (c, next) => {
     const sesion = await readSession(c);
-    if (!sesion || sesion.subject.type !== 'admin') {
+    if (sesion?.subject.type !== 'admin') {
       throw new AppError('UNAUTHORIZED');
     }
 
@@ -64,7 +64,7 @@ export const requireAdmin = (
 /** Exige sesión de patrulla. La sesión trae su `patrolId` y su `tournamentId`. */
 export const requirePatrol = (): MiddlewareHandler => async (c, next) => {
   const sesion = await readSession(c);
-  if (!sesion || sesion.subject.type !== 'patrol') {
+  if (sesion?.subject.type !== 'patrol') {
     throw new AppError('UNAUTHORIZED');
   }
 

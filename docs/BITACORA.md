@@ -14,6 +14,44 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-02 · Calidad continua (REF6-14, parcial)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecha a medias: `C-8` y `P-7` completos y verificados, parte segura de `S-10`; `C-9`, `T-7` y el resto de `S-10` sin hacer a propósito.
+
+### Qué cambió
+
+- **Biome en cero warnings, y el lint falla si vuelve uno** (`C-8`). Quince warnings: los mecánicos se arreglaron a mano (cinco `?.` equivalentes, incluidos dos en `middleware/auth.ts`, que exige 100 % de cobertura; la cobertura se mantuvo), y **tres funciones de complejidad cognitiva > 20 se partieron** sin cambiar comportamiento. En `presupuesto.mjs` se comparó la salida antes y después: idéntica byte a byte, con el mismo código de salida.
+- **Anotar una flecha repinta una fila, no todas** (`P-7`). Además de `memo`, hizo falta que los callbacks fueran estables y que el conjunto de firmados conservara su identidad cuando no cambia: un `Set` nuevo en cada lectura cambiaba la identidad de `borrarUltima` y, con ella, la de los callbacks de **todas** las filas. `memo` solo no hacía nada. La lectura de los puntajes pasa a `by-target`.
+- **`permissions: contents: read` en el CI** (`S-10`), la parte que se puede verificar sin red y no tiene efectos secundarios.
+
+### Decisiones
+
+- **`ArrowRow` compara las flechas por contenido.** IndexedDB devuelve objetos nuevos en cada lectura aunque el puntaje no haya cambiado: una comparación por referencia (la de `memo` por defecto) repintaría todas las filas igual. Los callbacks sí se comparan por referencia, y quien usa la fila tiene que darlos estables.
+- **El test de tiempo tiene un tope holgado (150 ms) a propósito.** Es jsdom con IndexedDB falso, no un celular: sirve para ver el orden de magnitud y para que un cambio que lo multiplique (releer todo, repintar todo) se note. Un test de tiempos que falla por una máquina lenta enseña a ignorarlo. El presupuesto real de 50 ms se mide en el teléfono, que no tuve.
+- **`C-9` no se hizo.** Mover código es fácil; lo que cambia el riesgo es que `@bal/ui` compila con `tsc` y no copia `.webp` a `dist`, así que el `Footer` perdería su imagen en el build. Es un cambio de empaquetado sin beneficio para quien usa la app, en una tanda que ya tocaba el camino de scoring. Mejor aparte y con el E2E de entrega de assets como red.
+- **`S-10` a medias, a propósito.** Fijar actions por SHA y la imagen por digest sin un actualizador (Dependabot o Renovate) congela los parches de seguridad; activar Dependabot empieza a abrir PR en el repositorio; y un SHA o digest equivocado rompe el CI. Es una decisión tuya, no algo para resolver en silencio.
+
+### Errores míos en el camino
+
+- **Una constante de más.** Agregué `SIN_FLECHAS` para que las filas sin puntaje recibieran siempre el mismo arreglo; una mutación mostró que no cambiaba nada porque el comparador ya mira el contenido. Saqué el código en vez de dejarlo.
+- **Un hueco real en mis tests**, que encontró otra mutación: nada comprobaba que un cambio de *quién* firmó, con el mismo tamaño del conjunto, llegara a la pantalla. Si mi optimización del `Set` se equivocara ahí, se vería firmado a quien no firmó, y editable quien sí. Escribí el test.
+- **El shell se comió una barra invertida otra vez** al escribir `\n` en un script con heredoc: el script de `presupuesto.mjs` quedó con saltos de línea reales dentro de un string. Lo vi porque `node` falló al parsear, lo repararon dos ediciones, y comparé la salida contra la original para estar seguro.
+
+### Verificación
+
+Tipos y Biome estricto (`--error-on-warnings`) sin errores. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` 492, `@bal/ui` 77, `@bal/app` **631** (+15), `@bal/landing` 64. **14 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.6 min).
+
+### Deuda / lo que sigue
+
+- **`C-9`**: mover lo visual de `@bal/shared` a `@bal/ui`, resolviendo antes cómo se empaquetan los assets.
+- **`S-10`**: actions por SHA, imagen por digest, Dependabot o Renovate y `aikido:scan`, juntos y con tu OK.
+- **`T-7`**: Stryker nocturno, que necesita instalar paquetes y un job nuevo.
+- **Medir «registrar una flecha» en un celular real.** Hoy sólo hay la cifra de jsdom.
+- Las cifras «medido 99 / 111 / 119» de `TECHNICAL.md` §5 están desactualizadas (hoy 105.5 / 118.8 / 128.8): es de `REF6-15`.
+- `pnpm lint` de la raíz **falla localmente** si existen worktrees en `.claude/worktrees/` (cada uno trae su `biome.json` y Biome lo toma por una raíz anidada). En el CI no pasa porque `.claude/` no se versiona. Se corre sobre las carpetas del proyecto.
+
+---
+
 ## 2026-11-02 · Limpieza del backend (REF6-13)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-13`](post/ref-6/ACTION_PLAN.md) hecha, con un punto de despliegue pendiente y un ítem descartado a propósito (hallazgos `B-3`, `B-4`, `B-5`, `C-5`, `C-6`, `P-6`).

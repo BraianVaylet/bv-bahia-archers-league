@@ -535,7 +535,7 @@ export const SyncBatchSchema = z.object({
 
 ### Frontend
 - Code splitting con `React.lazy`. WAFA y WAFL son chunks separados (`WafaApp-<hash>.js`, `WaflApp-<hash>.js`): entrar como líder no descarga el código de administración. Sin señal sigue funcionando: el service worker precachea **todos** los `.js` al instalarse. **La landing no se partió**: se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes, y no ganó nada —esas tres pantallas pesan ≈4 KB gz entre las tres; lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que se necesita en todas— y la carga inicial no bajó (102,2 KB gz contra 101,9 del chunk único: la sobrecarga de partirlo se come lo que se saca). Un `React.lazy` que no baja el inicial sólo agrega una espera.
-- `memo` en las filas de scoring y en el teclado.
+- `memo` en las filas de scoring (`ArrowRow`, comparando las flechas por contenido: IndexedDB devuelve arreglos nuevos en cada lectura) y en el teclado, con callbacks estables y la lectura de los puntajes por el índice `by-target`, no del almacén entero (`REF6-14` / `P-7`).
 - La UI de scoring lee de IndexedDB: no hay estado de carga en el camino crítico.
 - Tailwind purga el CSS no usado.
 - Iconos como SVG inline; sin librería de iconos.
@@ -544,7 +544,7 @@ export const SyncBatchSchema = z.object({
 
 | Métrica | Presupuesto |
 |---|---|
-| Registrar una flecha (percibido) | **< 50 ms** |
+| Registrar una flecha (percibido) | **< 50 ms** · `wafl/rendimiento.test.tsx` lo mide en jsdom (mediana 16 ms; el test falla sobre 150 ms). La cifra del celular se mide en el celular |
 | Navegar entre blancos | < 100 ms |
 | Primera carga de WAFL en 3G simulado | < 2.5 s |
 | JS que baja la pantalla de elegir rol (`/app/`) | < 105 KB gz · medido 99 |
