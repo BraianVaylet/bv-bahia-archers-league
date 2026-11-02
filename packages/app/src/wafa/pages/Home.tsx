@@ -14,7 +14,7 @@ import {
   type ParteDeModalidad,
   type TournamentStatus,
 } from '@bal/shared';
-import { ChipModalidad } from '@bal/ui';
+import { ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
@@ -83,6 +83,7 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
 }
 
 export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
+  useTituloDePagina('Inicio');
   const [cerrando, setCerrando] = useState(false);
   const carga = useCarga(
     async (signal): Promise<TournamentRow[]> =>

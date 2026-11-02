@@ -11,7 +11,7 @@
  */
 
 import { formatearFecha } from '@bal/shared';
-import { BadgeEstado } from '@bal/ui';
+import { BadgeEstado, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { botonClases, Encabezado, Pantalla, Screen } from '../../components/ui.js';
@@ -35,6 +35,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
     error: errorDeCarga,
     recargar,
   } = useTorneo(id);
+  useTituloDePagina(torneo?.name ?? 'Torneo');
 
   /**
    * El error de la última acción, aparte del de la carga: un refresco automático que sale bien no

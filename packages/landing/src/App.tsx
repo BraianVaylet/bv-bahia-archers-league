@@ -9,6 +9,7 @@
 
 import { Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { Encabezado } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
 import { ArcherRegisterPage } from './pages/ArcherRegister.js';
@@ -20,6 +21,8 @@ import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 export function App() {
   return (
     <BrowserRouter>
+      <NavegacionAccesible />
+
       {/*
         Header arriba, pie abajo, y **sólo el medio scrollea**.
 
@@ -31,7 +34,7 @@ export function App() {
       <div className="flex flex-col h-dvh overflow-hidden">
         <Encabezado />
 
-        <main className="flex-1 min-h-0 overflow-y-auto">
+        <main data-scroll-principal className="flex-1 min-h-0 overflow-y-auto">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/alta" element={<ArcherRegisterPage />} />

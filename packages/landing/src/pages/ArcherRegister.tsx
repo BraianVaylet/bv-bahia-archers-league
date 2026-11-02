@@ -19,6 +19,7 @@ import {
   SEXES,
   type Sex,
 } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
@@ -91,6 +92,7 @@ function enfocarPrimerError(issues: readonly { path: readonly PropertyKey[] }[])
 }
 
 export function ArcherRegisterPage() {
+  useTituloDePagina('Sumarte al padrón');
   const [borrador, setBorrador] = useState(VACIO);
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);

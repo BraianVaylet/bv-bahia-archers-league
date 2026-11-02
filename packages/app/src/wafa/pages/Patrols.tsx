@@ -11,6 +11,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.6.
  */
 
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
@@ -20,6 +21,7 @@ import { usePatrullas } from '../distribucion/usePatrullas.js';
 import { textoDeViolacion } from '../patrullas.js';
 
 export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
+  useTituloDePagina('Patrullas');
   const { id = '' } = useParams();
   const p = usePatrullas(id);
   const [moviendo, setMoviendo] = useState<string>();

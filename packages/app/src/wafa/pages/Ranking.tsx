@@ -18,7 +18,7 @@
  */
 
 import { textoDeRanking } from '@bal/shared';
-import { IconoCompartir } from '@bal/ui';
+import { IconoCompartir, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { CategoriaDelRanking } from '../ranking/CategoriaDelRanking.js';
@@ -27,6 +27,7 @@ import { VISTAS, type Vista } from '../ranking/tipos.js';
 import { useRanking } from '../ranking/useRanking.js';
 
 export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
+  useTituloDePagina('Ranking');
   const { temporadas, elegida, setElegida, bestN, categorias, error } = useRanking();
   const [copiado, setCopiado] = useState(false);
   const [vista, setVista] = useState<Vista>('general');

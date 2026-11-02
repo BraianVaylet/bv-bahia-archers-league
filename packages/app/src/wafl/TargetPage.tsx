@@ -8,8 +8,10 @@
  */
 
 import { SCORING } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
+import { useWakeLock } from '../lib/useWakeLock.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
 import { readScore, readScores, readSignatures } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
@@ -26,6 +28,9 @@ export interface TargetPageProps {
 }
 
 export function TargetPage({ target, participants, onContinuar, onVolver }: TargetPageProps) {
+  useTituloDePagina(`Blanco ${target.index}`);
+  // La pantalla no se apaga entre flecha y flecha. Sólo acá: ver `useWakeLock` y su test de alcance.
+  useWakeLock();
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [firmados, setFirmados] = useState<ReadonlySet<string>>(new Set());
   const [seleccionado, setSeleccionado] = useState(participants[0]?.id ?? '');

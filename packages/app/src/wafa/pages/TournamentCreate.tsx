@@ -11,6 +11,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.3.
  */
 
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, cuerpo, rpc } from '../../lib/rpc.js';
@@ -33,6 +34,7 @@ export interface TournamentCreatePageProps {
 }
 
 export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePageProps) {
+  useTituloDePagina('Nuevo torneo');
   const [paso, setPaso] = useState(1);
   const [borrador, setBorrador] = useState<BorradorTorneo>(borradorVacio);
   const [error, setError] = useState<string>();

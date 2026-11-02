@@ -11,7 +11,7 @@
 
 import { useCarga } from '@bal/cliente';
 import { type BowCategory, formatearMonto } from '@bal/shared';
-import { ChipCategoria } from '@bal/ui';
+import { ChipCategoria, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
@@ -171,6 +171,7 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
 
 /** Pantalla completa: el panel con su header y su vuelta atrás. */
 export function PaymentsPage({ onVolver }: { readonly onVolver: () => void }) {
+  useTituloDePagina('Arqueros y pagos');
   const { id = '' } = useParams();
 
   return (

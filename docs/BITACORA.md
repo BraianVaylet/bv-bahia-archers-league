@@ -14,6 +14,48 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-02 · Navegación accesible y pantalla encendida (REF6-12)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-12`](post/ref-6/ACTION_PLAN.md) hecha, salvo la prueba de la pantalla encendida en un celular real (hallazgos `U-5` y `U-7`).
+
+### Qué cambió
+
+- **Cada pantalla pone su título** (`useTituloDePagina`): «Ranking · Liga Bahiense de Arquería». Antes todas se llamaban igual en la pestaña, en el historial y para un lector de pantalla (WCAG 2.4.2).
+- **Al cambiar de ruta, la pantalla nueva se ve desde arriba y el foco va a su título** (`useAlCambiarDeRuta`). El bug real estaba en la landing: el `main` que scrollea es **uno solo para todas las rutas**, así que del ranking a la ficha de un arquero se entraba a la mitad. En la PWA cada pantalla monta su propio `Screen` y ya arrancaba arriba; el hook cubre el caso de la misma ruta con otro parámetro.
+- **La pantalla no se apaga en un blanco** (`useWakeLock`): se pide al entrar a `TargetPage`, se suelta al salir y se vuelve a pedir al volver a ser visible la página, que es cuando el navegador lo suelta solo.
+
+### Decisiones
+
+- **El hook recibe el `pathname`, no usa el router.** `@bal/ui` no depende de `react-router-dom`; cada app lee su `location` en un componente de tres líneas. Solo cuenta el `pathname`: cambiar `?temporada=` no es otra pantalla.
+- **El foco va al `h1`, y si no hay, al título del `Encabezado`.** Seis pantallas de WAFA no tienen `h1` (el título del encabezado es un `span`), así que sin el segundo camino no se movía nada. Se marca con atributos (`data-scroll-principal`, `data-titulo-de-pagina`) en vez de pasar refs: es una preocupación transversal y los dos contenedores viven en archivos distintos.
+- **Si el título todavía no existe, se espera.** Una pantalla que carga datos o un chunk perezoso no tiene `h1` cuando cambia la ruta. Se observa el DOM hasta 3 s y se enfoca cuando aparece, **salvo que el usuario ya se haya puesto a escribir**: robarle el foco a quien está en un campo es peor que no moverlo. Tampoco se mueve el foco al abrir el sitio.
+- **Un título enfocado por código no lleva anillo** (`tabindex="-1"`, solo los que se enfocan por código). No es un control.
+- **WAFL solo recibe títulos.** Navega por estado, no por rutas, y mover el foco en medio de una carga no se justifica.
+- **Pantalla encendida solo en `TargetPage`**, y un test lo fija: si alguien la quiere en otro lado, el test lo obliga a decidirlo a la vista. Cuesta batería y el recorrido dura horas.
+- **Un test lee el código para exigir el título** (como `iconografia.test.tsx`), en vez de montar las ~25 pantallas: el olvido es fácil de cometer y casi imposible de ver a ojo.
+
+### Lo que no pude verificar
+
+**La pantalla encendida en un celular real.** La decisión 4 decía «probado en un celular real antes de fijarlo». Los tests usan una API simulada: prueban cuándo se pide, se suelta y se reintenta, no que el sistema operativo respete el candado ni cuánta batería gasta. Queda abierto.
+
+### Errores míos en el camino
+
+- **Una mutación equivalente.** Para ver si el Wake Lock reintenta tras un rechazo puse `pidiendo = true` justo antes de un `finally` que lo repone: no cambiaba nada y «sobrevivió». No era un hueco del test sino una mutación mal pensada; la reemplacé por una que no limpia `pidiendo` tras el rechazo, que sí se detecta.
+- **Una barra invertida perdida** al escribir un test con un heredoc de shell (`split('\\')`); lo vio `tsc` y lo reescribí con `path.sep`.
+- **Mi primer test estructural exigía el sufijo `Page`**, y `RecuperarPassword` es una pantalla sin él. Lo corregí para exigir al menos una llamada por archivo.
+
+### Verificación
+
+Tipos y Biome sin errores. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` 445, `@bal/ui` **77** (+16), `@bal/app` **616** (+40), `@bal/landing` **64** (+11). **23 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.4 min).
+
+### Deuda / lo que sigue
+
+- **Probar la pantalla encendida en un celular y medir la batería.**
+- **Seis pantallas de WAFA sin `h1`** (`Archers`, `Home`, `Payments`, `Ranking`, `Seasons`, `TournamentCreate`). Arreglarlo sin duplicar el `h1` de las que ya lo tienen es una decisión de diseño.
+- **Presupuesto de bundle de «pantalla de elegir rol»: 105.53 KB contra 105.** Ya estaba sobre el tope antes (ver `REF6-11`); esta tanda suma ~0.45 KB por los hooks de `@bal/ui`. Hay que recortar o subir el tope.
+
+---
+
 ## 2026-11-02 · Tipos de punta a punta en WAFA (REF6-11, cierre)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** última entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-3`). Con esta, la tanda queda cerrada para WAFA.

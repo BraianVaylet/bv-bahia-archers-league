@@ -18,7 +18,7 @@ import {
   type Modality,
   type TarjetaDePuntajes,
 } from '@bal/shared';
-import { ChipCategoria, ChipModalidad } from '@bal/ui';
+import { ChipCategoria, ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import { Cargando, clasesDeTarjeta, cn, Dato, Fallo, Screen, StakeChip } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
@@ -104,6 +104,11 @@ export function ScorecardPage() {
   const { id = '', participantId = '' } = useParams();
   const resultado = useRecurso<{ scorecard: Tarjeta }>(
     `/tournaments/${encodeURIComponent(id)}/participants/${encodeURIComponent(participantId)}`,
+  );
+  useTituloDePagina(
+    resultado.estado === 'listo'
+      ? `Tarjeta de ${resultado.datos.scorecard.archer.lastName}, ${resultado.datos.scorecard.archer.firstName}`
+      : 'Tarjeta de puntajes',
   );
 
   if (resultado.estado === 'cargando') {

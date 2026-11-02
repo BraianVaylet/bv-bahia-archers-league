@@ -11,6 +11,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
@@ -22,6 +23,7 @@ import { BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
 import { usePadron } from '../padron/usePadron.js';
 
 export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
+  useTituloDePagina('Arqueros');
   const padron = usePadron();
   const [editando, setEditando] = useState<Borrador>();
 

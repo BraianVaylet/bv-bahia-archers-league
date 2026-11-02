@@ -13,6 +13,7 @@
 
 import { useCarga } from '@bal/cliente';
 import type { TournamentStatus } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
@@ -76,6 +77,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const losPodios = podios(participantes);
   const avisos = torneo ? avisosDePublicacion(torneo.status, participantes) : [];
   const publicado = torneo?.status === 'publicado';
+  useTituloDePagina(publicado ? 'Resultados' : 'Publicar');
 
   return (
     <Pantalla>

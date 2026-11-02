@@ -10,6 +10,7 @@
 
 import { useCarga } from '@bal/cliente';
 import { formatearRango } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
@@ -22,6 +23,7 @@ export type { SeasonRow } from '../temporadas/tipos.js';
 export { validarTemporada } from '../temporadas/validar.js';
 
 export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
+  useTituloDePagina('Temporadas');
   const carga = useCarga(
     async (signal): Promise<SeasonRow[]> =>
       (await cuerpo(rpc.admin.seasons.$get(undefined, conSenal(signal)))).seasons,

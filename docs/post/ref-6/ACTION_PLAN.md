@@ -281,16 +281,26 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-12` · Navegación accesible y pantalla encendida · **P2** · S
+### `[~] REF6-12` · Navegación accesible y pantalla encendida · **P2** · S
 
-**Hallazgos:** `U-5`, `U-7`. **Skill:** `web-design-guidelines`.
+> **Estado: hecho, salvo una cosa que no pude verificar:** la pantalla encendida **no se probó en un celular real**. La decisión 4 pedía probarlo antes de fijarlo; acá hay tests con la API simulada, no un teléfono.
 
-- [ ] `useTituloDePagina` en cada ruta de la landing y de WAFA
-- [ ] Al cambiar de ruta: `scrollTop` del contenedor a 0 y foco al `h1`
-- [ ] Wake Lock en `TargetPage`, re-adquirido en `visibilitychange` *(decisión 4)*
+**Hallazgos:** `U-5`, `U-7`. **Skill:** `web-design-guidelines` *(no se corrió: el cambio no es visual)*.
 
-**DoD:** cada pantalla tiene su título · se entra a cada página desde arriba · la pantalla no se apaga mientras se anota un blanco.
-**Tests:** título por ruta · scroll en 0 tras navegar desde una página scrolleada · wake lock pedido al montar y liberado al desmontar.
+- [x] `useTituloDePagina` en **cada pantalla** de la landing, de WAFA y de WAFL, y en la de elegir rol. Las que dependen de un dato lo usan cuando llega (el nombre del torneo, el del arquero). Un test lee el código y falla si una pantalla nueva se olvida de declararlo
+- [x] Al cambiar de ruta: el `scrollTop` del contenedor a 0 y el foco al `h1` (o, si la pantalla no tiene, al título del encabezado). `useAlCambiarDeRuta` en `@bal/ui`, montado dentro del router de la landing y de la PWA
+- [~] Wake Lock en `TargetPage` y en ningún otro lado (un test lo fija), re-adquirido en `visibilitychange`. **Sin probar en un celular real**
+
+**DoD:** cada pantalla tiene su título ✅ · se entra a cada página desde arriba ✅ (en la landing, que es donde fallaba: el `main` se comparte entre rutas) · la pantalla no se apaga mientras se anota un blanco ⚠️ (con la API simulada; **sin celular real**).
+**Tests nuevos:** `@bal/ui` +16 (título, scroll, foco, h1 tardío, plazo, no robar el foco al que escribe) · `@bal/app` +40 (`useWakeLock` 12, títulos de las ~17 pantallas, navegación con `Screen` y `Encabezado` reales, `TargetPage` pide y suelta, solo `TargetPage` la usa) · `@bal/landing` +11 (títulos por ruta, scroll, foco en la `App` de verdad).
+**Mutaciones (23, todas detectadas):** 7 sobre `useTituloDePagina` / `useAlCambiarDeRuta`, 8 sobre `useWakeLock`, y 8 de cableado (sin la marca de scroll o de título, sin `NavegacionAccesible`, una pantalla sin título, `TargetPage` sin Wake Lock). Una "sobrevivió" y era una mutación mía equivalente; se reemplazó por una que de verdad rompe el reintento.
+**Verificación:** tipos y Biome sin errores · tests: cliente 57, shared 499, api 445, ui 77, app 616, landing 64 · E2E: Chromium de escritorio 43/43 (3.4 min).
+
+**Queda:**
+- **Probar la pantalla encendida en un celular real** (y medir el costo de batería de un recorrido). Sin eso, la decisión 4 no está cerrada
+- **Seis pantallas de WAFA no tienen `h1`** (`Archers`, `Home`, `Payments`, `Ranking`, `Seasons`, `TournamentCreate`): su título es el `span` del `Encabezado`. El foco cae ahí, pero un lector de pantalla no las lista como encabezado. Arreglarlo sin duplicar el `h1` de las que ya lo tienen es decisión de diseño
+- **WAFL solo recibe títulos.** Su navegación es estado, no rutas, y mover el foco en medio de una carga no se justifica
+- **El presupuesto de «pantalla de elegir rol» sigue sobre el tope** (105.53 KB contra 105; ya lo estaba antes de esta tanda, y esta suma ~0.45). Ver `REF6-11`
 
 ---
 

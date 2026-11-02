@@ -7,9 +7,11 @@
  * Ver `docs/ARCHITECTURE.md` §2.
  */
 
+import { useTituloDePagina } from '@bal/ui';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { InstalarApp } from './components/InstalarApp.js';
+import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { RegistroDeVersion } from './components/registroDeVersion.js';
 import { botonClases, Screen } from './components/ui.js';
 import { VolverALaLiga } from './components/VolverALaLiga.js';
@@ -43,6 +45,7 @@ function Cargando() {
 const BASENAME = '/app';
 
 function Elegir() {
+  useTituloDePagina();
   return (
     <Screen>
       <div className="pt-12 pb-4">
@@ -80,6 +83,7 @@ export function App() {
   return (
     <>
       <BrowserRouter basename={BASENAME}>
+        <NavegacionAccesible />
         <Suspense fallback={<Cargando />}>
           <Routes>
             <Route path="/" element={<Elegir />} />
