@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 
 export function Despublicar({
   id,
@@ -19,7 +19,10 @@ export function Despublicar({
 
   const despublicar = async () => {
     try {
-      await api.post(`/admin/tournaments/${id}/unpublish`, { reason: motivo.trim() });
+      await rpc.admin.tournaments[':id'].unpublish.$post({
+        param: { id },
+        json: { reason: motivo.trim() },
+      });
       setAbierto(false);
       onHecho();
     } catch (err) {

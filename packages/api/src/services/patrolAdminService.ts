@@ -6,7 +6,14 @@
  * pueda volver a mostrarlo, y **cada visualización queda en el audit log**.
  */
 
-import { type PatrolDistributionInput, validatePatrols } from '@bal/shared';
+import {
+  type BowCategory,
+  type PatrolDistributionInput,
+  type Position,
+  type Stake,
+  type Unit,
+  validatePatrols,
+} from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { iniciarSesion } from '../db/sesion.js';
 import { env } from '../env.js';
@@ -31,10 +38,10 @@ export interface PatrolView {
     id: string;
     firstName: string;
     lastName: string;
-    category: string;
-    stake: string;
-    unit: string;
-    position: string;
+    category: BowCategory;
+    stake: Stake;
+    unit: Unit;
+    position: Position;
     signed: boolean;
   }[];
   /** Sólo presente si el torneo todavía no se publicó. */

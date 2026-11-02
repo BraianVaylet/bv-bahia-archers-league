@@ -4,7 +4,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
-import type { ArcherInput, ArcherSelfRegisterInput, Sex } from '@bal/shared';
+import type { ArcherInput, ArcherSelfRegisterInput, BowCategory, Sex } from '@bal/shared';
 import { ObjectId } from 'mongodb';
 import type { ArcherDoc, ArcherRegistrationStatus, AuditAction } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -15,7 +15,7 @@ export interface ArcherView {
   readonly id: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly category: string;
+  readonly category: BowCategory;
   readonly sex: Sex | null;
   readonly dni: string | null;
   readonly registrationStatus: ArcherRegistrationStatus;
@@ -98,7 +98,7 @@ export interface AltaPublica {
   readonly id: string;
   readonly firstName: string;
   readonly lastName: string;
-  readonly category: string;
+  readonly category: BowCategory;
 }
 
 const respuestaDeAlta = (

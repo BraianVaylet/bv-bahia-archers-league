@@ -8,7 +8,7 @@
 
 import { useCarga } from '@bal/cliente';
 import type { SCORING, TournamentStatus } from '@bal/shared';
-import { api } from '../../lib/apiClient.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import type { PatrullaSeguimiento, ResultadoParticipante } from '../torneo.js';
 
 export interface Torneo {
@@ -21,23 +21,28 @@ export interface Torneo {
   readonly participantCount: number;
 }
 
+interface DatosDelTorneo {
+  readonly torneo: Torneo;
+  readonly patrullas: PatrullaSeguimiento[];
+  readonly participantes: ResultadoParticipante[];
+  readonly bloqueados: number[];
+}
+
 const SIN_PATRULLAS: PatrullaSeguimiento[] = [];
 const SIN_PARTICIPANTES: ResultadoParticipante[] = [];
 const SIN_BLOQUEOS: number[] = [];
 
 export function useTorneo(id: string) {
   const carga = useCarga(
-    async (signal) => {
+    async (signal): Promise<DatosDelTorneo> => {
       // Sin `?pins=1`: el seguimiento no necesita los PIN, y pedirlos los descifraba y los
       // registraba en el audit log en cada vuelta.
+      const param = { id };
       const [t, p, r, b] = await Promise.all([
-        api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`, signal),
-        api.get<{ patrols: PatrullaSeguimiento[] }>(`/admin/tournaments/${id}/patrols`, signal),
-        api.get<{ participants: ResultadoParticipante[] }>(
-          `/admin/tournaments/${id}/results`,
-          signal,
-        ),
-        api.get<{ lockedTargets: number[] }>(`/admin/tournaments/${id}/locked-targets`, signal),
+        cuerpo(rpc.admin.tournaments[':id'].$get({ param }, conSenal(signal))),
+        cuerpo(rpc.admin.tournaments[':id'].patrols.$get({ param, query: {} }, conSenal(signal))),
+        cuerpo(rpc.admin.tournaments[':id'].results.$get({ param }, conSenal(signal))),
+        cuerpo(rpc.admin.tournaments[':id']['locked-targets'].$get({ param }, conSenal(signal))),
       ]);
 
       return {

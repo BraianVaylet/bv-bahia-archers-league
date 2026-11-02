@@ -20,6 +20,11 @@
  *    que arma la respuesta con repositorios es una regla de negocio fuera de su lugar
  *    (regla 2) y una consulta que no pasó por una capa que valide.
  *
+ * 3. **Los frontends sólo ven del backend sus tipos** (`REF6-11` / `C-3`). `@bal/api/tipos`
+ *    le da al cliente RPC de Hono la forma de cada respuesta; se importa con `import type`
+ *    y nada más del backend se importa. Un `import` común no falla el typecheck: se lleva
+ *    Hono, Mongo y los servicios al bundle del celular.
+ *
  * Sólo mira lo que se importa, no cada llamada: es barato, no tiene falsos negativos por
  * un alias y alcanza para que la regla no se pueda romper sin que alguien lo vea.
  *
@@ -97,17 +102,91 @@ export function infraccionesDe(rutaDelArchivo, codigo) {
   return infracciones;
 }
 
-function archivosTs(dir) {
+function archivosDe(dir, extensiones = ['.ts']) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const ruta = join(dir, e.name);
-    if (e.isDirectory()) return archivosTs(ruta);
-    return e.name.endsWith('.ts') && !e.name.endsWith('.d.ts') ? [ruta] : [];
+    if (e.isDirectory()) return archivosDe(ruta, extensiones);
+    return extensiones.some((x) => e.name.endsWith(x)) && !e.name.endsWith('.d.ts') ? [ruta] : [];
+  });
+}
+
+// ── Los frontends ───────────────────────────────────────────────────────────
+
+/** Los paquetes que corren en el navegador. */
+const FRONTENDS = ['app', 'landing'];
+
+/** Lo único del backend que un frontend puede ver, y sólo como tipo. */
+const TIPOS_DE_LA_API = '@bal/api/tipos';
+
+/** Un import que apunta al backend: por el nombre del paquete o por una ruta a su `src`. */
+const esDelBackend = (modulo) =>
+  /^@bal\/api(\/|$)/.test(modulo) || /(^|\/)api\/src(\/|$)/.test(modulo);
+
+/**
+ * Las líneas donde `@bal/api/tipos` entra como `import type` o `export type … from`.
+ *
+ * `import { type X }` **no** cuenta: con `verbatimModuleSyntax` queda un `import {} from …` que el
+ * bundler resuelve y carga igual.
+ */
+function lineasDeImportDeTipos(limpio) {
+  const lineas = new Set();
+  const patron = /\b(?:import|export)\s+type\s[^;'"]*?\bfrom\s*["']@bal\/api\/tipos["']/g;
+
+  for (const m of limpio.matchAll(patron)) {
+    const posicionDelModulo = m.index + m[0].lastIndexOf(TIPOS_DE_LA_API);
+    lineas.add(limpio.slice(0, posicionDelModulo).split('\n').length);
+  }
+  return lineas;
+}
+
+/** Las infracciones de un archivo de un frontend. */
+export function infraccionesDeFrontend(rutaDelArchivo, codigo) {
+  const delBackend = importsDe(codigo).filter(({ modulo }) => esDelBackend(modulo));
+  if (delBackend.length === 0) return [];
+
+  const comoTipo = lineasDeImportDeTipos(sinComentarios(codigo));
+  const archivo = rutaDelArchivo.split(sep).join('/');
+
+  return delBackend.flatMap(({ modulo, linea }) => {
+    if (modulo !== TIPOS_DE_LA_API) {
+      return [
+        {
+          archivo,
+          linea,
+          modulo,
+          motivo:
+            'un frontend no importa el backend: lo único que puede ver son sus tipos, desde `@bal/api/tipos`',
+        },
+      ];
+    }
+    if (comoTipo.has(linea)) return [];
+    return [
+      {
+        archivo,
+        linea,
+        modulo,
+        motivo:
+          'importa `@bal/api/tipos` sin `import type`: llevaría Hono, Mongo y los servicios al bundle',
+      },
+    ];
+  });
+}
+
+/** Las infracciones de los frontends, dada la carpeta `packages`. */
+export function violacionesDeFrontends(packagesDir) {
+  return FRONTENDS.flatMap((frontend) => {
+    const src = join(packagesDir, frontend, 'src');
+    if (!statSync(src, { throwIfNoEntry: false })?.isDirectory()) return [];
+
+    return archivosDe(src, ['.ts', '.tsx']).flatMap((ruta) =>
+      infraccionesDeFrontend(relative(packagesDir, ruta), readFileSync(ruta, 'utf8')),
+    );
   });
 }
 
 /** Todas las infracciones bajo una carpeta `src`. */
 export function violaciones(srcDir) {
-  return archivosTs(srcDir).flatMap((ruta) =>
+  return archivosDe(srcDir).flatMap((ruta) =>
     infraccionesDe(relative(srcDir, ruta), readFileSync(ruta, 'utf8')),
   );
 }
@@ -121,16 +200,28 @@ function main() {
     process.exit(1);
   }
 
-  const infracciones = violaciones(src);
+  const delBackend = violaciones(src).map((i) => ({
+    ...i,
+    archivo: `packages/api/src/${i.archivo}`,
+  }));
+  const delFrontend = violacionesDeFrontends(join(raiz, 'packages')).map((i) => ({
+    ...i,
+    archivo: `packages/${i.archivo}`,
+  }));
+  const infracciones = [...delBackend, ...delFrontend];
+
   if (infracciones.length === 0) {
     console.info('✓ Las capas del backend se respetan: sólo repositories/ y db/ tocan Mongo.');
+    console.info(
+      '✓ Los frontends sólo ven del backend sus tipos (`import type` de @bal/api/tipos).',
+    );
     return;
   }
 
   for (const i of infracciones) {
-    console.error(`✗ packages/api/src/${i.archivo}:${i.linea} — ${i.motivo} (${i.modulo})`);
+    console.error(`✗ ${i.archivo}:${i.linea} — ${i.motivo} (${i.modulo})`);
   }
-  console.error(`\n${infracciones.length} infracción(es) de las capas del backend.`);
+  console.error(`\n${infracciones.length} infracción(es) de las capas.`);
   process.exit(1);
 }
 

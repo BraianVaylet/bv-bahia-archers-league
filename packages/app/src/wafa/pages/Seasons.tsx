@@ -12,7 +12,7 @@ import { useCarga } from '@bal/cliente';
 import { formatearRango } from '@bal/shared';
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, Encabezado, Pantalla, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { FormularioDeTemporada } from '../temporadas/FormularioDeTemporada.js';
 import { Recaudacion } from '../temporadas/Recaudacion.js';
 import type { SeasonRow } from '../temporadas/tipos.js';
@@ -23,7 +23,8 @@ export { validarTemporada } from '../temporadas/validar.js';
 
 export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
   const carga = useCarga(
-    async (signal) => (await api.get<{ seasons: SeasonRow[] }>('/admin/seasons', signal)).seasons,
+    async (signal): Promise<SeasonRow[]> =>
+      (await cuerpo(rpc.admin.seasons.$get(undefined, conSenal(signal)))).seasons,
     [],
     { mensajeDeError: 'No se pudieron cargar las temporadas. Revisá la conexión.' },
   );
@@ -34,7 +35,8 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   const cambiarEstado = async (t: SeasonRow, reabrir: boolean) => {
     try {
-      await api.post(`/admin/seasons/${t.id}/${reabrir ? 'restore' : 'archive'}`);
+      const ruta = rpc.admin.seasons[':id'];
+      await (reabrir ? ruta.restore : ruta.archive).$post({ param: { id: t.id } });
       setErrorDeAccion(undefined);
       await carga.recargar();
     } catch (err) {

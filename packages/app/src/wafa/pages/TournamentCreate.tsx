@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, cuerpo, rpc } from '../../lib/rpc.js';
 import { PasoDatos } from '../crear/PasoDatos.js';
 import { PasoParticipantes } from '../crear/PasoParticipantes.js';
 import { PasoRecorrido } from '../crear/PasoRecorrido.js';
@@ -66,10 +66,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
     setEnviando(true);
 
     try {
-      const r = await api.post<{ tournament: { id: string } }>(
-        '/admin/tournaments',
-        cuerpoDeCreacion(borrador),
-      );
+      const r = await cuerpo(rpc.admin.tournaments.$post({ json: cuerpoDeCreacion(borrador) }));
       onCreado(r.tournament.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo crear. Revisá la conexión.');

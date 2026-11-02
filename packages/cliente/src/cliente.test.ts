@@ -242,6 +242,186 @@ describe('crearCliente', () => {
       expect(headersDe(llamadas[0]).get('x-csrf-token')).toBe('abc');
     });
   });
+
+  /**
+   * El `fetch` que se le da al cliente RPC de Hono (`REF6-11` / `C-3`). `hc` arma la URL y el
+   * cuerpo; el CSRF y los errores tienen que seguir pasando por acá, no por cada llamada.
+   */
+  describe('fetch', () => {
+    it('no toca la URL: el cliente RPC ya la arma entera', async () => {
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers?q=ana');
+
+      expect(llamadas[0]?.url).toBe('/api/admin/archers?q=ana');
+      expect(llamadas[0]?.init.credentials).toBe('same-origin');
+    });
+
+    it('acepta una URL que no es un string, y la manda como string', async () => {
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir(new URL('http://localhost/api/admin/archers'));
+
+      expect(llamadas[0]?.url).toBe('http://localhost/api/admin/archers');
+    });
+
+    it('una lectura no lleva token CSRF', async () => {
+      ponerCsrf('abc');
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers', { method: 'GET' });
+
+      expect(headersDe(llamadas[0]).has('x-csrf-token')).toBe(false);
+    });
+
+    it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('%s lleva el token CSRF', async (method) => {
+      ponerCsrf('abc');
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers', { method });
+
+      expect(headersDe(llamadas[0]).get('x-csrf-token')).toBe('abc');
+    });
+
+    it('pide el token si todavía no hay cookie, y recién después manda la mutación', async () => {
+      responder = (url) => {
+        if (url === '/api/auth/csrf') {
+          ponerCsrf('nuevo');
+          return json({});
+        }
+        return json({ ok: true });
+      };
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers', { method: 'POST' });
+
+      expect(llamadas.map((l) => l.url)).toEqual(['/api/auth/csrf', '/api/admin/archers']);
+      expect(headersDe(llamadas[1]).get('x-csrf-token')).toBe('nuevo');
+    });
+
+    it('el método de un Request también cuenta: sin `init.method` no se cuela sin token', async () => {
+      ponerCsrf('abc');
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir(new Request('http://localhost/api/admin/archers', { method: 'POST' }));
+
+      expect(headersDe(llamadas[0]).get('x-csrf-token')).toBe('abc');
+    });
+
+    it('un Request conserva sus headers: pasar `headers` en el init los reemplazaría', async () => {
+      ponerCsrf('abc');
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir(
+        new Request('http://localhost/api/admin/archers', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      expect(headersDe(llamadas[0]).get('content-type')).toBe('application/json');
+      expect(headersDe(llamadas[0]).get('x-csrf-token')).toBe('abc');
+    });
+
+    it('conserva los headers que ya traía el pedido', async () => {
+      ponerCsrf('abc');
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+
+      expect(headersDe(llamadas[0]).get('content-type')).toBe('application/json');
+      expect(headersDe(llamadas[0]).get('x-csrf-token')).toBe('abc');
+      expect(llamadas[0]?.init.body).toBe('{}');
+    });
+
+    it('pasa la señal, para poder cancelar', async () => {
+      const control = new AbortController();
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await pedir('/api/admin/archers', { signal: control.signal });
+
+      expect(llamadas[0]?.init.signal).toBe(control.signal);
+    });
+
+    it('si sale bien, devuelve la respuesta sin leerla', async () => {
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+      responder = () => json({ archers: [] });
+
+      const res = await pedir('/api/admin/archers');
+
+      expect(res.bodyUsed).toBe(false);
+      expect(await res.json()).toEqual({ archers: [] });
+    });
+
+    it('si el servidor rechaza, lanza un ApiError con code, message y details', async () => {
+      responder = () =>
+        json(
+          { error: { code: 'CONFLICT', message: 'Ya existe.', details: { campo: 'dni' } } },
+          409,
+        );
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      const error = await pedir('/api/admin/archers').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({ status: 409, code: 'CONFLICT', message: 'Ya existe.' });
+      expect((error as ApiError).details).toEqual({ campo: 'dni' });
+    });
+
+    it('si el rechazo no explica nada, usa el mensaje según se lea o se escriba', async () => {
+      responder = () => json({}, 500);
+      const { fetch: pedir } = crearCliente({
+        base: '/api',
+        mensajes: { lectura: 'No se pudo leer.', escritura: 'No se pudo guardar.' },
+      });
+
+      const lectura = await pedir('/api/admin/archers').catch((e: unknown) => e);
+      ponerCsrf('abc');
+      const escritura = await pedir('/api/admin/archers', { method: 'POST' }).catch(
+        (e: unknown) => e,
+      );
+
+      expect((lectura as ApiError).message).toBe('No se pudo leer.');
+      expect((escritura as ApiError).message).toBe('No se pudo guardar.');
+    });
+
+    // Es el mismo caso del portal cautivo de `request`: tiene que seguir siendo reintentable.
+    it('un `200` que no es JSON llega como respuesta, y leerlo es un SyntaxError', async () => {
+      responder = () => new Response('<html>portal</html>', { status: 200 });
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      const res = await pedir('/api/admin/archers');
+      const error = await res.json().catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(SyntaxError);
+      expect(error).not.toBeInstanceOf(ApiError);
+    });
+
+    it('un rechazo con HTML (un 502 del proxy) sale como SyntaxError, igual que en `request`', async () => {
+      responder = () => new Response('<html>Bad Gateway</html>', { status: 502 });
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      const error = await pedir('/api/admin/archers').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(SyntaxError);
+    });
+
+    it('si no hay red, el error pasa tal cual', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new TypeError('Failed to fetch');
+        }),
+      );
+      const { fetch: pedir } = crearCliente({ base: '/api' });
+
+      await expect(pedir('/api/admin/archers')).rejects.toThrow(TypeError);
+    });
+  });
 });
 
 describe('ApiError', () => {

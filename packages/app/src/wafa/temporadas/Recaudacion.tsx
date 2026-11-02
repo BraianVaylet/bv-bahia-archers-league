@@ -4,7 +4,7 @@
 
 import { formatearMonto } from '@bal/shared';
 import { useState } from 'react';
-import { api } from '../../lib/apiClient.js';
+import { cuerpo, rpc } from '../../lib/rpc.js';
 
 interface RecaudacionTemporada {
   readonly collected: number;
@@ -34,7 +34,10 @@ export function Recaudacion({ seasonId }: { readonly seasonId: string }) {
   const cargar = async () => {
     if (datos) return;
     try {
-      setDatos(await api.get<RecaudacionTemporada>(`/admin/seasons/${seasonId}/collection`));
+      const recaudacion: RecaudacionTemporada = await cuerpo(
+        rpc.admin.seasons[':id'].collection.$get({ param: { id: seasonId } }),
+      );
+      setDatos(recaudacion);
     } catch {
       setError('No se pudo cargar la recaudación.');
     }

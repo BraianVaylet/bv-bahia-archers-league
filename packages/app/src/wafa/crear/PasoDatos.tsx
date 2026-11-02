@@ -5,7 +5,7 @@
 import { useCarga } from '@bal/cliente';
 import { formatearMonto } from '@bal/shared';
 import { Field } from '../../components/ui.js';
-import { api } from '../../lib/apiClient.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import type { SeasonRow } from '../pages/Seasons.js';
 import type { BorradorTorneo } from '../wizard.js';
 
@@ -17,7 +17,8 @@ export function PasoDatos({
   readonly onCambio: (b: Partial<BorradorTorneo>) => void;
 }) {
   const carga = useCarga(
-    async (signal) => (await api.get<{ seasons: SeasonRow[] }>('/admin/seasons', signal)).seasons,
+    async (signal): Promise<SeasonRow[]> =>
+      (await cuerpo(rpc.admin.seasons.$get(undefined, conSenal(signal)))).seasons,
     [],
   );
   // Si la carga falla, se ve como una lista vacía —«no hay temporadas»—, igual que antes de `useCarga`.

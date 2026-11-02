@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import type { Torneo } from './useTorneo.js';
 
 export function EdicionDelTorneo({
@@ -35,9 +35,9 @@ export function EdicionDelTorneo({
   const guardarDatos = async () => {
     if (!editando) return;
     try {
-      await api.patch(`/admin/tournaments/${torneo.id}`, {
-        name: editando.name.trim(),
-        date: editando.date.slice(0, 10),
+      await rpc.admin.tournaments[':id'].$patch({
+        param: { id: torneo.id },
+        json: { name: editando.name.trim(), date: editando.date.slice(0, 10) },
       });
       setEditando(undefined);
       await onCambio();
@@ -54,7 +54,7 @@ export function EdicionDelTorneo({
 
     setEliminando(true);
     try {
-      await api.del(`/admin/tournaments/${torneo.id}`);
+      await rpc.admin.tournaments[':id'].$delete({ param: { id: torneo.id } });
       onEliminado();
     } catch (err) {
       onError(err instanceof ApiError ? err.message : 'No se pudo eliminar el torneo.');

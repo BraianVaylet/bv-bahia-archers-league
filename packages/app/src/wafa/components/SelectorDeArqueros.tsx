@@ -15,7 +15,7 @@ import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { type ArqueroElegible, avisoDeComposicion, conteoPorCategoria } from '../wizard.js';
 
 function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => void }) {
@@ -27,11 +27,7 @@ function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => v
 
   const crear = async () => {
     try {
-      const r = await api.post<{ archer: ArqueroElegible }>('/admin/archers', {
-        firstName,
-        lastName,
-        category,
-      });
+      const r = await cuerpo(rpc.admin.archers.$post({ json: { firstName, lastName, category } }));
       onCreado(r.archer);
       setFirstName('');
       setLastName('');
@@ -111,9 +107,9 @@ export function SelectorDeArqueros({
 
   const carga = useCarga(
     async (signal) => {
-      const params = busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : '';
-      const r = await api.get<{ archers: ArqueroElegible[] }>(`/admin/archers${params}`, signal);
-      return r.archers;
+      const query = busqueda.trim() ? { q: busqueda.trim() } : {};
+      const r = await cuerpo(rpc.admin.archers.$get({ query }, conSenal(signal)));
+      return r.archers satisfies readonly ArqueroElegible[];
     },
     [busqueda],
     // Buscar es el mismo padrón con otra consulta: la lista se queda mientras llega la nueva.

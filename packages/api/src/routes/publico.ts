@@ -10,7 +10,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { toObjectId } from '../lib/ids.js';
 import { publicCache } from '../middleware/cache.js';
-import { parseJsonBody, parseQuery } from '../middleware/validate.js';
+import { bodyValidado, consultaValidada } from '../middleware/validate.js';
 import * as archerService from '../services/archerService.js';
 import * as rankingService from '../services/rankingService.js';
 import * as seasonService from '../services/seasonService.js';
@@ -32,8 +32,8 @@ export const publico = new Hono()
    * La respuesta nunca incluye `dni` ni `registrationStatus` — ninguna ruta
    * sin sesión los devuelve, ni siquiera el del propio request.
    */
-  .post('/archers', async (c) => {
-    const input = await parseJsonBody(c, ArcherSelfRegisterSchema);
+  .post('/archers', bodyValidado(ArcherSelfRegisterSchema), async (c) => {
+    const input = c.req.valid('json');
     return c.json({ archer: await archerService.registerPublic(input) });
   })
 
@@ -43,8 +43,8 @@ export const publico = new Hono()
    * Ranking de liga por categoría, en tres vistas: General, Femenino y Masculino
    * (`SH-10`). El armado vive en `rankingService`.
    */
-  .get('/rankings', async (c) => {
-    const { seasonId } = parseQuery(c, RankingQuery);
+  .get('/rankings', consultaValidada(RankingQuery), async (c) => {
+    const { seasonId } = c.req.valid('query');
     return c.json(await rankingService.rankingDeTemporada(toObjectId(seasonId)));
   })
 

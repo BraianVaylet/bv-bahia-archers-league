@@ -10,6 +10,7 @@
  * guardado puede quedar desfasado de los pagos que lo componen; uno derivado no.
  */
 
+import type { BowCategory } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
 import * as auditRepo from '../repositories/auditRepo.js';
@@ -24,7 +25,7 @@ export interface PaymentSummary {
     id: string;
     firstName: string;
     lastName: string;
-    category: string;
+    category: BowCategory;
     patrolNumber: number;
     paid: boolean;
   }[];

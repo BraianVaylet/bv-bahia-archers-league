@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { BotonCopiar } from '../../components/BotonCopiar.js';
 import { Button } from '../../components/ui.js';
-import { api } from '../../lib/apiClient.js';
+import { rpc } from '../../lib/rpc.js';
 import type { PatrullaVista } from '../patrullas.js';
 
 export function Credencial({
@@ -20,7 +20,7 @@ export function Credencial({
   const regenerar = async () => {
     setRegenerando(true);
     try {
-      await api.post(`/admin/patrols/${patrulla.id}/pin/regenerate`);
+      await rpc.admin.patrols[':id'].pin.regenerate.$post({ param: { id: patrulla.id } });
       onRegenerado();
     } finally {
       setRegenerando(false);

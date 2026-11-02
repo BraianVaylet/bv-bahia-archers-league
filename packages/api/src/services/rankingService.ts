@@ -10,7 +10,12 @@
  * `@bal/shared`: acá se las orquesta, no se las decide (regla 2).
  */
 
-import { type ArcherStanding, bestNAvgPct, sortStandingsByGender } from '@bal/shared';
+import {
+  type ArcherStanding,
+  type BowCategory,
+  bestNAvgPct,
+  sortStandingsByGender,
+} from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { env } from '../env.js';
 import { notFound } from '../lib/errors.js';
@@ -29,7 +34,7 @@ export async function rankingDeTemporada(seasonId: ObjectId) {
   const docs = await standingRepo.listBySeason(seasonId);
   const dominio = docs.map(standingRepo.toDomain);
 
-  const porCategoria = new Map<string, typeof dominio>();
+  const porCategoria = new Map<BowCategory, typeof dominio>();
   for (const s of dominio) {
     const grupo = porCategoria.get(s.category);
     if (grupo) grupo.push(s);

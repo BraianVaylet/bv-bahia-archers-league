@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import { SelectorDeArqueros } from '../components/SelectorDeArqueros.js';
 import type { ResultadoParticipante } from '../torneo.js';
 import type { ArqueroElegible } from '../wizard.js';
@@ -36,8 +36,9 @@ export function EdicionDeParticipantes({
   const guardarArqueros = async () => {
     if (!editandoArqueros) return;
     try {
-      await api.patch(`/admin/tournaments/${torneo.id}`, {
-        archerIds: editandoArqueros.map((a) => a.id),
+      await rpc.admin.tournaments[':id'].$patch({
+        param: { id: torneo.id },
+        json: { archerIds: editandoArqueros.map((a) => a.id) },
       });
       setEditandoArqueros(undefined);
       await onCambio();

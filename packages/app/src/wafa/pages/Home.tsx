@@ -26,7 +26,7 @@ import {
   Pantalla,
   Screen,
 } from '../../components/ui.js';
-import { api } from '../../lib/apiClient.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export interface TournamentRow {
   readonly id: string;
@@ -85,8 +85,8 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
 export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
   const [cerrando, setCerrando] = useState(false);
   const carga = useCarga(
-    async (signal) =>
-      (await api.get<{ tournaments: TournamentRow[] }>('/admin/tournaments', signal)).tournaments,
+    async (signal): Promise<TournamentRow[]> =>
+      (await cuerpo(rpc.admin.tournaments.$get({ query: {} }, conSenal(signal)))).tournaments,
     [],
     { mensajeDeError: 'No se pudieron cargar los torneos. Revisá la conexión.' },
   );

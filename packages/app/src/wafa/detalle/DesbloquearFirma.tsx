@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Button } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import type { ResultadoParticipante } from '../torneo.js';
 
 export function DesbloquearFirma({
@@ -23,8 +23,9 @@ export function DesbloquearFirma({
 
   const desbloquear = async () => {
     try {
-      await api.post(`/admin/participants/${participante.id}/signature/unlock`, {
-        reason: motivo.trim(),
+      await rpc.admin.participants[':id'].signature.unlock.$post({
+        param: { id: participante.id },
+        json: { reason: motivo.trim() },
       });
       setAbierto(false);
       setMotivo('');

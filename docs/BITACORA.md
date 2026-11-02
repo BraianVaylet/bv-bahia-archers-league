@@ -14,6 +14,50 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-02 · Tipos de punta a punta en WAFA (REF6-11, cierre)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** última entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-3`). Con esta, la tanda queda cerrada para WAFA.
+
+### Qué cambió
+
+- **WAFA pide por el cliente RPC de Hono** (`hc<…>`) tipado con las rutas del backend. Renombrar un campo en una ruta rompe el `typecheck` de la pantalla que lo lee, en vez de fallar en el celular de alguien. Probado con mutaciones, no sólo afirmado.
+- **Los cuerpos y las consultas también quedaron tipados**, no sólo las respuestas: `bodyValidado` / `consultaValidada` son `parseJsonBody` / `parseQuery` movidos a un middleware. Hono sólo infiere un tipo de entrada si el schema aparece en la ruta.
+- **El CSRF y el `ApiError` no se duplicaron**: `hc` recibe el `fetch` de `@bal/cliente`, que adjunta el token en cada mutación y convierte un rechazo en `ApiError`. Un `200` que no es JSON (el portal cautivo) sigue saliendo como `SyntaxError`, no como `ApiError`.
+
+### Decisiones
+
+- **Tipos importados por alias, no por dependencia ni por `dist`.** `@bal/api/tipos` apunta al fuente (`tsconfig.base.json`). Declarar `@bal/api` como dependencia lo habría vuelto una «librería compilada» para `verificar-workspace` (su `main` es `dist/`), y apuntar a `dist` exigiría construir el backend antes de cada typecheck del frontend. El costo: el typecheck de la app compila también el código del backend que los tipos alcanzan (~6 s en total).
+- **Hono RPC y no DTOs a mano.** Las rutas ya estaban encadenadas, así que el tipo sale gratis y no hay una segunda copia del contrato que mantener. Con DTOs compartidos un campo renombrado en el servidor y no en el DTO volvería a compilar bien.
+- **El cliente RPC vive en `lib/rpc.ts` y no en `apiClient.ts`.** WAFL importa `apiClient`, y el chunk de WAFL es el que se usa sin señal: no baja `hono/client`. Se comprobó en el build.
+- **`import { type X }` no es `import type`.** Con `verbatimModuleSyntax` el primero deja un `import {} from …` que el bundler resuelve y carga. La guarda de `verificar-capas` exige la forma completa.
+- **La landing quedó afuera.** El título de la tanda es WAFA y el costo es distinto: hay que cambiar la firma de `useRecurso` (de una ruta a una función). Queda como trabajo aparte.
+
+### Lo que la migración encontró
+
+Pasar las llamadas a tipos reales destapó tres desfases entre lo que el frontend declaraba y lo que el servidor manda. Los tests de UI no podían verlos: simulan la red con lo que cada test quiere que conteste.
+
+- **`/results` nunca mandó `participantId`**, y el tipo del frontend lo exigía. El desempate de presentación de `rankParticipants` compara ese campo, así que con dos arqueros iguales en todo el orden dependía de cómo llegaran. El fixture del test de `podios` también lo traía: **el fixture mentía igual que el tipo**. Se escribió primero el test que lo muestra (rojo: `["p9","p1"]`) y se arregló en `podios`.
+- **`category: string` en cuatro vistas del servidor** (arqueros, miembros de patrulla, pagos, ranking), cuando la base la guarda como `BowCategory`. Se corrigió en el servidor, sólo en tipos.
+- **`pin?: string`** contra el `pin?: string | undefined` que infiere Hono con `exactOptionalPropertyTypes`.
+
+### Errores míos en el camino
+
+- **Casi llevo `hono/client` a WAFL.** Lo primero que escribí puso el cliente RPC dentro de `apiClient.ts`, que WAFL también importa. Lo vi al pensar en el bundle, antes de medirlo, y lo separé en `rpc.ts`.
+- **Me salté dos `api.del`.** El patrón que usé para migrar sólo buscaba `post` y `patch`; los vio el typecheck (`Cannot find name 'api'`) al sacar el import. Después busqué por `api.` a secas.
+
+### Verificación
+
+Tipos y Biome sin errores en las carpetas del proyecto (el `pnpm lint` de la raíz falla por los worktrees de `.claude/`, que traen su propio `biome.json`). Tests: `@bal/cliente` **57** (+18), `@bal/shared` 499, `@bal/api` **445** (+27), `@bal/ui` 61, `@bal/app` **576** (+16), `@bal/landing` 53. **15 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.4 min).
+
+### Deuda / lo que sigue
+
+- **Presupuesto de bundle de «pantalla de elegir rol»: 105.08 KB contra 105.** El CI lo corre. Ya estaba en 105.09 antes de esta entrega, medido sobre el `dist` del commit anterior. No es de esta tanda, pero está rojo.
+- **Landing sin tipos de punta a punta** (cambiar la firma de `useRecurso`; ~2 KB sobre 108.7 de 120).
+- **`useCarga` tiene complejidad cognitiva 23** (tope 20, es un warning). Viene de la entrega 1.
+- Sigue sin correrse `/security-review` ni `aikido:scan` formales desde `REF6-2`. Esta entrega toca la validación de entrada de 15 rutas, que es justo lo que un revisor de seguridad querría ver: conviene correrlos antes de mergear.
+
+---
+
 ## 2026-11-01 · WAFA: páginas chicas (REF6-11, las páginas)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** segunda entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-1`, y el resto de `C-2`). **Falta** la que da los tipos de punta a punta (`C-3`).

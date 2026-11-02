@@ -237,9 +237,9 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 # P2 — Mejora
 
-### `[~] REF6-11` · WAFA: páginas chicas y contratos tipados · **P2** · L
+### `[x] REF6-11` · WAFA: páginas chicas y contratos tipados · **P2** · L
 
-> **Estado: 2 de 3 entregas hechas** (el cliente y el hook, y las páginas). Falta la entrega 2: los tipos de punta a punta. Es la tanda grande, y su propio riesgo dice «una página por PR»: se entrega en partes, cada una verde por sí sola.
+> **Estado: hecho, con un alcance recortado a propósito:** los tipos de punta a punta cubren **WAFA**, que es lo que dice el título de la tanda. La landing sigue con `useRecurso<T>(path)` (ver «Queda» abajo). Se entregó en tres partes, cada una verde por sí sola.
 
 **Hallazgos:** `C-1`, `C-2`, `C-3`, `C-4`. **Skill:** `vercel-react-best-practices`.
 
@@ -248,17 +248,36 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 - [x] **`useCarga`** (WAFA) y `useRecurso` (landing): carga con cancelación, conserva lo que se ve al recargar, recarga silenciosa. Opción `conservarDatos` para los filtros de una lista *(decisión 3: hook propio)*
 - [x] **Fuera `@tanstack/react-query`**: estaba declarada y no se importaba en ningún lado
 
-**Entrega 3 — hecha: páginas chicas** (`C-1`, y el resto de `C-2`)
+**Entrega 2 — hecha: páginas chicas** (`C-1`, y el resto de `C-2`)
 - [x] `Tournament` (624 → 144 líneas), `Archers` (668 → 146), `TournamentCreate` (527 → 144) y `Patrols` (486 → 106), más `Ranking` (311 → 141), `Publish` (260 → 159) y `Seasons` (256 → 111). **La más grande de WAFA ahora tiene 173 líneas.** Cada una quedó como composición: los datos salen de un hook (`useTorneo`, `usePadron`, `usePatrullas`, `useRanking`) y cada pieza vive en su carpeta (`detalle/`, `padron/`, `crear/`, `distribucion/`, `ranking/`, `publicacion/`, `temporadas/`)
-- [x] **Todas las cargas de WAFA usan `useCarga`**: se migraron también `Home`, `Payments` y `SelectorDeArqueros`, que no estaban en la lista pero dejaban tres `useState` + `useEffect` a mano. Ya no queda ninguno en `wafa/pages` ni `wafa/components`
+- [x] **Todas las cargas de WAFA usan `useCarga`**: se migraron también `Home`, `Payments` y `SelectorDeArqueros`, que no estaban en la lista pero dejaban tres `useState` + `useEffect` a mano
 - [x] El warning de complejidad cognitiva de `Tournament.tsx` desapareció, y no hay ninguno en `app/src`
 
-**Entrega 2 — pendiente: tipos de punta a punta** (`C-3`)
-- [ ] `AppType` exportado y cliente RPC de Hono, o DTOs en un paquete compartido. Cambiar el nombre de un campo en una ruta tiene que romper el `typecheck` del frontend. Hace falta decidir cómo se integra con el CSRF y el `ApiError` de `@bal/cliente`
+**Entrega 3 — hecha: tipos de punta a punta** (`C-3`)
+- [x] **Cliente RPC de Hono (`hc`) en WAFA**: `apiClient.ts` queda para WAFL y `lib/rpc.ts` es el de WAFA. Las ~40 llamadas de WAFA (lecturas y escrituras) van por ahí; ya no queda un `api.get<T>('/admin/…')` en `wafa/`
+- [x] **`@bal/api/tipos`**: el único archivo del backend que otro paquete puede importar, y sólo como tipo. Exporta `RutasDeAdmin`, `RutasDeAuth` y `RutasPublicas`. Alias en `tsconfig.base.json`, sin dependencia declarada (declararla haría de `@bal/api` una «librería compilada» para `verificar-workspace`)
+- [x] **`fetch` propio en `@bal/cliente`** (`crearCliente(…).fetch`): `hc` arma la URL y el cuerpo, y el CSRF y el `ApiError` siguen resolviéndose en un solo lugar. `request` quedó escrito sobre el mismo núcleo
+- [x] **Los cuerpos y las consultas también están tipados**: `bodyValidado` y `consultaValidada` mueven `parseJsonBody` / `parseQuery` a un middleware, con la misma validación y los mismos errores (15 rutas). Hono ve el schema en el tipo de la ruta; antes no inferían nada
+- [x] **`verificar-capas` mira los frontends**: sólo `import type` de `@bal/api/tipos`, y nada más del backend. `import { type X }` no vale (con `verbatimModuleSyntax` deja un import vacío que el bundler carga)
+- [x] **`contratos.test-d.ts`**: aserciones de tipos que `tsc` comprueba; si `rpc` degenerara en `any`, los `@ts-expect-error` dejan de cumplirse y el typecheck se pone rojo
 
-**DoD:** ninguna página de WAFA pasa de 250 líneas ✅ (173) · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend ❌ · los tests de UI existentes siguen verdes sin cambios de comportamiento ✅ (**no se modificó ni uno**; se agregaron 7).
-**Tests nuevos de esta entrega:** `@bal/cliente` +3 (`conservarDatos`) · `@bal/app` +7: el padrón y el ranking **no vacían la lista** mientras llega la consulta nueva, el selector igual y **se ve vacío si la búsqueda falla**, el torneo **se actualiza solo tras iniciar**, y un pago rechazado **muestra el motivo** y uno marcado **se ve pagado**. Tres de estos cubren huecos que ya existían antes del refactor (nada comprobaba que la pantalla se actualizara tras una acción).
-**Mutaciones (16):** cableado de `useCarga` en las páginas partidas (8) y en las tres últimas cargas (5), y las 3 de `conservarDatos`. **Cinco sobrevivían** y apuntaban a huecos reales; se escribió el test que faltaba en cada caso. E2E: Chromium de escritorio 43/43.
+**DoD:** ninguna página de WAFA pasa de 250 líneas ✅ (173) · cambiar el nombre de un campo en una ruta rompe el `typecheck` del frontend ✅ (probado con mutaciones: renombrar `tournament` en el detalle y `normalizedPct` en los resultados) · los tests de UI existentes siguen verdes sin cambios de comportamiento ✅ (**no se modificó ningún test de UI**; la única edición a un test existente es una línea del fixture tipado de `torneo.test.ts`, que traía un `participantId` que el servidor nunca manda).
+
+**Tests nuevos de esta entrega:** `@bal/cliente` +18 (`fetch`: CSRF, `ApiError`, `Request`, señal, portal cautivo) · `@bal/api` +27 (`entrada-tipada` 11 y la guarda de los frontends 16) · `@bal/app` +16 (`rpc.test.ts` 15: URL, parámetros, consulta, CSRF, cuerpo, señal, errores; y `podios` con filas como las manda el servidor).
+**Mutaciones (15, todas detectadas por la causa esperada):** 7 sobre el `fetch` del cliente (sin CSRF, sin `ApiError`, método del `Request`, URL sin convertir, headers del `Request`, sin credenciales, mensaje invertido) · 4 sobre los middlewares y una ruta sin validador · 4 sobre los tipos (renombrar `tournament` y `normalizedPct` rompen el typecheck del frontend; degradar `RutasDeAdmin` a `any` y sacar el validador de `POST /seasons` ponen rojo `contratos.test-d.ts`).
+**Verificación:** tipos y Biome sin errores · tests: cliente 57, shared 499, api 445, ui 61, app 576, landing 53 · E2E: Chromium de escritorio 43/43 (3.4 min).
+
+**Qué destapó la migración** (tres desfases que ningún mock podía ver):
+- `/results` **nunca mandó `participantId`**, y `ResultadoParticipante` lo daba por hecho. `podios` desempataba por un campo siempre `undefined`: el orden de dos arqueros iguales en todo dependía de cómo llegaran. Ahora `podios` usa `id`; el tipo dejó de mentir
+- El servidor **ensanchaba `category`, `stake`, `unit` y `position` a `string`** en las vistas de arqueros, patrullas, pagos y ranking, aunque la base los guarda como unión. Corregido sólo en tipos
+- `PatrullaVista.pin?: string` no aceptaba el `pin?: string | undefined` que infiere Hono con `exactOptionalPropertyTypes`
+
+**Peso:** WAFA 126.21 → 128.27 KB gz (+2.06; presupuesto 135). WAFL 118.06 → 118.18 y landing 108.6 → 108.71 (el núcleo del cliente). El cliente RPC está **sólo** en el chunk de WAFA: ni WAFL ni la pantalla de elegir rol lo bajan.
+
+**Queda (no es de esta tanda):**
+- **La landing** sigue con `useRecurso<T>(path)` y el tipo escrito a mano en cada página. Tiparla pide cambiar la firma del hook compartido (de una ruta a una función) y suma ~2 KB a un bundle que está en 108.7 de 120
+- **WAFL** queda con `api` / `request`: su flujo de datos es IndexedDB y la cola de operaciones (regla 6), no una llamada por pantalla
+- **El presupuesto de «pantalla de elegir rol» está en 105.08 KB contra un tope de 105** y el CI corre `presupuesto.mjs`. **Ya estaba en 105.09 antes de esta entrega** (medido sobre el `dist` del commit anterior); no lo causó esta tanda ni lo arregla. Hay que recortar la entrada o subir el tope con su registro en `TECHNICAL.md` §5: decisión del dueño
 
 ---
 
@@ -283,7 +302,7 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 - [ ] Dedup de sync con estado `processing` y reproceso tras 30 s
 - [ ] Logger estructurado que respete `LOG_LEVEL`; una línea por lote de sync con ops, duración y rechazos
 - [ ] `esClaveDuplicada(error)` con `MongoServerError.code === 11000`
-- [ ] Fuera `validateBody`, `WEB_DIST_*` y `VITE_APP_NAME`
+- [ ] Fuera `WEB_DIST_*` y `VITE_APP_NAME` (`validateBody` ya salió en `REF6-11`: `bodyValidado` ocupa su lugar)
 - [ ] `/public/tournaments` filtra en la consulta, con proyección; LRU de rankings invalidada al publicar
 
 ---

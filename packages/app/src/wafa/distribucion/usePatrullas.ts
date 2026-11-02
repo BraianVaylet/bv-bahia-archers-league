@@ -8,7 +8,7 @@
 
 import { useCarga } from '@bal/cliente';
 import { useEffect, useState } from 'react';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import {
   type Borrador,
   borradorDe,
@@ -32,11 +32,17 @@ export interface TorneoDePatrullas {
 
 export function usePatrullas(id: string) {
   const carga = useCarga(
-    async (signal) => {
+    async (signal): Promise<{ torneo: TorneoDePatrullas; patrullas: PatrullaVista[] }> => {
+      const param = { id };
       const [t, r] = await Promise.all([
-        api.get<{ tournament: TorneoDePatrullas }>(`/admin/tournaments/${id}`, signal),
+        cuerpo(rpc.admin.tournaments[':id'].$get({ param }, conSenal(signal))),
         // Con `?pins=1`: ésta es la pantalla de credenciales, la única que los muestra.
-        api.get<Respuesta>(`/admin/tournaments/${id}/patrols?pins=1`, signal),
+        cuerpo(
+          rpc.admin.tournaments[':id'].patrols.$get(
+            { param, query: { pins: '1' } },
+            conSenal(signal),
+          ),
+        ),
       ]);
       return { torneo: t.tournament, patrullas: r.patrols };
     },
@@ -79,9 +85,11 @@ export function usePatrullas(id: string) {
     setErrorDeGuardado(undefined);
 
     try {
-      const r = await api.put<Respuesta>(
-        `/admin/tournaments/${id}/patrols`,
-        cuerpoDeDistribucion(borrador),
+      const r: Respuesta = await cuerpo(
+        rpc.admin.tournaments[':id'].patrols.$put({
+          param: { id },
+          json: cuerpoDeDistribucion(borrador),
+        }),
       );
       setPatrullas(r.patrols);
       setBorrador(borradorDe(r.patrols));

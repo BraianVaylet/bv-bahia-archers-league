@@ -7,14 +7,13 @@
 
 import { useCarga } from '@bal/cliente';
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/apiClient.js';
-import type { CategoriaRankeada, Temporada } from './tipos.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export function useRanking() {
   const [elegida, setElegida] = useState('');
 
   const cargaTemporadas = useCarga(
-    async (signal) => (await api.get<{ seasons: Temporada[] }>('/public/seasons', signal)).seasons,
+    async (signal) => (await cuerpo(rpc.publico.seasons.$get(undefined, conSenal(signal)))).seasons,
     [],
   );
 
@@ -30,10 +29,7 @@ export function useRanking() {
   const cargaRanking = useCarga(
     async (signal) => {
       if (!elegida) return null;
-      return api.get<{ bestN: number; categories: CategoriaRankeada[] }>(
-        `/public/rankings?seasonId=${elegida}`,
-        signal,
-      );
+      return cuerpo(rpc.publico.rankings.$get({ query: { seasonId: elegida } }, conSenal(signal)));
     },
     [elegida],
     // Cambiar de temporada es el mismo ranking con otra consulta: no se vacía mientras llega.

@@ -4,7 +4,7 @@
 
 import { type FormEvent, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import { validarTemporada } from './validar.js';
 
 export function FormularioDeTemporada({
@@ -29,7 +29,9 @@ export function FormularioDeTemporada({
     setEnviando(true);
 
     try {
-      await api.post('/admin/seasons', { name: nombre.trim(), startsAt: desde, endsAt: hasta });
+      await rpc.admin.seasons.$post({
+        json: { name: nombre.trim(), startsAt: desde, endsAt: hasta },
+      });
       setNombre('');
       setDesde('');
       setHasta('');

@@ -15,7 +15,7 @@ import { ChipCategoria } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export interface ResumenDePagos {
   readonly payment: { readonly required: boolean; readonly amount: number };
@@ -33,7 +33,13 @@ export interface ResumenDePagos {
 
 export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string }) {
   const carga = useCarga(
-    (signal) => api.get<ResumenDePagos>(`/admin/tournaments/${tournamentId}/payments`, signal),
+    (signal): Promise<ResumenDePagos> =>
+      cuerpo(
+        rpc.admin.tournaments[':id'].payments.$get(
+          { param: { id: tournamentId } },
+          conSenal(signal),
+        ),
+      ),
     [tournamentId],
     { mensajeDeError: 'No se pudieron cargar los pagos. Revisá la conexión.' },
   );
@@ -47,7 +53,10 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
   const marcar = async (participantId: string, paid: boolean) => {
     try {
       // Sólo el booleano: el monto lo pone el servidor leyendo el torneo.
-      await api.post(`/admin/participants/${participantId}/payment`, { paid });
+      await rpc.admin.participants[':id'].payment.$post({
+        param: { id: participantId },
+        json: { paid },
+      });
       setErrorDeAccion(undefined);
       await carga.recargar();
     } catch (err) {

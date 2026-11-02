@@ -23,6 +23,8 @@ interface Infraccion {
 }
 interface Verificador {
   violaciones: (srcDir: string) => Infraccion[];
+  infraccionesDeFrontend: (ruta: string, codigo: string) => Infraccion[];
+  violacionesDeFrontends: (packagesDir: string) => Infraccion[];
   importsDe: (codigo: string) => { modulo: string; linea: number }[];
 }
 
@@ -161,5 +163,146 @@ describe('verificar-capas', () => {
     const { violaciones } = await cargar();
 
     expect(violaciones(SRC_REAL)).toEqual([]);
+  });
+
+  /**
+   * Los frontends sólo ven del backend sus **tipos** (`REF6-11` / `C-3`).
+   *
+   * `@bal/api/tipos` existe para que el cliente RPC de Hono sepa la forma de cada respuesta. Un
+   * `import` común del mismo módulo, o de cualquier otro del backend, no falla el typecheck: falla
+   * en el bundle, que se llevaría Hono, Mongo y los servicios al celular. Por eso se mira acá.
+   */
+  describe('los frontends', () => {
+    const TIPOS = "import type { RutasDeAdmin } from '@bal/api/tipos';\n";
+
+    it('pueden importar los tipos de la API, con import type', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(infraccionesDeFrontend('wafa/rpc.ts', TIPOS)).toEqual([]);
+    });
+
+    it('también si el import ocupa varias líneas', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+      const codigo =
+        "import type {\n  RutasDeAdmin,\n  RutasPublicas,\n} from '@bal/api/tipos';\nexport const a = 1;\n";
+
+      expect(infraccionesDeFrontend('lib/rpc.ts', codigo)).toEqual([]);
+    });
+
+    it('y re-exportarlos, si es export type', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(
+        infraccionesDeFrontend('lib/t.ts', "export type { RutasDeAdmin } from '@bal/api/tipos';\n"),
+      ).toEqual([]);
+    });
+
+    it('un import común de los tipos es una infracción: llega al bundle', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      const [infraccion] = infraccionesDeFrontend(
+        'lib/rpc.ts',
+        "import { RutasDeAdmin } from '@bal/api/tipos';\n",
+      );
+
+      expect(infraccion).toMatchObject({ archivo: 'lib/rpc.ts', linea: 1 });
+      expect(infraccion?.motivo).toMatch(/import type/);
+    });
+
+    // `import { type X }` parece inofensivo y no lo es: con `verbatimModuleSyntax` queda un
+    // `import {} from '...'` que el bundler resuelve y carga.
+    it('un import { type X } tampoco vale: deja un import vacío que se carga igual', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(
+        infraccionesDeFrontend(
+          'lib/rpc.ts',
+          "import { type RutasDeAdmin } from '@bal/api/tipos';\n",
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('export { X } from … sin type, tampoco', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(
+        infraccionesDeFrontend('lib/t.ts', "export { RutasDeAdmin } from '@bal/api/tipos';\n"),
+      ).toHaveLength(1);
+    });
+
+    it('el import dinámico y el de efecto secundario son infracciones', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(
+        infraccionesDeFrontend('lib/a.ts', "const t = await import('@bal/api/tipos');\n"),
+      ).toHaveLength(1);
+      expect(infraccionesDeFrontend('lib/b.ts', "import '@bal/api/tipos';\n")).toHaveLength(1);
+    });
+
+    it.each([
+      ['el paquete entero', "import type { createApp } from '@bal/api';\n"],
+      ['su build', "import type { x } from '@bal/api/dist/app.js';\n"],
+      [
+        'un servicio, por ruta relativa',
+        "import type { x } from '../../../api/src/services/a.js';\n",
+      ],
+      [
+        'las rutas, por ruta relativa',
+        "import type { admin } from '../../api/src/routes/admin.js';\n",
+      ],
+    ])('no importan nada más del backend: %s', async (_nombre, codigo) => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      const [infraccion] = infraccionesDeFrontend('lib/x.ts', codigo);
+
+      expect(infraccion?.motivo).toMatch(/@bal\/api\/tipos/);
+    });
+
+    it('un paquete que sólo se parece en el nombre no es el backend', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+
+      expect(
+        infraccionesDeFrontend(
+          'lib/x.ts',
+          "import { a } from '@bal/apiary';\nimport { b } from './api/cliente.js';\n",
+        ),
+      ).toEqual([]);
+    });
+
+    it('no se dejan engañar por un comentario que lo nombra', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+      const codigo = "// import { x } from '@bal/api/tipos'\n/* import { y } from '@bal/api' */\n";
+
+      expect(infraccionesDeFrontend('lib/x.ts', codigo)).toEqual([]);
+    });
+
+    it('dice la línea correcta aunque haya comentarios arriba', async () => {
+      const { infraccionesDeFrontend } = await cargar();
+      const codigo = "/**\n * uno\n */\nimport { x } from '@bal/api/tipos';\n";
+
+      expect(infraccionesDeFrontend('lib/x.ts', codigo)[0]?.linea).toBe(4);
+    });
+
+    it('revisa app y landing, incluidos los .tsx', async () => {
+      const { violacionesDeFrontends } = await cargar();
+      const packages = mkdtempSync(join(tmpdir(), 'bal-front-'));
+      const poner = (ruta: string, contenido: string) => {
+        mkdirSync(dirname(join(packages, ruta)), { recursive: true });
+        writeFileSync(join(packages, ruta), contenido);
+      };
+      poner('app/src/wafa/A.tsx', "import { x } from '@bal/api/tipos';\n");
+      poner('landing/src/lib/b.ts', "import { createApp } from '@bal/api';\n");
+      poner('app/src/lib/ok.ts', TIPOS);
+
+      const archivos = violacionesDeFrontends(packages).map((i) => i.archivo);
+
+      expect(archivos.sort()).toEqual(['app/src/wafa/A.tsx', 'landing/src/lib/b.ts']);
+    });
+
+    it('el código real de app y landing cumple', async () => {
+      const { violacionesDeFrontends } = await cargar();
+
+      expect(violacionesDeFrontends(join(AQUI, '..', '..'))).toEqual([]);
+    });
   });
 });

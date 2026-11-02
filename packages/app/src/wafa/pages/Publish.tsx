@@ -16,7 +16,7 @@ import type { TournamentStatus } from '@bal/shared';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { Despublicar } from '../publicacion/Despublicar.js';
 import { PodioDeCategoria } from '../publicacion/PodioDeCategoria.js';
 import {
@@ -38,13 +38,11 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
 
   const carga = useCarga(
-    async (signal) => {
+    async (signal): Promise<{ torneo: Torneo; participantes: ResultadoParticipante[] }> => {
+      const param = { id };
       const [t, r] = await Promise.all([
-        api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`, signal),
-        api.get<{ participants: ResultadoParticipante[] }>(
-          `/admin/tournaments/${id}/results`,
-          signal,
-        ),
+        cuerpo(rpc.admin.tournaments[':id'].$get({ param }, conSenal(signal))),
+        cuerpo(rpc.admin.tournaments[':id'].results.$get({ param }, conSenal(signal))),
       ]);
       return { torneo: t.tournament, participantes: r.participants };
     },
@@ -62,7 +60,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const publicar = async () => {
     setPublicando(true);
     try {
-      await api.post(`/admin/tournaments/${id}/publish`);
+      await rpc.admin.tournaments[':id'].publish.$post({ param: { id } });
       setConfirmando(false);
       setErrorDePublicar(undefined);
       await carga.recargar();

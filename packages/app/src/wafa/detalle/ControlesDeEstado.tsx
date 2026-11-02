@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, botonClases } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import type { Torneo } from './useTorneo.js';
 
 export function ControlesDeEstado({
@@ -34,7 +34,7 @@ export function ControlesDeEstado({
   const volverAtras = async () => {
     setIniciando(true);
     try {
-      await api.post(`/admin/tournaments/${torneo.id}/unstart`);
+      await rpc.admin.tournaments[':id'].unstart.$post({ param: { id: torneo.id } });
       await onCambio();
     } catch (err) {
       onError(err instanceof ApiError ? err.message : 'No se pudo volver atrás.');
@@ -46,7 +46,7 @@ export function ControlesDeEstado({
   const iniciar = async () => {
     setIniciando(true);
     try {
-      await api.post(`/admin/tournaments/${torneo.id}/start`);
+      await rpc.admin.tournaments[':id'].start.$post({ param: { id: torneo.id } });
       await onCambio();
     } catch (err) {
       onError(err instanceof ApiError ? err.message : 'No se pudo iniciar el torneo.');

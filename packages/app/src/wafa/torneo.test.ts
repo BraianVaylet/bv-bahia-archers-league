@@ -21,7 +21,6 @@ function participante(overrides: Partial<ResultadoParticipante> = {}): Resultado
   n++;
   return {
     id: `p${n}`,
-    participantId: `p${n}`,
     archerId: `a${n}`,
     firstName: `Nombre${n}`,
     lastName: `Apellido${String(n).padStart(3, '0')}`,
@@ -128,6 +127,27 @@ describe('podios', () => {
 
     expect(p[0]?.filas.map((f) => f.position)).toEqual([1, 1, 3]);
     expect(p[0]?.filas.map((f) => f.tied)).toEqual([true, true, false]);
+  });
+
+  // `/results` manda `id` y **no** `participantId`. El desempate de presentación de `rankParticipants`
+  // compara `participantId`: si `podios` no se lo da, queda `undefined` y el orden de dos arqueros
+  // iguales en todo depende de cómo hayan llegado (`REF6-11` / `C-3`).
+  it('con filas como las manda el servidor, desempata por id y no por el orden de llegada', () => {
+    const comoLoManda = (p: ResultadoParticipante): ResultadoParticipante => {
+      const { participantId: _sinUsar, ...resto } = p as ResultadoParticipante & {
+        participantId?: string;
+      };
+      return resto as ResultadoParticipante;
+    };
+    const igual = { firstName: 'Ana', lastName: 'Pérez', total: 100 };
+    const nueve = comoLoManda(participante({ ...igual, id: 'p9' }));
+    const uno = comoLoManda(participante({ ...igual, id: 'p1' }));
+
+    const llegaronAsi = podios([nueve, uno])[0]?.filas.map((f) => f.participante.id);
+    const llegaronAlReves = podios([uno, nueve])[0]?.filas.map((f) => f.participante.id);
+
+    expect(llegaronAsi).toEqual(['p1', 'p9']);
+    expect(llegaronAlReves).toEqual(['p1', 'p9']);
   });
 
   it('cada categoría tiene su propio podio', () => {

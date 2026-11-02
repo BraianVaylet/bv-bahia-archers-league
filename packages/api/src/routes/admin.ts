@@ -19,7 +19,7 @@ import { z } from 'zod';
 import { toObjectId } from '../lib/ids.js';
 import { ipDelCliente } from '../lib/ip.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
-import { parseJsonBody, parseQuery } from '../middleware/validate.js';
+import { bodyValidado, consultaValidada } from '../middleware/validate.js';
 import * as archerService from '../services/archerService.js';
 import * as patrolAdminService from '../services/patrolAdminService.js';
 import * as paymentService from '../services/paymentService.js';
@@ -53,13 +53,16 @@ const ListTournamentsQuery = z.strictObject({
   seasonId: ObjectIdSchema.optional(),
 });
 
+/** El motivo de despublicar o de desbloquear una firma: queda en la auditoría, así que no puede ser un «ok». */
+const MotivoSchema = z.strictObject({ reason: z.string().trim().min(5).max(500) });
+
 export const admin = new Hono()
   .use('*', requireAdmin())
 
   // ── Arqueros ───────────────────────────────────────────────────────────────
 
-  .get('/archers', async (c) => {
-    const { archived, query, status } = parseQuery(c, ListArchersQuery);
+  .get('/archers', consultaValidada(ListArchersQuery), async (c) => {
+    const { archived, query, status } = c.req.valid('query');
     return c.json({
       archers: await archerService.list({
         archived,
@@ -69,16 +72,16 @@ export const admin = new Hono()
     });
   })
 
-  .post('/archers', async (c) => {
-    const input = await parseJsonBody(c, ArcherInputSchema);
+  .post('/archers', bodyValidado(ArcherInputSchema), async (c) => {
+    const input = c.req.valid('json');
     return c.json(
       { archer: await archerService.create(input, currentAdminId(c), ipDelCliente(c)) },
       201,
     );
   })
 
-  .patch('/archers/:id', async (c) => {
-    const input = await parseJsonBody(c, ArcherInputSchema);
+  .patch('/archers/:id', bodyValidado(ArcherInputSchema), async (c) => {
+    const input = c.req.valid('json');
     return c.json({
       archer: await archerService.update(
         toObjectId(c.req.param('id')),
@@ -131,14 +134,14 @@ export const admin = new Hono()
 
   .get('/seasons', async (c) => c.json({ seasons: await seasonService.listar() }))
 
-  .post('/seasons', async (c) => {
-    const input = await parseJsonBody(c, SeasonInputSchema);
+  .post('/seasons', bodyValidado(SeasonInputSchema), async (c) => {
+    const input = c.req.valid('json');
     const doc = await seasonService.create(input, currentAdminId(c), ipDelCliente(c));
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } }, 201);
   })
 
-  .patch('/seasons/:id', async (c) => {
-    const input = await parseJsonBody(c, SeasonInputSchema);
+  .patch('/seasons/:id', bodyValidado(SeasonInputSchema), async (c) => {
+    const input = c.req.valid('json');
     const doc = await seasonService.update(
       toObjectId(c.req.param('id')),
       input,
@@ -176,14 +179,14 @@ export const admin = new Hono()
 
   // ── Torneos ────────────────────────────────────────────────────────────────
 
-  .post('/tournaments', async (c) => {
-    const input = await parseJsonBody(c, CreateTournamentSchema);
+  .post('/tournaments', bodyValidado(CreateTournamentSchema), async (c) => {
+    const input = c.req.valid('json');
     const creado = await tournamentService.createTournament(input, currentAdminId(c));
     return c.json({ tournament: creado }, 201);
   })
 
-  .get('/tournaments', async (c) => {
-    const q = parseQuery(c, ListTournamentsQuery);
+  .get('/tournaments', consultaValidada(ListTournamentsQuery), async (c) => {
+    const q = c.req.valid('query');
     return c.json(
       await tournamentQueryService.listadoAdmin({
         ...(q.status ? { status: q.status } : {}),
@@ -200,8 +203,8 @@ export const admin = new Hono()
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
-  .patch('/tournaments/:id', async (c) => {
-    const input = await parseJsonBody(c, UpdateTournamentSchema);
+  .patch('/tournaments/:id', bodyValidado(UpdateTournamentSchema), async (c) => {
+    const input = c.req.valid('json');
     const doc = await tournamentEditService.updateTournament(
       toObjectId(c.req.param('id')),
       input,
@@ -241,19 +244,16 @@ export const admin = new Hono()
     return c.json(await publishService.publish(toObjectId(c.req.param('id')), currentAdminId(c)));
   })
 
-  .post('/tournaments/:id/unpublish', async (c) => {
-    const { reason } = await parseJsonBody(
-      c,
-      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
-    );
+  .post('/tournaments/:id/unpublish', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
     return c.json(
       await publishService.unpublish(toObjectId(c.req.param('id')), currentAdminId(c), reason),
     );
   })
 
-  .get('/tournaments/:id/patrols', async (c) => {
+  .get('/tournaments/:id/patrols', consultaValidada(ListPatrolsQuery), async (c) => {
     const id = toObjectId(c.req.param('id'));
-    const { conPins } = parseQuery(c, ListPatrolsQuery);
+    const { conPins } = c.req.valid('query');
     const [patrols, violations] = await Promise.all([
       patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), conPins),
       patrolAdminService.validateCurrentDistribution(id),
@@ -265,9 +265,9 @@ export const admin = new Hono()
    * Redistribución manual. **Avisa pero no bloquea**: la respuesta trae las
    * violaciones que el admin acaba de aceptar. Ver `FUNCTIONAL.md` §6.6.
    */
-  .put('/tournaments/:id/patrols', async (c) => {
+  .put('/tournaments/:id/patrols', bodyValidado(PatrolDistributionSchema), async (c) => {
     const id = toObjectId(c.req.param('id'));
-    const input = await parseJsonBody(c, PatrolDistributionSchema);
+    const input = c.req.valid('json');
 
     await patrolAdminService.redistribute(id, input, currentAdminId(c), ipDelCliente(c));
 
@@ -298,8 +298,8 @@ export const admin = new Hono()
     return c.json(await paymentService.summary(toObjectId(c.req.param('id'))));
   })
 
-  .post('/participants/:id/payment', async (c) => {
-    const { paid } = await parseJsonBody(c, MarkPaymentSchema);
+  .post('/participants/:id/payment', bodyValidado(MarkPaymentSchema), async (c) => {
+    const { paid } = c.req.valid('json');
     return c.json(
       await paymentService.setPaid(
         toObjectId(c.req.param('id')),
@@ -319,11 +319,8 @@ export const admin = new Hono()
     );
   })
 
-  .post('/participants/:id/signature/unlock', async (c) => {
-    const { reason } = await parseJsonBody(
-      c,
-      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
-    );
+  .post('/participants/:id/signature/unlock', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
     await patrolAdminService.unlockSignature(
       toObjectId(c.req.param('id')),
       reason,

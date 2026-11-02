@@ -17,7 +17,7 @@
 import { MIN_PASSWORD_LENGTH } from '@bal/shared';
 import { type FormEvent, useState } from 'react';
 import { Button, Field, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 
 export interface RecuperarPasswordProps {
   readonly onVolver: () => void;
@@ -36,7 +36,9 @@ export function RecuperarPassword({ onVolver, onRecuperado }: RecuperarPasswordP
     setEnviando(true);
 
     try {
-      await api.post('/auth/admin/recover', { recoverySecret: codigo, newPassword: nuevo });
+      await rpc.auth.admin.recover.$post({
+        json: { recoverySecret: codigo, newPassword: nuevo },
+      });
       onRecuperado();
     } catch (err) {
       /*

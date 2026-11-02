@@ -48,6 +48,13 @@ export interface OpcionesDePedido {
 
 export interface Cliente {
   readonly request: <T>(path: string, opciones?: OpcionesDePedido) => Promise<T>;
+  /**
+   * Un `fetch` con el CSRF y los errores resueltos, para el cliente RPC de Hono (`hc`): éste arma
+   * la URL y el cuerpo, y lo que se manda pasa por acá. **No agrega la base**: la URL ya viene
+   * entera. Si el servidor rechaza, lanza `ApiError`; si sale bien, devuelve la respuesta **sin
+   * leerla**.
+   */
+  readonly fetch: (input: Entrada, init?: RequestInit) => Promise<Response>;
   readonly api: {
     readonly get: <T>(path: string, signal?: AbortSignal) => Promise<T>;
     readonly post: <T>(path: string, body?: unknown) => Promise<T>;
@@ -64,6 +71,41 @@ function leerCookie(nombre: string): string | undefined {
     ?.slice(nombre.length + 1);
 }
 
+type Entrada = string | URL | Request;
+
+const metodoDe = (input: Entrada, init: RequestInit): string =>
+  (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+/**
+ * Pasar `headers` en `init` reemplaza los del `Request`, no los suma: si el pedido ya traía los
+ * suyos, se parte de ésos.
+ */
+const cabecerasDe = (input: Entrada, init: RequestInit): Headers =>
+  new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
+
+/**
+ * El `ApiError` de una respuesta que no salió bien.
+ *
+ * **Un cuerpo que no es JSON sale como `SyntaxError`, a propósito.** El wifi del club tiene un
+ * portal cautivo que contesta con una página HTML. El outbox de WAFL trata cualquier error sin
+ * `status` como «no sé qué pasó» y reintenta; si esto fuera un `ApiError`, `esReintentable` diría
+ * que no y la op se descartaría: un puntaje perdido por un portal.
+ */
+async function rechazoDe(res: Response, porDefecto: string): Promise<ApiError> {
+  const texto = await res.text();
+  const cuerpo = texto ? (JSON.parse(texto) as unknown) : {};
+  const error = (
+    cuerpo as { error?: { code: string; message: string; details?: Record<string, unknown> } }
+  ).error;
+
+  return new ApiError(
+    res.status,
+    error?.code ?? 'INTERNAL',
+    error?.message ?? porDefecto,
+    error?.details,
+  );
+}
+
 export function crearCliente(opciones: OpcionesDelCliente): Cliente {
   const { base, rutaCsrf = '/api/auth/csrf', mensajes } = opciones;
 
@@ -76,55 +118,54 @@ export function crearCliente(opciones: OpcionesDelCliente): Cliente {
     return leerCookie(CSRF_COOKIE);
   }
 
-  async function request<T>(path: string, pedido: OpcionesDePedido = {}): Promise<T> {
-    const method = pedido.method ?? 'GET';
-    const esMutacion = MUTACIONES.has(method);
-    const headers = new Headers();
-
-    if (pedido.body !== undefined) headers.set('content-type', 'application/json');
+  /**
+   * Manda el pedido con el CSRF y convierte un rechazo en `ApiError`. Es lo común a `request` y a
+   * `fetch`: leer el cuerpo de una respuesta que salió bien es cosa de cada uno.
+   */
+  async function enviar(input: Entrada, init: RequestInit = {}): Promise<Response> {
+    const esMutacion = MUTACIONES.has(metodoDe(input, init));
+    const headers = cabecerasDe(input, init);
 
     if (esMutacion) {
       const token = await asegurarCsrf();
       if (token) headers.set(CSRF_HEADER, token);
     }
 
-    const res = await fetch(`${base}${path}`, {
-      method,
+    const res = await fetch(input instanceof Request ? input : String(input), {
+      ...init,
       headers,
       credentials: 'same-origin',
+    });
+
+    if (res.ok) return res;
+
+    throw await rechazoDe(
+      res,
+      (esMutacion ? mensajes?.escritura : mensajes?.lectura) ?? MENSAJE_POR_DEFECTO,
+    );
+  }
+
+  async function request<T>(path: string, pedido: OpcionesDePedido = {}): Promise<T> {
+    const headers = new Headers();
+    if (pedido.body !== undefined) headers.set('content-type', 'application/json');
+
+    const res = await enviar(`${base}${path}`, {
+      method: pedido.method ?? 'GET',
+      headers,
       ...(pedido.body !== undefined ? { body: JSON.stringify(pedido.body) } : {}),
       ...(pedido.signal ? { signal: pedido.signal } : {}),
     });
 
     if (res.status === 204) return undefined as T;
 
-    // **Un cuerpo que no es JSON sale como `SyntaxError`, a propósito.** El wifi del club tiene un
-    // portal cautivo que contesta `200` con una página HTML. El outbox de WAFL trata cualquier
-    // error sin `status` como «no sé qué pasó» y reintenta; si esto fuera un `ApiError(200, …)`,
-    // `esReintentable` diría que no y la op se descartaría: un puntaje perdido por un portal.
+    // Lo mismo del portal cautivo, del lado de los `200`: si no es JSON, `JSON.parse` lanza.
     const texto = await res.text();
-    const cuerpo = texto ? (JSON.parse(texto) as unknown) : {};
-
-    if (!res.ok) {
-      const error = (
-        cuerpo as { error?: { code: string; message: string; details?: Record<string, unknown> } }
-      ).error;
-      const porDefecto =
-        (esMutacion ? mensajes?.escritura : mensajes?.lectura) ?? MENSAJE_POR_DEFECTO;
-
-      throw new ApiError(
-        res.status,
-        error?.code ?? 'INTERNAL',
-        error?.message ?? porDefecto,
-        error?.details,
-      );
-    }
-
-    return cuerpo as T;
+    return (texto ? JSON.parse(texto) : {}) as T;
   }
 
   return {
     request,
+    fetch: enviar,
     api: {
       get: <T>(path: string, signal?: AbortSignal) => request<T>(path, signal ? { signal } : {}),
       post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),

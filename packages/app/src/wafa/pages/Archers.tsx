@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
 import { FilaDeArquero } from '../padron/FilaDeArquero.js';
 import { FilaPendiente } from '../padron/FilaPendiente.js';
 import { FiltrosDelPadron } from '../padron/FiltrosDelPadron.js';
@@ -50,7 +50,9 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
       sex: b.sex || null,
       dni: b.dni.trim() || null,
     };
-    await (b.id ? api.patch(`/admin/archers/${b.id}`, cuerpo) : api.post('/admin/archers', cuerpo));
+    await (b.id
+      ? rpc.admin.archers[':id'].$patch({ param: { id: b.id }, json: cuerpo })
+      : rpc.admin.archers.$post({ json: cuerpo }));
     setEditando(undefined);
     setErrorDeAccion(undefined);
     await padron.recargar();
@@ -116,8 +118,12 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
               <FilaPendiente
                 key={a.id}
                 arquero={a}
-                onAprobar={() => accion(() => api.post(`/admin/archers/${a.id}/approve`))}
-                onRechazar={() => accion(() => api.post(`/admin/archers/${a.id}/reject`))}
+                onAprobar={() =>
+                  accion(() => rpc.admin.archers[':id'].approve.$post({ param: { id: a.id } }))
+                }
+                onRechazar={() =>
+                  accion(() => rpc.admin.archers[':id'].reject.$post({ param: { id: a.id } }))
+                }
               />
             ) : (
               <FilaDeArquero
@@ -133,9 +139,15 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
                     dni: a.dni ?? '',
                   })
                 }
-                onArchivar={() => void accion(() => api.post(`/admin/archers/${a.id}/archive`))}
-                onRestaurar={() => void accion(() => api.post(`/admin/archers/${a.id}/restore`))}
-                onEliminar={() => void accion(() => api.del(`/admin/archers/${a.id}`))}
+                onArchivar={() =>
+                  void accion(() => rpc.admin.archers[':id'].archive.$post({ param: { id: a.id } }))
+                }
+                onRestaurar={() =>
+                  void accion(() => rpc.admin.archers[':id'].restore.$post({ param: { id: a.id } }))
+                }
+                onEliminar={() =>
+                  void accion(() => rpc.admin.archers[':id'].$delete({ param: { id: a.id } }))
+                }
               />
             ),
           )}

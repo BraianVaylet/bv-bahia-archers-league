@@ -9,7 +9,7 @@
 import { useCarga } from '@bal/cliente';
 import type { BowCategory } from '@bal/shared';
 import { useState } from 'react';
-import { api } from '../../lib/apiClient.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import type { ArcherRow } from './tipos.js';
 
 export function usePadron() {
@@ -20,18 +20,17 @@ export function usePadron() {
 
   const carga = useCarga(
     async (signal) => {
-      const params = new URLSearchParams();
       // Pendientes y archivados no se combinan: son dos vistas, no dos filtros que se puedan
       // pedir a la vez. Lo exige también la UI (`elegirArchivados` / `elegirPendientes`).
-      if (verPendientes) params.set('status', 'pendiente');
-      else if (verArchivados) params.set('archived', 'true');
-      if (busqueda.trim()) params.set('q', busqueda.trim());
+      const vista = verPendientes
+        ? ({ status: 'pendiente' } as const)
+        : verArchivados
+          ? ({ archived: 'true' } as const)
+          : {};
+      const query = { ...vista, ...(busqueda.trim() ? { q: busqueda.trim() } : {}) };
 
-      const r = await api.get<{ archers: ArcherRow[] }>(
-        `/admin/archers${params.size > 0 ? `?${params}` : ''}`,
-        signal,
-      );
-      return r.archers;
+      const r = await cuerpo(rpc.admin.archers.$get({ query }, conSenal(signal)));
+      return r.archers satisfies readonly ArcherRow[] as readonly ArcherRow[];
     },
     [busqueda, verArchivados, verPendientes],
     // Es el mismo padrón con otra consulta: la lista se queda mientras llega la nueva, no parpadea
