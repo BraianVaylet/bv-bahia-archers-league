@@ -170,14 +170,16 @@ describe('viajes a la base por lote de sincronización', () => {
    * escritura del puntaje (1), rollups (1) y commit (1) — **6**. Y por lote, lo
    * que no depende de cuántas ops traiga: el torneo, la patrulla, el recálculo
    * del avance (en su propia transacción corta) y la patrulla de nuevo para
-   * responder.
+   * responder. Desde `REF6-13` / `B-4` también **un** `updateMany` que confirma las
+   * ops aplicadas: la marca de dedup nace `processing` y se confirma por lote, no
+   * por op, justamente para no volver a pagar un viaje por cada score.
    *
    * Antes el avance de la patrulla se recalculaba **dentro de cada op**: dos
    * listas y un `updateOne` (3 comandos) por cada score, y los rollups usaban
    * dos comandos en vez de uno. 10 por op.
    */
   const POR_OP = 6;
-  const POR_LOTE = 8;
+  const POR_LOTE = 9;
 
   it('un lote de 20 ops cuesta a lo sumo 6 comandos por op más lo fijo del lote', async () => {
     const e = await escenario();

@@ -14,6 +14,54 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-02 · Limpieza del backend (REF6-13)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-13`](post/ref-6/ACTION_PLAN.md) hecha, con un punto de despliegue pendiente y un ítem descartado a propósito (hallazgos `B-3`, `B-4`, `B-5`, `C-5`, `C-6`, `P-6`).
+
+### Qué cambió
+
+- **Una op de sync que quedó a medias ya no se pierde** (`B-4`). La marca de dedup nacía `applied` *antes* de aplicar: si el proceso moría entre la marca y el commit, el reintento recibía `duplicate` y el puntaje desaparecía. Ahora nace `processing`, con la hora, y una op que sigue así pasados 30 s se reprocesa. Es una de las cuatro tareas que definen el proyecto (`BE-10`), así que se probó más de lo habitual: 15 tests y 10 mutaciones sobre este camino.
+- **El apagado espera a los requests en vuelo** (`B-3`) antes de cerrar Mongo, con un plazo de 10 s.
+- **Un log que se puede consultar** (`B-5`): una línea JSON por evento, que respeta `LOG_LEVEL` (que se validaba y no filtraba nada). Cada lote de sync dice cuántas ops trae, cuánto tarda y cuántas rechaza.
+- **`esClaveDuplicada`** (`C-5`) en vez de buscar «E11000» en el texto del mensaje.
+- **Config muerta afuera** (`C-6`): `WEB_DIST_*`, `VITE_APP_NAME`, `validateBody`.
+- **El listado público de torneos filtra en la consulta** (`P-6`).
+
+### Decisiones
+
+- **Una op en proceso reciente no se contesta, no se responde `duplicate`.** El cliente ya trata una op ausente de la respuesta como «reintentar más tarde» (el arreglo de `REF6-5`), así que omitirla es seguro; `duplicate` la sacaría del outbox del celular antes de saber si llegó a aplicarse, que es exactamente el bug que se quiere cerrar. Se aprovecha un contrato que ya existía en vez de inventar un estado nuevo.
+- **La confirmación de los scores es por lote; la de firmas y cierre, dentro de la transacción.** Confirmar op por op suma un viaje a la base por cada score, y `REF6-5` existe para sacarlos (el tope fijo del lote pasa de 8 a 9: un `updateMany`). Un score se puede volver a aplicar sin consecuencias, así que una marca que quedó `processing` es inocua. Una firma o un cierre **no**: al reaplicarse rechazarían por «ya firmado» y el líder vería un conflicto que no existe, en el peor momento. Esas se confirman con su transacción.
+- **Retomar es atómico y sólo de la misma patrulla.** Renueva la hora en el mismo comando que la busca, así que dos reintentos simultáneos no la toman los dos, y el `opId` de otra patrulla no se puede retomar.
+- **El logger no usa `LOG_LEVEL` al importar sino al escribir**, y nunca lanza: un log que tira una excepción tira abajo la request que quería contar.
+- **Sin LRU de rankings.** `TECHNICAL.md` §5 lo pedía; lo descarté. El único escritor de `standings` corre dentro de una transacción, así que invalidar antes del commit deja que un lector recachee datos viejos; hacerlo bien exige invalidar después del commit en tres sitios de `publishService`, y olvidar uno es un ranking desactualizado tras publicar. A cambio de ahorrar una lectura indexada de unos cientos de documentos, con `ETag` ya puesto. Se reabre si se mide. Quedó escrito en `TECHNICAL.md`.
+
+### Lo que encontré
+
+- **El listado público de torneos estaba roto de una forma silenciosa:** el `limit(200)` iba antes del filtro por estado, así que con 200 torneos recientes sin publicar, los públicos no aparecían. Hoy no pasa porque hay pocos torneos; el test lo reproduce.
+- **Railway da 0 segundos de drenado por defecto** entre `SIGTERM` y `SIGKILL`. Sin configurarlo, el apagado ordenado no tiene tiempo de hacer nada. La clave es `deploy.drainingSeconds` en `railway.json` (o la variable `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`).
+
+### Lo que dejé sin hacer, a propósito
+
+- **No toqué `railway.json`.** Es configuración de despliegue; un valor con el tipo equivocado puede romper el próximo deploy, y la documentación de Railway muestra el número como string. Hay que decidirlo y probarlo en un deploy.
+
+### Errores míos en el camino
+
+- **Una cita a una sección que no existe.** En `CONFIG.md` escribí «Ver `TECHNICAL.md` §10» para el logger; no hay tal sección. Lo vi al buscar dónde estaba documentado y lo saqué.
+- **Una ancla ambigua en mi propia especificación de mutaciones** (`result: 'processing'` aparece en dos funciones) y **dos mutaciones/tests que no distinguían nada**: un lote de prueba donde las aplicadas y las rechazadas eran una cada una (cruzarlas no se notaba), y una hora que se renueva al retomar sin test que la mirara. Las tres las encontró la mutación; las cerré.
+- **Un bloque de test roto por comillas del shell** al agregarlo con `node -e`: perdió la línea del PNG. Lo vi al leer el archivo y lo reparé con el editor.
+
+### Verificación
+
+Tipos y Biome sin errores nuevos. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` **492** (+47), `@bal/ui` 77, `@bal/app` 616, `@bal/landing` 64. **31 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.6 min).
+
+### Deuda / lo que sigue
+
+- **Configurar el drenado en Railway** (`deploy.drainingSeconds` > 10 s). Sin eso, `B-3` está escrito pero no hace nada.
+- Sigue pendiente lo de `REF6-12` (pantalla encendida en un celular real; seis pantallas de WAFA sin `h1`) y el presupuesto de bundle de «pantalla de elegir rol».
+- Sigue sin correrse `/security-review` ni `aikido:scan` formales desde `REF6-2`. Esta tanda toca la sincronización idempotente y el apagado: conviene antes de mergear.
+
+---
+
 ## 2026-11-02 · Navegación accesible y pantalla encendida (REF6-12)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-12`](post/ref-6/ACTION_PLAN.md) hecha, salvo la prueba de la pantalla encendida en un celular real (hallazgos `U-5` y `U-7`).

@@ -26,6 +26,7 @@ import { type ClientSession, ObjectId } from 'mongodb';
 import { iniciarSesion } from '../db/sesion.js';
 import type { ParticipantDoc, ScoreDoc, TournamentDoc } from '../db/types.js';
 import { AppError, type ErrorCode } from '../lib/errors.js';
+import { log } from '../lib/logger.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
@@ -131,16 +132,33 @@ export async function sync(
   // cerrar hacen falta todas las firmas, y `aplicarScore` rechaza sobre firmados.
   let cerrada = (await patrolRepo.findById(patrolId))?.status === 'cerrada';
 
-  const results: OpResult[] = [];
+  // Alineado con `batch.ops`; `null` es una op que otro request está procesando y a la que no se
+  // contesta (`B-4`): el cliente la deja en el outbox y la reintenta.
+  const inicio = Date.now();
+  const resultados: (OpResult | null)[] = [];
   for (const op of batch.ops) {
     const resultado = await procesarOp(op, patrolId, torneo, cerrada, ip);
-    results.push(resultado);
-    if (op.type === 'close' && resultado.status === 'applied') cerrada = true;
+    resultados.push(resultado);
+    if (op.type === 'close' && resultado?.status === 'applied') cerrada = true;
   }
+
+  // Los scores aplicados se confirman de una vez: un comando por lote, no por op (`REF6-5`).
+  await scoreRepo.confirmarOps(
+    batch.ops
+      .filter((op, i) => op.type === 'score' && resultados[i]?.status === 'applied')
+      .map((op) => op.opId),
+  );
 
   // Una vez por lote, y antes de leer la patrulla para responder: el número que
   // vuelve en `patrol.targetsCompleted` tiene que ser el recién contado.
-  if (hayQueRecontar(batch.ops, results)) await recalcularAvanceDePatrulla(patrolId);
+  if (hayQueRecontar(batch.ops, resultados)) await recalcularAvanceDePatrulla(patrolId);
+
+  log.info(
+    'sync.lote',
+    resumenDelLote(patrolId, batch.ops.length, resultados, Date.now() - inicio),
+  );
+
+  const results = resultados.filter((r): r is OpResult => r !== null);
 
   const patrulla = await patrolRepo.findById(patrolId);
 
@@ -187,6 +205,28 @@ async function respuestaDeDuplicada(op: SyncOpInput, patrolId: ObjectId): Promis
   return vigente ? { ...sinDetalle, score: puntajeVigente(vigente) } : sinDetalle;
 }
 
+/** Quién es dueño de una op que se quiere procesar. */
+type Reclamo = 'mia' | 'duplicada' | 'en-proceso';
+
+/**
+ * Reclama la op para esta request (`REF6-13` / `B-4`).
+ *
+ * - `mia`: es nueva, o estaba abandonada en `processing` hace más de 30 s y se retomó.
+ * - `duplicada`: ya terminó. Se le responde lo que el servidor tiene hoy.
+ * - `en-proceso`: otro request la está procesando ahora. No se contesta.
+ */
+async function reclamar(op: SyncOpInput, patrolId: ObjectId): Promise<Reclamo> {
+  if (await scoreRepo.claimOp(op.opId, patrolId, op.type)) return 'mia';
+
+  const marca = await scoreRepo.findOp(op.opId);
+
+  // Se soltó entre el insert y la lectura (el otro request falló y la liberó): otra vuelta.
+  if (!marca) return (await scoreRepo.claimOp(op.opId, patrolId, op.type)) ? 'mia' : 'en-proceso';
+
+  if (marca.result !== 'processing') return 'duplicada';
+  return (await scoreRepo.retomarOp(op.opId, patrolId)) ? 'mia' : 'en-proceso';
+}
+
 /**
  * Procesa una op.
  *
@@ -196,10 +236,12 @@ async function respuestaDeDuplicada(op: SyncOpInput, patrolId: ObjectId): Promis
  * primero, se aplican las escrituras en una transacción, y si algo falla se
  * borra la marca para que el reintento del cliente vuelva a entrar.
  *
- * Riesgo residual: si el proceso muere entre la marca y el commit, la op queda
- * marcada sin haberse aplicado y el reintento la ve como duplicada. La ventana
- * es de milisegundos y el costo es un puntaje; el líder lo ve faltante en la
- * pantalla de resultados y lo vuelve a cargar, que genera un `opId` nuevo.
+ * **La marca nace `processing`, no `applied`** (`REF6-13` / `B-4`). Antes se marcaba `applied`
+ * antes de aplicar: si el proceso moría entre la marca y el commit, el reintento recibía
+ * `duplicate` y el puntaje se perdía en silencio. Ahora, una op que sigue `processing` pasados
+ * 30 s se **reprocesa**. Una `processing` reciente es de otro request que sigue vivo, y a ésa no
+ * se le contesta nada: el cliente trata una op ausente de la respuesta como «reintentar más
+ * tarde», mientras que `duplicate` la sacaría del outbox antes de saber si llegó a aplicarse.
  */
 async function procesarOp(
   op: SyncOpInput,
@@ -207,12 +249,12 @@ async function procesarOp(
   torneo: TournamentDoc,
   patrullaCerrada: boolean,
   ip: string | null,
-): Promise<OpResult> {
+): Promise<OpResult | null> {
   // Paso 1 — DEDUP. Insert atómico contra el índice único: no hay ventana entre
   // comprobar y escribir, como sí la habría con un `findOne` previo.
-  if (!(await scoreRepo.claimOp(op.opId, patrolId, op.type, 'applied'))) {
-    return respuestaDeDuplicada(op, patrolId);
-  }
+  const reclamo = await reclamar(op, patrolId);
+  if (reclamo === 'duplicada') return respuestaDeDuplicada(op, patrolId);
+  if (reclamo === 'en-proceso') return null;
 
   const session = iniciarSesion();
 
@@ -226,6 +268,13 @@ async function procesarOp(
           : op.type === 'signature'
             ? await aplicarFirma(op, patrolId, patrullaCerrada, session)
             : await aplicarCierre(op, patrolId, torneo, ip, session);
+
+      // Una firma o un cierre no se pueden volver a aplicar sin consecuencias (rechazarían por
+      // «ya firmado» y el líder vería un conflicto que no existe), así que su marca se confirma
+      // en la misma transacción. Los scores, que son idempotentes, se confirman por lote.
+      if (op.type !== 'score' && resultado.status === 'applied') {
+        await scoreRepo.markOpResult(op.opId, 'applied', session);
+      }
     });
 
     // Una op rechazada queda registrada como tal: si el cliente la reenvía con
@@ -432,8 +481,40 @@ async function aplicarScore(
  * - `rejected`: no cambió nada, y un lote entero de rechazos no paga el recálculo.
  *   Una op mala **no** impide recontar si las buenas del mismo lote lo piden.
  */
-const hayQueRecontar = (ops: SyncBatchInput['ops'], resultados: readonly OpResult[]): boolean =>
-  ops.some((op, i) => op.type === 'score' && resultados[i]?.status !== 'rejected');
+const hayQueRecontar = (
+  ops: SyncBatchInput['ops'],
+  resultados: readonly (OpResult | null)[],
+): boolean =>
+  // Una op en proceso (`null`) no cambió nada acá: la cuenta es de quien la está aplicando.
+  ops.some((op, i) => op.type === 'score' && resultados[i] && resultados[i]?.status !== 'rejected');
+
+/** Lo que se escribe en el log por cada lote (`REF6-13` / `B-5`). */
+function resumenDelLote(
+  patrolId: ObjectId,
+  ops: number,
+  resultados: readonly (OpResult | null)[],
+  duracionMs: number,
+) {
+  const cuantas = (estado: OpResult['status']) =>
+    resultados.filter((r) => r?.status === estado).length;
+  const codigos: Record<string, number> = {};
+  for (const r of resultados) {
+    if (r?.status === 'rejected' && r.error)
+      codigos[r.error.code] = (codigos[r.error.code] ?? 0) + 1;
+  }
+
+  return {
+    patrolId: patrolId.toHexString(),
+    ops,
+    aplicadas: cuantas('applied'),
+    duplicadas: cuantas('duplicate'),
+    reemplazadas: cuantas('superseded'),
+    rechazadas: cuantas('rejected'),
+    enProceso: resultados.filter((r) => r === null).length,
+    ...(Object.keys(codigos).length > 0 ? { codigosDeRechazo: codigos } : {}),
+    duracionMs,
+  };
+}
 
 /**
  * Blancos en los que TODOS los participantes de la patrulla ya tienen puntaje.

@@ -9,15 +9,16 @@
  */
 
 import type { BowCategory } from '@bal/shared';
-import type { Db } from 'mongodb';
+import { type Db, ObjectId } from 'mongodb';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app.js';
-import { connect, disconnect } from '../src/db/client.js';
+import { connect, disconnect, participants, patrols } from '../src/db/client.js';
 import { ensureIndexes } from '../src/db/indexes.js';
 import { reset } from '../src/db/reset.js';
 import type { Env } from '../src/env.js';
 import { loadEnv } from '../src/env.js';
 import { resetBloqueos } from '../src/lib/bloqueoDeIngreso.js';
+import { decryptPin } from '../src/lib/crypto.js';
 
 let replSet: MongoMemoryReplSet | undefined;
 
@@ -178,3 +179,48 @@ export const recorridoDeReferencia = () => [
   { index: 13, modality: 'aire_libre', arrows: 6, description: null },
   { index: 14, modality: 'sala', arrows: 3, description: null },
 ];
+
+/** Un torneo de 14 blancos con una patrulla de 4, iniciado y con el líder adentro. */
+export interface EscenarioDeSync {
+  readonly admin: Cliente;
+  readonly lider: Cliente;
+  readonly participantIds: string[];
+  readonly patrolId: ObjectId;
+  readonly tournamentId: string;
+}
+
+export async function escenarioDeSync(): Promise<EscenarioDeSync> {
+  const admin = await adminListo();
+  const seasonId = await crearTemporada(admin);
+  const archerIds = await crearArqueros(admin, [['razo', 4]]);
+
+  const res = await admin.post('/api/admin/tournaments', {
+    seasonId,
+    name: 'Torneo',
+    date: '2026-08-08',
+    targets: recorridoDeReferencia(),
+    archerIds,
+  });
+  const tournamentId = ((await res.json()) as { tournament: { id: string } }).tournament.id;
+  await admin.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+  const patrulla = await patrols().findOne({ tournamentId: new ObjectId(tournamentId) });
+  if (!patrulla) throw new Error('no se armó ninguna patrulla');
+  const miembros = await participants().find({ patrolId: patrulla._id }).toArray();
+
+  const lider = cliente();
+  const login = await lider.post('/api/auth/patrol/login', {
+    tournamentId,
+    username: patrulla.username,
+    pin: decryptPin(patrulla.pinEnc, testEnv().PIN_ENC_KEY),
+  });
+  if (login.status !== 200) throw new Error(`login de patrulla falló: ${login.status}`);
+
+  return {
+    admin,
+    lider,
+    participantIds: miembros.map((m) => m._id.toHexString()),
+    patrolId: patrulla._id,
+    tournamentId,
+  };
+}

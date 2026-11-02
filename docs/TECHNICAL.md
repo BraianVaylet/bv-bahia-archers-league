@@ -260,11 +260,13 @@ El índice `{ tournamentId, category, total: -1 }` resuelve los podios por categ
   _id: "uuid-v7-del-cliente",           // el opId ES la clave primaria
   patrolId: ObjectId,
   type: "score" | "signature" | "close",
-  appliedAt: Date,
-  result: "applied" | "superseded" | "rejected",
-  expiresAt: Date                       // appliedAt + 7 días
+  appliedAt: Date,                      // cuándo se marcó; con "processing", desde cuándo se procesa
+  result: "processing" | "applied" | "superseded" | "rejected",
+  expiresAt: Date                       // la marca + 7 días
 }
 ```
+
+**La marca nace `processing`** (`REF6-13` / `B-4`) y termina `applied` o `rejected` cuando la transacción termina. Una op que sigue `processing` pasados **30 s** se da por abandonada (el proceso murió) y se reprocesa; una `processing` reciente es de otro request que sigue vivo y no se contesta —el cliente trata una op ausente de la respuesta como «reintentar más tarde»—. Antes nacía `applied`, y si el proceso moría antes del commit el reintento recibía `duplicate` y el puntaje se perdía en silencio.
 Índices: `{ expiresAt: 1 }` **TTL** · `{ patrolId: 1, appliedAt: -1 }`.
 
 Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert` que falla con `E11000`. No hace falta un `findOne` previo.
@@ -527,7 +529,7 @@ export const SyncBatchSchema = z.object({
 
 ### Backend
 - Respuestas públicas con `Cache-Control: public, max-age=60, stale-while-revalidate=300` + `ETag`.
-- Caché en memoria (LRU, TTL 60 s) para rankings, invalidada al publicar.
+- **Sin caché propia de rankings** (`REF6-13` / `P-6`, decisión). Se había previsto un LRU en memoria invalidado al publicar, y se descartó: la consulta es una lectura indexada de unos cientos de documentos, la respuesta ya sale con `ETag` y `Cache-Control`, y el único escritor (`replaceSeason`) corre dentro de una transacción, así que invalidar antes del commit deja que un lector recachee datos viejos. El riesgo de un ranking desactualizado tras publicar no compensa el ahorro. Se reabre si se mide que la consulta pesa.
 - **Compresión.** Los estáticos van **precomprimidos**: `scripts/precomprimir.mjs` (al final de `pnpm build`) deja un `.br` y un `.gz` junto a cada archivo de texto del `dist`, y `serveStatic({ precompressed: true })` entrega el que el cliente acepta, sin comprimir nada por request. El JS de la PWA pasa de 439 KB a 109 KB en brotli. El JSON de la API se comprime con `gzip` si pasa de 1 KB (`middleware/compresion.ts`; `hono/compress` sólo mira el umbral si la respuesta trae `Content-Length`, y `c.json()` no lo trae, así que el middleware lo declara antes).
 - **Caché de los estáticos** (`middleware/estaticos.ts`): lo que está bajo `/assets/` lleva el hash en el nombre y va `public, max-age=31536000, immutable`; todo lo demás —`index.html`, `sw.js`, el manifest, los íconos— va `no-cache` (se guarda y se pregunta antes de usar: con `Last-Modified` cuesta un `304`). `Vary: Accept-Encoding` siempre. Los dos `index.html` se leen una vez al montar, no en cada fallback de SPA.
 

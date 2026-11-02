@@ -266,8 +266,15 @@ Máximo **200 ops** por batch, **1 MB** de body (el único endpoint con ese tech
 ### Procesamiento server-side, por op
 
 ```
-1. DEDUP        insert en syncOps con _id = opId.
-                E11000  →  status 'duplicate', se saltea. (Sin findOne previo.)
+1. DEDUP        insert en syncOps con _id = opId y result = 'processing'.
+                E11000  →  se mira la marca:
+                  terminada (applied / rejected)  →  status 'duplicate', se saltea.
+                  'processing' hace más de 30 s   →  el proceso murió: se retoma y se procesa.
+                  'processing' reciente           →  otro request la está procesando:
+                                                     NO se contesta esa op (el cliente la deja
+                                                     en el outbox y reintenta).
+                Al terminar: 'applied' o 'rejected'. Las firmas y el cierre se confirman en la
+                misma transacción; los scores, de a un lote (un solo comando).
 
 2. AUTORIZAR    ¿participantId pertenece a la patrulla de ESTA sesión?
                 No  →  'rejected' con FORBIDDEN. Se registra en auditLog.

@@ -236,13 +236,21 @@ export interface ScoreDoc {
 // ── Sincronización ───────────────────────────────────────────────────────────
 
 export type SyncOpType = 'score' | 'signature' | 'close';
-export type SyncOpResult = 'applied' | 'superseded' | 'rejected';
+/**
+ * Cómo terminó una op de sync. `processing` es la marca de dedup que nace antes de aplicarla
+ * (`REF6-13` / `B-4`): si el proceso muere antes del commit, la op queda ahí y se reprocesa.
+ */
+export type SyncOpResult = 'processing' | 'applied' | 'superseded' | 'rejected';
 
 export interface SyncOpDoc {
   /** El `opId` del cliente ES la clave primaria: deduplicar es un insert que falla. */
   _id: string;
   patrolId: ObjectId;
   type: SyncOpType;
+  /**
+   * Cuándo se marcó la op. Con `processing`, desde cuándo se está procesando: pasado el plazo de
+   * reproceso se da por abandonada (el proceso murió) y otro request la retoma, renovando la hora.
+   */
   appliedAt: Date;
   result: SyncOpResult;
   /** TTL. */

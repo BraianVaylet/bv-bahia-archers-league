@@ -6,6 +6,7 @@
  */
 
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { MongoServerError } from 'mongodb';
 
 export type ErrorCode =
   | 'UNAUTHORIZED'
@@ -111,3 +112,16 @@ export const validationError = (details: Record<string, unknown>) =>
 
 export const invalidState = (message: string) =>
   new AppError('INVALID_STATE_TRANSITION', { message });
+
+/** El código con que MongoDB avisa que un índice único rechazó el valor (`E11000`). */
+const CLAVE_DUPLICADA = 11000;
+
+/**
+ * ¿Este error es «ya existe» por un índice único? (`REF6-13` / `C-5`)
+ *
+ * Se mira el **código** que expone el driver y no el texto del mensaje: el texto puede cambiar sin
+ * aviso, y cualquier otro error podría contenerlo. Un `Error` común nunca es una clave duplicada.
+ */
+export function esClaveDuplicada(error: unknown): boolean {
+  return error instanceof MongoServerError && error.code === CLAVE_DUPLICADA;
+}

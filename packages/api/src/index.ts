@@ -10,6 +10,8 @@ import { connect, disconnect } from './db/client.js';
 import { ensureIndexes } from './db/indexes.js';
 import { seed } from './db/seed.js';
 import { env } from './env.js';
+import { apagarOrdenadamente, PLAZO_DE_APAGADO_MS } from './lib/apagado.js';
+import { log } from './lib/logger.js';
 
 async function main(): Promise<void> {
   // `env()` valida la configuración y falla ruidosamente si algo no cierra.
@@ -24,13 +26,32 @@ async function main(): Promise<void> {
   const app = createApp();
 
   const server = serve({ fetch: app.fetch, port: cfg.PORT }, (info) => {
-    console.info(`@bal/api escuchando en :${info.port} (${cfg.NODE_ENV})`);
+    log.info('servidor.escuchando', { puerto: info.port, entorno: cfg.NODE_ENV });
   });
 
+  /** Deja de aceptar conexiones y resuelve cuando terminó el último request en vuelo. */
+  const cerrarServidor = () =>
+    new Promise<void>((resolver, rechazar) => {
+      server.close((error) => (error ? rechazar(error) : resolver()));
+    });
+
+  let apagando = false;
+
   const apagar = async (señal: string) => {
-    console.info(`${señal} recibida, cerrando.`);
-    server.close();
-    await disconnect();
+    // Una segunda señal es alguien que ya no quiere esperar.
+    if (apagando) {
+      log.warn('apagado.forzado', { señal });
+      process.exit(1);
+    }
+    apagando = true;
+
+    log.info('apagado.inicio', { señal, plazoMs: PLAZO_DE_APAGADO_MS });
+    const resultado = await apagarOrdenadamente({
+      cerrarServidor,
+      desconectar: disconnect,
+      plazoMs: PLAZO_DE_APAGADO_MS,
+    });
+    log.info('apagado.fin', { resultado });
     process.exit(0);
   };
 
@@ -39,6 +60,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
+  log.error('servidor.no_arranco', { error });
   process.exit(1);
 });

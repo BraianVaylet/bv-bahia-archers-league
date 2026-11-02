@@ -25,9 +25,7 @@ import { blancosBloqueados as blancosBloqueadosDe } from './tournamentEditServic
  * uno completado sin publicar todavía no es oficial.
  */
 export async function listadoPublico() {
-  const docs = (await tournamentRepo.list()).filter(
-    (t) => t.status === 'publicado' || t.status === 'en_proceso',
-  );
+  const docs = await tournamentRepo.listPublicos();
 
   return {
     tournaments: docs.map((t) => ({

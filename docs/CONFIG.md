@@ -44,16 +44,13 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `RATE_LIMIT_SYNC` | no | `300` | Ops de sync por minuto y sesión. **Generoso a propósito** |
 | `RATE_LIMIT_PUBLIC` | no | `120` | Requests públicos por minuto e IP |
 | `LEAGUE_BEST_N` | no | `2` | Cuántos mejores porcentajes entran en el promedio de «mejor de N». También el mínimo de torneos para figurar en el ranking. Ver `DOMAIN_WA.md` §9 |
-| `WEB_DIST_APP` | no | `public/app` | Ruta del build de la PWA |
-| `WEB_DIST_LANDING` | no | `public/landing` | Ruta del build de la landing |
-| `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error` |
+| `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error`. Filtra el logger estructurado (`lib/logger.ts`): una línea JSON por evento, con `t`, `nivel` y `evento` |
 
 ### Frontend (build-time, prefijo `VITE_`)
 
 | Variable | Ámbito | Default | Descripción |
 |---|---|---|---|
 | `VITE_API_BASE` | app, landing | `/api` | Base de la API. Relativa en el monolito; URL absoluta si algún día se separan los repos |
-| `VITE_APP_NAME` | app | `Liga Bahiense` | Nombre en el manifest de la PWA |
 | `__APP_VERSION__` | app | de `package.json` | Inyectada por Vite. Se muestra en la UI para diagnóstico en el campo |
 
 ### Generar los secretos

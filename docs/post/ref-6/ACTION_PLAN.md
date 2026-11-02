@@ -304,16 +304,23 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-13` · Limpieza del backend · **P2** · M
+### `[~] REF6-13` · Limpieza del backend · **P2** · M
+
+> **Estado: hecho, salvo dos cosas que no son mías de decidir:** el apagado ordenado **no sirve en Railway hasta que se configure el tiempo de drenado** (por defecto es 0 s), y el LRU de rankings se **descartó a propósito**. Ver abajo.
 
 **Hallazgos:** `B-3`, `B-4`, `B-5`, `C-5`, `C-6`, `P-6`.
 
-- [ ] Apagado ordenado: esperar `server.close` con plazo de gracia antes de `disconnect`
-- [ ] Dedup de sync con estado `processing` y reproceso tras 30 s
-- [ ] Logger estructurado que respete `LOG_LEVEL`; una línea por lote de sync con ops, duración y rechazos
-- [ ] `esClaveDuplicada(error)` con `MongoServerError.code === 11000`
-- [ ] Fuera `WEB_DIST_*` y `VITE_APP_NAME` (`validateBody` ya salió en `REF6-11`: `bodyValidado` ocupa su lugar)
-- [ ] `/public/tournaments` filtra en la consulta, con proyección; LRU de rankings invalidada al publicar
+- [~] **Apagado ordenado** (`B-3`): `lib/apagado.ts` espera a los requests en vuelo, con un plazo de 10 s, y recién entonces desconecta Mongo; una segunda señal fuerza la salida. **Railway da 0 s entre `SIGTERM` y `SIGKILL` por defecto**: hace falta `deploy.drainingSeconds` en `railway.json` (o `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`) mayor que 10. **No lo toqué**: es configuración de despliegue y un valor mal puesto puede romper el próximo deploy
+- [x] **Dedup con `processing`** (`B-4`): la marca nace `processing`, termina `applied` / `rejected`, y se reprocesa a los 30 s. Una `processing` reciente no se contesta (el cliente ya trata una op ausente como «reintentar»). La confirmación de los scores es **un comando por lote**, no por op, para no volver a pagar un viaje por score (`REF6-5`): el tope fijo del lote en `sync-viajes` pasa de 8 a 9
+- [x] **Logger estructurado** (`B-5`): `lib/logger.ts`, una línea JSON por evento, respeta `LOG_LEVEL`. Los 4 `console.*` de la API pasan por él, y cada lote de sync escribe una línea con `ops`, `aplicadas`, `duplicadas`, `rechazadas`, `enProceso`, `duracionMs` y los códigos de rechazo
+- [x] **`esClaveDuplicada(error)`** (`C-5`): `MongoServerError` con `code === 11000`, en los tres sitios. Un `Error` común con «E11000» en el texto ya no cuenta
+- [x] **Fuera** `validateBody` (lo reemplazó `bodyValidado` en `REF6-11`), `WEB_DIST_*` y `VITE_APP_NAME`. `LOG_LEVEL` deja de ser una variable que no filtra nada. *(`public/theme-init.js` se usa, y el `runtimeCaching` ya se sacó en `REF6-8`.)*
+- [~] **`/public/tournaments`** (`P-6`): filtra en la consulta, con proyección. Además corrige un defecto: el `limit(200)` iba **antes** del filtro, así que 200 torneos recientes sin publicar dejaban afuera a los públicos. **LRU de rankings: descartado**, con su razón en `TECHNICAL.md` §5
+
+**DoD:** un redeploy no aborta transacciones a medias ⚠️ (el código sí; **falta el drenado en Railway**) · una op que quedó a medias no se pierde ✅ · el log del día del torneo dice cuántas ops trae cada lote, cuánto tarda y cuántas se rechazan ✅.
+**Tests nuevos:** `@bal/api` +47 (`clave-duplicada` 10, `logger` 12, `apagado` 6, `sync-en-proceso` 15, `publico-torneos` 4). Un solo test existente cambió: el tope fijo del lote de `sync-viajes` (8 → 9), a propósito.
+**Mutaciones (31, todas detectadas):** C-5 (4), logger (6), apagado (5), dedup (10), log del lote (3) y listado público (3). Tres sobrevivieron al principio y señalaron huecos reales: la hora que se renueva al retomar una op, un lote de prueba donde «aplicadas» y «rechazadas» valían lo mismo, y una ancla ambigua en mi propia especificación.
+**Verificación:** tipos y Biome sin errores nuevos · tests: cliente 57, shared 499, api 492, ui 77, app 616, landing 64 · E2E: Chromium de escritorio 43/43 (3.6 min).
 
 ---
 

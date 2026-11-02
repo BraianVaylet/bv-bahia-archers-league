@@ -85,9 +85,6 @@ const EnvSchema = z.object({
     .min(1)
     .transform((v) => v.toLowerCase())
     .optional(),
-
-  WEB_DIST_APP: z.string().min(1).default('public/app'),
-  WEB_DIST_LANDING: z.string().min(1).default('public/landing'),
 });
 
 export type Env = z.infer<typeof EnvSchema> & {
