@@ -6,8 +6,13 @@
 #
 # MongoDB es externo (Atlas), así que no hace falta ningún volumen persistente.
 
+# La imagen base va **fijada por digest** (`REF6-14` / `S-10`): `node:22-bookworm-slim` es un tag
+# móvil, y una build de mañana podía traer otra imagen sin que nada del repo cambiara. El tag queda
+# para que se lea qué es; lo que manda es el digest. Dependabot (`.github/dependabot.yml`) propone
+# el digest nuevo en un PR, así que fijar no congela los parches de seguridad.
+
 # ── 1) Dependencias ──────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS deps
+FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS deps
 WORKDIR /repo
 
 RUN corepack enable
@@ -43,7 +48,7 @@ RUN mkdir -p packages/api/public \
 RUN pnpm install --frozen-lockfile --prod
 
 # ── 3) Runner ────────────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS runner
+FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS runner
 WORKDIR /repo
 
 ENV NODE_ENV=production

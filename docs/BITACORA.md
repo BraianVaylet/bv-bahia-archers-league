@@ -14,6 +14,35 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-02 · Cadena de suministro del CI (REF6-14 / S-10, completo)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `S-10` de [`REF6-14`](post/ref-6/ACTION_PLAN.md), con tu autorización del paquete completo. Falta el `aikido:scan`.
+
+### Qué cambió
+
+- **Las actions del CI van por SHA de commit**, no por tag: `actions/checkout`, `actions/setup-node`, `actions/cache`, `actions/upload-artifact` y `pnpm/action-setup`, 17 referencias en total. Un tag es móvil: quien controle el repo de la action puede mover `v4` a otro código y el siguiente CI lo ejecuta. Cada SHA se resolvió con `git ls-remote` y lleva la versión en un comentario (`# v4.4.0`).
+- **La imagen base va por digest.** `node:22-bookworm-slim` es un tag móvil: una build de mañana podía traer otra imagen sin que nada del repo cambiara. El digest es el del **índice** multi-arquitectura, para que construya igual en amd64 y arm64. Se verificó contra el registro (responde 200 y lista las plataformas).
+- **`.github/dependabot.yml`**: actions, docker y pnpm, semanal. Es lo que hace que fijar no sea congelar: los SHA y el digest nuevos llegan como PR que pasan por el mismo CI.
+- **`permissions: contents: read`** (ya estaba de antes en este mismo `REF6-14`).
+
+### Cosas a saber
+
+- **El tag anotado de `pnpm/action-setup`.** Su tag `v4` es un objeto de tag, no un commit: el SHA que devuelve `git ls-remote` a secas es el del **objeto de tag**, no el de un commit, y para fijar hace falta el commit. Se tomó el commit al que apunta (`^{}`), que es el que corresponde a la versión 4.3.0. Los otros cuatro son tags livianos y apuntan directo al commit.
+- **No pude construir la imagen acá** (no hay Docker). Lo hace el job `imagen` del CI en el primer PR; si el digest estuviera mal, falla ahí, antes de llegar a producción. Sí verifiqué que el digest existe y es el índice correcto.
+- **Dependabot recién actúa cuando el archivo llega a la rama por defecto**, no en esta rama. El primer lote de PR va a aparecer después de mergear.
+- **Las versiones fijadas son las que `v4` señalaba hoy**: `checkout` 4.4.0, `setup-node` 4.4.0, `cache` 4.3.0, `upload-artifact` 4.6.2, `action-setup` 4.3.0. Es el mismo código que el CI ya corría; no se subió ninguna versión.
+
+### Lo que falta
+
+- **`aikido:scan`** (pendiente de `BE-14`) **no se pudo completar.** Con la sesión ya iniciada, el escaneo corrió sobre 48 archivos (el backend y la infraestructura de la serie `REF6`) y devolvió `issues: []`, pero **dos de sus motores fallaron**:
+  - **SAST (Opengrep):** `unknown JSON field taint_intrafile` al cargar las reglas locales. Es una incompatibilidad entre las reglas y la versión del binario, determinista: se repitió con un solo archivo.
+  - **IaC (Checkov):** `spawn …\aikido-mcp\checkov\checkov.exe ENOENT`: el binario no está instalado.
+  - Lo que sí corrió: el escaneo de **dependencias** (`pnpm-lock.yaml` y los `package.json`), sin hallazgos. El de secretos no informó error, pero tampoco puedo afirmar que haya corrido.
+  - **Un `issues: []` con dos motores caídos no es un escaneo limpio.** No se cuenta como tal. No instalé nada para arreglarlo: bajar y ejecutar binarios es decisión del dueño de la máquina. Hay que reinstalar o actualizar el plugin de Aikido, o correr el escaneo desde su panel o su integración con el repositorio.
+- `C-9` y `T-7` siguen sin hacerse.
+
+---
+
 ## 2026-11-02 · Calidad continua (REF6-14, parcial)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecha a medias: `C-8` y `P-7` completos y verificados, parte segura de `S-10`; `C-9`, `T-7` y el resto de `S-10` sin hacer a propósito.

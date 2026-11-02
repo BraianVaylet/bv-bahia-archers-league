@@ -284,6 +284,15 @@ Detalles que conviene saber:
 
 Los tests de integración usan `mongodb-memory-server` en modo replica set. Los E2E levantan un Mongo en Docker dentro del runner.
 
+**Cadena de suministro** (`REF6-14` / `S-10`):
+
+- El token del workflow es de **sólo lectura** (`permissions: contents: read`); ningún job escribe.
+- Las actions van **fijadas por SHA** de commit, con la versión de comentario (`# v4.4.0`).
+- La imagen base del `Dockerfile` va **fijada por digest** (`node:22-bookworm-slim@sha256:…`), el del índice multi-arquitectura.
+- `.github/dependabot.yml` propone semanalmente los SHA, el digest y las dependencias de pnpm, en PR que pasan por este mismo CI. **Fijar sin esto congelaría los parches de seguridad.** Las menores y los parches de npm llegan agrupados; una mayor, sola.
+
+`pnpm lint` corre con `--error-on-warnings`: un warning de Biome rompe el job `quality`.
+
 ---
 
 ## 9. Backups
