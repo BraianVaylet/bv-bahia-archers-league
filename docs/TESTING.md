@@ -398,18 +398,23 @@ CI bloquea el merge ante: lint, typecheck, cualquier test rojo, umbral de cobert
 
 ## 9. Datos de prueba
 
-`packages/api/tests/fixtures/` provee constructores reutilizables:
+`packages/api/tests/helpers.ts` provee lo que los tests de integración comparten (`REF6-15`; este documento describía una carpeta `tests/fixtures/` con constructores `buildArcher`, `buildTournament`… que **nunca existió**):
 
 ```ts
-buildArcher({ category: 'razo' })
-buildTournament({ targets: mixedCircuit(14) })   // 6×3D, 6×campo, 1×aire libre, 1×sala
-buildPatrolWithMembers({ categories: ['razo','razo','escuela','escuela'] })
-buildScoreOp({ participantId, targetIndex, arrows })
+startDb() · stopDb() · clearDb(db)                // MongoDB en memoria, en modo replica set
+testEnvRaw(overrides) · testEnv(overrides)        // variables de entorno válidas para tests
+cliente(ip?)                                       // un cliente HTTP con su cookie de sesión y su CSRF
+adminListo()                                       // un cliente ya logueado como admin
+crearTemporada(admin) · crearArqueros(admin, [['razo', 4]])
+recorridoDeReferencia()                            // 14 blancos: 6×3D, 6×campo, 1×aire libre, 1×sala
+escenarioDeSync()                                  // torneo iniciado, una patrulla de 4 y el líder adentro
 ```
 
-**Reglas de los fixtures:**
+Los datos se arman **por la API**, igual que lo haría un cliente, y no insertando documentos a mano: así el test pasa por las mismas validaciones y transacciones que producción. Las excepciones, donde hace falta un estado que la API no deja armar (una marca vencida, un arquero que cambió de patrulla), se insertan directo y el test lo dice.
+
+**Reglas:**
 - Deterministas. Sin `Math.random`, sin `Date.now()` sin congelar.
-- Cada test crea su propia base limpia. Sin estado compartido entre tests.
+- Cada test crea su propia base limpia (`clearDb` en `beforeEach`). Sin estado compartido entre tests.
 - Los datos representan casos reales de la liga, no valores arbitrarios: eso hace que los tests fallen de formas informativas.
 
 ---

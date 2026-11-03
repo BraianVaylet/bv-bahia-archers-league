@@ -68,6 +68,12 @@ jobs:
       - name: Capas del backend
         run: node scripts/verificar-capas.mjs
 
+      # Un doc que miente es un bug: el próximo modelo implementa sobre la promesa. Compara las
+      # versiones de `TECHNICAL.md` §1 y los topes de bundle de §5 con lo instalado y con
+      # `presupuesto.mjs`, que son lo que ya se desfasó más de una vez (`REF6-15` / `B-2`).
+      - name: Docs al día
+        run: node scripts/verificar-docs.mjs
+
       # `biome check` incluye formato y lint. Falla si algo no está formateado y también si queda un
       # warning (`--error-on-warnings`, `REF6-14` / `C-8`): un warning tolerado es uno que se acumula.
       - name: Lint

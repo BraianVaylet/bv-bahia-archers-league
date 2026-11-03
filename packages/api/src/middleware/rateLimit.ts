@@ -15,6 +15,9 @@
  */
 
 import type { Context, MiddlewareHandler } from 'hono';
+import { getCookie } from 'hono/cookie';
+import { env } from '../env.js';
+import { sha256 } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
 import { ipDelCliente } from '../lib/ip.js';
 
@@ -61,6 +64,22 @@ function limpiarVencidos(ahora: number): void {
 
 export function clientIp(c: Context): string {
   return ipDelCliente(c) ?? 'desconocida';
+}
+
+/**
+ * La clave del cupo de `sync`: la **sesión** (`REF6-15` / `B-2`).
+ *
+ * El wifi del club es una sola IP para todas las patrullas. Cuando diez vuelven del monte y
+ * vacían su outbox a la vez, un cupo por IP las corta entre sí, y `sync` no debe rechazar nunca.
+ * Cada sesión tiene el suyo. Sin cookie no hay sesión, y se cae a la IP.
+ *
+ * Se guarda el hash del token y no el token: la clave vive en un `Map` que no tiene por qué
+ * contener credenciales. **No valida la sesión** —eso lo hace la autenticación, después—, así que
+ * una cookie inventada también tiene su cupo: por eso `sync` lleva además un tope por IP.
+ */
+export function clavePorSesion(c: Context): string {
+  const token = getCookie(c, env().SESSION_COOKIE_NAME);
+  return token ? `sesion:${sha256(token)}` : `ip:${clientIp(c)}`;
 }
 
 /**

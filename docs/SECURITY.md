@@ -95,12 +95,13 @@ Este es un balance delicado: un rate limit mal calibrado es un **denial of servi
 |---|---|---|
 | `POST /api/auth/admin/login` y `POST /api/auth/patrol/login` | 60 intentos **fallidos** / 15 min por IP (cupo compartido), **y** el bloqueo de cada par (cuenta, IP) tras 5 intentos, **y** un tope de 30 fallos por cuenta entre todas las IPs | Fuerza bruta. Los ingresos correctos no gastan nada: el wifi del club es una sola IP para todas las patrullas |
 | `POST /api/auth/admin/recover` | 5 intentos **fallidos** / 15 min por IP, cupo aparte | Es la única ruta sin sesión que cambia una credencial y **no tiene bloqueo por cuenta**: el cupo de la IP es lo único que frena adivinar el código |
-| `POST /api/wafl/sync` | **300 / min por sesión de patrulla** | Generoso a propósito: una patrulla que vuelve de 3 horas sin señal envía cientos de ops de golpe. Nunca debe ser rechazada. |
-| `/api/admin/*` (escritura) | 60 / min por sesión | Abuso |
+| `POST /api/wafl/sync` | **300 / min por sesión** (la cookie), **y** 6000 / min por IP | Generoso a propósito: una patrulla que vuelve de 3 horas sin señal envía cientos de ops de golpe. Nunca debe ser rechazada. **El cupo es de la sesión** porque el wifi del club es una sola IP para todas las patrullas, y uno por IP las cortaría entre sí al vaciar el outbox. **El tope por IP** (20 veces el de la sesión) existe porque una cookie inventada tiene su propio cupo: sin él, quien rota la cookie en cada request no gastaría nunca el mismo (`REF6-15`) |
 | `/api/public/*` | 120 / min por IP | Scraping |
 | `POST /api/public/archers` | **20 / hora por IP** (`RATE_LIMIT_REGISTER`), además del anterior | El alta escribe y cada una es una fila que el admin revisa. Generoso: el día de la inscripción varios arqueros se anotan desde el wifi del club |
 
 Los límites viven en variables de entorno para poder ajustarlos sin redeploy si algo se calibra mal en el campo.
+
+**`/api/admin/*` no tiene rate limit** (`REF6-15`). El doc decía «60 / min por sesión» y el código nunca lo tuvo. No se agregó: es una sola persona, autenticada, con CSRF, y un tope no protege de una sesión robada —quien la tiene hace lo que el admin puede hacer, a ritmo humano— mientras que sí puede cortar a un administrador legítimo cargando un torneo grande. Si alguna vez hace falta, la clave del límite es la sesión, como en `sync` (`clavePorSesion`).
 
 **Qué cuenta y qué no (`REF6-2`).** Antes el límite de login se aplicaba a todo `/api/auth/*` y contaba cada request, así que `/me` y `/csrf` —que la app pide en cada carga— y los ingresos correctos gastaban el mismo cupo que un ataque: la patrulla 11 que entraba desde el wifi del club quedaba afuera por culpa de las diez anteriores. Ahora el cupo cuenta sólo las respuestas `401` (credenciales equivocadas) de las tres rutas de ingreso. Un `429` del bloqueo de la cuenta, un `403` de CSRF o un `409` de torneo no iniciado **no** cuentan.
 

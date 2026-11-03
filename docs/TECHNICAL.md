@@ -9,13 +9,13 @@ Esquemas, contratos y convenciones. Para el porqué de las decisiones ver [`ARCH
 | Capa | Tecnología | Versión |
 |---|---|---|
 | Lenguaje | TypeScript `strict` en todo el monorepo | **5.9.3** |
-| Runtime | Node | ≥ 20 LTS |
+| Runtime | Node | ≥ 20 LTS · CI e imagen: **22** |
 | Monorepo | pnpm workspaces | **9.15.0** |
 | Backend | Hono | 4.x |
-| Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver 6.x |
+| Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver **7.x** |
 | Validación | Zod `.strict()` | **4.x** |
-| Frontend | **React 19**, **Vite 8**, Tailwind CSS 4, React Router 6 (la carga de datos es un hook propio, `@bal/cliente`) | — |
-| PWA | `vite-plugin-pwa` (Workbox) | 0.21+ |
+| Frontend | **React 19**, **Vite 8**, Tailwind CSS 4, React Router 7 (la carga de datos es un hook propio, `@bal/cliente`) | — |
+| PWA | `vite-plugin-pwa` (Workbox) | **1.x** |
 | Offline | `idb` (wrapper de IndexedDB) | 8.x |
 | Hash | **`@node-rs/argon2`** (argon2id) | 2.x |
 | Lint y format | Biome | **2.5.7** |
@@ -540,21 +540,22 @@ export const SyncBatchSchema = z.object({
 - Tailwind purga el CSS no usado.
 - Iconos como SVG inline; sin librería de iconos.
 
-### Presupuestos — se verifican en CI
+### Presupuestos
 
-| Métrica | Presupuesto |
-|---|---|
-| Registrar una flecha (percibido) | **< 50 ms** · `wafl/rendimiento.test.tsx` lo mide en jsdom (mediana 16 ms; el test falla sobre 150 ms). La cifra del celular se mide en el celular |
-| Navegar entre blancos | < 100 ms |
-| Primera carga de WAFL en 3G simulado | < 2.5 s |
-| JS que baja la pantalla de elegir rol (`/app/`) | < 105 KB gz · medido 99 |
-| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz · medido 111 |
-| JS que baja WAFA (inicial + su chunk) | < 135 KB gz · medido 119 |
-| JS inicial de la landing | < 120 KB gz · medido 102 |
-| LCP de la landing | < 2.5 s |
-| `GET /api/public/rankings` p95 | < 200 ms |
-| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms — **no se cumple todavía**, ver abajo |
+El encabezado decía «se verifican en CI», y sólo cuatro de estas filas se verifican ahí. La columna de la derecha dice qué pasa con cada una (`REF6-15`).
 
+| Métrica | Presupuesto | Medido | Cómo se verifica |
+|---|---|---|---|
+| Registrar una flecha (percibido) | **< 50 ms** | mediana 16 ms (jsdom) | `wafl/rendimiento.test.tsx`, que falla sobre 150 ms. Es el orden de magnitud, no el celular: **la cifra del teléfono no se mide** |
+| Navegar entre blancos | < 100 ms | — | **No se mide** |
+| Primera carga de WAFL en 3G simulado | < 2.5 s | — | **No se mide** |
+| JS que baja la pantalla de elegir rol (`/app/`) | < 105 KB gz | **105.5 · excede el tope** | `scripts/presupuesto.mjs` en el CI. **Hoy el job está en rojo por esta fila** |
+| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 119.1 | `presupuesto.mjs` en el CI |
+| JS que baja WAFA (inicial + su chunk) | < 135 KB gz | 128.9 | `presupuesto.mjs` en el CI |
+| JS inicial de la landing | < 120 KB gz | 109.2 | `presupuesto.mjs` en el CI |
+| LCP de la landing | < 2.5 s | — | **No se mide** (la auditoría de Lighthouse sigue pendiente) |
+| `GET /api/public/rankings` p95 | < 200 ms | — | **No se mide** |
+| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms | 487 ms con 2 ms de RTT a la base — **no se cumple** | `pnpm --filter @bal/api bench:sync`, a demanda. Lo que sí corre en cada PR es el conteo de comandos (`sync-viajes.test.ts`) |
 #### Sincronización, medida (`REF6-5`)
 
 `pnpm --filter @bal/api bench:sync` pone un proxy con retardo entre la API y MongoDB y mide un lote de ops de score. `tests/sync-viajes.test.ts` cuenta los comandos y falla si crecen. Cada comando es una ida y vuelta, **en serie**.
@@ -567,6 +568,8 @@ export const SyncBatchSchema = z.object({
 | 120 ms | 50 | 554 comandos · 67,6 s | 309 comandos · 37,8 s |
 
 *Peor de 3 corridas a 20 ops; una a 50. Windows, `mongod` en memoria, API y proxy en el mismo proceso: sirve para comparar antes y después, no como cifra absoluta de producción. Re-medir contra el despliegue real.*
+
+> **Desde `REF6-13` cada lote suma un comando más** (el `updateMany` que confirma las ops aplicadas): 129 a 20 ops, no 128. La tabla de arriba es la medición de `REF6-5`, anterior a ese cambio, y no se repitió.
 
 - **−37 % de comandos a 20 ops, −44 % a 50.** Por score: 10 → 6 (el avance de la patrulla se cuenta una vez por lote, y los rollups son una escritura en vez de dos).
 - **El presupuesto de 400 ms no se cumple:** 487 ms a 2 ms de RTT. Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops no bajan de ~230 ms ni con RTT cero, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op, y eso es tocar la idempotencia (dedup en bloque con `insertMany`) o unir las transacciones de un lote: decisiones de diseño, no de ajuste. O recalibrar el número: se escribió antes de medir.

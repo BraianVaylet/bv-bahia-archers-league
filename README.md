@@ -22,7 +22,7 @@ WAFA y WAFL son una PWA instalable. WAFL guarda todo en el dispositivo y sincron
 
 ## Stack
 
-TypeScript en todo el monorepo · React 18 + Vite 6 + Tailwind 4 (PWA) · Hono + driver oficial de MongoDB · MongoDB Atlas · Zod · Vitest + Playwright · Docker sobre Railway.
+TypeScript en todo el monorepo · React 19 + Vite 8 + Tailwind 4 (PWA) · Hono + driver oficial de MongoDB · MongoDB Atlas · Zod · Vitest + Playwright · Docker sobre Railway.
 
 ```
 packages/

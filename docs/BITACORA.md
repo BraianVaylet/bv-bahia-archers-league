@@ -14,6 +14,54 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-03 · Los docs dicen la verdad (REF6-15)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-15`](post/ref-6/ACTION_PLAN.md) hecha. **Con esto la serie `REF6` queda completa.**
+
+### Qué cambió
+
+Las once filas de `INFORME.md` §3.5 `B-2` quedaron cerradas, cada una como **implementado** o como **doc corregido** (la tabla está en el plan). Ocho ya habían quedado cerradas en las tandas anteriores; tres se cerraron acá:
+
+- **Sync por sesión (implementado).** `SECURITY.md` prometía 300/min por sesión y el código contaba por IP. No era un detalle del doc: el wifi del club es **una sola IP para todas las patrullas**, y diez patrullas volviendo del monte y vaciando su outbox a la vez se cortaban entre sí con 429. El cliente reintenta los 429 y no pierde nada, pero el doc dice que `sync` «nunca debe ser rechazado». Ahora el cupo es de la sesión.
+- **`/api/admin/*` sin límite (doc corregido).** El doc decía 60/min por sesión y el código nunca lo tuvo. No lo agregué: ver abajo.
+- **`TESTING.md` §9 (doc corregido).** Describía una carpeta `tests/fixtures/` con constructores que nunca existió. Ahora describe `tests/helpers.ts`.
+
+Además se corrigió lo que la auditoría encontró fuera de la tabla (ver abajo).
+
+### Decisiones
+
+- **El cupo de `sync` es de la sesión, y hay un tope por IP 20 veces más alto.** Contar sólo por cookie abre un agujero: quien no tiene sesión puede mandar una cookie distinta en cada request y no gastar nunca el mismo cupo, con una lectura a la base por request (cada una es un 401, pero el 401 sale de buscar la sesión). El tope por IP (6000/min) no mira la cookie y sólo se alcanza con una inundación. La clave guarda el **hash** del token, no el token.
+- **No agregué un límite en `/api/admin/*`.** Es una sola persona, autenticada, con CSRF. Un tope no protege de una sesión robada —quien la tiene hace lo que el admin puede hacer, a ritmo humano— y sí puede cortar a un administrador legítimo cargando un torneo grande. Si alguna vez hace falta, la clave sería la sesión, como en `sync`. **Es una decisión de diseño que tomé yo y que podés revertir**: si preferís que el doc se cumpla, es agregar un `rateLimit` con `clavePorSesion`.
+- **La guarda cubre dos cosas y nada más.** Versiones de `TECHNICAL.md` §1 y topes de bundle de §5. Un test que pretendiera leer el doc entero se rompería con cada frase reescrita y alguien lo desactivaría.
+
+### Lo que apareció auditando
+
+- **«Presupuestos — se verifican en CI» era falso para seis de diez filas.** Sólo los cuatro topes de bundle se verifican en el CI. «Navegar entre blancos», «primera carga en 3G», LCP y el p95 de rankings **no se miden en ningún lado**. Ahora la tabla lo dice fila por fila.
+- **Hoy el CI está en rojo por un tope de bundle**: la pantalla de elegir rol baja 105.5 KB contra un tope de 105. Ya estaba así desde `REF6-11` y no lo causó esta tanda. El doc lo dice. Hay que recortar la entrada o subir el tope; sigue siendo decisión tuya.
+- **Cuatro versiones viejas en `TECHNICAL.md` §1**, más `README.md` (React 18, Vite 6) y `CONFIG.md` (`node:20`). La guarda detecta exactamente ese tipo de error.
+
+### Errores míos en el camino
+
+- **El heredoc del shell me metió caracteres de control** (`\b` se volvió backspace) en tres regex del test de la guarda; Biome lo marcó como error y lo corregí con patrones sin escapes. Es la tercera vez que me pasa en esta serie.
+- **Mi primera versión de los casos de prueba de la guarda era una cadena de `replace` encadenados**, ilegible y fácil de equivocar. La rescribí con la fila rota completa en cada caso.
+
+### Verificación
+
+Tipos y Biome estricto sin errores; `verificar-docs` y `verificar-capas` en verde sobre el repo real. **12 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.5 min). Tests de `@bal/api`: 531.
+
+### Estado de la serie `REF6`
+
+Las quince tandas están hechas. Lo que sigue abierto, todo de decisión o de red:
+
+- **El tope de bundle de «elegir rol»** (105.5 contra 105): el CI está en rojo.
+- **`aikido:scan` (`BE-14`)**: los motores SAST e IaC de la instalación local no funcionan. `/security-review` tampoco se corrió desde `REF6-2`, y esta serie tocó la sincronización, la validación de entrada y el límite de tasa.
+- **Drenado en Railway** (`deploy.drainingSeconds` > 10 s) para que el apagado ordenado de `REF6-13` sirva.
+- **Pantalla encendida y «registrar una flecha» en un celular real**: nunca se probaron en uno.
+- **El workflow de mutación nunca corrió en el CI**, ni se confirmó que el CI acepte los SHA fijados ni que construya la imagen con el digest.
+- **La landing** sin tipos de punta a punta.
+
+---
+
 ## 2026-11-03 · Mutación sistemática (REF6-14 / T-7)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** `T-7` de [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecho. Con esto la tanda queda completa, salvo el `aikido:scan`.

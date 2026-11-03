@@ -187,6 +187,8 @@ export interface EscenarioDeSync {
   readonly participantIds: string[];
   readonly patrolId: ObjectId;
   readonly tournamentId: string;
+  /** Otro dispositivo de la misma patrulla: una sesión nueva, con otra cookie. */
+  readonly entrarOtraVez: () => Promise<Cliente>;
 }
 
 export async function escenarioDeSync(): Promise<EscenarioDeSync> {
@@ -208,13 +210,18 @@ export async function escenarioDeSync(): Promise<EscenarioDeSync> {
   if (!patrulla) throw new Error('no se armó ninguna patrulla');
   const miembros = await participants().find({ patrolId: patrulla._id }).toArray();
 
-  const lider = cliente();
-  const login = await lider.post('/api/auth/patrol/login', {
+  const credenciales = {
     tournamentId,
     username: patrulla.username,
     pin: decryptPin(patrulla.pinEnc, testEnv().PIN_ENC_KEY),
-  });
-  if (login.status !== 200) throw new Error(`login de patrulla falló: ${login.status}`);
+  };
+  const entrar = async (): Promise<Cliente> => {
+    const c = cliente();
+    const login = await c.post('/api/auth/patrol/login', credenciales);
+    if (login.status !== 200) throw new Error(`login de patrulla falló: ${login.status}`);
+    return c;
+  };
+  const lider = await entrar();
 
   return {
     admin,
@@ -222,5 +229,6 @@ export async function escenarioDeSync(): Promise<EscenarioDeSync> {
     participantIds: miembros.map((m) => m._id.toHexString()),
     patrolId: patrulla._id,
     tournamentId,
+    entrarOtraVez: entrar,
   };
 }

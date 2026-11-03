@@ -21,13 +21,16 @@ import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { hayBuild, montarEstaticos, RUTAS_POR_DEFECTO } from './middleware/estaticos.js';
 import { limiteDeBody } from './middleware/limiteDeBody.js';
-import { failedAttemptsLimit, rateLimit } from './middleware/rateLimit.js';
+import { clavePorSesion, failedAttemptsLimit, rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
 import { health } from './routes/health.js';
 import { publico } from './routes/publico.js';
 import { wafl } from './routes/wafl.js';
+
+/** Cuántas veces el cupo de una sesión de sync es el tope de **toda una IP**. */
+const TOPE_POR_IP_DE_SYNC = 20;
 
 export interface AppOptions {
   /** Hashes SHA-256 de los scripts inline permitidos por la CSP. */
@@ -92,9 +95,27 @@ export function createApp(options: AppOptions = {}): Hono {
   // Generoso a propósito: una patrulla que vuelve de tres horas sin señal manda
   // cientos de operaciones de golpe y NUNCA debe ser rechazada. Ese endpoint lo
   // protegen la autenticación y la autorización, no el rate limit.
+  //
+  // Dos capas (`REF6-15` / `B-2`). El cupo es **de la sesión**: el wifi del club es una sola IP para
+  // todas las patrullas, y uno por IP las cortaría entre sí. Pero una cookie inventada tiene su
+  // propio cupo, así que quien rota la cookie en cada request no lo gasta nunca: para eso está el
+  // tope por IP, veinte veces más alto, que no mira la cookie y sólo se alcanza con una inundación.
   app.use(
     '/api/wafl/sync',
-    rateLimit({ limit: cfg.RATE_LIMIT_SYNC, windowMs: 60_000, scope: 'sync' }),
+    rateLimit({
+      limit: cfg.RATE_LIMIT_SYNC * TOPE_POR_IP_DE_SYNC,
+      windowMs: 60_000,
+      scope: 'sync-ip',
+    }),
+  );
+  app.use(
+    '/api/wafl/sync',
+    rateLimit({
+      limit: cfg.RATE_LIMIT_SYNC,
+      windowMs: 60_000,
+      scope: 'sync',
+      keyBy: clavePorSesion,
+    }),
   );
 
   // Después de los rate limits y antes de cualquier handler: un body de más se corta

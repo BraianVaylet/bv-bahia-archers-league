@@ -6,7 +6,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 
 ## 1. Requisitos
 
-- **Node** ≥ 20 LTS
+- **Node** ≥ 20 LTS (el CI y la imagen usan 22; las pruebas de mutación piden ≥ 22)
 - **pnpm** ≥ 9 (`corepack enable && corepack prepare pnpm@9 --activate`)
 - **MongoDB**: cuenta en [MongoDB Atlas](https://cloud.mongodb.com) (el tier M0 es gratuito y suficiente para empezar), o una instancia local **en modo replica set**
 - **Docker** (solo para probar la imagen de producción localmente)
@@ -41,7 +41,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `RATE_LIMIT_REGISTER` | no | `20` | Altas públicas de arqueros por hora e IP. El alta escribe y cada una es una fila que el admin tiene que revisar. Generoso a propósito: el día de la inscripción varios se anotan desde el wifi del club |
 | `RATE_LIMIT_RECOVER` | no | `5` | Intentos **fallidos** de recuperar el password por ventana e IP. Más corto: es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por cuenta |
 | `TRUSTED_IP_HEADER` | no | `x-real-ip` prod / ninguno dev | Header donde el proxy de adelante deja la IP real del cliente. Railway documenta `X-Real-IP`. Si el servicio queda detrás de otra cosa (p. ej. Cloudflare) poné su header (`cf-connecting-ip`). Ver `SECURITY.md` §3.3 |
-| `RATE_LIMIT_SYNC` | no | `300` | Ops de sync por minuto y sesión. **Generoso a propósito** |
+| `RATE_LIMIT_SYNC` | no | `300` | Requests de sync por minuto **y por sesión** (cada uno trae hasta 50 ops). El tope por IP es 20 veces este valor. **Generoso a propósito** |
 | `RATE_LIMIT_PUBLIC` | no | `120` | Requests públicos por minuto e IP |
 | `LEAGUE_BEST_N` | no | `2` | Cuántos mejores porcentajes entran en el promedio de «mejor de N». También el mínimo de torneos para figurar en el ranking. Ver `DOMAIN_WA.md` §9 |
 | `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error`. Filtra el logger estructurado (`lib/logger.ts`): una línea JSON por evento, con `t`, `nivel` y `evento` |
@@ -197,7 +197,7 @@ Multi-stage, imagen final slim y sin herramientas de build:
 ```dockerfile
 # 1) deps    — pnpm install --frozen-lockfile
 # 2) build   — pnpm build (shared → api + app + landing)
-# 3) runner  — node:20-bookworm-slim
+# 3) runner  — node:22-bookworm-slim (fijada por digest)
 #              · copia dist de api + public/{app,landing} + node_modules de producción
 #              · USER node   (no root)
 #              · EXPOSE ${PORT}
@@ -276,7 +276,7 @@ Detalles que conviene saber:
 
 | Job | Pasos | Bloquea el merge |
 |---|---|---|
-| `quality` | `pnpm install --frozen-lockfile` → `biome check` → `typecheck` → `test` | **Sí** |
+| `quality` | `pnpm install --frozen-lockfile` → capas del backend → **docs al día** → `biome check` → `typecheck` → `test` | **Sí** |
 | `e2e` | Playwright (Chromium) contra el stack real con Mongo efímero | **Sí** |
 | `audit` | `pnpm audit --audit-level=high` | **Sí** ante crítico o alto |
 | `budget` | Verifica los presupuestos de tamaño de bundle de `TECHNICAL.md` §5 | **Sí** |

@@ -343,11 +343,37 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 
 ---
 
-### `[ ] REF6-15` · Los docs dicen la verdad · **P2** · S
+### `[x] REF6-15` · Los docs dicen la verdad · **P2** · S
 
 **Hallazgo:** `B-2`.
 
 Al cerrar las tandas anteriores, cada fila de la tabla de `INFORME.md` §3.5 `B-2` termina en uno de dos estados: **implementado**, o **el doc corregido** con su entrada en [`BITACORA.md`](../../BITACORA.md). Ninguna queda prometiendo lo que el código no hace.
+
+| Documento | Decía | Cómo cerró |
+|---|---|---|
+| `SECURITY.md` §3.3 | Login: 10/15 min por IP y 5 por patrulla | **Implementado** (`REF6-2`, `REF6-6`): sólo cuentan los fallos, más el bloqueo por (cuenta, IP). El doc ya estaba al día |
+| `SECURITY.md` §3.3 | Sync: 300/min **por sesión** | **Implementado ahora**: el código contaba por IP. Cupo por sesión (la cookie) **y** un tope por IP 20 veces más alto, que cierra el agujero de rotar la cookie. Era un riesgo real: el wifi del club es una sola IP para todas las patrullas |
+| `SECURITY.md` §3.3 | `/api/admin/*`: 60/min por sesión | **Doc corregido**: nunca hubo límite, y no se agregó (una sola persona autenticada con CSRF; un tope no protege de una sesión robada y puede cortar a un admin legítimo). Decisión explicada en el doc |
+| `TECHNICAL.md` §5 | Compresión Brotli/gzip | **Implementado** (`REF6-8`) |
+| `TECHNICAL.md` §5 | LRU de rankings, TTL 60 s | **Doc corregido** (`REF6-13`): se descartó a propósito, con su razón en el doc |
+| `TECHNICAL.md` §5 | Code splitting, WAFA y WAFL separados | **Implementado** (`REF6-8`) |
+| `TECHNICAL.md` §5 | `memo` en filas y teclado | **Implementado** (`REF6-14`) |
+| `TECHNICAL.md` §5 | `rollup-plugin-visualizer` | **Doc corregido**: ya no se menciona; el chequeo lo hace `presupuesto.mjs` |
+| `TESTING.md` §8 | Umbrales de cobertura que bloquean | **Implementado** (`REF6-9`) |
+| `TESTING.md` §9 | Constructores en `tests/fixtures/` | **Doc corregido**: esa carpeta nunca existió; ahora describe `tests/helpers.ts` |
+| `DESIGN_SYSTEM.md` §9 | Anti-FOUC con hash en la CSP | **Implementado** (`REF6-3`): script externo, sin hash |
+
+**Lo que apareció auditando, y no estaba en la tabla:**
+- El encabezado de `TECHNICAL.md` §5 decía «Presupuestos — **se verifican en CI**» y sólo cuatro de las diez filas se verifican ahí. La tabla ahora tiene una columna **«Cómo se verifica»**, y seis filas dicen «no se mide»
+- Cuatro versiones de `TECHNICAL.md` §1 estaban viejas: driver de MongoDB 6 (era 7), React Router 6 (era 7), `vite-plugin-pwa` 0.21 (era 1.x) y Node (el CI y la imagen usan 22). También `README.md` (React 18 y Vite 6) y `CONFIG.md` (`node:20` en la imagen)
+- El conteo de comandos de `sync` ya no es 128 sino 129 desde `REF6-13`; el doc tiene la nota
+
+- [x] **Guarda para que no vuelva a pasar**: `scripts/verificar-docs.mjs`, en el job `quality` del CI. Compara las versiones de §1 con lo instalado y los topes de bundle de §5 con `presupuesto.mjs`, que son lo que **ya se desfasó más de una vez** porque está escrito a mano en dos lugares. No intenta leer el documento entero a propósito: una verificación así termina rota por cada frase que se reescribe, y alguien la desactiva
+
+**DoD:** ninguna fila de la tabla queda prometiendo lo que el código no hace ✅ (11 de 11).
+**Tests nuevos:** `@bal/api` +30 (`docs.test.ts` 23 y `rate-limit-sync.test.ts` 7). Total del API: 531.
+**Mutaciones (12, todas detectadas):** 6 sobre la lógica nueva del límite de `sync` (cuenta por IP, tope por IP igual al de sesión o inexistente, sin cookie, clave que ignora la cookie, todas las sesiones en una clave) y 6 sobre el doc y `presupuesto.mjs` reales (driver, router, `vite-plugin-pwa`, dos topes, y un tope de `presupuesto.mjs` que cambia sin el doc).
+**Verificación:** tipos y Biome estricto sin errores · E2E: Chromium de escritorio 43/43 (3.5 min).
 
 ---
 
