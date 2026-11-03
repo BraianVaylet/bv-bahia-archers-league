@@ -41,7 +41,7 @@ El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de 
 
 > **La tinta encima es oscura en los dos temas, y esto estuvo mal escrito hasta `REF5-5`.** Este párrafo afirmaba que `#8FA800` «llega a contraste AA», pero la tinta que tenía al lado era blanca y el par daba **2.70:1** — ni AA ni cerca. Afectaba a todo botón primario de las tres apps, en el tema claro, que es el default de WAFL. Con `#0D0E05` el par llega a **7.18:1**, que es el AAA que §2.4 exige en scoring.
 >
-> Se cambió la tinta y **no** el verde: `--nock` también dibuja el anillo de foco sobre el fondo claro, y aclararlo lo habría empeorado. Lo verifica `packages/shared/tests/accion-primaria.test.ts`, que lee `tokens.css`.
+> Se cambió la tinta y **no** el verde: `--nock` también dibuja el anillo de foco sobre el fondo claro, y aclararlo lo habría empeorado. Lo verifica `packages/ui/src/accion-primaria.test.ts`, que lee `tokens.css`.
 
 ### 2.2 Colores de estaca — reservados
 
@@ -61,7 +61,7 @@ El color nunca va solo: el chip de estaca lleva **siempre** el nombre escrito. U
 >
 > La advertencia era correcta y sigue en pie. Lo que cambió es que ahora hay **tres candados** en lugar de una prohibición.
 
-Los valores viven en `@bal/shared/src/paleta.ts`, no en este documento: un color que se copia a mano a un `.md` se separa del que compila.
+Los valores viven en `@bal/ui/src/paleta.ts`, no en este documento: un color que se copia a mano a un `.md` se separa del que compila.
 
 **Candado 1 · El color nunca va solo.** Cada chip lleva su ícono y su texto. El color acelera el reconocimiento de algo que **ya está escrito**; no lo reemplaza. Es §10 aplicado sin excepción, y hay un test por categoría y por modalidad que lo comprueba.
 
@@ -282,9 +282,9 @@ El relleno del anillo es la única animación con algo de gracia, y se la ganó:
 
 ### Dónde vive cada parte
 
-La decisión de **qué tema corresponde** está en `@bal/shared/src/tema.ts` —`resolverTema`, `TEMA_KEY`, `COLOR_DE_BARRA`— y probada ahí. La **aplicación** al documento es de cada app: `BotonTema` en `app/src/components/ui.tsx` y en `landing/src/components/ui.tsx`.
+La decisión de **qué tema corresponde** está en `@bal/ui/src/tema.ts` —`resolverTema`, `TEMA_KEY`, `COLOR_DE_BARRA`— y probada ahí. La **aplicación** al documento es de cada app: `BotonTema` en `app/src/components/ui.tsx` y en `landing/src/components/ui.tsx`.
 
-Son **cuatro lugares** que tienen que coincidir: los dos `theme-init.js` —que no pueden importar nada, porque corren antes de cualquier bundle— y los dos conmutadores. Hay un test en `@bal/shared` que **ejecuta los dos scripts** en un `vm`, con todas las combinaciones de valor guardado y preferencia del sistema, y compara el resultado con `resolverTema` y `COLOR_DE_BARRA`; además verifica que las dos copias sean idénticas y que los `index.html` no tengan ningún script inline. Buscar texto dentro del HTML no alcanzaba: una versión anterior pasaba ese test y decidía distinto que `resolverTema` (con un valor guardado corrupto, o con `localStorage` bloqueado, pintaba claro mientras el botón pintaba oscuro).
+Son **cuatro lugares** que tienen que coincidir: los dos `theme-init.js` —que no pueden importar nada, porque corren antes de cualquier bundle— y los dos conmutadores. Hay un test en `@bal/ui` que **ejecuta los dos scripts** en un `vm`, con todas las combinaciones de valor guardado y preferencia del sistema, y compara el resultado con `resolverTema` y `COLOR_DE_BARRA`; además verifica que las dos copias sean idénticas y que los `index.html` no tengan ningún script inline. Buscar texto dentro del HTML no alcanzaba: una versión anterior pasaba ese test y decidía distinto que `resolverTema` (con un valor guardado corrupto, o con `localStorage` bloqueado, pintaba claro mientras el botón pintaba oscuro).
 
 El E2E `tema-sin-parpadeo.spec.ts` prueba lo que ese test no puede ver: contra el stack de producción, con su CSP real, que el tema oscuro queda puesto **antes** de que React monte y que no hay una sola violación de la CSP.
 
@@ -330,7 +330,7 @@ Lo verifica un test que **recorre el código de las pantallas** y marca cualquie
 
 ### Logo
 
-El de la **Liga** es un SVG original en `@bal/shared/assets/liga.svg`: tres anillos con los colores de estaca y una flecha clavada, sin degradados ni filtros, para que se lea a 24px en el header y en blanco y negro en una planilla impresa. Va siempre **acompañando al nombre**, nunca reemplazándolo, y con `alt=""` porque el texto de al lado ya lo dice.
+El de la **Liga** es un SVG original en `@bal/ui/assets/liga.svg`: tres anillos con los colores de estaca y una flecha clavada, sin degradados ni filtros, para que se lea a 24px en el header y en blanco y negro en una planilla impresa. Va siempre **acompañando al nombre**, nunca reemplazándolo, y con `alt=""` porque el texto de al lado ya lo dice.
 
 ---
 

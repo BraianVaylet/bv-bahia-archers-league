@@ -27,6 +27,7 @@ TypeScript en todo el monorepo · React 18 + Vite 6 + Tailwind 4 (PWA) · Hono +
 ```
 packages/
   shared/    @bal/shared    dominio puro, sin I/O — scoring, patrullas, rankings
+  ui/        @bal/ui        lo visual compartido — componentes, paleta, tema, tokens e imágenes
   api/       @bal/api       Hono + MongoDB
   app/       @bal/app       PWA: WAFA + WAFL (offline-first)
   landing/   @bal/landing   sitio público

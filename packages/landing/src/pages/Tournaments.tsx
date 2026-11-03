@@ -12,8 +12,6 @@
 import {
   type BowCategory,
   CATEGORY_INFO,
-  COLOR_DE_CATEGORIA,
-  COLOR_DE_MODALIDAD,
   distribucionDeCategorias,
   distribucionDeModalidades,
   formatearFecha,
@@ -24,7 +22,14 @@ import {
   SCORING,
   type TournamentStatus,
 } from '@bal/shared';
-import { BadgeEstado, ChipModalidad, GraficoDeTorta, useTituloDePagina } from '@bal/ui';
+import {
+  BadgeEstado,
+  ChipModalidad,
+  COLOR_DE_CATEGORIA,
+  COLOR_DE_MODALIDAD,
+  GraficoDeTorta,
+  useTituloDePagina,
+} from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import {
   Cabecera,

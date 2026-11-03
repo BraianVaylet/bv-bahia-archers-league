@@ -12,7 +12,7 @@
 // No puede importar nada, así que repite a mano la lógica de `resolverTema`,
 // `TEMA_KEY` y `COLOR_DE_BARRA` de @bal/shared. Hay una copia por app
 // (`public/theme-init.js` de cada una: Vite sirve cada `public/` bajo su propio
-// origen) y tienen que ser idénticas. `packages/shared/tests/tema.test.ts` EJECUTA
+// origen) y tienen que ser idénticas. `packages/ui/src/tema.test.ts` EJECUTA
 // los dos archivos y los compara con `resolverTema`, y compara las copias entre sí.
 //
 // Ver docs/DESIGN_SYSTEM.md §9 y docs/SECURITY.md §10.

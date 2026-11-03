@@ -11,7 +11,7 @@
  * distintos y el enlace se quedaría dentro de la propia PWA.
  */
 
-import { enlaceEntreApps } from '@bal/shared';
+import { enlaceEntreApps } from '@bal/ui';
 import { cn } from './ui.js';
 
 export const A_LA_LANDING = enlaceEntreApps('landing', import.meta.env.DEV, window.location.href);

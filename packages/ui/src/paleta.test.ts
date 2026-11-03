@@ -1,13 +1,18 @@
+import {
+  BOW_CATEGORIES,
+  CATEGORY_INFO,
+  ESTADO_DE_TORNEO,
+  MODALITIES,
+  SCORING,
+  TOURNAMENT_STATUSES,
+} from '@bal/shared';
 import { describe, expect, it } from 'vitest';
-import { CATEGORY_INFO, SCORING } from '../src/constants.js';
-import { BOW_CATEGORIES, MODALITIES, TOURNAMENT_STATUSES } from '../src/domain.js';
-import { ESTADO_DE_TORNEO } from '../src/estados.js';
 import {
   COLOR_DE_CATEGORIA,
   COLOR_DE_MODALIDAD,
   type ParDeColor,
   TONOS_DE_ESTACA,
-} from '../src/paleta.js';
+} from './paleta.js';
 
 /**
  * La paleta de categorías y modalidades (REF2-1).

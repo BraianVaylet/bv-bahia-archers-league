@@ -293,6 +293,8 @@ Los tests de integración usan `mongodb-memory-server` en modo replica set. Los 
 
 `pnpm lint` corre con `--error-on-warnings`: un warning de Biome rompe el job `quality`.
 
+**Pruebas de mutación** (`REF6-14` / `T-7`): `.github/workflows/mutacion.yml`, **de noche** (05:00 UTC) y a demanda (`workflow_dispatch`). No corre en cada PR ni bloquea ningún merge: avisa. Dos jobs, `@bal/shared` (el dominio) y `syncService`, cada uno con el piso (`break`) de su `stryker.config.json`; si el puntaje baja de ahí, el job falla. El reporte HTML queda 14 días como artefacto. En local: `pnpm --filter @bal/shared mutacion` o `pnpm --filter @bal/api mutacion`; con `--mutate src/archivo.ts` se acota a un archivo.
+
 ---
 
 ## 9. Backups

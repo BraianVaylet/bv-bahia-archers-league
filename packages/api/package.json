@@ -16,7 +16,8 @@
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/cli.ts seed",
     "db:reset": "tsx --env-file-if-exists=../../.env src/db/cli.ts reset",
     "db:reconcile": "tsx --env-file-if-exists=../../.env src/db/cli.ts reconcile",
-    "bench:sync": "tsx bench/sync.ts"
+    "bench:sync": "tsx bench/sync.ts",
+    "mutacion": "stryker run"
   },
   "dependencies": {
     "@bal/shared": "workspace:*",

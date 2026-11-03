@@ -14,6 +14,103 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-03 · Mutación sistemática (REF6-14 / T-7)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `T-7` de [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecho. Con esto la tanda queda completa, salvo el `aikido:scan`.
+
+### Qué cambió
+
+- **Stryker** (`@stryker-mutator/core` y `vitest-runner`, 10.1.1) como dependencia de desarrollo de la raíz, con una configuración por paquete y un script `mutacion`.
+- **`.github/workflows/mutacion.yml`**: de noche (05:00 UTC, las 2 en Argentina) y a demanda. **No corre en cada PR ni bloquea merges**: tarda minutos en el dominio y bastante más en la sincronización, que levanta un MongoDB en memoria por worker.
+- **Dos objetivos**, los que el plan nombraba: el dominio (`@bal/shared`) y `syncService`, la sincronización idempotente que es una de las cuatro tareas que definen el proyecto.
+
+### Los números de partida
+
+| Objetivo | Puntaje | Piso (`break`) | Mutantes | Tiempo |
+|---|---|---|---|---|
+| `@bal/shared` | **76.6 %** | 70 | 1124 | 1.5 min |
+| `syncService` | **76.82 %** | 70 | 384 | 26.5 min |
+
+En el dominio lo que importa está alto: `ranking` 96 %, `league` 95 %, `stats` 94 %, `scoring` 93 %, `distribucion` 89 %, `patrolling` 85 %. Lo bajo es `schemas.ts` (18 %), y ahí no es ruido.
+
+### Decisiones
+
+- **El piso (`break`) queda unos puntos debajo del puntaje real**, para que el job falle ante una regresión y no por ruido. Se sube a mano cuando el puntaje suba. Un piso en el valor exacto fallaría por un mutante que cambia de lado. El de `syncService` (70) se fijó sobre la corrida de **76.82 %**; después se agregaron los 9 tests y **no se volvió a medir la corrida entera** (26 min), así que el puntaje real hoy es mayor.
+- **Se excluyen `constants.ts` y `domain.ts`, y nada más.** Son catálogos de datos y etiquetas: de 99 mutantes, 89 sobrevivieron (45 de texto, 17 de objetos, 12 de booleanos y 10 de arreglos de datos). No excluí `schemas.ts` aunque tenga el puntaje más bajo, porque ahí 76 de los 169 sobrevivientes (45 %) son mutantes de método y de regex: quitar un `.trim()` o relajar un patrón no lo detecta ningún test de `shared`. Los cubren los tests de integración del API, que esta corrida no ejecuta. Es un hueco real del dominio medido por sí solo, no un falso positivo.
+- **`syncService` corre sólo los 5 archivos de tests que lo ejercitan**, con `concurrency: 2` y un `timeoutMS` de 2 minutos. Correr los 28 de la suite multiplicaría el tiempo sin probar más a `syncService`.
+
+### Lo que la primera corrida ya encontró
+
+La corrida de `syncService` dejó 79 mutantes vivos y 10 sin cobertura. 34 son textos de mensajes de error. De los otros 55, estos son los que importan, y **el código estaba bien: lo que faltaba era un test que se enterara si dejaba de estarlo**:
+
+- **Quién puede firmar a quién** (línea 561): nada comprobaba que una patrulla no pueda firmar a un arquero de otra, ni que un arquero inexistente se rechace en vez de romper. Quitar la comprobación pasaba todos los tests. Es una regla de seguridad.
+- **Quién gana cuando dos celulares cargan la misma celda** (líneas 399-401): el desempate por `opId` a igualdad de hora, y la comparación `>` contra `>=`, no tenían test. Cambiar quién gana no rompía nada.
+- **Reprocesar una op que ya se había aplicado** (el caso de `B-4`: el proceso muere después del commit y antes de confirmar la marca): que quede `superseded` y no cambie el puntaje no lo verificaba nadie.
+- Se escribió `tests/sync-reglas.test.ts` (9 tests) y se repitió la prueba **sólo sobre esas líneas**: 13 de 13 mutantes muertos en el desempate, 12 de 13 en la autorización (el vivo era el de `B-4`, que cubre el tercer punto).
+
+Siguen vivos, sin tests, y quedan como lista de trabajo (el reporte HTML dice cuáles):
+
+- **Un `close` y un puntaje en el mismo lote** (línea 142): el `close` del lote tiene que contar para las ops que vienen después. No se prueba.
+- **La firma PNG** (línea 606): los límites del tamaño mínimo.
+- **La cuenta de lo esperado al cerrar** (línea 634): `activos.length * blancos`; un `/` en su lugar no rompe nada.
+- **El torneo que desaparece a mitad de sesión** (línea 95, sin cobertura) y **la marca que se suelta entre el insert y la lectura** (línea 224).
+- **`reclamar` devuelve `"mia"` y nadie lo compara**: `procesarOp` sólo mira `"duplicada"` y `"en-proceso"`, así que cualquier otro valor cuenta como «es mía». El mutante que lo cambia por `""` es equivalente al código real. No es un bug, pero el tipo `Reclamo` promete más de lo que el código verifica.
+
+### Cosas a saber
+
+- **Nunca corrió en el CI.** Lo probé en local; el primer disparo real es el de la primera noche (o con «Run workflow»). La sincronización tardó 26 min 30 s en local con 2 workers; si el runner es más lento puede tardar el doble. El `timeout-minutes` es 120 para el job de sincronización y 30 para el del dominio.
+- **Dependencias nuevas, 116 paquetes** (Stryker trae mucho). `pnpm audit` no muestra nada alto o crítico, que es lo que bloquea el CI, pero sí 4 moderadas de `qs` que vienen de `typed-rest-client`, dependencia interna de Stryker. Es una herramienta de desarrollo que sólo corre de noche sobre nuestro propio código; el `qs` vulnerable es para `qs.stringify` con entrada controlada por un atacante, que ahí no existe. Quedan anotadas, no resueltas. (Además hay una de `minimatch` que viene de `vite-plugin-pwa` y no tiene que ver con esto.)
+- **`reports/` y `.stryker-tmp/`** quedan ignorados en un `.gitignore` por paquete, no en el de la raíz.
+
+### Errores míos en el camino
+
+- **`pnpm mutacion -- --mutate …` falla** («too many arguments»): pnpm 9 pasa el `--` literal a Stryker. Se llama sin él.
+- **Casi excluyo `schemas.ts`** por tener el 18 %. Miré de qué eran los sobrevivientes antes y no lo hice: son de método y de regex, no de texto.
+
+### Verificación
+
+Lint estricto sin errores; el workflow parsea y tiene sus 9 actions fijadas; `pnpm audit` sin altos. Las dos corridas completas se hicieron en local. Tests nuevos: `@bal/api` +9 (`sync-reglas`), los que cubren lo que la primera corrida encontró vivo.
+
+### Deuda / lo que sigue
+
+- **Subir `schemas.ts`**: los tests de validación del dominio de verdad están en el API. Mover o duplicar alguno en `shared` subiría el puntaje del dominio y haría la prueba autocontenida.
+- **`aikido:scan`** (`BE-14`): sigue sin poder completarse por los motores rotos de la instalación local.
+
+---
+
+## 2026-11-02 · Lo visual sale de @bal/shared (REF6-14 / C-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `C-9` de [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecho. Sólo queda `T-7` de la tanda.
+
+### Qué cambió
+
+- **`paleta.ts`, `tema.ts`, `despliegue.ts`, `tokens.css` y las cuatro imágenes pasaron de `@bal/shared` a `@bal/ui`**, con sus tests (87 de los 499 de `shared` se mudaron con ellos). `@bal/shared` es otra vez sólo el dominio, y un test lo fija: no puede volver a tener un módulo de presentación, exportarlo, ni exponer `tokens.css` o `assets/`.
+- **Quién importa qué cambia poco.** Los consumidores de la paleta, el tema y `enlaceEntreApps` ya dependían de `@bal/ui`. El backend no usaba nada de esto, y la imagen de producción tampoco copiaba `assets/` ni `styles/` de `shared`.
+
+### Por qué fue más fácil de lo que había anotado
+
+En la tanda anterior dejé `C-9` sin hacer porque `@bal/ui` compila con `tsc` y **no copia los `.webp` a `dist`**: el `Footer` iba a perder su imagen en el build. El problema era real, pero no hacía falta resolverlo: si `assets/` y `styles/` van en la **raíz del paquete**, hermanos de `src/` y de `dist/`, el `import cba from '../assets/cba.webp'` es válido desde `src/Footer.tsx` y desde `dist/Footer.js`, a la misma profundidad. Es la misma disposición que ya tenía `shared`. Se comprobó en el build real: las imágenes salen con los **mismos nombres con hash** (`cba-BuVrM48w.webp`, `portada-BR2ho9sO.webp`), o sea, bytes idénticos, y los bundles pesan lo mismo (±0.02 KB).
+
+### Decisiones
+
+- **Los tests que leen archivos del disco corren en Node** (`// @vitest-environment node`), como corrían en `shared`. `ui` usa jsdom, y bajo jsdom `import.meta.url` no es una URL `file:`. Se tocó la configuración de `vitest` de `ui` para que corra también los `.test.ts`.
+- **Una guarda de empaquetado** (`ui/src/empaquetado.test.ts`): cada entrada de `exports` y `files` existe en disco, y cada `@bal/ui/assets/…` o `@bal/ui/tokens.css` que importan la PWA y la landing apunta a algo real. Un import mal escrito de esos no falla al compilar TypeScript: falla en el build de Vite, o deja una imagen rota que sólo se ve sin señal.
+- **`@bal/ui` ya figura en el árbol de paquetes** de `ARCHITECTURE.md` y del `README`, de donde faltaba (lo había creado `REF2-1` y nadie lo había anotado).
+
+### Errores míos en el camino
+
+- **Una ruta escrita a mano en un test que no busqué.** `marca.test.tsx` leía `packages/shared/assets/liga.svg` con la ruta armada con `join`; no figuraba en mi búsqueda de referencias (que buscaba el texto `shared/assets`) y apareció al correr los tests. Lo corregí. Es la razón por la que la guarda de empaquetado mira el árbol y no sólo el texto.
+
+### Verificación
+
+Tipos, Biome estricto y estructura sin errores. Tests: `@bal/cliente` 57, `@bal/shared` **419** (−87 mudados, +7 de pureza), `@bal/api` 492, `@bal/ui` **174** (+87 mudados, +10 de empaquetado), `@bal/app` 631, `@bal/landing` 64. **8 mutaciones, todas detectadas.** Build completo, imágenes con el mismo hash, pesos sin cambios. E2E: Chromium de escritorio 43/43 (3.3 min).
+
+### Deuda / lo que sigue
+
+- `T-7`: Stryker nocturno, que necesita instalar paquetes y un job nuevo en el CI.
+
+---
+
 ## 2026-11-02 · Cadena de suministro del CI (REF6-14 / S-10, completo)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** `S-10` de [`REF6-14`](post/ref-6/ACTION_PLAN.md), con tu autorización del paquete completo. Falta el `aikido:scan`.

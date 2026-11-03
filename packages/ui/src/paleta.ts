@@ -23,7 +23,7 @@
  * contraste AA contra el fondo de ese tema, y hay un test que lo mide.
  */
 
-import type { BowCategory, Modality } from './domain.js';
+import type { BowCategory, Modality } from '@bal/shared';
 
 export interface ParDeColor {
   /** Sobre `--bg` claro. */

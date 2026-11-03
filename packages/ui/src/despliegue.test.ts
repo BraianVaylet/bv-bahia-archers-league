@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enlaceEntreApps } from '../src/despliegue.js';
+import { enlaceEntreApps } from './despliegue.js';
 
 /**
  * Enlaces que cruzan de la PWA a la landing y al revés.

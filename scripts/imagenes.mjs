@@ -7,7 +7,7 @@
  * `sharp`, sin sumar un binario nativo al monorepo para tres archivos.
  *
  * Es idempotente y **no toca los originales**: lee de `packages/logos/` y de
- * `origen/`, y escribe en `packages/shared/assets/` y en los `public/`. Correrlo
+ * `origen/`, y escribe en `packages/ui/assets/` y en los `public/`. Correrlo
  * dos veces da el mismo resultado.
  *
  * ```bash
@@ -27,7 +27,7 @@ import { chromium } from '@playwright/test';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Arte canónico de la marca. Todo lo demás se deriva de acá. */
-const LOGO = 'packages/shared/assets/liga.svg';
+const LOGO = 'packages/ui/assets/liga.svg';
 
 /**
  * Copias literales del logo.
@@ -52,7 +52,7 @@ const RASTER = [
   {
     origen:
       'packages/logos/circulo-bahiense-de-arqueria-vector-logo-seeklogo/circulo-bahiense-de-arqueria-seeklogo.png',
-    destino: 'packages/shared/assets/cba.webp',
+    destino: 'packages/ui/assets/cba.webp',
     ancho: 192,
     calidad: 0.85,
     maxKb: 30,
@@ -60,7 +60,7 @@ const RASTER = [
   },
   {
     origen: 'origen/wallpaper.png',
-    destino: 'packages/shared/assets/portada.webp',
+    destino: 'packages/ui/assets/portada.webp',
     ancho: 1120,
     calidad: 0.62,
     maxKb: 150,
@@ -100,7 +100,7 @@ const PNG_DEL_LOGO = [
     porQue: 'ícono grande del manifest y de la tienda',
   },
   {
-    destino: 'packages/shared/assets/liga-1024.png',
+    destino: 'packages/ui/assets/liga-1024.png',
     lado: 1024,
     maxKb: 120,
     porQue: 'marca en alta, para presentaciones e impresión',

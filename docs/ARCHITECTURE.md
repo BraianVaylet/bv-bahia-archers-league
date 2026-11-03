@@ -86,6 +86,7 @@ bv-bahia-archers-league/
 ├─ docs/                     esta documentación
 └─ packages/
    ├─ shared/    @bal/shared    dominio puro, sin I/O
+   ├─ ui/        @bal/ui        lo visual compartido: componentes, paleta, tema, `tokens.css` e imágenes
    ├─ cliente/   @bal/cliente   cliente HTTP (CSRF, ApiError) y hook de carga, compartidos por la PWA y la landing
    ├─ api/       @bal/api       Hono + mongodb + Zod
    ├─ app/       @bal/app       React PWA — WAFA + WAFL

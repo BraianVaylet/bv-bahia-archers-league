@@ -1,7 +1,8 @@
+// @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from '../src/index.js';
+import { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from './tema.js';
 
 /**
  * Decisión del tema (REF-4).
@@ -63,7 +64,7 @@ describe('alternarTema', () => {
  * Ver `docs/DESIGN_SYSTEM.md` §9.
  */
 describe('los scripts anti-FOUC dicen lo mismo que resolverTema', () => {
-  // Relativo a este archivo: `packages/shared/tests/` → `packages/<app>/`.
+  // Relativo a este archivo: `packages/ui/src/` → `packages/<app>/`.
   const SCRIPTS = ['../../app/public/theme-init.js', '../../landing/public/theme-init.js'] as const;
   const HTML = ['../../app/index.html', '../../landing/index.html'] as const;
 

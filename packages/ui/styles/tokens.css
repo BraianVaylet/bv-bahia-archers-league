@@ -102,7 +102,7 @@
  * JavaScript obligaría a re-renderizar al conmutar el tema y dejaría un frame
  * con el color anterior.
  *
- * Los valores viven en `@bal/shared/src/paleta.ts`, con un test que verifica
+ * Los valores viven en `@bal/ui/src/paleta.ts`, con un test que verifica
  * que llegan a contraste AA y que ninguno se confunde con una estaca.
  */
 [data-chip] {
