@@ -278,6 +278,7 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 - **La landing** sigue con `useRecurso<T>(path)` y el tipo escrito a mano en cada página. Tiparla pide cambiar la firma del hook compartido (de una ruta a una función) y suma ~2 KB a un bundle que está en 108.7 de 120
 - **WAFL** queda con `api` / `request`: su flujo de datos es IndexedDB y la cola de operaciones (regla 6), no una llamada por pantalla
 - **El presupuesto de «pantalla de elegir rol» está en 105.08 KB contra un tope de 105** y el CI corre `presupuesto.mjs`. **Ya estaba en 105.09 antes de esta entrega** (medido sobre el `dist` del commit anterior); no lo causó esta tanda ni lo arregla. Hay que recortar la entrada o subir el tope con su registro en `TECHNICAL.md` §5: decisión del dueño
+- **Resuelto después**: la pantalla bajaba Zod sin usarlo. `sideEffects` en `@bal/shared` la deja en 82.81 KB y el tope pasa a 90 (ver la última entrada de [`BITACORA.md`](../../BITACORA.md))
 
 ---
 
@@ -300,7 +301,7 @@ Las cuatro decisiones de [`INFORME.md`](INFORME.md) §5 se confirman antes de ar
 - **Probar la pantalla encendida en un celular real** (y medir el costo de batería de un recorrido). Sin eso, la decisión 4 no está cerrada
 - **Seis pantallas de WAFA no tienen `h1`** (`Archers`, `Home`, `Payments`, `Ranking`, `Seasons`, `TournamentCreate`): su título es el `span` del `Encabezado`. El foco cae ahí, pero un lector de pantalla no las lista como encabezado. Arreglarlo sin duplicar el `h1` de las que ya lo tienen es decisión de diseño
 - **WAFL solo recibe títulos.** Su navegación es estado, no rutas, y mover el foco en medio de una carga no se justifica
-- **El presupuesto de «pantalla de elegir rol» sigue sobre el tope** (105.53 KB contra 105; ya lo estaba antes de esta tanda, y esta suma ~0.45). Ver `REF6-11`
+- **El presupuesto de «pantalla de elegir rol» sigue sobre el tope** (105.53 KB contra 105; ya lo estaba antes de esta tanda, y esta suma ~0.45). Ver `REF6-11`. **Resuelto después**: 82.81 KB con tope de 90 (`sideEffects` en `@bal/shared`)
 
 ---
 
@@ -374,6 +375,8 @@ Al cerrar las tandas anteriores, cada fila de la tabla de `INFORME.md` §3.5 `B-
 **Tests nuevos:** `@bal/api` +30 (`docs.test.ts` 23 y `rate-limit-sync.test.ts` 7). Total del API: 531.
 **Mutaciones (12, todas detectadas):** 6 sobre la lógica nueva del límite de `sync` (cuenta por IP, tope por IP igual al de sesión o inexistente, sin cookie, clave que ignora la cookie, todas las sesiones en una clave) y 6 sobre el doc y `presupuesto.mjs` reales (driver, router, `vite-plugin-pwa`, dos topes, y un tope de `presupuesto.mjs` que cambia sin el doc).
 **Verificación:** tipos y Biome estricto sin errores · E2E: Chromium de escritorio 43/43 (3.5 min).
+
+**Cierre posterior — el CI en rojo por el bundle.** Lo que esta tanda dejaba como «NO resuelto» (el tope de «elegir rol», 105.5 contra 105) se arregló después por la causa: `@bal/shared` declara `sideEffects` y la pantalla deja de bajar Zod. **105.53 → 82.81 KB gz**; el tope baja de 105 a 90 en `presupuesto.mjs` y `TECHNICAL.md` §5. Presupuestos en verde y E2E Chromium 42/42 (sin `capturas.spec.ts`, que no está en el repositorio). Detalle en la última entrada de [`BITACORA.md`](../../BITACORA.md).
 
 ---
 

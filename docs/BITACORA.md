@@ -14,6 +14,35 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-03 · El CI deja de estar en rojo: la pantalla de elegir rol ya no baja Zod
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** cierra lo que `REF6-11`, `REF6-12` y `REF6-15` dejaban abierto sobre el tope de bundle de «elegir rol». No es una tanda nueva del plan.
+
+### Qué cambió
+
+- **`@bal/shared` declara `sideEffects`** en su `package.json`: sólo `configuracionZod.js` y `navegador.js` tienen efectos reales al importarse. Sin la declaración, el empaquetador debía asumir que cualquier módulo del barril podía tenerlos y dejaba `schemas.ts` —y con él Zod— en el chunk compartido, aunque la pantalla de elegir rol no use ningún schema. Midiendo el sourcemap, ese chunk llevaba 362 KB sin minificar de Zod.
+- **La pantalla de elegir rol baja de 105.53 a 82.81 KB gz.** WAFL (118.98) y WAFA (128.87) casi no se mueven: ésas sí usan los schemas.
+- **El tope de esa pantalla baja de 105 a 90 KB** (`presupuesto.mjs` y `TECHNICAL.md` §5, que `verificar-docs` mantiene iguales). Con 105 había 22 KB de margen y un `import` que arrastrara el barril volvía a colar Zod sin que nadie se enterara.
+
+### Decisiones
+
+- **Arreglar la causa y no subir el tope.** `REF6-11` ofrecía recortar o subir; subirlo era firmar que la pantalla de entrada baje una librería de validación que no usa.
+- **La lista de `sideEffects` es a mano y hay que mantenerla.** Si alguien agrega a `@bal/shared` un módulo con un efecto real al importarse, tiene que sumarlo ahí o el empaquetador se lo va a quitar. Quedó escrito en `TECHNICAL.md` §5.
+- **`configuracionZod.ts` tiene que seguir siendo un módulo con efectos.** Aplica `z.config({ jitless: true })` cuando hay `document`, porque la CSP no permite `eval`. Está en la lista a propósito, y se confirmó que `jitless` sigue presente en los dos chunks que llevan Zod (`CerrarSesion` e `index`) y en la landing.
+
+### Verificación
+
+Presupuestos todos en verde (elegir rol 82.81/90, WAFL 118.98/125, WAFA 128.87/135, landing 109.24/120). E2E Chromium de escritorio **42/42**, con el test de la CSP de las tres pantallas y los flujos de WAFA y WAFL, que usan Zod. Tipos, Biome estricto sobre `packages`, `scripts` y `e2e`, `verificar-docs`, `verificar-capas` y `verificar-workspace` sin errores.
+
+### Lo que no pude comprobar
+
+- **El `pnpm lint` de la raíz falla en esta máquina, y no por el código**: Biome encuentra `.claude/worktrees/*/biome.json` (copias de trabajo del entorno, sin trackear) y se queja de configuraciones raíz anidadas. En el CI esa carpeta no existe. No lo toqué.
+- **La suite E2E corrió sin `e2e/capturas.spec.ts`**, que no está en el repositorio (es una herramienta mía de capturas) y suma el test 43 de las corridas anteriores.
+- **Un primer intento de E2E falló** con `EPERM` de Windows al vaciar `packages/landing/dist/assets`, no con un error del código: la landing construye sola y la segunda corrida pasó entera. Si el CI de Linux lo mostrara, sería otra cosa.
+- **El CI real sigue sin haber corrido** con esto.
+
+---
+
 ## 2026-11-03 · Los docs dicen la verdad (REF6-15)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-15`](post/ref-6/ACTION_PLAN.md) hecha. **Con esto la serie `REF6` queda completa.**
@@ -53,7 +82,7 @@ Tipos y Biome estricto sin errores; `verificar-docs` y `verificar-capas` en verd
 
 Las quince tandas están hechas. Lo que sigue abierto, todo de decisión o de red:
 
-- **El tope de bundle de «elegir rol»** (105.5 contra 105): el CI está en rojo.
+- ~~**El tope de bundle de «elegir rol»** (105.5 contra 105): el CI está en rojo.~~ **Resuelto** en la entrada de arriba: baja a 82.8 KB y el tope pasa a 90.
 - **`aikido:scan` (`BE-14`)**: los motores SAST e IaC de la instalación local no funcionan. `/security-review` tampoco se corrió desde `REF6-2`, y esta serie tocó la sincronización, la validación de entrada y el límite de tasa.
 - **Drenado en Railway** (`deploy.drainingSeconds` > 10 s) para que el apagado ordenado de `REF6-13` sirva.
 - **Pantalla encendida y «registrar una flecha» en un celular real**: nunca se probaron en uno.

@@ -535,6 +535,7 @@ export const SyncBatchSchema = z.object({
 
 ### Frontend
 - Code splitting con `React.lazy`. WAFA y WAFL son chunks separados (`WafaApp-<hash>.js`, `WaflApp-<hash>.js`): entrar como líder no descarga el código de administración. Sin señal sigue funcionando: el service worker precachea **todos** los `.js` al instalarse. **La landing no se partió**: se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes, y no ganó nada —esas tres pantallas pesan ≈4 KB gz entre las tres; lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que se necesita en todas— y la carga inicial no bajó (102,2 KB gz contra 101,9 del chunk único: la sobrecarga de partirlo se come lo que se saca). Un `React.lazy` que no baja el inicial sólo agrega una espera.
+- **`@bal/shared` declara sus `sideEffects`** (`REF6-15`): sólo `configuracionZod.js` y `navegador.js`, que configuran Zod al evaluarse. Sin la declaración, el empaquetador no puede descartar `schemas.ts` (sus `z.object(...)` son llamadas de nivel superior), así que cualquier import suelto del barril —un `enlaceEntreApps` en la pantalla de elegir rol— arrastraba **362 KB de Zod** (≈ 23 KB gz) a una pantalla que no valida nada. Esa es la primera pantalla que ve un líder de patrulla, con la peor señal del torneo. Si se agrega un módulo con un efecto de verdad (configurar algo, registrar algo), **hay que sumarlo a esa lista**, o el empaquetador lo descarta.
 - `memo` en las filas de scoring (`ArrowRow`, comparando las flechas por contenido: IndexedDB devuelve arreglos nuevos en cada lectura) y en el teclado, con callbacks estables y la lectura de los puntajes por el índice `by-target`, no del almacén entero (`REF6-14` / `P-7`).
 - La UI de scoring lee de IndexedDB: no hay estado de carga en el camino crítico.
 - Tailwind purga el CSS no usado.
@@ -549,7 +550,7 @@ El encabezado decía «se verifican en CI», y sólo cuatro de estas filas se ve
 | Registrar una flecha (percibido) | **< 50 ms** | mediana 16 ms (jsdom) | `wafl/rendimiento.test.tsx`, que falla sobre 150 ms. Es el orden de magnitud, no el celular: **la cifra del teléfono no se mide** |
 | Navegar entre blancos | < 100 ms | — | **No se mide** |
 | Primera carga de WAFL en 3G simulado | < 2.5 s | — | **No se mide** |
-| JS que baja la pantalla de elegir rol (`/app/`) | < 105 KB gz | **105.5 · excede el tope** | `scripts/presupuesto.mjs` en el CI. **Hoy el job está en rojo por esta fila** |
+| JS que baja la pantalla de elegir rol (`/app/`) | < 90 KB gz | 82.8 | `scripts/presupuesto.mjs` en el CI. Era 105.5 y estaba en rojo: bajaba Zod sin usarlo (ver más abajo) |
 | JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 119.1 | `presupuesto.mjs` en el CI |
 | JS que baja WAFA (inicial + su chunk) | < 135 KB gz | 128.9 | `presupuesto.mjs` en el CI |
 | JS inicial de la landing | < 120 KB gz | 109.2 | `presupuesto.mjs` en el CI |

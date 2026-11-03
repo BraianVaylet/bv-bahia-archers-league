@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Dominio puro de la Liga Bahiense de Arquería. Sin I/O.",
+  "sideEffects": [
+    "./dist/configuracionZod.js",
+    "./dist/navegador.js"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

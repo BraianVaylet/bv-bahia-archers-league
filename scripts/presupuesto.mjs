@@ -37,7 +37,9 @@ const FRONTENDS = [
     dist: 'packages/app/dist',
     exigeCss: true,
     cargas: [
-      { nombre: 'pantalla de elegir rol', chunk: null, excluye: /^Waf[al]App-/, maxKb: 105 },
+      // 90 y no 105 (`REF6-15`): sin Zod, que esta pantalla no usa, mide 83. Un tope más alto dejaba
+      // que volviera a colarse por un `import` que arrastre un barril, y nadie se enteraba.
+      { nombre: 'pantalla de elegir rol', chunk: null, excluye: /^Waf[al]App-/, maxKb: 90 },
       { nombre: 'WAFL (líder de patrulla)', chunk: /^WaflApp-/, excluye: /^WafaApp-/, maxKb: 125 },
       { nombre: 'WAFA (administrador)', chunk: /^WafaApp-/, excluye: /^WaflApp-/, maxKb: 135 },
     ],
