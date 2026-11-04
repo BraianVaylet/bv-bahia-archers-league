@@ -203,6 +203,40 @@ export async function cargarBlanco(
 }
 
 /**
+ * Espera a que todo lo anotado y firmado haya llegado al servidor: el outbox vacío.
+ *
+ * **Es la condición exacta de «Finalizar torneo».** `requestClose` encola el cierre sólo con el
+ * outbox vacío, y firmar sincroniza en segundo plano: un click apenas después de la última firma
+ * puede llegar antes que la op y recibir «Falta sincronizar 1 cambio». Un líder con señal toca de
+ * nuevo; el test no tiene por qué apostar a ganar la carrera, y en un CI cargado la perdía.
+ * Se mira el outbox y no el indicador del encabezado porque el outbox es lo que `requestClose` lee.
+ */
+export async function esperarOutboxVacio(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            new Promise<number>((resolve, reject) => {
+              const abrir = indexedDB.open('bal-wafl');
+              abrir.onerror = () => reject(abrir.error);
+              abrir.onsuccess = () => {
+                const db = abrir.result;
+                const cuenta = db.transaction('outbox').objectStore('outbox').count();
+                cuenta.onerror = () => reject(cuenta.error);
+                cuenta.onsuccess = () => {
+                  db.close();
+                  resolve(cuenta.result);
+                };
+              };
+            }),
+        ),
+      { message: 'el outbox no se vació: queda algo sin sincronizar', timeout: 30_000 },
+    )
+    .toBe(0);
+}
+
+/**
  * Firma como firma una persona: varios trazos, no una raya.
  *
  * **La diferencia importa y no es estética.** El E2E dibujaba una sola línea

@@ -14,6 +14,45 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-04 · Tercer CI de la PR 80: una carrera del test al cerrar el circuito
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** sigue la serie de correcciones de la PR 80; no es una tanda nueva.
+
+### Qué pasó
+
+Con el arreglo del CSRF, el iPhone 14 pasó, pero el CI falló en **otro** test y en **otro** navegador: `alta-publica.spec.ts` en Chromium, que había pasado en los dos CI anteriores. Falló en «Finalizar torneo» → «Torneo finalizado», con la pantalla mostrando «Falta sincronizar 1 cambio. Buscá señal y probá de nuevo».
+
+### Causa
+
+No es el servidor (el log no tiene ni un rechazo) ni el cambio del CSRF. `requestClose()` **encola el cierre sólo si el outbox está vacío** (`OFFLINE_SYNC.md` §5.5, a propósito: cerrar con puntajes pendientes confundiría al líder). Firmar sincroniza en segundo plano, y el test tocaba «Finalizar torneo» apenas la UI mostraba la última firma, **antes de que la op de esa firma llegara al servidor**. Con la CI rápida casi siempre ganaba la carrera; esta vez no. La app hizo lo que tiene que hacer: avisó, y un líder con señal toca de nuevo.
+
+La reproduje: con el sync de la patrulla demorado 3 s (`page.route`), el test falla en el mismo punto y con **el mismo mensaje**, antes del arreglo.
+
+Había una segunda carrera igual, un paso más adelante: «Torneo finalizado» aparece al **encolar** el cierre, no al sincronizarlo, y el test cerraba el contexto del navegador enseguida. Con el sync normal gana casi siempre; con el sync lento perdía y el torneo no llegaba a `completado`.
+
+### Qué cambió
+
+- `e2e/ayudas.ts`: `esperarOutboxVacio(page)`, que espera a que el outbox de IndexedDB esté en 0. Es la condición exacta que lee `requestClose`; no se mira el indicador del encabezado, que es otra cosa.
+- `alta-publica.spec.ts`: lo usa antes de «Finalizar torneo» y otra vez antes de cerrar el contexto.
+- `flujo-completo.spec.ts`: antes de «Finalizar torneo» (tenía la misma carrera; no había fallado).
+
+Sólo tests; ningún cambio en la app.
+
+### Verificación
+
+Con el sync demorado 3 s (300 veces más lento que el normal): falla antes, pasa después. Suite completa de los tres proyectos: **60/60** (`chromium` 42, `Pixel 7` 9, `iPhone 14` 9). Biome sin errores.
+
+### Lo que no puedo afirmar
+
+- **Que no haya otra carrera parecida.** Esta apareció porque el CI es más lento que mi máquina. Hay specs que clickean tras una acción que sincroniza en segundo plano; revisé los dos que cierran el circuito, no todos.
+- **El CI real todavía no corrió con esto.**
+
+### Una observación sobre el producto (no la toqué)
+
+Un líder con señal que firma al último arquero y toca «Finalizar torneo» enseguida ve «Falta sincronizar 1 cambio. Buscá señal y probá de nuevo», aunque tenga señal y la op esté a milisegundos de llegar. Es el diseño documentado, pero el mensaje manda a buscar antena cuando lo que falta es esperar un instante. Una opción sería que `requestClose` intente vaciar el outbox antes de rendirse. Cambia §5.5 de `OFFLINE_SYNC.md`, así que es decisión tuya.
+
+---
+
 ## 2026-11-04 · Segundo CI de la PR 80: queda 1 test, y era un bug del cliente (CSRF)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** continúa la corrección de la entrada de abajo; no es una tanda nueva.
