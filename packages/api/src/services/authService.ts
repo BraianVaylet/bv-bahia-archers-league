@@ -8,8 +8,16 @@ import { timingSafeEqual } from 'node:crypto';
 import type { AdminLoginInput, ChangePasswordInput, RecoverAdminInput } from '@bal/shared';
 import type { Context } from 'hono';
 import { env } from '../env.js';
+import {
+  errorDeBloqueo,
+  liberar,
+  liberarCuenta,
+  type PoliticaDeBloqueo,
+  reservarIntento,
+} from '../lib/bloqueoDeIngreso.js';
 import { getDummyHash, hashSecret, sha256, verifySecret } from '../lib/crypto.js';
 import { AppError } from '../lib/errors.js';
+import { ipDelCliente } from '../lib/ip.js';
 import { endAllSessionsFor, startSession } from '../lib/session.js';
 import * as auditRepo from '../repositories/auditRepo.js';
 import * as userRepo from '../repositories/userRepo.js';
@@ -20,7 +28,26 @@ export interface AdminSessionInfo {
   readonly mustChangePassword: boolean;
 }
 
-const MAX_INTENTOS = 5;
+/**
+ * El bloqueo de una IP contra una cuenta: cinco intentos, y después 15 minutos que
+ * se duplican con cada bloqueo seguido hasta una hora. Ver `lib/bloqueoDeIngreso.ts`.
+ */
+export const POLITICA_ADMIN: PoliticaDeBloqueo = {
+  intentos: 5,
+  baseMs: 15 * 60_000,
+  techoMs: 60 * 60_000,
+  olvidoMs: 60 * 60_000,
+};
+
+/**
+ * El tope por cuenta, sumando **todas** las IPs, que se persiste en la base.
+ *
+ * Es la segunda capa y tiene que ser mucho más alta que la primera. A cinco, volvía
+ * a ser lo de antes: cualquiera dejaba afuera al admin con cinco requests. Pero
+ * tiene que existir: sin ella, adivinar la clave desde muchas IPs —cinco intentos
+ * por cada una— no tiene techo.
+ */
+const MAX_INTENTOS_POR_CUENTA = 30;
 const BLOQUEO_MS = 15 * 60_000;
 
 /** Mismo error para usuario inexistente y password incorrecto: no se puede enumerar. */
@@ -36,6 +63,15 @@ const credencialesInvalidas = () =>
  * diferencia permite enumerar cuentas midiendo el tiempo.
  */
 export async function loginAdmin(c: Context, input: AdminLoginInput): Promise<AdminSessionInfo> {
+  // Primero y antes de tocar la base: el intento se reserva de forma sincrónica, así
+  // una ráfaga no mira el contador antes de que el primero termine. Y se aplica
+  // aunque el usuario no exista, o el bloqueo distinguiría uno real de uno inventado.
+  const clave = `admin:${input.username}:${ipDelCliente(c) ?? 'desconocida'}`;
+  const espera = reservarIntento(clave, POLITICA_ADMIN);
+  if (espera !== null) {
+    throw errorDeBloqueo(espera, 'Demasiados intentos fallidos. Probá de nuevo en un rato.');
+  }
+
   const user = await userRepo.findByUsername(input.username);
 
   if (user?.lockedUntil && user.lockedUntil > new Date()) {
@@ -50,12 +86,26 @@ export async function loginAdmin(c: Context, input: AdminLoginInput): Promise<Ad
   const coincide = await verifySecret(hash, input.password);
 
   if (!user || !coincide) {
-    if (user) await userRepo.registerFailedAttempt(user._id, MAX_INTENTOS, BLOQUEO_MS);
+    if (user) {
+      await userRepo.registerFailedAttempt(user._id, MAX_INTENTOS_POR_CUENTA, BLOQUEO_MS);
+    }
     throw credencialesInvalidas();
   }
 
+  liberar(clave);
   await userRepo.registerSuccessfulLogin(user._id);
   await startSession(c, { type: 'admin', id: user._id });
+
+  // Sólo los correctos: un `401` por request llenaría el log con el ruido de
+  // cualquier bot, y los intentos fallidos ya tienen su freno.
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId: user._id,
+    action: 'admin.login',
+    entity: 'user',
+    entityId: user._id,
+    ip: ipDelCliente(c),
+  });
 
   return {
     id: user._id.toHexString(),
@@ -105,7 +155,7 @@ export async function getAdminInfo(
 }
 
 /** Configuración del bloqueo, expuesta para los tests. */
-export const LOCK_POLICY = { maxAttempts: MAX_INTENTOS, lockMs: BLOQUEO_MS } as const;
+export const LOCK_POLICY = { maxAttempts: MAX_INTENTOS_POR_CUENTA, lockMs: BLOQUEO_MS } as const;
 
 /** Ventana de rate limit del login, en milisegundos. */
 export const loginWindowMs = (): number => env().RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000;
@@ -161,6 +211,9 @@ export async function recoverAdminPassword(input: RecoverAdminInput): Promise<vo
 
   await userRepo.recoverPassword(admin._id, await hashSecret(input.newPassword));
   await endAllSessionsFor('admin', admin._id);
+  // El dueño recuperó el acceso por otro camino: seguir bloqueado después de eso,
+  // desde la IP que sea, no tiene sentido.
+  liberarCuenta(`admin:${admin.username}:`);
 
   await auditRepo.record({
     actorType: 'system',

@@ -8,6 +8,7 @@
  */
 
 import { MIN_PASSWORD_LENGTH } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Button, Field, Screen } from '../../components/ui.js';
 import { ApiError } from '../../lib/apiClient.js';
@@ -36,6 +37,7 @@ export function ChangePasswordPage({
   onCambiado,
   onCancelar,
 }: ChangePasswordPageProps) {
+  useTituloDePagina('Cambiar contraseña');
   const [actual, setActual] = useState('');
   const [nuevo, setNuevo] = useState('');
   const [error, setError] = useState<string>();

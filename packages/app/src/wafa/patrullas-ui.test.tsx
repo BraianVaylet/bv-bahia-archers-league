@@ -63,7 +63,7 @@ beforeEach(() => {
   llamadas = [];
   rutas = {
     'GET /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
-    'GET /api/admin/tournaments/t1/patrols': () => ({
+    'GET /api/admin/tournaments/t1/patrols?pins=1': () => ({
       json: { patrols: PATRULLAS, violations: [] },
     }),
     'GET /api/auth/csrf': () => ({ json: { csrfToken: 't' } }),
@@ -274,7 +274,7 @@ describe('edición manual', () => {
         { ...miembro('d', 'Ruiz'), position: 'derecha' },
       ];
 
-      rutas['GET /api/admin/tournaments/t1/patrols'] = () => ({
+      rutas['GET /api/admin/tournaments/t1/patrols?pins=1'] = () => ({
         json: {
           patrols: [
             { ...PATRULLAS[0], members: cuatro },

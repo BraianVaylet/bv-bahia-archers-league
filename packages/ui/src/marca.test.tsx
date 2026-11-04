@@ -16,7 +16,7 @@ import { Logo } from './Logo.js';
 
 afterEach(cleanup);
 
-const SVG_CANONICO = join(process.cwd(), '..', 'shared', 'assets', 'liga.svg');
+const SVG_CANONICO = join(process.cwd(), 'assets', 'liga.svg');
 
 describe('Logo', () => {
   /**

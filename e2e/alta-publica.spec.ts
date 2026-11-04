@@ -4,6 +4,7 @@ import {
   cargarBlanco,
   entrarComoAdmin,
   entrarComoLider,
+  esperarOutboxVacio,
   firmarDeVerdad,
   RECORRIDO_CORTO,
 } from './ayudas.js';
@@ -108,7 +109,7 @@ test.describe('alta pública de arqueros', () => {
 
     const { patrols } = await api.get<{
       patrols: { id: string; number: number; username: string; pin: string }[];
-    }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+    }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
     const patrulla = patrols[0];
     if (!patrulla) throw new Error('El torneo no armó ninguna patrulla');
 
@@ -143,8 +144,12 @@ test.describe('alta pública de arqueros', () => {
       await expect(botonesFirmar).toHaveCount(restantes - 1);
     }
 
+    await esperarOutboxVacio(paginaPatrulla);
     await paginaPatrulla.getByRole('button', { name: 'Finalizar torneo' }).click();
     await expect(paginaPatrulla.getByText('Torneo finalizado')).toBeVisible();
+    // La pantalla final aparece al ENCOLAR el cierre, no al sincronizarlo: cerrar el contexto antes
+    // de que la op llegue al servidor deja el torneo sin completar.
+    await esperarOutboxVacio(paginaPatrulla);
     await contextoPatrulla.close();
 
     // 6. Con la única patrulla cerrada, el torneo pasa solo a completado.

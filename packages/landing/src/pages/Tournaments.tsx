@@ -12,8 +12,6 @@
 import {
   type BowCategory,
   CATEGORY_INFO,
-  COLOR_DE_CATEGORIA,
-  COLOR_DE_MODALIDAD,
   distribucionDeCategorias,
   distribucionDeModalidades,
   formatearFecha,
@@ -24,7 +22,14 @@ import {
   SCORING,
   type TournamentStatus,
 } from '@bal/shared';
-import { BadgeEstado, ChipModalidad, GraficoDeTorta } from '@bal/ui';
+import {
+  BadgeEstado,
+  ChipModalidad,
+  COLOR_DE_CATEGORIA,
+  COLOR_DE_MODALIDAD,
+  GraficoDeTorta,
+  useTituloDePagina,
+} from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import {
   Cabecera,
@@ -97,6 +102,7 @@ interface TorneoDetalle {
 // ── Listado ──────────────────────────────────────────────────────────────────
 
 export function TournamentsPage() {
+  useTituloDePagina('Torneos');
   const torneos = useRecurso<{ tournaments: TorneoResumen[] }>('/tournaments');
 
   return (
@@ -239,6 +245,7 @@ function Podios({
 export function TournamentPage() {
   const { id = '' } = useParams();
   const torneo = useRecurso<{ tournament: TorneoDetalle }>(`/tournaments/${id}`);
+  useTituloDePagina(torneo.estado === 'listo' ? torneo.datos.tournament.name : 'Torneo');
 
   if (torneo.estado === 'cargando') {
     return (

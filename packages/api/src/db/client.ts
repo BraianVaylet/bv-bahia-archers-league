@@ -30,6 +30,12 @@ let db: Db | undefined;
 export interface ConnectOptions {
   readonly uri?: string;
   readonly dbName?: string;
+  /**
+   * Emite un evento por cada comando que se manda a la base. **Sólo para medir**
+   * (`tests/sync-viajes.test.ts`, `bench/sync.ts`): cada evento tiene su costo y
+   * la producción no lo necesita.
+   */
+  readonly monitorCommands?: boolean;
 }
 
 /** Abre la conexión si hace falta. Idempotente. */
@@ -47,6 +53,7 @@ export async function connect(options: ConnectOptions = {}): Promise<Db> {
     connectTimeoutMS: 10_000,
     retryWrites: true,
     retryReads: true,
+    ...(options.monitorCommands ? { monitorCommands: true } : {}),
   });
 
   await client.connect();

@@ -7,18 +7,45 @@
  * Ver `docs/ARCHITECTURE.md` §2.
  */
 
+import { useTituloDePagina } from '@bal/ui';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { InstalarApp } from './components/InstalarApp.js';
+import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { RegistroDeVersion } from './components/registroDeVersion.js';
 import { botonClases, Screen } from './components/ui.js';
 import { VolverALaLiga } from './components/VolverALaLiga.js';
-import { WafaApp } from './wafa/WafaApp.js';
-import { WaflApp } from './wafl/WaflApp.js';
+
+/**
+ * Las dos apps se cargan **cuando se entra a ellas** (`REF6-8` / `P-5`).
+ *
+ * Con el `import` estático, el líder de patrulla —que tiene la peor señal de todo el
+ * torneo— bajaba el panel completo del administrador, y el admin bajaba el scoring.
+ * `docs/TECHNICAL.md` §5 lo pide: «entrar como líder no descarga el código de
+ * administración».
+ *
+ * Sin señal sigue funcionando: el service worker precachea **todos** los `.js` del
+ * build, los de cada app incluidos, al instalarse.
+ */
+const WafaApp = lazy(() => import('./wafa/WafaApp.js').then((m) => ({ default: m.WafaApp })));
+const WaflApp = lazy(() => import('./wafl/WaflApp.js').then((m) => ({ default: m.WaflApp })));
+
+/** Lo que se ve mientras baja el chunk de la app elegida: casi nada, y en español. */
+function Cargando() {
+  return (
+    <Screen>
+      <p role="status" className="pt-12 text-[var(--ink-muted)]">
+        Cargando…
+      </p>
+    </Screen>
+  );
+}
 
 /** El service worker está montado en `/app/`, así que el router también. */
 const BASENAME = '/app';
 
 function Elegir() {
+  useTituloDePagina();
   return (
     <Screen>
       <div className="pt-12 pb-4">
@@ -56,11 +83,14 @@ export function App() {
   return (
     <>
       <BrowserRouter basename={BASENAME}>
-        <Routes>
-          <Route path="/" element={<Elegir />} />
-          <Route path="/wafl/*" element={<WaflApp />} />
-          <Route path="/wafa/*" element={<WafaApp />} />
-        </Routes>
+        <NavegacionAccesible />
+        <Suspense fallback={<Cargando />}>
+          <Routes>
+            <Route path="/" element={<Elegir />} />
+            <Route path="/wafl/*" element={<WaflApp />} />
+            <Route path="/wafa/*" element={<WafaApp />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
 
       {/*

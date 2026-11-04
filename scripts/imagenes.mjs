@@ -7,7 +7,7 @@
  * `sharp`, sin sumar un binario nativo al monorepo para tres archivos.
  *
  * Es idempotente y **no toca los originales**: lee de `packages/logos/` y de
- * `origen/`, y escribe en `packages/shared/assets/` y en los `public/`. Correrlo
+ * `origen/`, y escribe en `packages/ui/assets/` y en los `public/`. Correrlo
  * dos veces da el mismo resultado.
  *
  * ```bash
@@ -27,7 +27,7 @@ import { chromium } from '@playwright/test';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Arte canónico de la marca. Todo lo demás se deriva de acá. */
-const LOGO = 'packages/shared/assets/liga.svg';
+const LOGO = 'packages/ui/assets/liga.svg';
 
 /**
  * Copias literales del logo.
@@ -52,7 +52,7 @@ const RASTER = [
   {
     origen:
       'packages/logos/circulo-bahiense-de-arqueria-vector-logo-seeklogo/circulo-bahiense-de-arqueria-seeklogo.png',
-    destino: 'packages/shared/assets/cba.webp',
+    destino: 'packages/ui/assets/cba.webp',
     ancho: 192,
     calidad: 0.85,
     maxKb: 30,
@@ -60,13 +60,72 @@ const RASTER = [
   },
   {
     origen: 'origen/wallpaper.png',
-    destino: 'packages/shared/assets/portada.webp',
+    destino: 'packages/ui/assets/portada.webp',
     ancho: 1120,
     calidad: 0.62,
     maxKb: 150,
     porQue: 'portada de la landing',
   },
 ];
+
+/**
+ * El logo, rasterizado a PNG.
+ *
+ * **No es sólo para material de presentación.** El manifest declaraba
+ * únicamente el SVG, y iOS no lo usa: al agregar la app a la pantalla de inicio
+ * en un iPhone quedaba sin ícono propio. Y `REF4-4` explica en la interfaz cómo
+ * instalarla justamente ahí.
+ *
+ * El arte trae su propia placa oscura con esquinas redondeadas, así que el PNG
+ * se exporta **con transparencia**: lo que queda fuera del redondeo no se
+ * rellena.
+ */
+const PNG_DEL_LOGO = [
+  {
+    destino: 'packages/app/public/apple-touch-icon.png',
+    lado: 180,
+    maxKb: 16,
+    porQue: 'ícono al agregar a inicio en iOS',
+  },
+  {
+    destino: 'packages/app/public/icon-192.png',
+    lado: 192,
+    maxKb: 16,
+    porQue: 'ícono del manifest',
+  },
+  {
+    destino: 'packages/app/public/icon-512.png',
+    lado: 512,
+    maxKb: 40,
+    porQue: 'ícono grande del manifest y de la tienda',
+  },
+  {
+    destino: 'packages/ui/assets/liga-1024.png',
+    lado: 1024,
+    maxKb: 120,
+    porQue: 'marca en alta, para presentaciones e impresión',
+  },
+];
+
+/**
+ * El ícono *maskable*: el arte, a pantalla completa y con aire alrededor.
+ *
+ * Android recorta los íconos maskable con la forma que elija el fabricante
+ * (círculo, gota, cuadrado redondeado), y sólo garantiza ver un círculo central
+ * del 80 % del lado. El ícono común trae su propia placa con esquinas
+ * redondeadas y transparencia fuera: recortado, deja un marco. Éste pinta el
+ * color de la placa en **todo** el cuadrado y dibuja el logo al 60 %, dentro de
+ * la zona segura.
+ */
+const FONDO_MASKABLE = '#16170f';
+const ESCALA_MASKABLE = 0.6;
+
+const MASKABLE = {
+  destino: 'packages/app/public/icon-maskable-512.png',
+  lado: 512,
+  maxKb: 40,
+  porQue: 'ícono maskable del manifest (zona segura)',
+};
 
 const kb = (bytes) => Math.round((bytes / 1024) * 10) / 10;
 
@@ -115,6 +174,72 @@ async function reescalar(pagina, bytesOrigen, { ancho, calidad, destino }) {
   return Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
 }
 
+/**
+ * Rasteriza el SVG del logo a PNG, cuadrado y con fondo transparente.
+ *
+ * Se dibuja el SVG en un canvas en vez de sacarle una captura a la página: la
+ * captura arrastra el fondo del navegador y el redondeo de la placa terminaría
+ * sobre blanco. En el canvas, lo que el SVG no pinta queda transparente.
+ *
+ * El `decode()` es el mismo cuidado que en `reescalar`: `load` dispara cuando
+ * llegaron los bytes, `decode()` cuando la imagen se puede dibujar.
+ */
+async function rasterizarLogo(pagina, svg, lado) {
+  const base64 = Buffer.from(svg).toString('base64');
+
+  const dataUrl = await pagina.evaluate(
+    async ({ base64, lado }) => {
+      const img = new Image();
+      img.src = `data:image/svg+xml;base64,${base64}`;
+      await img.decode();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = lado;
+      canvas.height = lado;
+
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, lado, lado);
+
+      return canvas.toDataURL('image/png');
+    },
+    { base64, lado },
+  );
+
+  return Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
+}
+
+/** Como `rasterizarLogo`, pero sobre un fondo sólido y con margen. */
+async function rasterizarMaskable(pagina, svg, { lado }) {
+  const base64 = Buffer.from(svg).toString('base64');
+
+  const dataUrl = await pagina.evaluate(
+    async ({ base64, lado, fondo, escala }) => {
+      const img = new Image();
+      img.src = `data:image/svg+xml;base64,${base64}`;
+      await img.decode();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = lado;
+      canvas.height = lado;
+
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = fondo;
+      ctx.fillRect(0, 0, lado, lado);
+
+      const tamano = Math.round(lado * escala);
+      const margen = Math.round((lado - tamano) / 2);
+      ctx.drawImage(img, margen, margen, tamano, tamano);
+
+      return canvas.toDataURL('image/png');
+    },
+    { base64, lado, fondo: FONDO_MASKABLE, escala: ESCALA_MASKABLE },
+  );
+
+  return Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
+}
+
 function escribir(destino, bytes) {
   const ruta = join(RAIZ, destino);
   mkdirSync(dirname(ruta), { recursive: true });
@@ -127,13 +252,44 @@ async function main() {
   const logo = readFileSync(join(RAIZ, LOGO));
   for (const { destino, porQue } of COPIAS) {
     escribir(destino, logo);
-    console.log(`✓ ${destino} · ${kb(logo.length)} KB · ${porQue}`);
+    console.info(`✓ ${destino} · ${kb(logo.length)} KB · ${porQue}`);
   }
 
   const navegador = await chromium.launch();
   const pagina = await navegador.newPage();
 
   try {
+    for (const tarea of PNG_DEL_LOGO) {
+      const salida = await rasterizarLogo(pagina, logo, tarea.lado);
+      escribir(tarea.destino, salida);
+
+      const marca = kb(salida.length) > tarea.maxKb ? '\u2717' : '\u2713';
+      console.info(
+        `${marca} ${tarea.destino} \u00b7 ${kb(salida.length)} KB ` +
+          `(m\u00e1x ${tarea.maxKb}) \u00b7 ${tarea.lado}px \u00b7 ${tarea.porQue}`,
+      );
+
+      if (kb(salida.length) > tarea.maxKb) {
+        problemas.push(`${tarea.destino} pesa ${kb(salida.length)} KB, m\u00e1ximo ${tarea.maxKb}`);
+      }
+    }
+
+    {
+      const salida = await rasterizarMaskable(pagina, logo, MASKABLE);
+      escribir(MASKABLE.destino, salida);
+
+      const marca = kb(salida.length) > MASKABLE.maxKb ? '\u2717' : '\u2713';
+      console.info(
+        `${marca} ${MASKABLE.destino} \u00b7 ${kb(salida.length)} KB ` +
+          `(m\u00e1x ${MASKABLE.maxKb}) \u00b7 ${MASKABLE.lado}px \u00b7 ${MASKABLE.porQue}`,
+      );
+      if (kb(salida.length) > MASKABLE.maxKb) {
+        problemas.push(
+          `${MASKABLE.destino} pesa ${kb(salida.length)} KB, m\u00e1ximo ${MASKABLE.maxKb}`,
+        );
+      }
+    }
+
     for (const tarea of RASTER) {
       const origen = join(RAIZ, tarea.origen);
       if (!existsSync(origen)) {
@@ -146,7 +302,7 @@ async function main() {
       escribir(tarea.destino, salida);
 
       const marca = kb(salida.length) > tarea.maxKb ? '✗' : '✓';
-      console.log(
+      console.info(
         `${marca} ${tarea.destino} · ${kb(antes)} KB → ${kb(salida.length)} KB ` +
           `(máx ${tarea.maxKb}) · ${tarea.ancho}px · ${tarea.porQue}`,
       );
@@ -164,7 +320,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\nTodas las imágenes dentro de presupuesto.');
+  console.info('\nTodas las imágenes dentro de presupuesto.');
 }
 
 await main();

@@ -162,7 +162,7 @@ export function Screen({ children, conBarraFija }: ScreenProps) {
         achicar por debajo de su contenido y el scroll se va al documento —que
         es exactamente lo que se está sacando.
       */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div data-scroll-principal className="flex-1 min-h-0 overflow-y-auto">
         <div className={cn('mx-auto w-full max-w-lg px-4 flex flex-col gap-4', 'pb-8')}>
           {children}
         </div>
@@ -239,7 +239,11 @@ export function Encabezado({
       */}
       <Logo size={24} className="shrink-0" />
 
-      {titulo && <span className="font-semibold">{titulo}</span>}
+      {titulo && (
+        <span data-titulo-de-pagina className="font-semibold">
+          {titulo}
+        </span>
+      )}
 
       <div className="ml-auto flex items-center gap-2">
         {children}

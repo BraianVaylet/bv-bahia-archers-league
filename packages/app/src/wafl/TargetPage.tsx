@@ -8,10 +8,12 @@
  */
 
 import { SCORING } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
+import { useWakeLock } from '../lib/useWakeLock.js';
 import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
-import { readScore, readScores, readSignatures } from '../offline/db.js';
+import { readScore, readScoresDeBlanco, readSignatures } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
 import { nudge } from '../offline/syncWorker.js';
 import { ArrowRow } from './ArrowRow.js';
@@ -25,7 +27,12 @@ export interface TargetPageProps {
   readonly onVolver: () => void;
 }
 
+const NADA = () => {};
+
 export function TargetPage({ target, participants, onContinuar, onVolver }: TargetPageProps) {
+  useTituloDePagina(`Blanco ${target.index}`);
+  // La pantalla no se apaga entre flecha y flecha. Sólo acá: ver `useWakeLock` y su test de alcance.
+  useWakeLock();
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [firmados, setFirmados] = useState<ReadonlySet<string>>(new Set());
   const [seleccionado, setSeleccionado] = useState(participants[0]?.id ?? '');
@@ -33,9 +40,19 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
   // Toda la lectura sale de IndexedDB. Si no hay red, no cambia nada.
   const recargar = useCallback(async () => {
-    const [todos, firmas] = await Promise.all([readScores(), readSignatures()]);
-    setScores(todos.filter((s) => s.targetIndex === target.index));
-    setFirmados(new Set(firmas.map((f) => f.participantId)));
+    const [deEsteBlanco, firmas] = await Promise.all([
+      readScoresDeBlanco(target.index),
+      readSignatures(),
+    ]);
+    setScores(deEsteBlanco);
+    // Si no cambió quién firmó, se conserva el mismo `Set`: uno nuevo en cada lectura cambiaría la
+    // identidad de los callbacks de todas las filas y las repintaría (`REF6-14` / `P-7`).
+    setFirmados((previo) => {
+      const ahora = new Set(firmas.map((f) => f.participantId));
+      return ahora.size === previo.size && [...ahora].every((id) => previo.has(id))
+        ? previo
+        : ahora;
+    });
   }, [target.index]);
 
   useEffect(() => {
@@ -92,9 +109,8 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
         // Al completar un arquero, pasa solo al siguiente que falte.
         if (siguientes.length === target.arrows) {
-          const todos = await readScores();
           const deEsteBlanco = new Map(
-            todos.filter((s) => s.targetIndex === target.index).map((s) => [s.participantId, s]),
+            (await readScoresDeBlanco(target.index)).map((s) => [s.participantId, s]),
           );
 
           const siguiente = participants.find(
@@ -122,6 +138,23 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
       });
     },
     [encolar, firmados, recargar, target.index],
+  );
+
+  /**
+   * Los callbacks de cada fila, **estables** entre renders (`REF6-14` / `P-7`).
+   *
+   * Una función nueva por render hace que `ArrowRow` (que es `memo`) se repinte siempre. Sólo
+   * cambian cuando cambia `borrarUltima`, es decir, el blanco o los firmados.
+   */
+  const accionesDe = useMemo(
+    () =>
+      new Map(
+        participants.map((p) => [
+          p.id,
+          { seleccionar: () => setSeleccionado(p.id), borrar: () => borrarUltima(p.id) },
+        ]),
+      ),
+    [participants, borrarUltima],
   );
 
   const puedeContinuar = faltantes.length === 0;
@@ -154,6 +187,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         <div className="flex flex-col gap-2">
           {participants.map((p) => {
             const score = porParticipante.get(p.id);
+            const acciones = accionesDe.get(p.id);
             return (
               <ArrowRow
                 key={p.id}
@@ -166,8 +200,8 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
                 total={score?.total ?? 0}
                 arrowsPerTarget={target.arrows}
                 seleccionado={p.id === seleccionado}
-                onSelect={() => setSeleccionado(p.id)}
-                onBorrarUltima={() => borrarUltima(p.id)}
+                onSelect={acciones?.seleccionar ?? NADA}
+                onBorrarUltima={acciones?.borrar ?? NADA}
                 firmado={firmados.has(p.id)}
               />
             );

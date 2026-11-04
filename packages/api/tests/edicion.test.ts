@@ -502,7 +502,7 @@ describe('una sesión de patrulla no sobrevive a la vuelta atrás', () => {
       ops: [
         {
           type: 'score',
-          opId: '0'.repeat(8) + '-0000-7000-8000-' + '0'.repeat(12),
+          opId: `${'0'.repeat(8)}-0000-7000-8000-${'0'.repeat(12)}`,
           clientUpdatedAt: new Date().toISOString(),
           participantId: miembro._id.toHexString(),
           targetIndex: 1,

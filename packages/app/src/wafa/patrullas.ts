@@ -40,7 +40,7 @@ export interface PatrullaVista {
   readonly targetsCompleted: number;
   readonly members: readonly MiembroVista[];
   /** Sólo mientras el torneo no se publicó. */
-  readonly pin?: string;
+  readonly pin?: string | undefined;
 }
 
 /** El estado editable: qué arqueros tiene cada patrulla y desde dónde arranca. */

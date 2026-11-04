@@ -7,8 +7,8 @@
  * Ver `docs/FUNCTIONAL.md` §5.1.
  */
 
-import { enlaceEntreApps } from '@bal/shared';
-import portada from '@bal/shared/assets/portada.webp';
+import { enlaceEntreApps, useTituloDePagina } from '@bal/ui';
+import portada from '@bal/ui/assets/portada.webp';
 import { Link } from 'react-router-dom';
 import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
 
@@ -16,6 +16,7 @@ import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
 const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
 
 export function HomePage() {
+  useTituloDePagina('Resultados y ranking');
   return (
     <Screen>
       {/*

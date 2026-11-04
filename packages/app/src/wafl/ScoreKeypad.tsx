@@ -11,6 +11,7 @@
  */
 
 import { type Modality, SCORING } from '@bal/shared';
+import { memo } from 'react';
 import { cn } from '../components/ui.js';
 
 /** Mínimo del design system. No se baja: se rediseña el componente. */
@@ -57,7 +58,7 @@ export interface ScoreKeypadProps {
   readonly disposicion?: Disposicion;
 }
 
-export function ScoreKeypad({
+function ScoreKeypadBase({
   modality,
   cargadas,
   total,
@@ -179,3 +180,9 @@ function Tecla({ token, inner, disabled, onPress }: TeclaProps) {
     </button>
   );
 }
+
+/**
+ * El teclado sólo se repinta si cambió lo suyo: las flechas cargadas, el bloqueo o `onToken`
+ * (`REF6-14` / `P-7`). Un error en pantalla o el cambio de otra fila no lo toca.
+ */
+export const ScoreKeypad = memo(ScoreKeypadBase);

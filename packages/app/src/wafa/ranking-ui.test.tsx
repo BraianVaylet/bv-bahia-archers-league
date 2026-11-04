@@ -85,6 +85,61 @@ afterEach(() => {
 const renderRanking = () => render(<RankingPage onVolver={vi.fn()} />);
 
 describe('RankingPage de WAFA', () => {
+  /**
+   * Cambiar de temporada es el mismo ranking con otra consulta: no se vacía mientras llega el nuevo
+   * (`REF6-11`: `conservarDatos`).
+   */
+  it('al cambiar de temporada, el ranking anterior se queda a la vista hasta que llega el nuevo', async () => {
+    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    rutas['GET /api/public/seasons'] = () => ({
+      json: {
+        seasons: [
+          { id: 's1', name: 'Liga 2026', status: 'activa' },
+          { id: 's2', name: 'Liga 2025', status: 'cerrada' },
+        ],
+      },
+    });
+    const previo = globalThis.fetch;
+    let responder: ((r: Response) => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        url.includes('seasonId=s2')
+          ? new Promise<Response>((res) => {
+              responder = res;
+            })
+          : previo(url, init),
+      ),
+    );
+    renderRanking();
+    await screen.findByTestId('fila-Pérez');
+
+    fireEvent.change(screen.getByLabelText('Temporada'), { target: { value: 's2' } });
+    await waitFor(() => expect(responder).toBeDefined());
+
+    expect(screen.getByTestId('fila-Pérez')).toBeDefined();
+
+    responder?.(
+      new Response(
+        JSON.stringify({
+          bestN: 2,
+          categories: [
+            {
+              category: 'razo',
+              general: {
+                ranked: [arquero({ archerId: 'a9', lastName: 'Vieja' })],
+                notYetEligible: [],
+              },
+              femenino: { ranked: [], notYetEligible: [] },
+              masculino: { ranked: [], notYetEligible: [] },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await screen.findByTestId('fila-Vieja')).toBeDefined();
+    expect(screen.queryByTestId('fila-Pérez')).toBeNull();
+  });
   it('lista el ranking por categoría', async () => {
     conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
     renderRanking();

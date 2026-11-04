@@ -14,6 +14,1022 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-04 · Tercer CI de la PR 80: una carrera del test al cerrar el circuito
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** sigue la serie de correcciones de la PR 80; no es una tanda nueva.
+
+### Qué pasó
+
+Con el arreglo del CSRF, el iPhone 14 pasó, pero el CI falló en **otro** test y en **otro** navegador: `alta-publica.spec.ts` en Chromium, que había pasado en los dos CI anteriores. Falló en «Finalizar torneo» → «Torneo finalizado», con la pantalla mostrando «Falta sincronizar 1 cambio. Buscá señal y probá de nuevo».
+
+### Causa
+
+No es el servidor (el log no tiene ni un rechazo) ni el cambio del CSRF. `requestClose()` **encola el cierre sólo si el outbox está vacío** (`OFFLINE_SYNC.md` §5.5, a propósito: cerrar con puntajes pendientes confundiría al líder). Firmar sincroniza en segundo plano, y el test tocaba «Finalizar torneo» apenas la UI mostraba la última firma, **antes de que la op de esa firma llegara al servidor**. Con la CI rápida casi siempre ganaba la carrera; esta vez no. La app hizo lo que tiene que hacer: avisó, y un líder con señal toca de nuevo.
+
+La reproduje: con el sync de la patrulla demorado 3 s (`page.route`), el test falla en el mismo punto y con **el mismo mensaje**, antes del arreglo.
+
+Había una segunda carrera igual, un paso más adelante: «Torneo finalizado» aparece al **encolar** el cierre, no al sincronizarlo, y el test cerraba el contexto del navegador enseguida. Con el sync normal gana casi siempre; con el sync lento perdía y el torneo no llegaba a `completado`.
+
+### Qué cambió
+
+- `e2e/ayudas.ts`: `esperarOutboxVacio(page)`, que espera a que el outbox de IndexedDB esté en 0. Es la condición exacta que lee `requestClose`; no se mira el indicador del encabezado, que es otra cosa.
+- `alta-publica.spec.ts`: lo usa antes de «Finalizar torneo» y otra vez antes de cerrar el contexto.
+- `flujo-completo.spec.ts`: antes de «Finalizar torneo» (tenía la misma carrera; no había fallado).
+
+Sólo tests; ningún cambio en la app.
+
+### Verificación
+
+Con el sync demorado 3 s (300 veces más lento que el normal): falla antes, pasa después. Suite completa de los tres proyectos: **60/60** (`chromium` 42, `Pixel 7` 9, `iPhone 14` 9). Biome sin errores.
+
+### Lo que no puedo afirmar
+
+- **Que no haya otra carrera parecida.** Esta apareció porque el CI es más lento que mi máquina. Hay specs que clickean tras una acción que sincroniza en segundo plano; revisé los dos que cierran el circuito, no todos.
+- **El CI real todavía no corrió con esto.**
+
+### Una observación sobre el producto (no la toqué)
+
+Un líder con señal que firma al último arquero y toca «Finalizar torneo» enseguida ve «Falta sincronizar 1 cambio. Buscá señal y probá de nuevo», aunque tenga señal y la op esté a milisegundos de llegar. Es el diseño documentado, pero el mensaje manda a buscar antena cuando lo que falta es esperar un instante. Una opción sería que `requestClose` intente vaciar el outbox antes de rendirse. Cambia §5.5 de `OFFLINE_SYNC.md`, así que es decisión tuya.
+
+---
+
+## 2026-11-04 · Segundo CI de la PR 80: queda 1 test, y era un bug del cliente (CSRF)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** continúa la corrección de la entrada de abajo; no es una tanda nueva.
+
+### Qué pasó
+
+Con el arreglo de WebKit, el CI de la PR 80 pasó de 8 fallos a **1 de 60**: `el alta pública se completa entera por teclado`, otra vez en iPhone 14, otra vez «La solicitud no pudo validarse». En mi máquina (WebKit en Windows) pasa, así que no pude reproducirlo.
+
+### Causa
+
+La traza del CI, que bajé del artifact, lo muestra sin ambigüedad: `GET /api/auth/csrf` → 200 con la cookie en `Set-Cookie` y el token en el cuerpo; después `POST /api/public/archers` salió **con la cookie y sin el header `x-csrf-token`** → 403. El cliente (`asegurarCsrf`) hacía el `fetch` y releía `document.cookie` de inmediato; en WebKit/Linux la cookie recién recibida todavía no era visible ahí, aunque el navegador ya la tenía y la mandó. Ignoraba el token que la propia respuesta trae.
+
+**No es sólo un problema del E2E.** Es el primer POST de un visitante que llega a `/alta` sin ninguna petición previa a la API: justo lo que hace un arquero nuevo con un link. Si Safari en iPhone se comporta como WebKit/Linux acá, vería «Recargá la página» en su primer intento (y andaría al recargar, porque la cookie ya estaría). No lo pude verificar en un iPhone.
+
+### Qué cambió
+
+- `@bal/cliente`: si la cookie no se ve tras pedir el token, usa el `csrfToken` del cuerpo. La cookie sigue mandando si está; el cuerpo de una respuesta que no salió bien, o que no es JSON (un portal cautivo con un 200 de HTML), se ignora y la mutación sale igual sin header, como antes.
+- `SECURITY.md` §CSRF lo dice.
+
+### Cómo se hizo
+
+Test primero: el caso «usa el token que vino en el cuerpo» falló con el header en `null` (la razón correcta) antes del arreglo. 7 tests nuevos en el cliente (cliente 57 → 64). **6 mutaciones, todas detectadas:** sin el respaldo del cuerpo, el cuerpo por encima de la cookie, confiar en una respuesta con error, relanzar el error de un cuerpo que no es JSON, aceptar un token que no es texto, y pedir el token a otra ruta. Una condición mía (`token !== ''`) la saqué antes de mutar: era redundante, porque `enviar` ya descarta un token vacío.
+
+### Lo que no pude comprobar
+
+- **El arreglo no se puede reproducir acá**: el test unitario simula el comportamiento, y el E2E de iPhone 14 en Linux sólo lo confirma el CI.
+- **iPhone real**: no se sabe si Safari de iOS tiene el mismo retraso.
+
+### Lo que apareció de paso (no lo arreglé)
+
+- **`GET /api/auth/csrf` manda dos `Set-Cookie` con dos tokens distintos** en la misma respuesta: el middleware pone la cookie en toda lectura y el handler vuelve a llamar a `ensureCsrfCookie`, que como la cookie del pedido no existe genera otro. El navegador se queda con el último, que es el que va en el cuerpo, así que es consistente y no rompe nada. Pero es desprolijo; se arregla haciendo que el handler lea el token que dejó el middleware.
+
+---
+
+## 2026-11-04 · El E2E de iPhone 14 (WebKit) falla en el primer CI (PR 80)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** corrección de [`REF6-9`](post/ref-6/ACTION_PLAN.md); no es una tanda nueva.
+
+### Qué pasó
+
+Al abrir la PR 80, cuatro checks pasaron y **`E2E con tramo offline` falló: 8 tests, todos del proyecto `iPhone 14`**. Chromium y Pixel 7 pasaban. `REF6-9` había entregado ese proyecto sin correrlo (WebKit no estaba instalado), y esa limitación quedó anotada como pendiente; el CI confirmó que el pendiente escondía un fallo real. Lo bajé (60 MB) y lo reproduje local.
+
+### Causas (las dos son del E2E, no de la app)
+
+- **7 tests: la cookie de CSRF no llegaba.** El servidor E2E corre con `NODE_ENV=production`, o sea cookies `Secure`, sobre `http://localhost`. Chromium las guarda; WebKit no. Todo POST respondía «La solicitud no pudo validarse», y el login del líder y del admin y el alta pública fallaban. Arreglo: `COOKIE_SECURE=false` en `e2e/servidor.ts`.
+- **1 test (`offline-recarga`): «WebKit encountered an internal error».** WebKit de Playwright rompe cualquier navegación con el contexto en `setOffline(true)`, aunque el service worker tenga el shell. Arreglo: en WebKit sólo se abortan las llamadas a la API.
+
+### Decisiones y costos
+
+- **Desactivar `COOKIE_SECURE` en el E2E deja de ejercitar la cookie `Secure` en todos los navegadores**, incluido Chromium. `env.test.ts` fija que producción la active por defecto, pero **ningún test mira el header `Set-Cookie` de una respuesta**. Si te importa cubrirlo, es un test del API que lea `Set-Cookie` con `NODE_ENV=production`. No lo agregué.
+- **En Safari, `offline-recarga` ya no prueba que el shell abra sin red.** Sigue probando lo importante del escenario (lo cargado vive en IndexedDB, sobrevive a cerrar la pestaña y se sincroniza), pero esa parte sólo la verifica un iPhone real (`FE-21`). Está escrito en el test, en `TESTING.md` y en el plan.
+- **Probé la alternativa mínima primero:** sólo `COOKIE_SECURE` arregló 7 de 8; el octavo era un problema distinto, no una consecuencia del primero.
+
+### Verificación
+
+Corrida completa local de los tres proyectos: **60/60** (`chromium` 42, `Pixel 7` 9, `iPhone 14` 9). Biome sobre los archivos tocados sin errores. **El CI real todavía no confirmó el arreglo.**
+
+### Lo que apareció de paso
+
+- **`e2e/` no se tipa en el CI**: `pnpm typecheck` sólo recorre `packages/*`. Corriendo `tsc -p e2e/tsconfig.json` a mano salen 3 errores `TS2488` en `objetivos-tactiles.spec.ts` (`NodeListOf` sin iterador: a ese `tsconfig` le falta `DOM.Iterable` en `lib`). No son de este cambio. No los arreglé.
+
+---
+
+## 2026-11-03 · El CI deja de estar en rojo: la pantalla de elegir rol ya no baja Zod
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** cierra lo que `REF6-11`, `REF6-12` y `REF6-15` dejaban abierto sobre el tope de bundle de «elegir rol». No es una tanda nueva del plan.
+
+### Qué cambió
+
+- **`@bal/shared` declara `sideEffects`** en su `package.json`: sólo `configuracionZod.js` y `navegador.js` tienen efectos reales al importarse. Sin la declaración, el empaquetador debía asumir que cualquier módulo del barril podía tenerlos y dejaba `schemas.ts` —y con él Zod— en el chunk compartido, aunque la pantalla de elegir rol no use ningún schema. Midiendo el sourcemap, ese chunk llevaba 362 KB sin minificar de Zod.
+- **La pantalla de elegir rol baja de 105.53 a 82.81 KB gz.** WAFL (118.98) y WAFA (128.87) casi no se mueven: ésas sí usan los schemas.
+- **El tope de esa pantalla baja de 105 a 90 KB** (`presupuesto.mjs` y `TECHNICAL.md` §5, que `verificar-docs` mantiene iguales). Con 105 había 22 KB de margen y un `import` que arrastrara el barril volvía a colar Zod sin que nadie se enterara.
+
+### Decisiones
+
+- **Arreglar la causa y no subir el tope.** `REF6-11` ofrecía recortar o subir; subirlo era firmar que la pantalla de entrada baje una librería de validación que no usa.
+- **La lista de `sideEffects` es a mano y hay que mantenerla.** Si alguien agrega a `@bal/shared` un módulo con un efecto real al importarse, tiene que sumarlo ahí o el empaquetador se lo va a quitar. Quedó escrito en `TECHNICAL.md` §5.
+- **`configuracionZod.ts` tiene que seguir siendo un módulo con efectos.** Aplica `z.config({ jitless: true })` cuando hay `document`, porque la CSP no permite `eval`. Está en la lista a propósito, y se confirmó que `jitless` sigue presente en los dos chunks que llevan Zod (`CerrarSesion` e `index`) y en la landing.
+
+### Verificación
+
+Presupuestos todos en verde (elegir rol 82.81/90, WAFL 118.98/125, WAFA 128.87/135, landing 109.24/120). E2E Chromium de escritorio **42/42**, con el test de la CSP de las tres pantallas y los flujos de WAFA y WAFL, que usan Zod. Tipos, Biome estricto sobre `packages`, `scripts` y `e2e`, `verificar-docs`, `verificar-capas` y `verificar-workspace` sin errores.
+
+### Lo que no pude comprobar
+
+- **El `pnpm lint` de la raíz falla en esta máquina, y no por el código**: Biome encuentra `.claude/worktrees/*/biome.json` (copias de trabajo del entorno, sin trackear) y se queja de configuraciones raíz anidadas. En el CI esa carpeta no existe. No lo toqué.
+- **La suite E2E corrió sin `e2e/capturas.spec.ts`**, que no está en el repositorio (es una herramienta mía de capturas) y suma el test 43 de las corridas anteriores.
+- **Un primer intento de E2E falló** con `EPERM` de Windows al vaciar `packages/landing/dist/assets`, no con un error del código: la landing construye sola y la segunda corrida pasó entera. Si el CI de Linux lo mostrara, sería otra cosa.
+- **El CI real sigue sin haber corrido** con esto.
+
+---
+
+## 2026-11-03 · Los docs dicen la verdad (REF6-15)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-15`](post/ref-6/ACTION_PLAN.md) hecha. **Con esto la serie `REF6` queda completa.**
+
+### Qué cambió
+
+Las once filas de `INFORME.md` §3.5 `B-2` quedaron cerradas, cada una como **implementado** o como **doc corregido** (la tabla está en el plan). Ocho ya habían quedado cerradas en las tandas anteriores; tres se cerraron acá:
+
+- **Sync por sesión (implementado).** `SECURITY.md` prometía 300/min por sesión y el código contaba por IP. No era un detalle del doc: el wifi del club es **una sola IP para todas las patrullas**, y diez patrullas volviendo del monte y vaciando su outbox a la vez se cortaban entre sí con 429. El cliente reintenta los 429 y no pierde nada, pero el doc dice que `sync` «nunca debe ser rechazado». Ahora el cupo es de la sesión.
+- **`/api/admin/*` sin límite (doc corregido).** El doc decía 60/min por sesión y el código nunca lo tuvo. No lo agregué: ver abajo.
+- **`TESTING.md` §9 (doc corregido).** Describía una carpeta `tests/fixtures/` con constructores que nunca existió. Ahora describe `tests/helpers.ts`.
+
+Además se corrigió lo que la auditoría encontró fuera de la tabla (ver abajo).
+
+### Decisiones
+
+- **El cupo de `sync` es de la sesión, y hay un tope por IP 20 veces más alto.** Contar sólo por cookie abre un agujero: quien no tiene sesión puede mandar una cookie distinta en cada request y no gastar nunca el mismo cupo, con una lectura a la base por request (cada una es un 401, pero el 401 sale de buscar la sesión). El tope por IP (6000/min) no mira la cookie y sólo se alcanza con una inundación. La clave guarda el **hash** del token, no el token.
+- **No agregué un límite en `/api/admin/*`.** Es una sola persona, autenticada, con CSRF. Un tope no protege de una sesión robada —quien la tiene hace lo que el admin puede hacer, a ritmo humano— y sí puede cortar a un administrador legítimo cargando un torneo grande. Si alguna vez hace falta, la clave sería la sesión, como en `sync`. **Es una decisión de diseño que tomé yo y que podés revertir**: si preferís que el doc se cumpla, es agregar un `rateLimit` con `clavePorSesion`.
+- **La guarda cubre dos cosas y nada más.** Versiones de `TECHNICAL.md` §1 y topes de bundle de §5. Un test que pretendiera leer el doc entero se rompería con cada frase reescrita y alguien lo desactivaría.
+
+### Lo que apareció auditando
+
+- **«Presupuestos — se verifican en CI» era falso para seis de diez filas.** Sólo los cuatro topes de bundle se verifican en el CI. «Navegar entre blancos», «primera carga en 3G», LCP y el p95 de rankings **no se miden en ningún lado**. Ahora la tabla lo dice fila por fila.
+- **Hoy el CI está en rojo por un tope de bundle**: la pantalla de elegir rol baja 105.5 KB contra un tope de 105. Ya estaba así desde `REF6-11` y no lo causó esta tanda. El doc lo dice. Hay que recortar la entrada o subir el tope; sigue siendo decisión tuya.
+- **Cuatro versiones viejas en `TECHNICAL.md` §1**, más `README.md` (React 18, Vite 6) y `CONFIG.md` (`node:20`). La guarda detecta exactamente ese tipo de error.
+
+### Errores míos en el camino
+
+- **El heredoc del shell me metió caracteres de control** (`\b` se volvió backspace) en tres regex del test de la guarda; Biome lo marcó como error y lo corregí con patrones sin escapes. Es la tercera vez que me pasa en esta serie.
+- **Mi primera versión de los casos de prueba de la guarda era una cadena de `replace` encadenados**, ilegible y fácil de equivocar. La rescribí con la fila rota completa en cada caso.
+
+### Verificación
+
+Tipos y Biome estricto sin errores; `verificar-docs` y `verificar-capas` en verde sobre el repo real. **12 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.5 min). Tests de `@bal/api`: 531.
+
+### Estado de la serie `REF6`
+
+Las quince tandas están hechas. Lo que sigue abierto, todo de decisión o de red:
+
+- ~~**El tope de bundle de «elegir rol»** (105.5 contra 105): el CI está en rojo.~~ **Resuelto** en la entrada de arriba: baja a 82.8 KB y el tope pasa a 90.
+- **`aikido:scan` (`BE-14`)**: los motores SAST e IaC de la instalación local no funcionan. `/security-review` tampoco se corrió desde `REF6-2`, y esta serie tocó la sincronización, la validación de entrada y el límite de tasa.
+- **Drenado en Railway** (`deploy.drainingSeconds` > 10 s) para que el apagado ordenado de `REF6-13` sirva.
+- **Pantalla encendida y «registrar una flecha» en un celular real**: nunca se probaron en uno.
+- **El workflow de mutación nunca corrió en el CI**, ni se confirmó que el CI acepte los SHA fijados ni que construya la imagen con el digest.
+- **La landing** sin tipos de punta a punta.
+
+---
+
+## 2026-11-03 · Mutación sistemática (REF6-14 / T-7)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `T-7` de [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecho. Con esto la tanda queda completa, salvo el `aikido:scan`.
+
+### Qué cambió
+
+- **Stryker** (`@stryker-mutator/core` y `vitest-runner`, 10.1.1) como dependencia de desarrollo de la raíz, con una configuración por paquete y un script `mutacion`.
+- **`.github/workflows/mutacion.yml`**: de noche (05:00 UTC, las 2 en Argentina) y a demanda. **No corre en cada PR ni bloquea merges**: tarda minutos en el dominio y bastante más en la sincronización, que levanta un MongoDB en memoria por worker.
+- **Dos objetivos**, los que el plan nombraba: el dominio (`@bal/shared`) y `syncService`, la sincronización idempotente que es una de las cuatro tareas que definen el proyecto.
+
+### Los números de partida
+
+| Objetivo | Puntaje | Piso (`break`) | Mutantes | Tiempo |
+|---|---|---|---|---|
+| `@bal/shared` | **76.6 %** | 70 | 1124 | 1.5 min |
+| `syncService` | **76.82 %** | 70 | 384 | 26.5 min |
+
+En el dominio lo que importa está alto: `ranking` 96 %, `league` 95 %, `stats` 94 %, `scoring` 93 %, `distribucion` 89 %, `patrolling` 85 %. Lo bajo es `schemas.ts` (18 %), y ahí no es ruido.
+
+### Decisiones
+
+- **El piso (`break`) queda unos puntos debajo del puntaje real**, para que el job falle ante una regresión y no por ruido. Se sube a mano cuando el puntaje suba. Un piso en el valor exacto fallaría por un mutante que cambia de lado. El de `syncService` (70) se fijó sobre la corrida de **76.82 %**; después se agregaron los 9 tests y **no se volvió a medir la corrida entera** (26 min), así que el puntaje real hoy es mayor.
+- **Se excluyen `constants.ts` y `domain.ts`, y nada más.** Son catálogos de datos y etiquetas: de 99 mutantes, 89 sobrevivieron (45 de texto, 17 de objetos, 12 de booleanos y 10 de arreglos de datos). No excluí `schemas.ts` aunque tenga el puntaje más bajo, porque ahí 76 de los 169 sobrevivientes (45 %) son mutantes de método y de regex: quitar un `.trim()` o relajar un patrón no lo detecta ningún test de `shared`. Los cubren los tests de integración del API, que esta corrida no ejecuta. Es un hueco real del dominio medido por sí solo, no un falso positivo.
+- **`syncService` corre sólo los 5 archivos de tests que lo ejercitan**, con `concurrency: 2` y un `timeoutMS` de 2 minutos. Correr los 28 de la suite multiplicaría el tiempo sin probar más a `syncService`.
+
+### Lo que la primera corrida ya encontró
+
+La corrida de `syncService` dejó 79 mutantes vivos y 10 sin cobertura. 34 son textos de mensajes de error. De los otros 55, estos son los que importan, y **el código estaba bien: lo que faltaba era un test que se enterara si dejaba de estarlo**:
+
+- **Quién puede firmar a quién** (línea 561): nada comprobaba que una patrulla no pueda firmar a un arquero de otra, ni que un arquero inexistente se rechace en vez de romper. Quitar la comprobación pasaba todos los tests. Es una regla de seguridad.
+- **Quién gana cuando dos celulares cargan la misma celda** (líneas 399-401): el desempate por `opId` a igualdad de hora, y la comparación `>` contra `>=`, no tenían test. Cambiar quién gana no rompía nada.
+- **Reprocesar una op que ya se había aplicado** (el caso de `B-4`: el proceso muere después del commit y antes de confirmar la marca): que quede `superseded` y no cambie el puntaje no lo verificaba nadie.
+- Se escribió `tests/sync-reglas.test.ts` (9 tests) y se repitió la prueba **sólo sobre esas líneas**: 13 de 13 mutantes muertos en el desempate, 12 de 13 en la autorización (el vivo era el de `B-4`, que cubre el tercer punto).
+
+Siguen vivos, sin tests, y quedan como lista de trabajo (el reporte HTML dice cuáles):
+
+- **Un `close` y un puntaje en el mismo lote** (línea 142): el `close` del lote tiene que contar para las ops que vienen después. No se prueba.
+- **La firma PNG** (línea 606): los límites del tamaño mínimo.
+- **La cuenta de lo esperado al cerrar** (línea 634): `activos.length * blancos`; un `/` en su lugar no rompe nada.
+- **El torneo que desaparece a mitad de sesión** (línea 95, sin cobertura) y **la marca que se suelta entre el insert y la lectura** (línea 224).
+- **`reclamar` devuelve `"mia"` y nadie lo compara**: `procesarOp` sólo mira `"duplicada"` y `"en-proceso"`, así que cualquier otro valor cuenta como «es mía». El mutante que lo cambia por `""` es equivalente al código real. No es un bug, pero el tipo `Reclamo` promete más de lo que el código verifica.
+
+### Cosas a saber
+
+- **Nunca corrió en el CI.** Lo probé en local; el primer disparo real es el de la primera noche (o con «Run workflow»). La sincronización tardó 26 min 30 s en local con 2 workers; si el runner es más lento puede tardar el doble. El `timeout-minutes` es 120 para el job de sincronización y 30 para el del dominio.
+- **Dependencias nuevas, 116 paquetes** (Stryker trae mucho). `pnpm audit` no muestra nada alto o crítico, que es lo que bloquea el CI, pero sí 4 moderadas de `qs` que vienen de `typed-rest-client`, dependencia interna de Stryker. Es una herramienta de desarrollo que sólo corre de noche sobre nuestro propio código; el `qs` vulnerable es para `qs.stringify` con entrada controlada por un atacante, que ahí no existe. Quedan anotadas, no resueltas. (Además hay una de `minimatch` que viene de `vite-plugin-pwa` y no tiene que ver con esto.)
+- **`reports/` y `.stryker-tmp/`** quedan ignorados en un `.gitignore` por paquete, no en el de la raíz.
+
+### Errores míos en el camino
+
+- **`pnpm mutacion -- --mutate …` falla** («too many arguments»): pnpm 9 pasa el `--` literal a Stryker. Se llama sin él.
+- **Casi excluyo `schemas.ts`** por tener el 18 %. Miré de qué eran los sobrevivientes antes y no lo hice: son de método y de regex, no de texto.
+
+### Verificación
+
+Lint estricto sin errores; el workflow parsea y tiene sus 9 actions fijadas; `pnpm audit` sin altos. Las dos corridas completas se hicieron en local. Tests nuevos: `@bal/api` +9 (`sync-reglas`), los que cubren lo que la primera corrida encontró vivo.
+
+### Deuda / lo que sigue
+
+- **Subir `schemas.ts`**: los tests de validación del dominio de verdad están en el API. Mover o duplicar alguno en `shared` subiría el puntaje del dominio y haría la prueba autocontenida.
+- **`aikido:scan`** (`BE-14`): sigue sin poder completarse por los motores rotos de la instalación local.
+
+---
+
+## 2026-11-02 · Lo visual sale de @bal/shared (REF6-14 / C-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `C-9` de [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecho. Sólo queda `T-7` de la tanda.
+
+### Qué cambió
+
+- **`paleta.ts`, `tema.ts`, `despliegue.ts`, `tokens.css` y las cuatro imágenes pasaron de `@bal/shared` a `@bal/ui`**, con sus tests (87 de los 499 de `shared` se mudaron con ellos). `@bal/shared` es otra vez sólo el dominio, y un test lo fija: no puede volver a tener un módulo de presentación, exportarlo, ni exponer `tokens.css` o `assets/`.
+- **Quién importa qué cambia poco.** Los consumidores de la paleta, el tema y `enlaceEntreApps` ya dependían de `@bal/ui`. El backend no usaba nada de esto, y la imagen de producción tampoco copiaba `assets/` ni `styles/` de `shared`.
+
+### Por qué fue más fácil de lo que había anotado
+
+En la tanda anterior dejé `C-9` sin hacer porque `@bal/ui` compila con `tsc` y **no copia los `.webp` a `dist`**: el `Footer` iba a perder su imagen en el build. El problema era real, pero no hacía falta resolverlo: si `assets/` y `styles/` van en la **raíz del paquete**, hermanos de `src/` y de `dist/`, el `import cba from '../assets/cba.webp'` es válido desde `src/Footer.tsx` y desde `dist/Footer.js`, a la misma profundidad. Es la misma disposición que ya tenía `shared`. Se comprobó en el build real: las imágenes salen con los **mismos nombres con hash** (`cba-BuVrM48w.webp`, `portada-BR2ho9sO.webp`), o sea, bytes idénticos, y los bundles pesan lo mismo (±0.02 KB).
+
+### Decisiones
+
+- **Los tests que leen archivos del disco corren en Node** (`// @vitest-environment node`), como corrían en `shared`. `ui` usa jsdom, y bajo jsdom `import.meta.url` no es una URL `file:`. Se tocó la configuración de `vitest` de `ui` para que corra también los `.test.ts`.
+- **Una guarda de empaquetado** (`ui/src/empaquetado.test.ts`): cada entrada de `exports` y `files` existe en disco, y cada `@bal/ui/assets/…` o `@bal/ui/tokens.css` que importan la PWA y la landing apunta a algo real. Un import mal escrito de esos no falla al compilar TypeScript: falla en el build de Vite, o deja una imagen rota que sólo se ve sin señal.
+- **`@bal/ui` ya figura en el árbol de paquetes** de `ARCHITECTURE.md` y del `README`, de donde faltaba (lo había creado `REF2-1` y nadie lo había anotado).
+
+### Errores míos en el camino
+
+- **Una ruta escrita a mano en un test que no busqué.** `marca.test.tsx` leía `packages/shared/assets/liga.svg` con la ruta armada con `join`; no figuraba en mi búsqueda de referencias (que buscaba el texto `shared/assets`) y apareció al correr los tests. Lo corregí. Es la razón por la que la guarda de empaquetado mira el árbol y no sólo el texto.
+
+### Verificación
+
+Tipos, Biome estricto y estructura sin errores. Tests: `@bal/cliente` 57, `@bal/shared` **419** (−87 mudados, +7 de pureza), `@bal/api` 492, `@bal/ui` **174** (+87 mudados, +10 de empaquetado), `@bal/app` 631, `@bal/landing` 64. **8 mutaciones, todas detectadas.** Build completo, imágenes con el mismo hash, pesos sin cambios. E2E: Chromium de escritorio 43/43 (3.3 min).
+
+### Deuda / lo que sigue
+
+- `T-7`: Stryker nocturno, que necesita instalar paquetes y un job nuevo en el CI.
+
+---
+
+## 2026-11-02 · Cadena de suministro del CI (REF6-14 / S-10, completo)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** `S-10` de [`REF6-14`](post/ref-6/ACTION_PLAN.md), con tu autorización del paquete completo. Falta el `aikido:scan`.
+
+### Qué cambió
+
+- **Las actions del CI van por SHA de commit**, no por tag: `actions/checkout`, `actions/setup-node`, `actions/cache`, `actions/upload-artifact` y `pnpm/action-setup`, 17 referencias en total. Un tag es móvil: quien controle el repo de la action puede mover `v4` a otro código y el siguiente CI lo ejecuta. Cada SHA se resolvió con `git ls-remote` y lleva la versión en un comentario (`# v4.4.0`).
+- **La imagen base va por digest.** `node:22-bookworm-slim` es un tag móvil: una build de mañana podía traer otra imagen sin que nada del repo cambiara. El digest es el del **índice** multi-arquitectura, para que construya igual en amd64 y arm64. Se verificó contra el registro (responde 200 y lista las plataformas).
+- **`.github/dependabot.yml`**: actions, docker y pnpm, semanal. Es lo que hace que fijar no sea congelar: los SHA y el digest nuevos llegan como PR que pasan por el mismo CI.
+- **`permissions: contents: read`** (ya estaba de antes en este mismo `REF6-14`).
+
+### Cosas a saber
+
+- **El tag anotado de `pnpm/action-setup`.** Su tag `v4` es un objeto de tag, no un commit: el SHA que devuelve `git ls-remote` a secas es el del **objeto de tag**, no el de un commit, y para fijar hace falta el commit. Se tomó el commit al que apunta (`^{}`), que es el que corresponde a la versión 4.3.0. Los otros cuatro son tags livianos y apuntan directo al commit.
+- **No pude construir la imagen acá** (no hay Docker). Lo hace el job `imagen` del CI en el primer PR; si el digest estuviera mal, falla ahí, antes de llegar a producción. Sí verifiqué que el digest existe y es el índice correcto.
+- **Dependabot recién actúa cuando el archivo llega a la rama por defecto**, no en esta rama. El primer lote de PR va a aparecer después de mergear.
+- **Las versiones fijadas son las que `v4` señalaba hoy**: `checkout` 4.4.0, `setup-node` 4.4.0, `cache` 4.3.0, `upload-artifact` 4.6.2, `action-setup` 4.3.0. Es el mismo código que el CI ya corría; no se subió ninguna versión.
+
+### Lo que falta
+
+- **`aikido:scan`** (pendiente de `BE-14`) **no se pudo completar.** Con la sesión ya iniciada, el escaneo corrió sobre 48 archivos (el backend y la infraestructura de la serie `REF6`) y devolvió `issues: []`, pero **dos de sus motores fallaron**:
+  - **SAST (Opengrep):** `unknown JSON field taint_intrafile` al cargar las reglas locales. Es una incompatibilidad entre las reglas y la versión del binario, determinista: se repitió con un solo archivo.
+  - **IaC (Checkov):** `spawn …\aikido-mcp\checkov\checkov.exe ENOENT`: el binario no está instalado.
+  - Lo que sí corrió: el escaneo de **dependencias** (`pnpm-lock.yaml` y los `package.json`), sin hallazgos. El de secretos no informó error, pero tampoco puedo afirmar que haya corrido.
+  - **Un `issues: []` con dos motores caídos no es un escaneo limpio.** No se cuenta como tal. No instalé nada para arreglarlo: bajar y ejecutar binarios es decisión del dueño de la máquina. Hay que reinstalar o actualizar el plugin de Aikido, o correr el escaneo desde su panel o su integración con el repositorio.
+- `C-9` y `T-7` siguen sin hacerse.
+
+---
+
+## 2026-11-02 · Calidad continua (REF6-14, parcial)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-14`](post/ref-6/ACTION_PLAN.md) hecha a medias: `C-8` y `P-7` completos y verificados, parte segura de `S-10`; `C-9`, `T-7` y el resto de `S-10` sin hacer a propósito.
+
+### Qué cambió
+
+- **Biome en cero warnings, y el lint falla si vuelve uno** (`C-8`). Quince warnings: los mecánicos se arreglaron a mano (cinco `?.` equivalentes, incluidos dos en `middleware/auth.ts`, que exige 100 % de cobertura; la cobertura se mantuvo), y **tres funciones de complejidad cognitiva > 20 se partieron** sin cambiar comportamiento. En `presupuesto.mjs` se comparó la salida antes y después: idéntica byte a byte, con el mismo código de salida.
+- **Anotar una flecha repinta una fila, no todas** (`P-7`). Además de `memo`, hizo falta que los callbacks fueran estables y que el conjunto de firmados conservara su identidad cuando no cambia: un `Set` nuevo en cada lectura cambiaba la identidad de `borrarUltima` y, con ella, la de los callbacks de **todas** las filas. `memo` solo no hacía nada. La lectura de los puntajes pasa a `by-target`.
+- **`permissions: contents: read` en el CI** (`S-10`), la parte que se puede verificar sin red y no tiene efectos secundarios.
+
+### Decisiones
+
+- **`ArrowRow` compara las flechas por contenido.** IndexedDB devuelve objetos nuevos en cada lectura aunque el puntaje no haya cambiado: una comparación por referencia (la de `memo` por defecto) repintaría todas las filas igual. Los callbacks sí se comparan por referencia, y quien usa la fila tiene que darlos estables.
+- **El test de tiempo tiene un tope holgado (150 ms) a propósito.** Es jsdom con IndexedDB falso, no un celular: sirve para ver el orden de magnitud y para que un cambio que lo multiplique (releer todo, repintar todo) se note. Un test de tiempos que falla por una máquina lenta enseña a ignorarlo. El presupuesto real de 50 ms se mide en el teléfono, que no tuve.
+- **`C-9` no se hizo.** Mover código es fácil; lo que cambia el riesgo es que `@bal/ui` compila con `tsc` y no copia `.webp` a `dist`, así que el `Footer` perdería su imagen en el build. Es un cambio de empaquetado sin beneficio para quien usa la app, en una tanda que ya tocaba el camino de scoring. Mejor aparte y con el E2E de entrega de assets como red.
+- **`S-10` a medias, a propósito.** Fijar actions por SHA y la imagen por digest sin un actualizador (Dependabot o Renovate) congela los parches de seguridad; activar Dependabot empieza a abrir PR en el repositorio; y un SHA o digest equivocado rompe el CI. Es una decisión tuya, no algo para resolver en silencio.
+
+### Errores míos en el camino
+
+- **Una constante de más.** Agregué `SIN_FLECHAS` para que las filas sin puntaje recibieran siempre el mismo arreglo; una mutación mostró que no cambiaba nada porque el comparador ya mira el contenido. Saqué el código en vez de dejarlo.
+- **Un hueco real en mis tests**, que encontró otra mutación: nada comprobaba que un cambio de *quién* firmó, con el mismo tamaño del conjunto, llegara a la pantalla. Si mi optimización del `Set` se equivocara ahí, se vería firmado a quien no firmó, y editable quien sí. Escribí el test.
+- **El shell se comió una barra invertida otra vez** al escribir `\n` en un script con heredoc: el script de `presupuesto.mjs` quedó con saltos de línea reales dentro de un string. Lo vi porque `node` falló al parsear, lo repararon dos ediciones, y comparé la salida contra la original para estar seguro.
+
+### Verificación
+
+Tipos y Biome estricto (`--error-on-warnings`) sin errores. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` 492, `@bal/ui` 77, `@bal/app` **631** (+15), `@bal/landing` 64. **14 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.6 min).
+
+### Deuda / lo que sigue
+
+- **`C-9`**: mover lo visual de `@bal/shared` a `@bal/ui`, resolviendo antes cómo se empaquetan los assets.
+- **`S-10`**: actions por SHA, imagen por digest, Dependabot o Renovate y `aikido:scan`, juntos y con tu OK.
+- **`T-7`**: Stryker nocturno, que necesita instalar paquetes y un job nuevo.
+- **Medir «registrar una flecha» en un celular real.** Hoy sólo hay la cifra de jsdom.
+- Las cifras «medido 99 / 111 / 119» de `TECHNICAL.md` §5 están desactualizadas (hoy 105.5 / 118.8 / 128.8): es de `REF6-15`.
+- `pnpm lint` de la raíz **falla localmente** si existen worktrees en `.claude/worktrees/` (cada uno trae su `biome.json` y Biome lo toma por una raíz anidada). En el CI no pasa porque `.claude/` no se versiona. Se corre sobre las carpetas del proyecto.
+
+---
+
+## 2026-11-02 · Limpieza del backend (REF6-13)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-13`](post/ref-6/ACTION_PLAN.md) hecha, con un punto de despliegue pendiente y un ítem descartado a propósito (hallazgos `B-3`, `B-4`, `B-5`, `C-5`, `C-6`, `P-6`).
+
+### Qué cambió
+
+- **Una op de sync que quedó a medias ya no se pierde** (`B-4`). La marca de dedup nacía `applied` *antes* de aplicar: si el proceso moría entre la marca y el commit, el reintento recibía `duplicate` y el puntaje desaparecía. Ahora nace `processing`, con la hora, y una op que sigue así pasados 30 s se reprocesa. Es una de las cuatro tareas que definen el proyecto (`BE-10`), así que se probó más de lo habitual: 15 tests y 10 mutaciones sobre este camino.
+- **El apagado espera a los requests en vuelo** (`B-3`) antes de cerrar Mongo, con un plazo de 10 s.
+- **Un log que se puede consultar** (`B-5`): una línea JSON por evento, que respeta `LOG_LEVEL` (que se validaba y no filtraba nada). Cada lote de sync dice cuántas ops trae, cuánto tarda y cuántas rechaza.
+- **`esClaveDuplicada`** (`C-5`) en vez de buscar «E11000» en el texto del mensaje.
+- **Config muerta afuera** (`C-6`): `WEB_DIST_*`, `VITE_APP_NAME`, `validateBody`.
+- **El listado público de torneos filtra en la consulta** (`P-6`).
+
+### Decisiones
+
+- **Una op en proceso reciente no se contesta, no se responde `duplicate`.** El cliente ya trata una op ausente de la respuesta como «reintentar más tarde» (el arreglo de `REF6-5`), así que omitirla es seguro; `duplicate` la sacaría del outbox del celular antes de saber si llegó a aplicarse, que es exactamente el bug que se quiere cerrar. Se aprovecha un contrato que ya existía en vez de inventar un estado nuevo.
+- **La confirmación de los scores es por lote; la de firmas y cierre, dentro de la transacción.** Confirmar op por op suma un viaje a la base por cada score, y `REF6-5` existe para sacarlos (el tope fijo del lote pasa de 8 a 9: un `updateMany`). Un score se puede volver a aplicar sin consecuencias, así que una marca que quedó `processing` es inocua. Una firma o un cierre **no**: al reaplicarse rechazarían por «ya firmado» y el líder vería un conflicto que no existe, en el peor momento. Esas se confirman con su transacción.
+- **Retomar es atómico y sólo de la misma patrulla.** Renueva la hora en el mismo comando que la busca, así que dos reintentos simultáneos no la toman los dos, y el `opId` de otra patrulla no se puede retomar.
+- **El logger no usa `LOG_LEVEL` al importar sino al escribir**, y nunca lanza: un log que tira una excepción tira abajo la request que quería contar.
+- **Sin LRU de rankings.** `TECHNICAL.md` §5 lo pedía; lo descarté. El único escritor de `standings` corre dentro de una transacción, así que invalidar antes del commit deja que un lector recachee datos viejos; hacerlo bien exige invalidar después del commit en tres sitios de `publishService`, y olvidar uno es un ranking desactualizado tras publicar. A cambio de ahorrar una lectura indexada de unos cientos de documentos, con `ETag` ya puesto. Se reabre si se mide. Quedó escrito en `TECHNICAL.md`.
+
+### Lo que encontré
+
+- **El listado público de torneos estaba roto de una forma silenciosa:** el `limit(200)` iba antes del filtro por estado, así que con 200 torneos recientes sin publicar, los públicos no aparecían. Hoy no pasa porque hay pocos torneos; el test lo reproduce.
+- **Railway da 0 segundos de drenado por defecto** entre `SIGTERM` y `SIGKILL`. Sin configurarlo, el apagado ordenado no tiene tiempo de hacer nada. La clave es `deploy.drainingSeconds` en `railway.json` (o la variable `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`).
+
+### Lo que dejé sin hacer, a propósito
+
+- **No toqué `railway.json`.** Es configuración de despliegue; un valor con el tipo equivocado puede romper el próximo deploy, y la documentación de Railway muestra el número como string. Hay que decidirlo y probarlo en un deploy.
+
+### Errores míos en el camino
+
+- **Una cita a una sección que no existe.** En `CONFIG.md` escribí «Ver `TECHNICAL.md` §10» para el logger; no hay tal sección. Lo vi al buscar dónde estaba documentado y lo saqué.
+- **Una ancla ambigua en mi propia especificación de mutaciones** (`result: 'processing'` aparece en dos funciones) y **dos mutaciones/tests que no distinguían nada**: un lote de prueba donde las aplicadas y las rechazadas eran una cada una (cruzarlas no se notaba), y una hora que se renueva al retomar sin test que la mirara. Las tres las encontró la mutación; las cerré.
+- **Un bloque de test roto por comillas del shell** al agregarlo con `node -e`: perdió la línea del PNG. Lo vi al leer el archivo y lo reparé con el editor.
+
+### Verificación
+
+Tipos y Biome sin errores nuevos. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` **492** (+47), `@bal/ui` 77, `@bal/app` 616, `@bal/landing` 64. **31 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.6 min).
+
+### Deuda / lo que sigue
+
+- **Configurar el drenado en Railway** (`deploy.drainingSeconds` > 10 s). Sin eso, `B-3` está escrito pero no hace nada.
+- Sigue pendiente lo de `REF6-12` (pantalla encendida en un celular real; seis pantallas de WAFA sin `h1`) y el presupuesto de bundle de «pantalla de elegir rol».
+- Sigue sin correrse `/security-review` ni `aikido:scan` formales desde `REF6-2`. Esta tanda toca la sincronización idempotente y el apagado: conviene antes de mergear.
+
+---
+
+## 2026-11-02 · Navegación accesible y pantalla encendida (REF6-12)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** [`REF6-12`](post/ref-6/ACTION_PLAN.md) hecha, salvo la prueba de la pantalla encendida en un celular real (hallazgos `U-5` y `U-7`).
+
+### Qué cambió
+
+- **Cada pantalla pone su título** (`useTituloDePagina`): «Ranking · Liga Bahiense de Arquería». Antes todas se llamaban igual en la pestaña, en el historial y para un lector de pantalla (WCAG 2.4.2).
+- **Al cambiar de ruta, la pantalla nueva se ve desde arriba y el foco va a su título** (`useAlCambiarDeRuta`). El bug real estaba en la landing: el `main` que scrollea es **uno solo para todas las rutas**, así que del ranking a la ficha de un arquero se entraba a la mitad. En la PWA cada pantalla monta su propio `Screen` y ya arrancaba arriba; el hook cubre el caso de la misma ruta con otro parámetro.
+- **La pantalla no se apaga en un blanco** (`useWakeLock`): se pide al entrar a `TargetPage`, se suelta al salir y se vuelve a pedir al volver a ser visible la página, que es cuando el navegador lo suelta solo.
+
+### Decisiones
+
+- **El hook recibe el `pathname`, no usa el router.** `@bal/ui` no depende de `react-router-dom`; cada app lee su `location` en un componente de tres líneas. Solo cuenta el `pathname`: cambiar `?temporada=` no es otra pantalla.
+- **El foco va al `h1`, y si no hay, al título del `Encabezado`.** Seis pantallas de WAFA no tienen `h1` (el título del encabezado es un `span`), así que sin el segundo camino no se movía nada. Se marca con atributos (`data-scroll-principal`, `data-titulo-de-pagina`) en vez de pasar refs: es una preocupación transversal y los dos contenedores viven en archivos distintos.
+- **Si el título todavía no existe, se espera.** Una pantalla que carga datos o un chunk perezoso no tiene `h1` cuando cambia la ruta. Se observa el DOM hasta 3 s y se enfoca cuando aparece, **salvo que el usuario ya se haya puesto a escribir**: robarle el foco a quien está en un campo es peor que no moverlo. Tampoco se mueve el foco al abrir el sitio.
+- **Un título enfocado por código no lleva anillo** (`tabindex="-1"`, solo los que se enfocan por código). No es un control.
+- **WAFL solo recibe títulos.** Navega por estado, no por rutas, y mover el foco en medio de una carga no se justifica.
+- **Pantalla encendida solo en `TargetPage`**, y un test lo fija: si alguien la quiere en otro lado, el test lo obliga a decidirlo a la vista. Cuesta batería y el recorrido dura horas.
+- **Un test lee el código para exigir el título** (como `iconografia.test.tsx`), en vez de montar las ~25 pantallas: el olvido es fácil de cometer y casi imposible de ver a ojo.
+
+### Lo que no pude verificar
+
+**La pantalla encendida en un celular real.** La decisión 4 decía «probado en un celular real antes de fijarlo». Los tests usan una API simulada: prueban cuándo se pide, se suelta y se reintenta, no que el sistema operativo respete el candado ni cuánta batería gasta. Queda abierto.
+
+### Errores míos en el camino
+
+- **Una mutación equivalente.** Para ver si el Wake Lock reintenta tras un rechazo puse `pidiendo = true` justo antes de un `finally` que lo repone: no cambiaba nada y «sobrevivió». No era un hueco del test sino una mutación mal pensada; la reemplacé por una que no limpia `pidiendo` tras el rechazo, que sí se detecta.
+- **Una barra invertida perdida** al escribir un test con un heredoc de shell (`split('\\')`); lo vio `tsc` y lo reescribí con `path.sep`.
+- **Mi primer test estructural exigía el sufijo `Page`**, y `RecuperarPassword` es una pantalla sin él. Lo corregí para exigir al menos una llamada por archivo.
+
+### Verificación
+
+Tipos y Biome sin errores. Tests: `@bal/cliente` 57, `@bal/shared` 499, `@bal/api` 445, `@bal/ui` **77** (+16), `@bal/app` **616** (+40), `@bal/landing` **64** (+11). **23 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.4 min).
+
+### Deuda / lo que sigue
+
+- **Probar la pantalla encendida en un celular y medir la batería.**
+- **Seis pantallas de WAFA sin `h1`** (`Archers`, `Home`, `Payments`, `Ranking`, `Seasons`, `TournamentCreate`). Arreglarlo sin duplicar el `h1` de las que ya lo tienen es una decisión de diseño.
+- **Presupuesto de bundle de «pantalla de elegir rol»: 105.53 KB contra 105.** Ya estaba sobre el tope antes (ver `REF6-11`); esta tanda suma ~0.45 KB por los hooks de `@bal/ui`. Hay que recortar o subir el tope.
+
+---
+
+## 2026-11-02 · Tipos de punta a punta en WAFA (REF6-11, cierre)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** última entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-3`). Con esta, la tanda queda cerrada para WAFA.
+
+### Qué cambió
+
+- **WAFA pide por el cliente RPC de Hono** (`hc<…>`) tipado con las rutas del backend. Renombrar un campo en una ruta rompe el `typecheck` de la pantalla que lo lee, en vez de fallar en el celular de alguien. Probado con mutaciones, no sólo afirmado.
+- **Los cuerpos y las consultas también quedaron tipados**, no sólo las respuestas: `bodyValidado` / `consultaValidada` son `parseJsonBody` / `parseQuery` movidos a un middleware. Hono sólo infiere un tipo de entrada si el schema aparece en la ruta.
+- **El CSRF y el `ApiError` no se duplicaron**: `hc` recibe el `fetch` de `@bal/cliente`, que adjunta el token en cada mutación y convierte un rechazo en `ApiError`. Un `200` que no es JSON (el portal cautivo) sigue saliendo como `SyntaxError`, no como `ApiError`.
+
+### Decisiones
+
+- **Tipos importados por alias, no por dependencia ni por `dist`.** `@bal/api/tipos` apunta al fuente (`tsconfig.base.json`). Declarar `@bal/api` como dependencia lo habría vuelto una «librería compilada» para `verificar-workspace` (su `main` es `dist/`), y apuntar a `dist` exigiría construir el backend antes de cada typecheck del frontend. El costo: el typecheck de la app compila también el código del backend que los tipos alcanzan (~6 s en total).
+- **Hono RPC y no DTOs a mano.** Las rutas ya estaban encadenadas, así que el tipo sale gratis y no hay una segunda copia del contrato que mantener. Con DTOs compartidos un campo renombrado en el servidor y no en el DTO volvería a compilar bien.
+- **El cliente RPC vive en `lib/rpc.ts` y no en `apiClient.ts`.** WAFL importa `apiClient`, y el chunk de WAFL es el que se usa sin señal: no baja `hono/client`. Se comprobó en el build.
+- **`import { type X }` no es `import type`.** Con `verbatimModuleSyntax` el primero deja un `import {} from …` que el bundler resuelve y carga. La guarda de `verificar-capas` exige la forma completa.
+- **La landing quedó afuera.** El título de la tanda es WAFA y el costo es distinto: hay que cambiar la firma de `useRecurso` (de una ruta a una función). Queda como trabajo aparte.
+
+### Lo que la migración encontró
+
+Pasar las llamadas a tipos reales destapó tres desfases entre lo que el frontend declaraba y lo que el servidor manda. Los tests de UI no podían verlos: simulan la red con lo que cada test quiere que conteste.
+
+- **`/results` nunca mandó `participantId`**, y el tipo del frontend lo exigía. El desempate de presentación de `rankParticipants` compara ese campo, así que con dos arqueros iguales en todo el orden dependía de cómo llegaran. El fixture del test de `podios` también lo traía: **el fixture mentía igual que el tipo**. Se escribió primero el test que lo muestra (rojo: `["p9","p1"]`) y se arregló en `podios`.
+- **`category: string` en cuatro vistas del servidor** (arqueros, miembros de patrulla, pagos, ranking), cuando la base la guarda como `BowCategory`. Se corrigió en el servidor, sólo en tipos.
+- **`pin?: string`** contra el `pin?: string | undefined` que infiere Hono con `exactOptionalPropertyTypes`.
+
+### Errores míos en el camino
+
+- **Casi llevo `hono/client` a WAFL.** Lo primero que escribí puso el cliente RPC dentro de `apiClient.ts`, que WAFL también importa. Lo vi al pensar en el bundle, antes de medirlo, y lo separé en `rpc.ts`.
+- **Me salté dos `api.del`.** El patrón que usé para migrar sólo buscaba `post` y `patch`; los vio el typecheck (`Cannot find name 'api'`) al sacar el import. Después busqué por `api.` a secas.
+
+### Verificación
+
+Tipos y Biome sin errores en las carpetas del proyecto (el `pnpm lint` de la raíz falla por los worktrees de `.claude/`, que traen su propio `biome.json`). Tests: `@bal/cliente` **57** (+18), `@bal/shared` 499, `@bal/api` **445** (+27), `@bal/ui` 61, `@bal/app` **576** (+16), `@bal/landing` 53. **15 mutaciones, todas detectadas.** E2E: Chromium de escritorio 43/43 (3.4 min).
+
+### Deuda / lo que sigue
+
+- **Presupuesto de bundle de «pantalla de elegir rol»: 105.08 KB contra 105.** El CI lo corre. Ya estaba en 105.09 antes de esta entrega, medido sobre el `dist` del commit anterior. No es de esta tanda, pero está rojo.
+- **Landing sin tipos de punta a punta** (cambiar la firma de `useRecurso`; ~2 KB sobre 108.7 de 120).
+- **`useCarga` tiene complejidad cognitiva 23** (tope 20, es un warning). Viene de la entrega 1.
+- Sigue sin correrse `/security-review` ni `aikido:scan` formales desde `REF6-2`. Esta entrega toca la validación de entrada de 15 rutas, que es justo lo que un revisor de seguridad querría ver: conviene correrlos antes de mergear.
+
+---
+
+## 2026-11-01 · WAFA: páginas chicas (REF6-11, las páginas)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** segunda entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgo `C-1`, y el resto de `C-2`). **Falta** la que da los tipos de punta a punta (`C-3`).
+
+### Qué cambió
+
+- **Siete páginas de WAFA pasaron de 250 a ~100-175 líneas**: `Archers` 668 → 146, `Tournament` 624 → 144, `TournamentCreate` 527 → 144, `Patrols` 486 → 106, `Ranking` 311 → 141, `Publish` 260 → 159 y `Seasons` 256 → 111. Cada una es sólo la composición; los datos salen de un hook por pantalla y cada pieza tiene nombre y archivo.
+- **Todas las cargas de WAFA usan `useCarga`**, incluidas las tres que no estaban en la lista (`Home`, `Payments`, `SelectorDeArqueros`). Antes cada pantalla reimplementaba `useState` + `useEffect` + `try/catch`, sin cancelación.
+- **`useCarga` ganó `conservarDatos`.** Lo pidió `Archers`: sus filtros (búsqueda, «ver archivados») recargan **el mismo recurso con otra consulta** y hoy conservan la lista mientras llega la nueva. `useCarga` descartaba los datos al cambiar de claves —correcto para pasar del torneo A al B, que no puede mostrar ni un instante lo de A—, y con eso el padrón habría parpadeado con cada tecla.
+
+### Cómo se hizo sin romper nada
+
+El plan decía «una página por PR, con los tests de UI como red». Se partió **una página por vez, con los 256 tests de UI de WAFA corriendo después de cada una**, y las partes se **cortaron del archivo original por marcadores en vez de retiparlas**: el JSX que ya funcionaba se movió, no se reescribió. **No se modificó ni un test existente.**
+
+### Decisiones
+
+- **El error de la última acción, aparte del de la carga**, en cada página (`errorDeAccion ?? carga.error`). Con un solo slot, un refresco o una recarga que sale bien borraba el motivo por el que el servidor había rechazado lo que el admin acababa de hacer (el mismo caso de `REF6-7`).
+- **Cada componente es dueño de su estado y de su pedido**, y avisa a la página con `onCambio` (que recarga y se **espera**: el botón sigue deshabilitado hasta que llegan los datos) y `onError`. La página no sabe cómo se hace «iniciar» ni «eliminar».
+- **Carpetas por pantalla (`detalle/`, `padron/`…) y no un `components/` único**: ya existía `wafa/torneo.ts` (el dominio del seguimiento) y una carpeta `wafa/torneo/` al lado se confundía con él.
+- **Se conservó un comportamiento discutible a propósito**: si falla la carga de temporadas en el wizard o en el ranking, se ve «no hay temporadas», como antes. Es engañoso (la carga falló, no están vacías), pero cambiarlo es otra decisión.
+
+### Errores míos en el camino
+
+- **Pisé un archivo antes de leerlo.** Escribí la página nueva de `Ranking` antes de correr el generador que cortaba piezas del original, y el generador leyó la versión ya reescrita. Estaba commiteada: se recuperó de `HEAD` y los generadores siguientes leen de `HEAD`, no del disco.
+- **Cinco mutaciones sobrevivieron, y las cinco eran huecos que ya existían antes del refactor.** Nada comprobaba que la pantalla del torneo se actualizara después de «iniciar», que un pago rechazado mostrara su motivo, que marcar un pago se viera reflejado, ni cómo se comporta el selector del wizard cuando la búsqueda falla. La refactorización no los creó; la mutación los encontró. Los tests de UI «de red» sólo eran una red donde los agujeros ya estaban.
+- **Un test de iconografía recorre cada `.tsx` de `app/src`** y cuenta uno por archivo: los 26 componentes nuevos sumaron 26 tests a la corrida (527 → 553) sin que yo escribiera ninguno. Todos pasan, pero el número de tests sube con la cantidad de archivos y no con el comportamiento cubierto.
+
+### Verificación
+
+`@bal/app` **560** (527 de antes de las páginas, 26 de la iconografía y 7 nuevos), `@bal/cliente` **39**, `@bal/api` 418, `@bal/shared` 499, `@bal/ui` 61, `@bal/landing` 53. Tipos y Biome sin errores; ni un warning en `app/src`. **16 mutaciones, todas detectadas**, cinco tras escribir el test que faltaba. E2E: Chromium de escritorio 43/43.
+
+### Deuda / lo que sigue
+
+- **Entrega 2 — tipos de punta a punta (`C-3`).** Sigue siendo lo único que falta de `REF6-11`. Ahora es más fácil: cada pantalla tiene un hook con **un solo lugar** donde se piden sus datos, así que migrar a `AppType`/RPC es tocar `useTorneo`, `usePadron`… y no cien sitios de llamada.
+- **WAFL (`wafl/*`) sigue con sus cargas a mano**: no estaba en el alcance (la lista era de WAFA), y su capa de datos es IndexedDB, no HTTP.
+
+---
+
+## 2026-11-01 · Un cliente HTTP y un hook de carga (REF6-11, entrega 1 de 3)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** primera entrega de [`REF6-11`](post/ref-6/ACTION_PLAN.md) (hallazgos `C-2` y `C-4` de [`INFORME.md`](post/ref-6/INFORME.md)). **Faltan** los tipos de punta a punta (`C-3`) y partir las páginas (`C-1`).
+
+### Por qué en partes
+
+`REF6-11` es la única tanda de tamaño L, y su propio riesgo dice «refactor amplio sin cambio funcional — una página por PR, con los tests de UI como red». Hacerla de una vez dejaba un cambio imposible de revisar y de revertir. Esta entrega es la que **no toca ninguna página**: crea las piezas que las demás necesitan y deja los tests de UI donde estaban.
+
+### Qué cambió
+
+- **Un paquete nuevo, `@bal/cliente`**, con el cliente HTTP y el hook de carga. Había dos clientes (`app/src/lib/apiClient.ts`, `landing/src/lib/api.ts`) que duplicaban el CSRF y tenían dos `ApiError` con formas distintas. Ahora los dos son delgados —dicen dónde cuelga la API y qué mensaje dar por defecto— y **ningún sitio de llamada cambió**: `app` 527 tests y `landing` 53, sin tocar uno.
+- **`useCarga`** reemplaza el `useState` + `useEffect` + `try/catch` + `setError` que cada página reimplementaba, y que la landing tenía por su cuenta como `useRecurso`. Decisión 3 del informe: **hook propio**, no react-query.
+- **Se sacó `@tanstack/react-query`** de las dependencias de `@bal/app`: nunca se importó. De paso, `ARCHITECTURE.md` y `TECHNICAL.md` decían que se usaba.
+
+### Decisiones
+
+- **Un paquete nuevo y no `@bal/ui` ni `@bal/shared`.** `@bal/ui` dice «sin I/O» en su descripción, y `@bal/shared` es el dominio puro: poner un cliente HTTP en cualquiera de los dos ensucia lo que cada uno promete. El costo es tocar los cuatro lugares donde hay que acordarse de un paquete nuevo (scripts de la raíz, `dev`, el Dockerfile y el CI); `scripts/verificar-workspace.mjs`, que existe por ese olvido, confirma que quedaron cubiertos.
+- **`useCarga` conserva lo que se ve al recargar y lo descarta al cambiar de recurso.** Son dos cosas distintas: después de «iniciar torneo», la pantalla no puede parpadear a «cargando»; pero al pasar del torneo A al B no puede mostrar ni un instante los datos de A.
+- **La recarga silenciosa generaliza lo que `REF6-7` había escrito a mano en `Tournament.tsx`**: no pasa por «cargando», un fallo no muestra nada, un éxito no borra el error de la última acción, y si ya hay una carga en vuelo no manda otra.
+- **Una respuesta que no es JSON sigue saliendo como `SyntaxError`, y está escrito en un test.** Lo descubrí al unificar: si el cliente la convirtiera en un `ApiError(200, …)` —lo más prolijo—, `esReintentable` del outbox diría que no, porque no es 5xx ni 4xx transitorio, y la op se descartaría. El wifi del club tiene un portal cautivo que contesta `200` con una página HTML: sería un puntaje perdido por un portal.
+
+### Errores míos en el camino
+
+- **Un error de lint que el CI habría marcado**: `useEffect(..., claves)` no es un array literal, y mi comentario de supresión estaba en la línea equivocada (la del `useEffect`, no la de la lista). Biome lo contó como un error, no un aviso.
+- **Una mutación sobrevivió**: que `recargar` cambie de identidad cuando llegan datos nuevos. Mi test sólo comparaba la identidad entre dos renders sin datos nuevos. Importa: es lo que se pasa de dependencia al refresco de 30 s, que se reiniciaría con cada dato. Ahora el test pasa por una recarga con datos distintos.
+
+### Verificación
+
+`@bal/cliente` **36** tests nuevos (rojos antes: el módulo no existía), `@bal/app` **527** y `@bal/landing` **53** sin tocar, `@bal/api` 418, `@bal/shared` 499, `@bal/ui` 61. Tipos del workspace limpios; `verificar-workspace` reconoce el paquete. **22 mutaciones, todas detectadas**. E2E: Chromium de escritorio 43/43.
+
+### Deuda / lo que sigue
+
+- **Entrega 2 — tipos de punta a punta (`C-3`).** `AppType` + cliente RPC de Hono, o DTOs compartidos. Hace falta decidir cómo se integra con el CSRF y el `ApiError` de `@bal/cliente`.
+- **Entrega 3 — las páginas (`C-1`).** Siete pasan de 250 líneas: `Archers` 668, `Tournament` 624, `TournamentCreate` 527, `Patrols` 486, `Ranking` 311, `Publish` 260 y `Seasons` 256. Cada una adopta `useCarga` al partirse.
+- **`@bal/cliente` no tiene umbral de cobertura** (como `landing` y `ui`): se mide, no se exige.
+
+---
+
+## 2026-10-31 · La regla 3 sin excepciones (REF6-10)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Décima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `B-1` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Un chequeo de CI para las capas** (`scripts/verificar-capas.mjs`, paso «Capas del backend»): falla si algo fuera de `repositories/` y `db/` importa `db/client`, o si una ruta importa un repositorio. La regla 3 de `CLAUDE.md` estaba escrita desde el principio y se rompía sin que nadie lo viera: una ruta pública llevaba semanas haciendo `seasons().find(…)`.
+- **Las rutas hablan con servicios.** `rankingService` (ranking y ficha del arquero), `tournamentQueryService` (las lecturas de torneo de la landing y de WAFA) y `seasonService.listar`. La ruta valida, llama y serializa.
+- **Las consultas que vivían en servicios pasaron al repositorio** (`tournamentRepo.updateIfStatus`), y **las transacciones abren su sesión por `db/sesion`**, que no expone colecciones.
+- **El healthcheck** consultaba la base desde la ruta: ahora `saludService` → `saludRepo`.
+
+### Lo que el hallazgo no decía
+
+`B-1` hablaba de una ruta con una consulta. Al escribir el chequeo —que es lo que impide que vuelva— aparecieron **13 infracciones**, no una: la de `publico.ts`, `admin.ts` y `publico.ts` importando repositorios, el healthcheck, y **siete servicios** que importaban el cliente de Mongo. De esos, cinco sólo lo hacían para abrir una sesión de transacción; dos —`tournamentStateService` y `tournamentEditService`— **consultaban la base directamente**, con la misma violación que la ruta.
+
+### Decisiones
+
+- **`db/sesion.ts` en vez de una excepción para los servicios.** Prohibirle a un servicio importar `db/client` obligaba a decidir qué hacer con las transacciones. Dejarlas como excepción abría justo el hueco que el chequeo quería cerrar: el mismo import da acceso a todas las colecciones. `iniciarSesion()` expone una sola cosa —abrir una sesión—: la transacción se agrupa en el servicio y cada consulta sigue pasando por un repositorio.
+- **Las rutas tampoco importan repositorios**, aunque el plan sólo pedía lo de `db/client`. Con la regla a medias, la ruta que arma su respuesta con repositorios habría seguido ahí, que es lo que `B-1` señalaba en su segunda viñeta. Eran 8 imports más.
+- **`index.ts` queda permitido**: es la raíz de composición, conecta y desconecta la base. Es la única excepción y está escrita en el script.
+- **Se mira lo que se importa, no cada llamada.** Es barato, no se confunde con un alias y alcanza para que la regla no se pueda romper sin que alguien lo vea. Lo que no ve: un repositorio que reciba una colección por parámetro. No existe hoy.
+
+### Errores míos en el camino
+
+- **El script de edición se cortó a la mitad** (esperaba un `}` al final de `admin.ts` que no estaba) y dejó `publico.ts` reescrito y `admin.ts` sin tocar. Se rehízo sólo la parte que faltaba; el golden, que se comparó después de las dos, es lo que dice que quedó bien.
+- **El primer escenario del golden no probaba el ranking**: con un solo torneo publicado, nadie llegaba a `bestN` y todas las vistas salían vacías (`ranked: 0`). Un golden sobre respuestas vacías no compara nada. Se agregó un segundo torneo publicado y un torneo en proceso, y se verificó que el ranking, la ficha y los resultados tuvieran datos antes de congelarlos.
+- **Rutas con `\` en Windows**: el chequeo imprimía `routes\publico.ts` y el test esperaba `/`. Normalizado.
+
+### Verificación
+
+`@bal/api` **418** (+13 de `capas.test.ts`), cobertura de `services/` 96,4 % de líneas y 83,8 % de ramas (umbral 85/80: el margen de ramas bajó de 85,5 a 83,8 porque el código movido de las rutas a los servicios cuenta ahora acá). Tipos y Biome sin errores. **30 respuestas congeladas antes y después: idénticas, 33 218 bytes.** 11 mutaciones del chequeo, todas detectadas. E2E: 43/43 en Chromium de escritorio.
+
+**No se hizo** `/security-review` ni `aikido:scan`.
+
+### Deuda / lo que sigue
+
+- **`tarjetaService`, `archerService` y otros todavía arman respuestas con vistas propias**, cada uno a su manera; no se unificó el estilo de las vistas. No es de esta tanda.
+- **`tournamentQueryService` importa `blancosBloqueados` de `tournamentEditService`**: una lectura que vive en un servicio de escritura. Es el único acoplamiento entre los dos y conviene separarlo cuando se toque la edición.
+
+---
+
+## 2026-10-31 · Un servidor que no devuelve el resultado de una op (hallazgo de REF6-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho. Surgió al escribir los tests de `offline/` de [`REF6-9`](post/ref-6/ACTION_PLAN.md) y no estaba en el informe. Toca `syncWorker.ts` (`FE-2`, una de las cuatro tareas que definen el proyecto).
+
+### Qué pasaba
+
+`aplicarResultados` saltaba (`continue`) una op sin resultado en la respuesta sin sacarla del outbox, sin contar un intento y sin marcar nada. El `for (;;)` de `flush` volvía a leer el outbox, encontraba la misma op y la mandaba de nuevo, **sin pausa ni backoff**. Reproducido con un servidor de mentira que contesta `200` con `results: []`: **300 pedidos en 46 ms**, con la op todavía en el outbox.
+
+Con el servidor de hoy no pasa: `syncService.sync` devuelve un resultado por op en todos sus caminos. El caso realista es un **desfase de versiones**: la PWA se actualiza con `prompt` (regla 7), así que hay celulares con el cliente viejo durante días, y un cambio futuro en la forma de `results` —o un proxy que altere la respuesta— los metería en el bucle. Lo único que lo frenaba era el 429 del rate limit (300 por minuto y por IP), y el wifi del club es una sola IP: un celular así dejaba sin cuota a las demás patrullas, y volvía a empezar con cada ventana. **No perdía datos**: la op nunca se descartaba.
+
+### Qué cambió
+
+- `aplicarResultados` devuelve `{ hayConflicto, sinResultado }`. Las ops sin resultado se tratan como un **intento fallido**, igual que un corte de red: se anota el intento con el motivo «El servidor no devolvió el resultado de este cambio.» (es lo que lee `requestClose` para explicarle al líder por qué falta sincronizar), se programa el reintento con backoff y **`flush` sale**.
+- En el camino de aislamiento de un lote rechazado, la op sin resultado también cuenta un intento.
+- **La op nunca se descarta.** El puntaje es del líder, y que el servidor no lo haya contestado no lo vuelve basura. Es la misma regla que el 401 y los errores de red.
+
+### Decisiones
+
+- **Se arregló el comportamiento y no el síntoma.** Una guarda genérica («si el lote es idéntico al anterior, cortar») habría frenado este bucle y dejado pasar el siguiente: acá se nombra la causa —una op sin resultado— y se la trata como lo que es.
+- **Sin estado `error` en la pantalla.** Se comporta como un corte de red: el indicador sigue en «pendiente» y el motivo queda en la op. El líder no tiene nada que hacer; marcarle un error que no puede resolver sería ruido.
+
+### Errores míos en el camino
+
+- **Un test mío era flaky y yo no lo sabía.** «Con un lote parcial» asumía que la primera op del lote era la de P1, pero el orden del outbox sale del uuid v7, que **empata a ras de milisegundo** y desempata al azar. Pasó dos veces por suerte y falló en la tercera corrida, con el E2E andando en paralelo. Ahora el servidor de prueba contesta por arquero y no por posición; 8 corridas seguidas verdes y las 9 mutaciones otra vez detectadas.
+- **Lo encontré por accidente.** Una respuesta de prueba que omitía una op colgó mi test hasta el timeout de 5 s. Si hubiera escrito la respuesta completa, el hueco seguiría ahí.
+
+### Verificación
+
+`@bal/app` **527** (+5 nuevos, rojos antes del arreglo por la razón correcta: «expected 6 to be 1», el bucle corriendo hasta el tope del test). `offline/` sube a **90,2 %** de ramas (umbral 85, y los umbrales pasan). 9 mutaciones, todas detectadas: volver al `continue` · anotar el intento pero seguir la vuelta · cortar sin programar el reintento · cortar sin anotar el intento · descartar la op · no registrar las ops sin resultado · el aislamiento sin anotar · sin motivo a la vista · lote parcial que deja a todas sin resultado.
+
+### Deuda / lo que sigue
+
+- **No hay un tope de reintentos ni un aviso al líder** si una op queda sin resultado durante mucho tiempo. Con backoff (hasta 60 s) es barato, pero un cliente viejo contra un servidor nuevo seguiría reintentando para siempre: lo que debería pasar entonces es avisar que hay que actualizar la app. Es una decisión de producto, no de este arreglo.
+
+---
+
+## 2026-10-31 · Cobertura que bloquea y E2E en celular (REF6-9)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con una parte sin verificar** (el proyecto de WebKit no se corrió) y **un hallazgo nuevo** que no es de esta tanda (abajo). Novena tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `T-1`, `T-2` y `T-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Los umbrales de cobertura se aplican.** Estaban en `TESTING.md` §8 como «bloquea: sí», y el CI corría `vitest run` sin `--coverage`: ni uno se evaluaba. Ahora están en el `vitest.config.ts` de `api` y `app`, por carpeta, y el CI corre `pnpm test:coverage` en todos los paquetes.
+- **`offline/` sube de 75,5 a 89,2 % de ramas** (exigido: 85) y **`middleware/auth` de 88 a 100 %** (exigido: 100). Es la capa donde viven `U-3` y `P-2`, y era la que más cobertura de ramas debía tener.
+- **Proyectos móviles de Playwright:** `Pixel 7` (Chromium) y `iPhone 14` (WebKit) corren `offline-recarga`, `objetivos-tactiles` y un `flujo-corto` nuevo. El resto sigue sólo en escritorio.
+- **Fuera `--passWithNoTests`** de `app` y `landing`.
+
+### Decisiones
+
+- **Umbrales por carpeta y no sobre el total.** Un 95 % global deja pasar un servicio entero sin probar si el resto está muy cubierto.
+- **«Autorización de sync» no tiene umbral propio.** `TESTING.md` §8 pedía 100 % ahí; vive dentro de `syncService.ts`, que comparte archivo con el resto de la sincronización, y vitest aplica umbrales por archivo o carpeta, no por función. Queda bajo el de `services/` (85/80, medido 97/85,5). Queda escrito en el documento.
+- **El resto de `app` no bloquea**, como dice el documento (70/60, «No»): se mide, no se exige.
+- **Los márgenes son chicos a propósito de cómo se midió**: `offline/` 89,2 contra 85 y `services/` 85,5 contra 80. No les agregué relleno para ensancharlos: un test que existe para subir un número es peor que el hueco.
+- **Las specs que corren en tres navegadores eligen el torneo por id.** Cada navegador crea el suyo en la misma base, y el selector por nombre (`getByRole('option', { name: /Recarga/ })`) encontraba varios y Playwright se negaba a elegir.
+- **`landing` ganó `@vitest/coverage-v8`** (ya estaba en los otros cuatro paquetes) para poder correr `test:coverage` en todos. Sin umbral: sólo se mide.
+
+### Errores míos en el camino
+
+- **Agregar la dependencia rompió los enlaces del workspace.** `pnpm add --offline` cambió las variantes de `vitest` en el store y `packages/api/node_modules/vitest` quedó apuntando a una carpeta que ya no existía: `Cannot find module ...vitest.mjs`. Lo arregló un `pnpm install --offline`. La diferencia en `pnpm-lock.yaml` es de tres líneas.
+- **Un test mío cuelga el worker, y eso es un hallazgo (abajo).** Escribí una respuesta del servidor que omitía una op del lote; el test no terminó nunca. No era mi test el roto.
+- **Otra vez un token inválido en 3D** (`'9'` en un blanco 3D): el puntaje no se guardó y el test fallaba mirando otra cosa. Es la tercera vez que me pasa en esta serie.
+- **El heredoc del shell se comió una barra** (`/\.ts/` quedó `/.ts/`) y los argumentos que empiezan con `/` se reescriben como rutas de Windows. Sin consecuencias en el repo; los scripts van a un archivo.
+
+### Verificación
+
+`pnpm test:coverage` en todo el workspace, exit 0: `shared` 499, `api` 405 (+5), `ui` 61, `app` 522 (+17), `landing` 53. **Los umbrales bloquean de verdad:** con los tests nuevos de `offline/` sacados, la corrida queda con todos los tests en verde y sale con 1 por `branches (75.53%) … threshold (85%)`; sin `auth-middleware.test.ts`, por `branches (88.23%) … threshold (100%)`. E2E: `chromium` + `Pixel 7` **52/52** (43 + 9). Lint sin errores.
+
+**No se pudo verificar:** el proyecto `iPhone 14`. WebKit no está instalado en esta máquina y bajarlo es la descarga de un binario que no hice sin tu autorización; `playwright test --list` lo muestra con sus 9 tests. Tampoco se corrió el CI real (GitHub Actions): se probó el comando que corre, no el workflow. **No se hizo** `/security-review` ni `aikido:scan`.
+
+### Deuda / lo que sigue
+
+- ~~**`flush()` puede quedar en un bucle sin fin si el servidor omite una op en `results`.**~~ **Resuelto** (entrada de arriba). Se dejó el texto original: `aplicarResultados` hace `continue` sobre una op sin resultado y no la saca del outbox; el `for (;;)` de `flush` vuelve a leer el mismo lote y a mandarlo, sin pausa. Un servidor que cumple el contrato siempre devuelve un resultado por op, así que hoy no pasa; pero un proxy que corte la respuesta, o una versión vieja del servidor, convertirían al celular en un cliente que hace POST sin parar. Hace falta una guarda (contar la op como intento fallido y salir) y un test. **No lo toqué:** no es de esta tanda y es la capa más delicada del proyecto.
+- **Correr WebKit** (`pnpm exec playwright install webkit`, y luego `playwright test --project="iPhone 14"`). Puede fallar por diferencias reales: `objetivos-tactiles` incluye un test de foco por teclado, y Safari no tabula a los botones por defecto.
+- **`e2e/tsconfig.json` no pasa `tsc`** (`NodeListOf` sin iterador, en tres archivos que no toqué) y no está en `pnpm typecheck`: los errores no los ve nadie.
+- `outbox.ts` tiene una rama que el propio código llama «inalcanzable» (`computoParcial` tras un `!r.ok`): código muerto que cuenta como rama sin cubrir.
+
+---
+
+## 2026-10-31 · Entrega de assets y PWA (REF6-8)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con dos puntos del plan sin verificar** (si el borde de Railway ya comprime; Lighthouse «installable»). Octava tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `P-3`, `P-4`, `P-5`, `U-4` y `S-8` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Compresión.** `scripts/precomprimir.mjs`, al final de `pnpm build`, deja un `.br` y un `.gz` junto a cada archivo de texto del `dist`; el servidor entrega el que el cliente acepta (`serveStatic({ precompressed: true })`). El JS de la PWA pasa de 439 KB a **109 KB** en brotli. El JSON de la API se comprime con gzip si pasa de 1 KB (`middleware/compresion.ts`).
+- **Caché.** Lo que está bajo `/assets/` lleva hash y va `immutable` por un año; todo lo demás (`index.html`, `sw.js`, el manifest, los íconos) va `no-cache`. `Vary: Accept-Encoding` siempre. Los dos `index.html` se leen una vez al montar.
+- **Code splitting.** `WafaApp` y `WaflApp` se cargan con `React.lazy`. El líder ya no baja el panel del admin: **WAFL pasa de 126 a 111 KB gz**, WAFA a 119, y la pantalla de elegir rol a 99.
+- **Presupuestos sobre lo que una pantalla descarga.** `presupuesto.mjs` arma el grafo de chunks del `index.html` y, para WAFL y WAFA, de su app, y **falla si una baja código de la otra**. Antes sumaba todo el JS del `dist`, que con las dos apps en un solo chunk coincidía con la carga inicial y con el splitting dejó de hacerlo.
+- **PWA.** El precaché incluye `webp` y `png` (el logo del CBA se veía roto sin señal). El manifest declara PNG 192 y 512 más un maskable aparte, con zona segura (nuevo `icon-maskable-512.png`, generado por `scripts/imagenes.mjs`); `apple-touch-icon` enlazado; `theme_color` igual al de la página. **Se borró `runtimeCaching`.**
+
+### Decisiones
+
+- **La landing no se partió.** Se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes: esas tres pantallas pesan ~4 KB gz entre las tres, lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que necesita toda pantalla, y la carga inicial no bajó (102,2 KB contra 101,9 del chunk único). Un `React.lazy` que no baja el inicial sólo agrega una espera: se revirtió. El plan decía «rutas pesadas de la landing»; no hay ninguna.
+- **El presupuesto de WAFL se apretó de 150 a 125 KB.** Con 150 un `import` estático que trajera WAFA de vuelta (126 KB) habría pasado; los 125 más el chequeo de «no baja la otra app» lo detectan los dos.
+- **`Vary` también en la respuesta sin comprimir.** `serveStatic` sólo lo agrega cuando elige un precomprimido; una caché intermedia que guardó el original podría servírselo a quien aceptaba brotli.
+- **`manifest.theme_color` claro (`#fbfaf5`)**, el de la página. Un manifest no se adapta al tema; se eligió el claro, que es el default.
+- **`hono/compress` no alcanza solo**: su umbral de 1 KB sólo se mira si la respuesta trae `Content-Length`, y `c.json()` no lo trae, así que comprimía hasta `{ "ok": true }`. El middleware declara el largo antes.
+
+### Errores míos en el camino
+
+- **El code splitting rompió una garantía de `REF6-3`, y sólo la vio el E2E.** `REF6-3` apagó el JIT de Zod con un `import '@bal/shared/navegador'` puesto primero en cada `main.tsx`, y dejó escrito que tenía que evaluarse antes de `schemas.ts`. Era cierto con un solo chunk. Con `React.lazy`, el chunk de los schemas es una dependencia estática de la entrada y se evalúa **antes** que su cuerpo, donde estaba el import de efecto: volvió el `eval` en la CSP, en las cuatro rutas (`tema-sin-parpadeo`). Los tests unitarios no lo ven: no hay empaquetador. Arreglo de raíz: `schemas.ts` importa `configuracionZod.ts`, que apaga el JIT si hay un DOM. «Un módulo depende de otro» sí es un orden garantizado; «el empaquetador evalúa esto primero», no. Dos tests nuevos (con DOM, sin importar `navegador`; sin DOM, el JIT sigue encendido) y mutaciones en ambos sentidos.
+- **Un test existente asumía que todos los íconos eran SVG** (`pwa-instalable`: «devolvió el HTML del SPA» si el cuerpo no empezaba con `<svg`). Con PNG fallaba por un motivo que no era el que decía. Ahora comprueba la firma de 8 bytes de un PNG.
+- **`page.getAttribute` sobre un elemento que no existe espera 5 minutos** (el timeout del test). La primera corrida en rojo de la spec nueva tardó 5,6 min por eso; se pasó a `toHaveCount(1)`.
+- **La primera mutación del import estático no compilaba** (`WafaApp` quedaba sin usar y `tsc` cortaba el build): el presupuesto seguía en verde por no haber cambiado nada. Se rehízo con un `void WafaApp` y ahí sí falló, por la razón correcta. Es la misma trampa de `REF6-2` y `REF6-4`.
+- **Un presupuesto inventado antes de medir**: puse 24 KB al ícono maskable y salió de 25,6. Se subió a 40, como el de 512 común.
+- **Una afirmación mía en la documentación que era falsa.** Escribí que partir la landing ganaba «≈4 KB»; al medirlo, no ganaba nada. Corregida antes de commitear.
+
+### Verificación
+
+`@bal/api` **400** (+19, casi todos de `estaticos.test.ts`), `@bal/shared` **499** (+2), `@bal/app` 505, `@bal/landing` 53, `@bal/ui` 61. Tipos del workspace limpios; Biome sin errores (las advertencias nuevas son de `scripts/`, que antes no entraba en el alcance: `noConsole` en los CLI y la complejidad de `main()` en `presupuesto.mjs`). E2E **42/42** (10 nuevos, en `entrega-de-assets.spec.ts`: sin código de la otra app, caché, brotli, íconos, apple-touch, `theme_color`, imágenes sin conexión, y que el `sw.js` no tenga reglas para la API). **Mutaciones, todas detectadas**: 11 del servidor y de Zod, la del import estático (por el presupuesto) y las de la PWA (E2E).
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre los cambios de `REF6-2` en adelante.
+
+### Deuda / lo que sigue
+
+- **No se verificó si el borde de Railway ya comprime** (el plan pedía hacerlo primero): no hay deploy contra el cual medirlo. El servidor comprime de todos modos; si el borde también lo hiciera, recibe contenido ya codificado y lo deja pasar. Al primer deploy: `curl -sI -H 'Accept-Encoding: br' https://…/app/assets/<index>.js` y mirar `content-encoding`.
+- **Lighthouse «installable» no se corrió.** Se cubre lo que Lighthouse mira (manifest con PNG 192/512, maskable, `start_url` y `display`, service worker registrado, íconos que existen), pero no la auditoría misma.
+- **`/api/*` ahora puede venir comprimido con gzip**: con BREACH en mente, ninguna respuesta refleja datos del request junto a un secreto en el mismo cuerpo (`/api/auth/csrf` devuelve el token sin eco), así que no hay con qué montarlo. Queda anotado por si esa respuesta cambia.
+
+---
+
+## 2026-10-30 · PIN y audit log (REF6-7)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, con un punto abierto que no es del DoD (los ingresos fallidos del admin no se registran, a propósito). Séptima tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-7`, `S-9`, `C-7` y `U-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **Los PIN no viajan por defecto.** `GET /tournaments/:id/patrols` devuelve el avance sin PIN y sin escribir `patrol.pin.reveal`; con `?pins=1` los trae y lo registra. Es lo único que se acepta: otro valor o un parámetro desconocido es un `400`. La pantalla del torneo usaba esa lista para mostrar el avance, así que cada vistazo descifraba todos los PIN y llenaba el log.
+- **Se audita lo que faltaba:** `admin.login`, `tournament.start/unstart/delete`, `payment.set`, `archer.create/update/archive/restore/delete` y `season.create/update/close/reopen`. Cada entrada con actor e IP, y un `meta` que dice qué pasó sin copiar nombres ni DNI. Las rutas de temporadas llamaban al repositorio directo: ahora pasan por un `seasonService`.
+- **El cierre es `patrol.close`**, con la IP de quien cerró (la IP se pasa ahora de la ruta del sync hasta el cierre). Antes era `patrol.manual_edit` con `closed:true`, el mismo nombre que usan las redistribuciones del admin.
+- **El seguimiento se refresca cada 30 s** mientras la pestaña está visible y el torneo está en curso (`useRefrescoPeriodico`). Con la pestaña oculta se pausa; al volver refresca una vez, de inmediato.
+- **En las rutas del admin, la IP del audit log sale de un solo lugar** (`ipDelCliente`, con `null` si no se sabe). Las tres entradas que ya existían usaban `clientIp`, que devuelve el texto `'desconocida'`: en el log podían figurar las dos cosas para el mismo caso.
+
+### Decisiones
+
+- **Parámetro y no endpoint propio** (`?pins=1`). El plan dejaba las dos opciones. El parámetro cambia una línea en cada pantalla y deja una sola ruta que autorizar; y como es estricto, no hay un «sí» ambiguo.
+- **El `PUT` sigue devolviendo PIN.** Guardar una redistribución se hace desde la pantalla de credenciales, que los muestra. Sacarlos obligaba a esa pantalla a pedirlos de nuevo.
+- **Los ingresos fallidos no se registran.** Un `401` por request llenaría el log con el ruido de cualquier bot, que es justo lo que se quería evitar con los PIN. Ya tienen su freno (`REF6-6`). El plan decía «login de admin» a secas: queda escrito en `SECURITY.md` §9 bis.
+- **El refresco silencioso no toca los errores.** Si falla no muestra nada, y si anda bien no borra el error de la última acción: el motivo por el que el servidor rechazó «volver a sin iniciar» tiene que poder leerse.
+- **`?pins=1&pins=2` se acepta como `pins=1`** (Hono toma el primer valor). No lo rechacé: pide lo mismo que el admin ya pidió.
+
+### Errores míos en el camino
+
+- **Tres mutaciones sobrevivieron y apuntaban a huecos reales.** Archivar↔restaurar y cerrar↔reabrir al revés: mi test comprobaba que existiera una entrada de cada acción, no que cada endpoint dejara la suya; un test que sólo mira el conjunto no ve un intercambio. Y el refresco que borraba el error de la última acción: no había test.
+- **Los tests de `patrol.close` los escribí después de implementar**, y pasaron a la primera: no los vi fallar. La mutación (volver al nombre viejo, o sin IP) es lo que demuestra que sí detectan.
+- **Una mentira mía de la tanda anterior.** En `REF6-6` anoté que el duplicado del alta «entra naturalmente en `REF6-7`, que audita y expone el log». `REF6-7` audita, no muestra nada: esa pantalla no está en el plan. Corregido en el plan y en la bitácora de `REF6-6`.
+- **Un regex sin su barra** (`/^d{6}$/`) que perdió el `\` al pasar por el shell: un test pasó a esperar «d» seguido de seis veces nada. Lo vio el propio test al fallar con un PIN real.
+
+### Verificación
+
+`@bal/api` **381** (+19), `@bal/app` **505** (+17: 10 del hook, 7 de la pantalla), `@bal/shared` 497, `@bal/ui` 61, `@bal/landing` 53. Tipos del workspace limpios; Biome sin errores (las advertencias que quedan son anteriores, incluida la complejidad de `Tournament.tsx`, que ya era 24 en HEAD). **24 mutaciones, todas detectadas** (tres tras escribir el test que faltaba). E2E **32/32** contra el stack reconstruido, con los cuatro specs que leen PIN pidiéndolos con `?pins=1`.
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre estos cambios.
+
+### Deuda / lo que sigue
+
+- **Ninguna pantalla muestra el audit log.** Está en la base y se consulta ahí. Falta una pantalla de auditoría en WAFA, y no tiene tarea en el plan; es lo que haría visible el duplicado del alta (`REF6-6`).
+- **Sin retención ni índice por acción.** El log sólo crece. Con la lista de acciones ahora más larga, conviene decidir cuánto se guarda.
+
+---
+
+## 2026-10-30 · Entradas públicas endurecidas (REF6-6)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, con dos puntos abiertos que no son del DoD (el duplicado no se ve en WAFA; la cola de pendientes no tiene tope). Sexta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-4`, `S-5` y `S-6` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Qué cambió
+
+- **El body se mide en bytes reales** (`middleware/limiteDeBody.ts`, `bodyLimit` de Hono): 64 KB en cualquier ruta salvo `POST /api/wafl/sync`, que admite 1 MB. `parseJsonBody` sólo miraba el `Content-Length` declarado; con `Transfer-Encoding: chunked` no hay header y el body entero se leía a memoria antes de decidir nada. El error conserva la forma `{ error: { code, message } }` del resto de la API.
+- **El alta pública ya no es un oráculo de DNI.** Un DNI nuevo y uno ya anotado en esa categoría reciben la misma respuesta (`200`, mismo cuerpo, un `_id` inventado en el duplicado); el duplicado no crea nada y deja `archer.register_duplicate` en el audit log. `POST /api/admin/archers` conserva el `409`: el admin tiene sesión.
+- **El alta tiene cupo propio** (`RATE_LIMIT_REGISTER`, 20 por hora e IP) **y un campo trampa** (`sitioWeb`, fuera de pantalla). Si llega lleno se responde como si hubiera funcionado y no se guarda nada.
+- **El bloqueo de las cuentas es por (cuenta, IP)** con backoff progresivo (`lib/bloqueoDeIngreso.ts`): admin 15 → 30 → 60 min, patrulla 5 → 10 → 20 min, cinco intentos por par. Por debajo queda el contador por cuenta de la base, ahora con umbral **30** entre todas las IPs.
+- **El intento se reserva al entrar.** Antes se leía el contador, se verificaba y se anotaba el fallo: una ráfaga de 30 requests pasaba entera. Ahora pasan cinco. Se aplica también a cuentas que no existen.
+- **Recuperar el password y regenerar el PIN sueltan el bloqueo** de todas las IPs de esa cuenta.
+
+### Decisiones
+
+- **Se revirtieron dos decisiones de `BE-20`**, a propósito y con la razón a la vista. (1) «DNI duplicado → 409 sin filtrar el nombre»: el `409` ya confirmaba que el DNI estaba en el padrón, que es justo lo que se quería ocultar; ocultar el nombre no alcanzaba. (2) «Sin límite propio: el freno real es la cola de aprobación»: la cola es un freno *humano*, y cada alta basura es una fila que el admin tiene que descartar. Quedó anotado en `SECURITY.md` §15 y se marcó en `docs/ACTION_PLAN.md` (`BE-20`).
+- **El tope por cuenta en la base es 30**, ni 5 ni «sin tope». A cinco, volvía a ser el problema original (cinco requests dejan afuera al dueño); sin tope, un PIN de seis dígitos se puede probar desde muchas IPs, cinco por cada una. Con 30 el dueño tiene margen y el atacante tiene techo.
+- **El costo de reservar al entrar está documentado**: un mismo par (cuenta, IP) no admite más de cinco intentos *en vuelo* a la vez, aunque la clave sea buena. Seis logins simultáneos al mismo usuario desde la misma IP no los manda una persona, y argon2 hace corta la ventana. Un test que mandaba diez ingresos buenos a la vez desde la misma IP se reescribió como dos tandas de cinco.
+- **El techo de la patrulla es 20 min, no 30** como decía `SECURITY.md` §3.2: un líder trabado en el monte es un torneo parado. Se corrigió el documento y no el código.
+- **El bloqueo por par vive en memoria**, como el rate limit: se pierde al reiniciar y no se comparte entre instancias. Alcanza para un solo contenedor (`ARCHITECTURE.md` §3); la capa de la base sobrevive a un reinicio.
+- **La clave de una patrulla usa el id canónico del torneo** y no el texto del request: el esquema acepta hexadecimal en mayúsculas, y el mismo torneo escrito distinto habría dado un cupo nuevo.
+- **`clearDb` de los tests también limpia los bloqueos.** Todos los tests entran como `admin` desde la misma IP (`desconocida`); sin esto el par quedaba bloqueado para el test siguiente (trece tests de `auth.test.ts` en rojo en la primera corrida completa).
+
+### Errores míos en el camino
+
+- **El campo trampa rompió el E2E de objetivos táctiles** y los tests unitarios no podían verlo: jsdom no hace layout. El `input` estaba recortado por su contenedor pero conservaba su caja de 181×24 px, y `e2e/objetivos-tactiles.spec.ts` mide todo lo tocable de la landing. Se arregló quitándole la caja al propio input (`h-0 w-0 border-0 p-0`), que además es lo correcto: no hay nada que tocar.
+- **Una mutación sobrevivió y apuntaba a un hueco real.** Subir el tope de la base de las patrullas a 1000 no rompía nada: el test de «muchas IPs, cinco cada una» sólo existía para el admin. Se escribió el de la patrulla, que es justamente la cuenta con 10⁶ combinaciones.
+- **La ráfaga de ingresos buenos** (ver arriba) la detectó un test de `REF6-2` que asumía que diez ingresos simultáneos caben siempre. Era una consecuencia del diseño y no un error del diseño, pero la suposición del test estaba implícita.
+- **Un script de edición con comillas anidadas falló en el shell** (`unexpected EOF`) y hubo que pasarlo a un archivo. Sin consecuencias en el repo.
+
+### Verificación
+
+`@bal/api` **362** (+34: `limite-de-body`, `bloqueoDeIngreso` unitario con 10, `bloqueo-de-cuentas` con 12, y los de alta pública), `@bal/landing` **53** (+3 del campo trampa), `@bal/shared` 497, `@bal/ui` 61, `@bal/app` 488. Tipos del workspace limpios. Biome: cero errores; los avisos que quedan son anteriores y están en archivos que esta tanda no tocó salvo `syncService.ts` (los dos `useOptionalChain` de siempre). **22 mutaciones, todas detectadas** (13 del bloqueo, 3 del límite de body, 6 del alta pública), una de ellas tras escribir el test que faltaba. E2E **32/32** contra el stack construido (la primera corrida dio 31/32: el campo trampa, ver arriba).
+
+**No se hizo** `/security-review` formal ni `aikido:scan` sobre estos cambios (ni sobre los de `REF6-2` en adelante): el plan los pide para `REF6-6`.
+
+### Deuda / lo que sigue
+
+- **El duplicado no se ve en WAFA.** La decisión 2 decía «el admin ve el duplicado en la cola»; hoy sólo está en el audit log, que ninguna pantalla muestra. `REF6-7` audita pero no muestra el log, así que esto no tiene tarea: falta una pantalla de auditoría en WAFA.
+- **La cola de altas pendientes no tiene tope.** El cupo por IP frena el volumen, no a quien tiene muchas IPs.
+- **El bloqueo depende de que `ipDelCliente` sea cierta** (`INF-4`, verificar `X-Real-IP` en el primer deploy). Si el borde no pisara el header, cada IP inventada traería cinco intentos nuevos; el tope de 30 por cuenta en la base es lo que acota ese daño.
+- Si algún día hay más de una instancia, el bloqueo por par pasa a la base.
+
+---
+
+## 2026-10-30 · Sincronización que viaja menos a la base (REF6-5)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** hecho, **con un punto del DoD sin cumplir** (el presupuesto de 400 ms). Quinta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `P-1` y `T-5`, parcial, de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### Primero se midió: la estimación del informe era correcta
+
+El informe decía «~9-10 viajes a Mongo por op» leyendo el código, y daba 1 s / 15 s / 60 s por lote de 50 como estimación. Para no optimizar a ciegas, `connect` ganó una opción `monitorCommands` (opt-in, sólo para medir) y un test cuenta los comandos que el driver manda. **204 comandos para 20 ops: 10 por op**, y el desglose coincide con el código (`find×84 update×60 insert×20 findAndModify×20 commitTransaction×20`). Con un proxy que inyecta latencia, el código de entonces daba 17,6 s a 30 ms y 67,6 s a 120 ms para 50 ops: las estimaciones quedaron dentro de ~15 %.
+
+### Qué cambió
+
+- **El avance de la patrulla se cuenta una vez por lote**, en su propia transacción corta, no dentro de la de cada score. Eran 3 comandos por op (dos listas y una escritura). La transacción propia conserva lo que importaba de estar adentro: dos lotes de la misma patrulla escriben el mismo documento, el segundo recibe un `WriteConflict` y se reintenta releyendo.
+- **Los rollups son una escritura, no dos.** `normalizedPct` salía de releer el documento después del `$inc`; ahora sale del total que la op ya leyó en su transacción más el delta. Seguro por la misma razón: la segunda transacción que toque al mismo arquero se reintenta entera.
+- **`/api/health` dice `dbMs`**: lo que tarda su `ping` a la base. Es la forma de comprobar una región equivocada sin entrar a ningún panel.
+- **Medido: 204 → 128 comandos en 20 ops (−37 %) y 554 → 309 en 50 ops (−44 %)**; 17,6 s → 9,9 s a 30 ms y 67,6 s → 37,8 s a 120 ms. Por score, 10 → 6.
+
+### Decisiones
+
+- **Los `duplicate` también disparan el recálculo.** El avance dejó de ser parte de la transacción de cada op: si el proceso muere entre los commits y el recálculo, queda desactualizado. El reenvío del lote —que el cliente hace solo— vuelve con todo `duplicate`, y es lo que lo repara. Un lote donde todo se rechaza no paga el recálculo; una op mala no lo impide si las buenas lo piden. Tres de las mutaciones salen de acá.
+- **Dos medidas distintas para dos cosas.** En CI, el **conteo de comandos** (determinista: cuenta lo que el tiempo multiplica por la latencia). A demanda, `pnpm --filter @bal/api bench:sync` con tiempos (depende de la máquina; un umbral de reloj en un test sería inestable).
+- **No se tocó la idempotencia** (dedup en bloque con `insertMany`) ni se unieron las transacciones de un lote. Es lo que haría falta para bajar de 6 por op y es una decisión de diseño: ver abajo.
+
+### El presupuesto de 400 ms no se cumple, y esto hay que decirlo
+
+`TECHNICAL.md` §5 fija «lote de 20 ops p95 < 400 ms». **Medido: 487 ms** a 2 ms de RTT (peor de 3). Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops cuestan ~230 ms aun sin latencia, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op. El número se escribió antes de medir; hay dos salidas honestas —tocar la idempotencia o recalibrar el presupuesto— y ninguna es un ajuste. Lo dejé escrito como «no se cumple todavía» en `TECHNICAL.md` en vez de moverlo.
+
+### Una interacción con `REF6-4` que hay que decidir
+
+El plazo de 20 s que agregué en la tanda anterior **choca con la latencia**: un lote de 50 ops son ~309 viajes en serie, y a partir de ~60 ms de RTT supera los 20 s (a 120 ms tarda 38 s). El cliente corta, reintenta, y el servidor sigue procesando el pedido cortado; el reintento vuelve `duplicate`, así que no se pierde ni se duplica nada, pero el outbox se vacía a los tropezones. Con Railway y Atlas en la misma región no pasa. Por eso `CONFIG.md` §7 lo exige y da la forma de verificarlo. Si se quiere blindar, la salida es bajar el lote del cliente de 50 a 20 (128 comandos × (RTT + 2 ms) < 20 s hasta ~150 ms de RTT): **no lo cambié**, es una decisión del dueño.
+
+### Errores míos en el camino
+
+- **El benchmark midió mal tres veces antes de medir bien.** Primero sospeché de Nagle (el proxy sin `TCP_NODELAY`): puse `setNoDelay` y no cambió nada. La pista era que el sobrecosto *bajaba* al subir la latencia (37, 49 y 130 ms por comando a 2, 30 y 120 ms de RTT): en **Windows los temporizadores de Node tienen granularidad de ~15,6 ms**, y un `setTimeout(…, 1)` dispara a ~15. Se reemplazó por una cola con bombeo por `setImmediate`. A 2 ms de RTT el mismo lote pasó de 3,9 s a 0,5 s. Las primeras cifras eran artefactos del proxy.
+- **Un test de viajes con un escenario que no se puede repetir** (`adminListo()` dos veces: la segunda, la contraseña inicial ya no sirve) y un umbral mal contado (cada pedido HTTP hace además un `find` de la sesión, así que el mínimo de lecturas era 5 y no 4).
+- **Una guarda que era código muerto, otra vez** (`miembros.length > 0` en el recálculo): reacomodar patrullas sólo se puede con el torneo `sin_iniciar`, donde no hay puntajes, así que una patrulla vacía con puntajes no existe. Se sacó y el invariante quedó escrito en el comentario.
+- **Una mutación sobrevivió y apuntaba a un hueco real de cobertura.** Calcular `normalizedPct` sin el total previo no rompía ningún test: el único que lo verificaba aplicaba **una** op sobre un arquero sin puntajes, donde `totalPrevio + delta` y `delta` valen lo mismo. Se escribió un test que acumula entre blancos y baja al corregir.
+- **Una cifra extrapolada que estuve a punto de presentar como medida** (2 ms a 50 ops en `CONFIG.md`): quedó marcada como calculada, con la cuenta a la vista.
+
+### Verificación
+
+`@bal/api` **328** (+7: 5 de viajes y avance, 1 de `normalizedPct`, 1 del healthcheck). Tipos del workspace limpios; Biome sobre los archivos tocados, sólo los dos `useOptionalChain` de `syncService.ts` que ya estaban. Mutaciones, todas detectadas: no recalcular al final · recalcular sólo si todas las ops se aplicaron · recalcular siempre · no contar los duplicados · recalcular dentro de cada op · `normalizedPct` sin el total previo (esta última, recién después del test nuevo). **Suites completas, verdes:** `pnpm test` en los cinco paquetes (shared 497, api 328, ui 61, app 488, landing 50) y E2E entero, **32 de 32** (3,1 min) contra el stack real.
+
+### Deuda / lo que sigue
+
+- Decidir qué hacer con el presupuesto de 400 ms (tocar la idempotencia o recalibrar) y con el tamaño del lote del cliente (50 → 20).
+- Re-medir contra el despliegue real (`bench:sync` no puede apuntar a Atlas: escribe) y comprobar `dbMs`.
+- `bench/` no entra en `tsc` (`rootDir: src`) ni en CI; lo corre `tsx`. Si se rompe por un cambio de API, nadie se entera hasta que alguien lo corra.
+
+---
+
+## 2026-10-29 · El celular muestra lo que tiene el servidor (REF6-4)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Cuarta tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `U-2`, `U-3` y `P-2` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema: la pantalla que el arquero mira para firmar podía no ser la del servidor
+
+- **`U-2` · X, 10 y M en cero.** `sembrarPuntajes` guardaba los puntajes que ya estaban en el servidor —el caso del líder que cambia de celular— con `innerCount`, `xCount`, `tenCount` y `mCount` en 0. La pantalla de resultados suma esos campos: mostraba menos X y menos 10 que los reales.
+- **`U-3` · el celular que perdía el last-write-wins se quedaba con su número.** Dos celulares con la misma credencial cargan el mismo blanco, gana el `clientUpdatedAt` más reciente, y al que pierde se le respondía `superseded`. El cliente sacaba la op del outbox y nada más: el puntaje local seguía en `pending` con las flechas que perdieron, y `sembrarPuntajes` **nunca pisa lo que no está `synced`**. Quedaba mostrando —y haciendo firmar— un número que no era el que el servidor guardó. `OFFLINE_SYNC.md` §5.3 ya decía «superseded → … refrescar desde el servidor; syncState = 'synced'»: otra promesa del documento que el código no cumplía.
+- **`P-2` · un POST colgado trababa todo.** Sin plazo, un `fetch` sin respuesta dejaba `corriendo = true` y **ningún otro disparador podía vaciar el outbox**: `online`, el intervalo y el foco llaman a `flush()` y salen de inmediato.
+
+### Qué cambió
+
+- **Siembra:** los conteos salen de `validateTargetScore` con la modalidad del blanco que ya trae el bundle, la misma función que usa el servidor. El `total` sigue siendo el del servidor (regla 1). Un blanco que no está en el recorrido no rompe la entrada.
+- **Servidor:** `superseded` y `duplicate` de un score ahora traen `score.arrows` —lo que el servidor tiene **hoy** en esa celda—. Antes `superseded` devolvía sólo totales: el celular sabía cuánto sumaba lo que ganó, no cuáles eran las flechas.
+- **Cliente:** `alinearConServidor` reemplaza flechas y totales por los del servidor, sin `error`, en `synced`. **No pisa una edición más nueva que todavía está en camino**: si hay otra op de score para la misma celda en el outbox, el líder volvió a tocar el blanco mientras el lote viajaba.
+- **Plazo de 20 s** en el POST de sync, token CSRF incluido. El corte es un error sin respuesta, así que `esReintentable` lo trata como cualquier error de red: la op se conserva.
+
+### Decisiones y desvíos
+
+- **`duplicate` no se marca `synced` a secas**, como decía el plan. Un `duplicate` es lo que recibe quien reenvía una op cuya respuesta se perdió, y no dice qué pasó con ella: pudo haberse aplicado, haber perdido o haberse rechazado. Marcarlo `synced` escondería un rechazo —y desde `REF6-1` hay rechazos nuevos, `PATROL_CLOSED` y `SIGNATURE_LOCKED`, que perfectamente pueden perderse en una respuesta—. Se le devuelve la verdad actual de la celda y el cliente se alinea con ella.
+- **Eso abre una puerta que hay que cerrar.** El duplicado se detecta por `opId` *antes* de autorizar nada. Si devolviera el puntaje de cualquier `participantId` que traiga el cuerpo, un líder podría leer los puntajes de otra patrulla reenviando uno de sus propios `opId` con el `participantId` ajeno. `respuestaDeDuplicada` comprueba que el arquero sea de la patrulla; hay un test, una mutación que lo prueba (quitar la comprobación lo hace fallar) y un ítem nuevo en el checklist de `SECURITY.md` §13.
+- **`setTimeout` propio y no `AbortSignal.timeout`.** Este último no se puede controlar con relojes falsos y el plazo es justo lo que hay que probar. Se usa `Promise.race` contra el pedido para que cubra también el `fetch` del token CSRF, que no lleva señal.
+- **El mensaje de «no se pudo cerrar» decía «El servidor respondió: …» ante cualquier error guardado.** Con el plazo eso queda «El servidor respondió: El servidor no respondió a tiempo», y ya era falso para un `Failed to fetch`. Ahora dice «El último intento falló: …». Es un cambio de texto fuera del alcance estricto, pero lo introducía mi propio mensaje.
+- **Dos funciones salieron de `aplicarResultados`** (`celdaDe` y `reflejarResultado`): con mi bloque nuevo pasó el límite de complejidad cognitiva. Es un movimiento sin cambio de comportamiento, cubierto por los tests de `flush`.
+
+### Errores míos en el camino, para que no se repitan
+
+- **Un test con tokens inválidos que no probaba nada.** Usé `'9'` en un blanco 3D; `writeScore` devolvió `INVALID_TOKEN` y la «edición más nueva» que quería provocar nunca ocurrió. Lo vi porque el segundo lote no salió; ahora el test **afirma** que la edición entró.
+- **Un test de plazo que no discriminaba.** La mutación «plazo de 5 s en vez de 20» sobrevivió. «`flush` todavía no volvió» depende de una carrera entre relojes falsos e IndexedDB real, no del plazo. Se rehízo observando la **señal de cancelación** (`aborted`), que se activa de forma sincrónica en el timer, y esperando a que el pedido salga antes de correr el reloj. Ahora los plazos de 5 s, 60 s y sin plazo se detectan.
+- **Dos mutaciones que no compilaban.** Dejé una función sin uso, `noUnusedLocals` rompió el build, el E2E «falló» y no probaba nada. Es la segunda vez en dos tandas (ya pasó en `REF6-2`). La regla para mutar: que **compile** (`Date.now() < 0 &&`), y comprobar que el E2E falla por la aserción y no por `ELIFECYCLE`.
+- **Dos guardas que eran código muerto**, igual que en `REF6-2`: `op.type === 'score'` en `alinearConServidor` (una firma no tiene `targetIndex`, `celdaDe` ya la descarta). Se sacó.
+- **Supuestos sobre la interfaz** al armar el E2E: la tecla de fallo no se llama «Puntaje M» sino «Miss, flecha sin puntaje», y «Resultados finales» sigue **deshabilitado hasta que está todo el recorrido**, así que cada celular tiene que cargar los dos blancos.
+
+### Verificación
+
+`@bal/api` **321** (3 nuevos), `@bal/app` **488** (+12: 3 de siembra, 5 de alineación, 3 de plazo y 1 de mensaje), `@bal/shared` 497, `@bal/ui` 61, `@bal/landing` 50. E2E completo contra el stack real: **32 de 32**. Tipos del workspace limpios. Biome sobre los archivos tocados, sin warnings nuevos (quedan los dos `useOptionalChain` de `syncService.ts` que ya estaban).
+
+**E2E nuevo** en `dos-dispositivos.spec.ts`, por la interfaz y sin timestamps a mano: el que va a perder carga primero y sin señal, el que gana carga después y sincroniza; se comprueba que las pantallas de resultados *difieren* antes de reconectar, y *coinciden* después. Contra el bug, con la alineación apagada, el celular que perdió muestra **39** de total contra **48**, con 1 contra 2 en inner y 10 contra 19.
+
+Mutaciones, todas detectadas salvo la equivalente: conteos en cero · modalidad equivocada en la siembra · no alinear · alinear pisando una edición en camino · error viejo pegado · `applied` sin fijar totales · sin plazo, 5 s y 60 s · plazo tratado como rechazo definitivo · servidor sin flechas · servidor filtrando puntajes ajenos · servidor sin detalle en el duplicado.
+
+### Deuda / lo que sigue
+
+- **Un `rejected` deja el valor del celular en `conflict` y no lo alinea.** Es a propósito: el líder tiene que ver que algo salió mal, no que el número cambie solo. Pero el `error` de cada puntaje no se dibuja en ninguna pantalla; sólo llega al indicador del encabezado. Con `PATROL_CLOSED` y `SIGNATURE_LOCKED` esto pasa a ser más probable.
+- **El E2E de dos dispositivos cubre un caso, no el espacio.** No hay uno para el `duplicate` por respuesta perdida; está cubierto en los unitarios (cliente y servidor) pero no de punta a punta.
+- El indicador de sincronización sigue sin distinguir «sin señal» de «el servidor rechazó» más allá del texto.
+
+---
+
+## 2026-10-29 · El tema oscuro llega antes de pintar, y la consola sin violaciones de CSP (REF6-3)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Tercera tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgo `U-1` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema, y por qué nada lo mostraba
+
+El script anti-FOUC estaba **inline** en los dos `index.html`, y la CSP de producción es `script-src 'self'` sin `'unsafe-inline'` ni hashes. El comentario de `security.ts` decía «el hash lo inyecta el build del frontend»; ese paso nunca existió. El navegador bloqueaba el script en cada carga: quien usa el tema oscuro veía la pantalla en claro y el salto a oscuro cuando React montaba, que es el parpadeo que el script existe para evitar. Nada fallaba y ningún test miraba la CSP ni el orden de pintado. Además había un tercer `theme-init.js` suelto, con otra clave (`bal-theme`) y otra lógica, que nadie cargaba.
+
+### Qué cambió
+
+- **El script pasó a un archivo externo, clásico y bloqueante** (`public/theme-init.js` de cada app), referenciado desde el `<head>`. La CSP no se tocó: sigue en `script-src 'self'`, sin hashes que mantener a mano. Se verificó el build: Vite lo emite con el `base` (`/app/theme-init.js`) y la PWA lo precachea, así que sin señal el tema también llega.
+- **Había una segunda violación que el plan no preveía: `script-src → eval`.** Zod 4 compila cada schema de objeto con `new Function` y, para saber si puede, lo *prueba* con `new Function('')` dentro de un `try`. La CSP lo bloquea, el `try` lo atrapa y todo sigue andando, pero el navegador lo reporta en cada carga. Se encontró porque el E2E nuevo exige cero violaciones y no sólo tema correcto. Solución: `@bal/shared/navegador` (`z.config({ jitless: true })`), importado **primero** en el `main.tsx` de cada frontend. El probe se evalúa al *construir* los schemas, no al parsear, así que el orden de import es lo que lo hace funcionar. **Sólo en el navegador**: el backend corre sin CSP y valida hasta 200 ops por lote con JIT.
+
+### Un hallazgo dentro del hallazgo: las copias no decidían lo mismo que `resolverTema`
+
+El test de coherencia que existía leía los `index.html` y buscaba texto (la clave, el color, `setAttribute`). Pasaba, y las copias inline **decidían distinto**: con un valor guardado corrupto y el sistema en oscuro pintaban claro (`guardado === null` en vez de «no reconocido»), y con `localStorage` bloqueado se quedaban en claro mientras `BotonTema` seguía al sistema. En los dos casos, un parpadeo en el lugar donde el script existe para evitarlo. Ahora el test **ejecuta** los dos scripts en un `vm` con `localStorage` y `matchMedia` de mentira y compara con `resolverTema` y `COLOR_DE_BARRA` en las diez combinaciones de valor guardado × sistema, más el caso sin almacenamiento. Las dos copias tienen que ser idénticas (también lo verifica).
+
+### Decisiones y desvíos
+
+- **No hay una sola fuente del script, hay dos copias idénticas.** Un script clásico no se bundlea, y cada `public/` se sirve bajo su propio origen. Una fuente única habría pedido un plugin de Vite que emita el archivo; dos copias con un test que las compara cuesta menos y falla fuerte si se separan.
+- **`DOMContentLoaded` no sirve para medir «antes de pintar».** El plan lo proponía, pero el módulo de React corre *antes* de ese evento y ya habría escrito el tema. El E2E usa un `MutationObserver` instalado antes de cualquier script de la página, que anota qué pasó primero: que se escriba `data-theme` o que `#root` reciba su primer hijo.
+- **`scriptHashes` queda en `createApp` y en `securityHeaders`**, pero ya no lo usa nadie. Se corrigió el comentario que prometía un paso de build inexistente; no se borró la opción porque es el mecanismo correcto si algún día hace falta un script inline, y sacarla toca tests que no son de esta tanda.
+
+### Verificación
+
+`@bal/shared`: 36 tests en `tema.test.ts` (antes 13, ocho de ellos sólo leían texto del HTML) y 1 nuevo en `navegador.test.ts`. Tipos del workspace limpios. Biome sobre los diez archivos tocados, sin warnings ni errores. E2E nuevo `tema-sin-parpadeo.spec.ts`: 8 de 8 (4 páginas × 2) contra el stack de producción; antes de arreglar fallaban los 8, con `script-src-elem → inline` y `script-src → eval`. **Suites completas, verdes:** `pnpm test` en los cinco paquetes (shared 497, api 318, ui 61, app 476, landing 50) y E2E entero, **31 de 31** (3,1 min) contra el stack real.
+
+Mutaciones, todas detectadas: clave `bal-theme` · copias distintas · un valor corrupto deja de seguir al sistema · las dos lecturas en un solo `try` · script inline de vuelta · `defer` · script después del bundle · y el import de Zod movido después de `./App`, que sólo el E2E puede ver (fallan las 4 páginas con `script-src → eval`). Esta última es la que importa: un reordenamiento automático de imports la reproduce sin que nadie lo note.
+
+### Deuda / lo que sigue
+
+- **El script es render-blocking.** Es lo que se busca, pero en la landing —que no tiene service worker— es un pedido más antes de pintar. Pesa 2 KB y `P-4` (política de caché de estáticos) lo vuelve cacheable; hasta entonces cada visita lo revalida.
+- No se probó en un iPhone ni en un Android reales (sigue pendiente en `FE-21`).
+- `docs/ARCHITECTURE.md` §9 todavía lista «`public/theme-init.js` — portar tal cual» como si viniera del repo de origen. Es el mapa histórico de qué se portó y no se tocó.
+
+---
+
+## 2026-10-29 · Un cupo de login que no deja afuera a la patrulla 11 (REF6-2)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado, con un punto que sólo se puede verificar desplegado. Segunda tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md) (hallazgos `S-2`, `S-3` y `T-3` de [`INFORME.md`](post/ref-6/INFORME.md)).
+
+### El problema, y por qué ningún test lo veía
+
+El límite de login (10 cada 15 min por IP) se aplicaba a **todo** `/api/auth/*` y contaba cada request. `/me` y `/csrf` los pide la app en cada carga, y los ingresos correctos gastaban el mismo cupo que un ataque: desde el wifi del club —una sola IP— la patrulla 11 recibía «Demasiados intentos» por culpa de las diez anteriores. Nadie lo vio porque `e2e/servidor.ts` subía `RATE_LIMIT_LOGIN` a 100: **el E2E nunca corría con la configuración que corre el día del torneo.**
+
+### Qué cambió
+
+- **Sólo cuentan los intentos fallidos (`401`)**, y sólo en `POST /admin/login`, `/patrol/login` (cupo compartido) y `/admin/recover` (cupo aparte). `/me`, `/csrf`, `/logout` y el cambio de password salen del cupo. Un `429` del bloqueo de cuenta, un `403` de CSRF o un `409` de torneo no iniciado no cuentan: no son credenciales equivocadas.
+- **`RATE_LIMIT_LOGIN` pasa de 10 a 60** (intentos *fallidos*; lo que frena la fuerza bruta contra una cuenta es su bloqueo propio). **`RATE_LIMIT_RECOVER` = 5**, nuevo: la recuperación del password es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por cuenta, así que este cupo es lo único que frena adivinar el código. Antes compartía el cupo del login.
+- **La IP sale de `TRUSTED_IP_HEADER`**, no del primer valor de `X-Forwarded-For`: los proxies *agregan* al final, y el primero lo escribe quien hace el request. Por defecto `x-real-ip` en producción —el header que Railway documenta como la IP del cliente—, ninguno en desarrollo. Un solo `lib/ip.ts` alimenta el cupo, las sesiones y el audit log; antes cada uno la leía a su manera.
+- **El `Map` de contadores tiene tope** (10 000, desaloja el más viejo): con una IP inventada por request crecía sin límite.
+- `e2e/servidor.ts` **ya no relaja el login**, y hay un spec nuevo (`ingreso-masivo.spec.ts`): quince patrullas entran desde la misma IP con el límite real.
+
+### Una falla de mi propio diseño, encontrada antes de cerrar
+
+La primera versión **miraba el contador al entrar y anotaba el fallo al salir**. Una ráfaga de requests simultáneos mira el contador antes de que el primero termine, y pasan todos: el test de ráfaga lo mostró con números, **30 de 30 intentos llegaron a verificar el código de recuperación contra un cupo de 5**. El límite viejo no tenía el problema porque reservaba el lugar al entrar. Ahora cada intento **suma uno apenas llega y lo resta si la respuesta no fue `401`**. El costo, aceptado: los intentos en vuelo cuentan unos milisegundos, así que hacen falta tantos ingresos simultáneos como el cupo (60) para cortar a uno legítimo.
+
+### Decisiones y desvíos
+
+- **`TRUSTED_PROXY_HOPS` → `TRUSTED_IP_HEADER`.** El plan decía contar saltos del proxy, «antes, verificar en Railway qué header y en qué posición llega la IP real». La documentación de Railway (*Specs & Limits → Request Headers*) da `X-Real-IP` y no menciona `X-Forwarded-For`: contar saltos habría sido adivinar una posición que no está documentada. Si el header no llega, se cae al comportamiento de antes en lugar de agrupar a todo el club bajo una IP: un cupo compartido sería peor que uno esquivable.
+- **Dos tests de `app.test.ts` cambiaron de premisa.** Probaban el middleware genérico contra `/api/auth/csrf`, que dejó de estar limitada a propósito. El middleware pasó a `rateLimit.test.ts` (contra una app mínima) y `app.test.ts` conserva sólo que cada grupo de rutas tenga su límite enchufado (`/api/public/*`). No se perdió cobertura: se movió a donde prueba lo que dice.
+- **Una guarda que escribí era código muerto.** La mutación «devolver el lugar sin mirar si la ventana se reabrió» sobrevivió; resultó un mutante *equivalente*: se resta sobre la referencia reservada, no sobre una búsqueda por clave, así que restarle a una ventana vieja no toca a la nueva. Se sacó la guarda en vez de dejarla; el test queda como especificación.
+- **La primera verificación del E2E no probaba nada.** La corrida con el comportamiento viejo «falló», pero por el *build* (`noUnusedLocals` rechazó mi mutación), no por el test; no probaba nada. Se rehízo con una mutación que compila, y falla donde tiene que fallar: `patrulla 10 — Expected: 200, Received: 429`.
+
+### Verificación
+
+`@bal/api`: **318 tests** verdes (15 archivos; 17 nuevos entre `intentos-fallidos`, `rateLimit`, `env` y `app`). `tsc --noEmit` limpio. Biome sobre los once archivos tocados, sin warnings ni errores. **E2E completo contra el stack real: 23 de 23 en verde** (3,1 min), incluido `ingreso-masivo.spec.ts`, ya sin la relajación del login. No se corrieron `shared`, `ui`, `app` ni `landing`: esta tanda no toca esos paquetes.
+
+**No se corrió** `/security-review` formal ni `aikido:scan` sobre esta tanda, que el plan pide. Sí hubo una revisión mía del diseño, y fue la que encontró la ráfaga de arriba; pero la escribió quien lo diseñó, y no reemplaza una mirada independiente.
+
+Mutaciones, todas detectadas salvo la equivalente: no registrar fallos · contar cualquier error · contar los exitosos · cupo global en vez de por IP · sin default de producción · ignorar el header de confianza · sin tope · desalojar el contador recién abierto · sin el límite público enchufado · nunca devolver el lugar · devolver también el de los fallos · no reservar.
+
+### Deuda / lo que sigue
+
+- **Sin verificar: que el borde de Railway pise un `X-Real-IP` mandado por el cliente.** La documentación dice que identifica la IP del cliente; no dice que sobrescriba uno falsificado. Hay que comprobarlo en el primer deploy (`INF-4`) con el procedimiento de `SECURITY.md` §3.3. Si no lo pisa, el cupo por IP vuelve a ser esquivable.
+- **El bloqueo por cuenta (5 fallos) tiene la misma ráfaga:** evalúa antes de verificar y anota después, así que una ráfaga contra una cuenta pasa de cinco. Es anterior a esta tanda; el cupo por IP ahora lo acota a 60 por ventana desde una IP, pero no desde varias. Anotado en `REF6-6`.
+- `SECURITY.md` §3.3 sigue diciendo «300 / min **por sesión**» para el sync y «60 / min por sesión» para `/api/admin/*`: el primero es por IP y el segundo no existe. Es el `B-2` del informe; entra en `REF6-15`.
+
+---
+
+## 2026-10-29 · Nada se escribe después de cerrar ni sobre lo firmado (REF6-1)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** completado. Primera tanda de [`post/ref-6`](post/ref-6/ACTION_PLAN.md), que sale de la auditoría de [`INFORME.md`](post/ref-6/INFORME.md) (hallazgo `S-1`).
+
+### El hueco, comprobado antes de arreglarlo
+
+`SIGNATURE_MISMATCH` se evaluaba **una sola vez**, en el cierre de la patrulla. Después, `/sync` seguía aceptando puntajes y firmas de una patrulla `cerrada` y puntajes de un arquero ya firmado, y `publish` no volvía a mirar el hash. Los tests nuevos se vieron fallar por esa razón exacta: el servidor devolvía `applied` sobre una patrulla cerrada, y `publish` devolvió **200** sobre un torneo con un puntaje alterado. Es decir: se podía publicar un resultado que nadie firmó.
+
+### Qué cambió
+
+- **`PATROL_CLOSED`** (409, por op): score o firma con la patrulla cerrada. El estado se lee **una vez por lote** —no una por op, que cuesta un viaje a la base— y un `close` del mismo lote cuenta para las ops que vienen detrás.
+- **`SIGNATURE_LOCKED`** (409, por op): score sobre un arquero que ya firmó. La firma que el admin desbloqueó (sin trazo) también cuenta como firmada.
+- **`publish` verifica el hash** de cada firmado y se niega con `SIGNATURE_MISMATCH` diciendo **de quién**; el torneo queda `completado`. `SECURITY.md` §7 ya decía «al publicar, se verifica de nuevo» y el código no lo hacía: la promesa del documento ahora es verdad.
+- Los dos códigos se rechazan **después** de autorizar: un intento sobre un participante ajeno sigue siendo `FORBIDDEN` y sigue quedando en el audit log. Y `PATROL_CLOSED` va antes que `SIGNATURE_LOCKED`: tras el cierre todos están firmados, y el motivo útil es el cierre.
+
+### Decisiones y desvíos
+
+- **Un test existente cambió de premisa.** `cambiar un puntaje después de firmar frena el cierre` mandaba un score sobre un firmado por `/sync` y esperaba que el *cierre* lo frenara. Ahora esa op la corta `SIGNATURE_LOCKED` antes, así que el test dejó de probar el cierre. Se reescribió para alterar el dato **por fuera de `/sync`** (como lo haría una corrección a mano o un bug): `SIGNATURE_MISMATCH` queda como defensa en profundidad y sigue probado. No se ocultó un rojo: cambió el camino por el que el dato puede llegar.
+- **`deltaDeRollup` extraído** de `aplicarScore`. La función estaba justo en el límite de complejidad cognitiva (20) y la guarda nueva la pasaba a 21. En vez de sumar un warning, el cálculo del delta —que repetía `?? 0` cinco veces— salió a una función chica. Es un movimiento puro; lo cubre el test `recalcula el rollup por delta, sin sumar dos veces`, que falla si el delta ignora lo previo (mutación probada).
+- **No se tocó el cliente.** El rechazo llega al líder por el indicador de sincronización del encabezado («Problema al sincronizar: …» con el mensaje del servidor). El plan decía «en el blanco»: verificado, el `error` de cada puntaje no se dibuja en esa pantalla; el camino que existe es el del encabezado.
+- **`loginPatrol` no rechaza una patrulla cerrada**, a propósito: el líder que cambia de celular tiene que poder entrar a ver que el torneo terminó. El control está en la escritura, no en la entrada.
+
+### Verificación
+
+`seguridad.test.ts`: de 8 a 13 tests (5 nuevos, 1 reescrito). `@bal/api`: **301 tests** verdes. `tsc --noEmit` limpio. Biome sobre los cuatro archivos tocados: los mismos 2 warnings que ya existían en `syncService.ts` (`useOptionalChain`), **ninguno nuevo**.
+
+Mutaciones, todas detectadas: sacar el chequeo de patrulla cerrada en score · idem en firma · no seguir el `close` dentro del lote · sacar `SIGNATURE_LOCKED` · `publish` sin verificar el hash · y, sobre el código ya refactorizado, las dos de `motivoDeBloqueo` y la del delta.
+
+**No se corrió:** el E2E (Playwright) ni el resto de los paquetes (`shared`, `app`, `landing`): esta tanda solo toca `@bal/api`. Tampoco `/security-review` ni `aikido:scan`, que el plan pide para esta tanda.
+
+### Deuda / lo que sigue
+
+- **No existe ningún camino para corregir un puntaje firmado por error.** La UI ya lo impedía y ahora el servidor también. `unlockSignature` solo sirve para quien **no** firmó y rechaza a quien ya firmó. El `INFORME.md` decía lo contrario («la corrección pasa por el desbloqueo del admin») y está corregido. Si hace falta —y el día del torneo seguro que alguien firma mal—, es una función nueva: reabrir la firma de un participante con motivo, auditada. **Decisión del dueño del proyecto**, no se hizo.
+- **`pnpm lint` desde la raíz falla ahora** con «Found a nested root configuration»: hay dos worktrees de otras sesiones en `.claude/worktrees/` (`detalle-flechas-solo`, `fix-auditoria-dependencias`) con su propio `biome.json`. No son de esta tanda y no se tocaron; conviene borrarlos o excluirlos en `biome.json`. Mientras tanto Biome se corrió sobre los archivos tocados.
+- La ruta pública nueva de la tarjeta de puntajes (`FE-31`) muestra cada flecha; entra en el alcance de `/security-review` de `REF6-6`.
+
+---
+
 ## 2026-10-29 · Tarjeta de puntajes de un arquero: cada flecha de cada blanco (FE-31)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** completado.

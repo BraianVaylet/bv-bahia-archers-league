@@ -16,16 +16,21 @@
 
 import { Hono } from 'hono';
 import { env } from './env.js';
+import { compresionDeJson } from './middleware/compresion.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { handleError } from './middleware/error.js';
 import { hayBuild, montarEstaticos, RUTAS_POR_DEFECTO } from './middleware/estaticos.js';
-import { rateLimit } from './middleware/rateLimit.js';
+import { limiteDeBody } from './middleware/limiteDeBody.js';
+import { clavePorSesion, failedAttemptsLimit, rateLimit } from './middleware/rateLimit.js';
 import { securityHeaders } from './middleware/security.js';
 import { admin } from './routes/admin.js';
 import { auth } from './routes/auth.js';
 import { health } from './routes/health.js';
 import { publico } from './routes/publico.js';
 import { wafl } from './routes/wafl.js';
+
+/** Cuántas veces el cupo de una sesión de sync es el tope de **toda una IP**. */
+const TOPE_POR_IP_DE_SYNC = 20;
 
 export interface AppOptions {
   /** Hashes SHA-256 de los scripts inline permitidos por la CSP. */
@@ -53,22 +58,73 @@ export function createApp(options: AppOptions = {}): Hono {
     rateLimit({ limit: cfg.RATE_LIMIT_PUBLIC, windowMs: 60_000, scope: 'public' }),
   );
 
+  // Sólo los endpoints de ingreso, y sólo los intentos que fallan. Antes era
+  // todo `/api/auth/*` contando cada request: `/me` y `/csrf` los pide la app en
+  // cada carga, y diez patrullas entrando bien desde el wifi del club dejaban
+  // afuera a la undécima. Admin y patrulla comparten cupo: quien rocía
+  // intentos no distingue entre una puerta y la otra.
+  const ventanaDeLogin = cfg.RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000;
+  const intentosDeLogin = failedAttemptsLimit({
+    limit: cfg.RATE_LIMIT_LOGIN,
+    windowMs: ventanaDeLogin,
+    scope: 'login',
+  });
+  app.use('/api/auth/admin/login', intentosDeLogin);
+  app.use('/api/auth/patrol/login', intentosDeLogin);
+
+  // La recuperación del password tiene su cupo, aparte y más corto: no tiene
+  // bloqueo por cuenta que la proteja, y errar el código no tiene que dejar a
+  // nadie sin poder entrar con su PIN (ni al revés).
   app.use(
-    '/api/auth/*',
-    rateLimit({
-      limit: cfg.RATE_LIMIT_LOGIN,
-      windowMs: cfg.RATE_LIMIT_LOGIN_WINDOW_MIN * 60_000,
-      scope: 'auth',
+    '/api/auth/admin/recover',
+    failedAttemptsLimit({
+      limit: cfg.RATE_LIMIT_RECOVER,
+      windowMs: ventanaDeLogin,
+      scope: 'recover',
     }),
+  );
+
+  // El alta pública escribe sin sesión, así que tiene un cupo propio además del de
+  // lectura. Sólo el POST: la ficha de un arquero (GET) no lo gasta.
+  app.on(
+    'POST',
+    '/api/public/archers',
+    rateLimit({ limit: cfg.RATE_LIMIT_REGISTER, windowMs: 3_600_000, scope: 'alta' }),
   );
 
   // Generoso a propósito: una patrulla que vuelve de tres horas sin señal manda
   // cientos de operaciones de golpe y NUNCA debe ser rechazada. Ese endpoint lo
   // protegen la autenticación y la autorización, no el rate limit.
+  //
+  // Dos capas (`REF6-15` / `B-2`). El cupo es **de la sesión**: el wifi del club es una sola IP para
+  // todas las patrullas, y uno por IP las cortaría entre sí. Pero una cookie inventada tiene su
+  // propio cupo, así que quien rota la cookie en cada request no lo gasta nunca: para eso está el
+  // tope por IP, veinte veces más alto, que no mira la cookie y sólo se alcanza con una inundación.
   app.use(
     '/api/wafl/sync',
-    rateLimit({ limit: cfg.RATE_LIMIT_SYNC, windowMs: 60_000, scope: 'sync' }),
+    rateLimit({
+      limit: cfg.RATE_LIMIT_SYNC * TOPE_POR_IP_DE_SYNC,
+      windowMs: 60_000,
+      scope: 'sync-ip',
+    }),
   );
+  app.use(
+    '/api/wafl/sync',
+    rateLimit({
+      limit: cfg.RATE_LIMIT_SYNC,
+      windowMs: 60_000,
+      scope: 'sync',
+      keyBy: clavePorSesion,
+    }),
+  );
+
+  // Después de los rate limits y antes de cualquier handler: un body de más se corta
+  // antes de que algo lo lea entero.
+  // El JSON grande (el bundle de una patrulla, los resultados) viaja comprimido si el
+  // cliente lo acepta. Hono lo omite por debajo de 1 KB, donde no vale la pena.
+  app.use('/api/*', compresionDeJson());
+
+  app.use('/api/*', limiteDeBody());
 
   app.use('/api/*', csrfProtection());
 

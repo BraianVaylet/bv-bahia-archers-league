@@ -10,8 +10,10 @@
  * guardado puede quedar desfasado de los pagos que lo componen; uno derivado no.
  */
 
+import type { BowCategory } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
+import * as auditRepo from '../repositories/auditRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
 export interface PaymentSummary {
@@ -23,7 +25,7 @@ export interface PaymentSummary {
     id: string;
     firstName: string;
     lastName: string;
-    category: string;
+    category: BowCategory;
     patrolNumber: number;
     paid: boolean;
   }[];
@@ -67,9 +69,26 @@ export async function summary(tournamentId: ObjectId): Promise<PaymentSummary> {
  *
  * @throws {AppError} `NOT_FOUND` si el participante no existe.
  */
-export async function setPaid(participantId: ObjectId, paid: boolean): Promise<{ paid: boolean }> {
+export async function setPaid(
+  participantId: ObjectId,
+  paid: boolean,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<{ paid: boolean }> {
   const doc = await tournamentRepo.setParticipantPaid(participantId, paid);
   if (!doc) throw notFound();
+
+  // Es plata: queda qué se dejó marcado y en qué torneo, para poder reconstruir
+  // una recaudación que no cierra.
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action: 'payment.set',
+    entity: 'participant',
+    entityId: participantId,
+    meta: { paid: doc.paid, tournamentId: doc.tournamentId.toHexString() },
+    ip,
+  });
 
   return { paid: doc.paid };
 }

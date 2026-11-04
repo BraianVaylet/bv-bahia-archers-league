@@ -9,7 +9,7 @@ import type { ObjectId } from 'mongodb';
 import { archers, participants } from '../db/client.js';
 import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { searchKey } from '../lib/crypto.js';
-import { AppError } from '../lib/errors.js';
+import { AppError, esClaveDuplicada } from '../lib/errors.js';
 
 export interface ListOptions {
   readonly archived?: boolean;
@@ -44,6 +44,14 @@ export function list(options: ListOptions = {}): Promise<ArcherDoc[]> {
 
 export function findById(id: ObjectId): Promise<ArcherDoc | null> {
   return archers().findOne({ _id: id });
+}
+
+/** El arquero con ese DNI en esa categoría: la clave de unicidad del padrón. */
+export function findByDniAndCategory(
+  dni: string,
+  category: ArcherDoc['category'],
+): Promise<ArcherDoc | null> {
+  return archers().findOne({ dni, category });
 }
 
 export function findManyByIds(ids: readonly ObjectId[]): Promise<ArcherDoc[]> {
@@ -87,7 +95,7 @@ export async function create(
   } catch (error) {
     // Dedup por el índice único parcial de `dni`+`category`: sin `findOne`
     // previo, igual que el resto de los índices únicos de este proyecto.
-    if (error instanceof Error && error.message.includes('E11000')) {
+    if (esClaveDuplicada(error)) {
       throw new AppError('ARCHER_DNI_DUPLICATE');
     }
     throw error;
@@ -112,7 +120,7 @@ export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherDo
       { returnDocument: 'after' },
     );
   } catch (error) {
-    if (error instanceof Error && error.message.includes('E11000')) {
+    if (esClaveDuplicada(error)) {
       throw new AppError('ARCHER_DNI_DUPLICATE');
     }
     throw error;

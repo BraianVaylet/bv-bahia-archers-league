@@ -11,7 +11,18 @@ import { adminApi, cargarBlanco, entrarComoLider, torneoIniciado } from './ayuda
  *
  * Ver `docs/TESTING.md` §6 · `docs/OFFLINE_SYNC.md` §3.
  */
-test('recargar sin conexión a mitad del recorrido no pierde nada', async ({ browser, request }) => {
+test('recargar sin conexión a mitad del recorrido no pierde nada', async ({
+  browser,
+  browserName,
+  request,
+}) => {
+  // WebKit de Playwright responde «WebKit encountered an internal error» a CUALQUIER navegación con
+  // el contexto en `setOffline(true)`, aunque el service worker tenga el shell. Ahí sólo se cortan
+  // las llamadas a la API: se sigue probando lo que importa de este escenario (lo cargado vive en
+  // IndexedDB, sobrevive a cerrar la pestaña y se sincroniza al volver), pero **no** que el shell
+  // se abra sin red en Safari. Eso queda para un iPhone real (`FE-21`).
+  const sinRedDelNavegador = browserName !== 'webkit';
+
   const api = await adminApi(request);
   const torneo = await torneoIniciado(api, { nombre: 'Recarga', arqueros: 2 });
   const patrulla = torneo.patrols[0];
@@ -24,7 +35,7 @@ test('recargar sin conexión a mitad del recorrido no pierde nada', async ({ bro
 
   // ▶ Sin conexión desde acá. Se corta de verdad: `setOffline` no alcanza para
   //   loopback en Chromium, así que además se abortan las llamadas a la API.
-  await contexto.setOffline(true);
+  if (sinRedDelNavegador) await contexto.setOffline(true);
   await contexto.route('**/api/**', (ruta) => ruta.abort());
 
   // El primer blanco, completo, sin red.
@@ -56,7 +67,7 @@ test('recargar sin conexión a mitad del recorrido no pierde nada', async ({ bro
 
   // ▶ Vuelve la conexión: todo lo que se cargó sin red llega al servidor.
   await contexto.unroute('**/api/**');
-  await contexto.setOffline(false);
+  if (sinRedDelNavegador) await contexto.setOffline(false);
   await expect(segunda.getByTestId('sync-badge')).toContainText(/Sincronizado/i, {
     timeout: 60_000,
   });

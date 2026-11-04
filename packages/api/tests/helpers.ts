@@ -9,14 +9,16 @@
  */
 
 import type { BowCategory } from '@bal/shared';
-import type { Db } from 'mongodb';
+import { type Db, ObjectId } from 'mongodb';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { createApp } from '../src/app.js';
-import { connect, disconnect } from '../src/db/client.js';
+import { connect, disconnect, participants, patrols } from '../src/db/client.js';
 import { ensureIndexes } from '../src/db/indexes.js';
 import { reset } from '../src/db/reset.js';
 import type { Env } from '../src/env.js';
 import { loadEnv } from '../src/env.js';
+import { resetBloqueos } from '../src/lib/bloqueoDeIngreso.js';
+import { decryptPin } from '../src/lib/crypto.js';
 
 let replSet: MongoMemoryReplSet | undefined;
 
@@ -39,9 +41,13 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
 }
 
 /** Arranca el replica set y conecta. Devuelve la base lista con sus índices. */
-export async function startDb(): Promise<Db> {
+export async function startDb(opciones: { monitorCommands?: boolean } = {}): Promise<Db> {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  const db = await connect({ uri: replSet.getUri(), dbName: 'bal_test' });
+  const db = await connect({
+    uri: replSet.getUri(),
+    dbName: 'bal_test',
+    ...(opciones.monitorCommands ? { monitorCommands: true } : {}),
+  });
   await ensureIndexes(db);
   return db;
 }
@@ -52,8 +58,15 @@ export async function stopDb(): Promise<void> {
   replSet = undefined;
 }
 
-/** Vacía la base entre tests. Ningún test comparte estado con otro. */
+/**
+ * Vacía la base entre tests. Ningún test comparte estado con otro.
+ *
+ * Incluye los bloqueos de ingreso, que viven en memoria: todos los tests entran
+ * como `admin` desde la misma IP (`desconocida`), así que sin esto el par queda
+ * bloqueado para el test siguiente.
+ */
 export async function clearDb(db: Db): Promise<void> {
+  resetBloqueos();
   await reset(db, testEnv());
 }
 
@@ -69,7 +82,13 @@ export async function clearDb(db: Db): Promise<void> {
 const PASSWORD = 'password-de-test-1234';
 const CSRF = 'c'.repeat(43);
 
-export function cliente() {
+/**
+ * Un cliente que mantiene la cookie de sesión, como un navegador.
+ *
+ * Con `ip`, cada request lleva esa IP (`x-forwarded-for`): es la forma de comprobar
+ * qué IP quedó en el audit log.
+ */
+export function cliente(ip?: string) {
   const app = createApp();
   let sesion = '';
 
@@ -77,6 +96,7 @@ export function cliente() {
     const headers = new Headers(init.headers);
     headers.set('cookie', [`bal_csrf=${CSRF}`, sesion].filter(Boolean).join('; '));
     headers.set('x-csrf-token', CSRF);
+    if (ip) headers.set('x-forwarded-for', ip);
     if (init.body) headers.set('content-type', 'application/json');
 
     const res = await app.request(`http://localhost${path}`, { ...init, headers });
@@ -97,9 +117,12 @@ export function cliente() {
 
 export type Cliente = ReturnType<typeof cliente>;
 
-/** Admin con el password ya cambiado, para poder usar las rutas protegidas. */
-export async function adminListo(): Promise<Cliente> {
-  const c = cliente();
+/**
+ * Admin con el password ya cambiado, para poder usar las rutas protegidas.
+ * Con `ip`, todos sus requests llevan esa IP (ver `cliente`).
+ */
+export async function adminListo(ip?: string): Promise<Cliente> {
+  const c = cliente(ip);
   await c.post('/api/auth/admin/login', { username: 'admin', password: PASSWORD });
   await c.post('/api/auth/admin/password', {
     currentPassword: PASSWORD,
@@ -156,3 +179,56 @@ export const recorridoDeReferencia = () => [
   { index: 13, modality: 'aire_libre', arrows: 6, description: null },
   { index: 14, modality: 'sala', arrows: 3, description: null },
 ];
+
+/** Un torneo de 14 blancos con una patrulla de 4, iniciado y con el líder adentro. */
+export interface EscenarioDeSync {
+  readonly admin: Cliente;
+  readonly lider: Cliente;
+  readonly participantIds: string[];
+  readonly patrolId: ObjectId;
+  readonly tournamentId: string;
+  /** Otro dispositivo de la misma patrulla: una sesión nueva, con otra cookie. */
+  readonly entrarOtraVez: () => Promise<Cliente>;
+}
+
+export async function escenarioDeSync(): Promise<EscenarioDeSync> {
+  const admin = await adminListo();
+  const seasonId = await crearTemporada(admin);
+  const archerIds = await crearArqueros(admin, [['razo', 4]]);
+
+  const res = await admin.post('/api/admin/tournaments', {
+    seasonId,
+    name: 'Torneo',
+    date: '2026-08-08',
+    targets: recorridoDeReferencia(),
+    archerIds,
+  });
+  const tournamentId = ((await res.json()) as { tournament: { id: string } }).tournament.id;
+  await admin.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+  const patrulla = await patrols().findOne({ tournamentId: new ObjectId(tournamentId) });
+  if (!patrulla) throw new Error('no se armó ninguna patrulla');
+  const miembros = await participants().find({ patrolId: patrulla._id }).toArray();
+
+  const credenciales = {
+    tournamentId,
+    username: patrulla.username,
+    pin: decryptPin(patrulla.pinEnc, testEnv().PIN_ENC_KEY),
+  };
+  const entrar = async (): Promise<Cliente> => {
+    const c = cliente();
+    const login = await c.post('/api/auth/patrol/login', credenciales);
+    if (login.status !== 200) throw new Error(`login de patrulla falló: ${login.status}`);
+    return c;
+  };
+  const lider = await entrar();
+
+  return {
+    admin,
+    lider,
+    participantIds: miembros.map((m) => m._id.toHexString()),
+    patrolId: patrulla._id,
+    tournamentId,
+    entrarOtraVez: entrar,
+  };
+}

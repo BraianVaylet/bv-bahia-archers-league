@@ -4,7 +4,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.1.
  */
 
-import { Logo } from '@bal/ui';
+import { Logo, useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Button, Field, Screen } from '../../components/ui.js';
 import { VolverALaLiga } from '../../components/VolverALaLiga.js';
@@ -17,6 +17,7 @@ export interface LoginPageProps {
 }
 
 export function LoginPage({ onEntro }: LoginPageProps) {
+  useTituloDePagina('Ingresar');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();

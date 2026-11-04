@@ -25,6 +25,8 @@
 
     "baseUrl": ".",
     "paths": {
+      // Sólo tipos: lo importan los frontends con `import type` para el cliente RPC (`REF6-11` / `C-3`).
+      "@bal/api/tipos": ["./packages/api/src/tipos.ts"],
       "@bal/shared": ["./packages/shared/src/index.ts"],
       "@bal/shared/*": ["./packages/shared/src/*"],
       "@bal/ui": ["./packages/ui/src/index.ts"]

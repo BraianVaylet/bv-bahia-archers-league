@@ -26,6 +26,11 @@ export {
   type ChipProps,
 } from './Chips.js';
 export { cn } from './cn.js';
+export {
+  type AplicacionDestino,
+  enlaceEntreApps,
+  PUERTOS_DE_DESARROLLO,
+} from './despliegue.js';
 export { Footer, type FooterProps } from './Footer.js';
 export {
   GraficoDeEvolucion,
@@ -46,6 +51,13 @@ export { ICONO_DE_CATEGORIA } from './iconos/categoria.js';
 export * from './iconos/modalidad.js';
 export { ICONO_DE_MODALIDAD } from './iconos/modalidad.js';
 export { Logo, type LogoProps } from './Logo.js';
+export { NOMBRE_DEL_SITIO, useAlCambiarDeRuta, useTituloDePagina } from './navegacion.js';
+export {
+  COLOR_DE_CATEGORIA,
+  COLOR_DE_MODALIDAD,
+  type ParDeColor,
+  TONOS_DE_ESTACA,
+} from './paleta.js';
 export { StakeChip, type StakeChipProps } from './StakeChip.js';
 export {
   clasesDeTarjeta,
@@ -53,3 +65,4 @@ export {
   type NivelDeTarjeta,
   type OpcionesDeTarjeta,
 } from './Tarjeta.js';
+export { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from './tema.js';

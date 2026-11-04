@@ -13,6 +13,12 @@ on:
   push:
     branches: [main]
 
+# El token del workflow sólo lee el repositorio (`REF6-14` / `S-10`). Ningún job escribe: no comenta,
+# no publica la imagen (`docker build` sin push) y `upload-artifact` usa su propio token. Sin esto el
+# token tenía los permisos por defecto del repo, que pueden ser de escritura.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -29,10 +35,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -40,7 +46,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Caché del binario de MongoDB
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/mongodb-binaries
           key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
@@ -56,15 +62,31 @@ jobs:
       - name: Coherencia del workspace
         run: node scripts/verificar-workspace.mjs
 
-      # `biome check` incluye formato y lint. Falla si algo no está formateado.
+      # La regla 3 de `CLAUDE.md` (ninguna consulta a Mongo fuera de `repositories/`) y las
+      # capas `routes → services → repositories`, que sólo estaban escritas: una ruta pública
+      # llevaba semanas consultando la base directo (`REF6-10` / `B-1`).
+      - name: Capas del backend
+        run: node scripts/verificar-capas.mjs
+
+      # Un doc que miente es un bug: el próximo modelo implementa sobre la promesa. Compara las
+      # versiones de `TECHNICAL.md` §1 y los topes de bundle de §5 con lo instalado y con
+      # `presupuesto.mjs`, que son lo que ya se desfasó más de una vez (`REF6-15` / `B-2`).
+      - name: Docs al día
+        run: node scripts/verificar-docs.mjs
+
+      # `biome check` incluye formato y lint. Falla si algo no está formateado y también si queda un
+      # warning (`--error-on-warnings`, `REF6-14` / `C-8`): un warning tolerado es uno que se acumula.
       - name: Lint
         run: pnpm lint
 
       - name: Tipos
         run: pnpm typecheck
 
-      - name: Tests
-        run: pnpm test
+      # Con cobertura, y los umbrales BLOQUEAN (`docs/TESTING.md` §8). Hasta `REF6-9`
+      # esto corría `pnpm test` a secas: los umbrales estaban escritos y nadie los
+      # aplicaba, y `offline/` llegó a 76 % de ramas contra un 85 % exigido.
+      - name: Tests con cobertura
+        run: pnpm test:coverage
 
   budget:
     name: Presupuestos de bundle
@@ -72,9 +94,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -92,9 +114,9 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -102,7 +124,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Caché del binario de MongoDB
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/mongodb-binaries
           key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
@@ -110,7 +132,7 @@ jobs:
       # El navegador pesa y no cambia salvo que cambie la versión de Playwright,
       # que está clavada en el lockfile.
       - name: Caché del navegador de Playwright
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -121,16 +143,17 @@ jobs:
       #
       # El timeout no lo evita; lo convierte en un fallo de 6 minutos que se
       # relanza, en vez de uno de 30 que hay que ir a cancelar a mano.
-      - name: Instalar Chromium
+      # Chromium (escritorio y Pixel 7) y WebKit (iPhone 14): `REF6-9` / `T-2`.
+      - name: Instalar Chromium y WebKit
         timeout-minutes: 6
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       # El servidor de E2E levanta su propio MongoDB en memoria y construye los
       # frontends: no hace falta ningún servicio externo.
       - name: E2E
         run: pnpm test:e2e
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report
@@ -154,7 +177,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Construir
         run: docker build -t bal:ci .
@@ -184,9 +207,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm

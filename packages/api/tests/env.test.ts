@@ -85,6 +85,21 @@ describe('loadEnv', () => {
       expect(env.cookieSecure).toBe(true);
     });
 
+    describe('IP del cliente (TRUSTED_IP_HEADER)', () => {
+      it('en producción confía en x-real-ip, el header que documenta Railway', () => {
+        expect(loadEnv(produccion()).trustedIpHeader).toBe('x-real-ip');
+      });
+
+      it('en desarrollo no confía en ninguno: no hay proxy delante', () => {
+        expect(loadEnv(testEnvRaw()).trustedIpHeader).toBeUndefined();
+      });
+
+      it('uno explícito gana, normalizado a minúsculas', () => {
+        const env = loadEnv(produccion({ TRUSTED_IP_HEADER: 'CF-Connecting-IP' }));
+        expect(env.trustedIpHeader).toBe('cf-connecting-ip');
+      });
+    });
+
     it('FALLA si falta ADMIN_INITIAL_PASSWORD', () => {
       const raw = produccion();
       raw.ADMIN_INITIAL_PASSWORD = undefined;

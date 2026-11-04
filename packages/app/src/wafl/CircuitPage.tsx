@@ -8,7 +8,7 @@
  * Ver `docs/FUNCTIONAL.md` §7.2.
  */
 
-import { ChipModalidad } from '@bal/ui';
+import { ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { CerrarSesion } from '../components/CerrarSesion.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
@@ -37,6 +37,7 @@ export function CircuitPage({
   onResultados,
   onCerrarSesion,
 }: CircuitPageProps) {
+  useTituloDePagina('Recorrido');
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [cerrando, setCerrando] = useState(false);
   const { pending } = useSyncStatus();

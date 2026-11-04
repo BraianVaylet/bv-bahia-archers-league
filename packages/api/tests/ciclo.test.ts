@@ -286,11 +286,13 @@ describe('edición del torneo', () => {
 // ── BE-7 · Patrullas y credenciales ──────────────────────────────────────────
 
 describe('patrullas y credenciales', () => {
-  it('lista las patrullas con su PIN y su composición', async () => {
+  it('lista las patrullas con su PIN y su composición cuando se piden los PIN', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
 
-    const body = (await (await c.get(`/api/admin/tournaments/${tournamentId}/patrols`)).json()) as {
+    const body = (await (
+      await c.get(`/api/admin/tournaments/${tournamentId}/patrols?pins=1`)
+    ).json()) as {
       patrols: { username: string; pin?: string; members: unknown[] }[];
       violations: unknown[];
     };
@@ -304,9 +306,45 @@ describe('patrullas y credenciales', () => {
   it('registra en el audit log cada vez que se muestran los PIN', async () => {
     const c = await admin();
     const { tournamentId } = await torneoNuevo(c);
-    await c.get(`/api/admin/tournaments/${tournamentId}/patrols`);
+    await c.get(`/api/admin/tournaments/${tournamentId}/patrols?pins=1`);
 
     expect(await auditLog().countDocuments({ action: 'patrol.pin.reveal' })).toBe(1);
+  });
+
+  /**
+   * `REF6-7` / `S-7`. La pantalla del torneo pedía esta lista para mostrar el avance,
+   * y el endpoint descifraba y devolvía todos los PIN en cada visita (y escribía
+   * `patrol.pin.reveal`). Si cada vistazo al avance cuenta como «visualización de un
+   * PIN», el registro se llena de ruido y deja de servir para lo que está. Los PIN
+   * se piden a propósito, desde la pantalla de credenciales.
+   */
+  it('sin pedir los PIN, la lista no los trae ni escribe en el audit log', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+
+    const res = await c.get(`/api/admin/tournaments/${tournamentId}/patrols`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { patrols: Record<string, unknown>[] };
+
+    expect(body.patrols.length).toBeGreaterThan(0);
+    for (const patrulla of body.patrols) {
+      // Ni el campo: que no esté es más fuerte que que esté vacío.
+      expect(patrulla).not.toHaveProperty('pin');
+    }
+    expect(await auditLog().countDocuments({ action: 'patrol.pin.reveal' })).toBe(0);
+  });
+
+  it('el parámetro de los PIN es estricto: sólo pins=1, y nada más', async () => {
+    const c = await admin();
+    const { tournamentId } = await torneoNuevo(c);
+    const ruta = `/api/admin/tournaments/${tournamentId}/patrols`;
+
+    for (const sufijo of ['?pins=0', '?pins=true', '?pins=', '?pins=2', '?otro=1']) {
+      expect((await c.get(ruta + sufijo)).status, sufijo).toBe(400);
+    }
+
+    // Nada de eso devolvió PIN ni dejó rastro de que se hubieran mostrado.
+    expect(await auditLog().countDocuments({ action: 'patrol.pin.reveal' })).toBe(0);
   });
 
   it('NO expone el PIN una vez publicado el torneo', async () => {
@@ -316,10 +354,14 @@ describe('patrullas y credenciales', () => {
     await completarTorneo(tournamentId);
     await c.post(`/api/admin/tournaments/${tournamentId}/publish`);
 
-    const body = (await (await c.get(`/api/admin/tournaments/${tournamentId}/patrols`)).json()) as {
+    // Aun pidiéndolos: publicado, la credencial no sirve para nada y no se expone.
+    const body = (await (
+      await c.get(`/api/admin/tournaments/${tournamentId}/patrols?pins=1`)
+    ).json()) as {
       patrols: { pin?: string }[];
     };
     expect(body.patrols[0]?.pin).toBeUndefined();
+    expect(await auditLog().countDocuments({ action: 'patrol.pin.reveal' })).toBe(0);
   });
 
   it('regenerar el PIN invalida la sesión de esa patrulla', async () => {

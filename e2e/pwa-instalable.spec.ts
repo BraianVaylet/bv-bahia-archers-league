@@ -24,7 +24,7 @@ test('el manifest tiene lo que hace falta para instalar', async ({ page, request
     short_name?: string;
     start_url?: string;
     display?: string;
-    icons?: { sizes: string; src: string; purpose?: string }[];
+    icons?: { sizes: string; src: string; type?: string; purpose?: string }[];
   };
 
   expect(manifest.name).toBeTruthy();
@@ -84,9 +84,16 @@ test('el manifest tiene lo que hace falta para instalar', async ({ page, request
     expect(respuesta.headers()['content-type'], `${icono.src} no se sirve como imagen`).toContain(
       'image/',
     );
-    expect(cuerpo.trimStart().startsWith('<svg'), `${icono.src} devolvió el HTML del SPA`).toBe(
-      true,
-    );
+    // Y que sea lo que dice ser: un SVG empieza con `<svg`, un PNG con sus 8 bytes de firma.
+    // (Hasta `REF6-8` todos los íconos eran SVG y esto sólo comprobaba el primer caso.)
+    if (icono.type === 'image/png') {
+      const firma = (await respuesta.body()).subarray(0, 8);
+      expect([...firma], `${icono.src} no es un PNG`).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    } else {
+      expect(cuerpo.trimStart().startsWith('<svg'), `${icono.src} devolvió el HTML del SPA`).toBe(
+        true,
+      );
+    }
   }
 });
 

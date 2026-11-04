@@ -170,6 +170,16 @@ export async function readScores(): Promise<StoredScore[]> {
   return (await getDb()).getAll('scores');
 }
 
+/**
+ * Los puntajes de **un** blanco, por el índice `by-target` (`REF6-14` / `P-7`).
+ *
+ * `TargetPage` leía el almacén entero en cada toque y filtraba en memoria. Con ≤ 240 registros no
+ * se notaba, pero es el camino que más se recorre en el monte y el índice ya existía.
+ */
+export async function readScoresDeBlanco(targetIndex: number): Promise<StoredScore[]> {
+  return (await getDb()).getAllFromIndex('scores', 'by-target', targetIndex);
+}
+
 export async function readScore(
   participantId: string,
   targetIndex: number,

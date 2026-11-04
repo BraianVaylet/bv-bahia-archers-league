@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import type { Context } from 'hono';
 import { env } from '../env.js';
 import { AppError } from '../lib/errors.js';
+import { log } from '../lib/logger.js';
 
 export interface ErrorBody {
   error: {
@@ -51,7 +52,7 @@ export function handleError(error: Error, c: Context): Response {
 
   // Inesperado: se loguea completo, se responde sin detalle.
   const requestId = randomUUID();
-  console.error(`[${requestId}] ${c.req.method} ${c.req.path}`, error);
+  log.error('request.error', { requestId, method: c.req.method, path: c.req.path, error });
 
   // En desarrollo el mensaje real ayuda a depurar; en producción es información
   // de más y se responde el mensaje genérico del catálogo.

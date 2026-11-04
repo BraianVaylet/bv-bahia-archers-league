@@ -48,7 +48,7 @@ Sin esto, falsear un puntaje sería tan simple como editar un JSON en devtools.
 - `mustChangePassword: true` en el seed: al primer login la app **obliga** a cambiar el password antes de permitir cualquier otra acción.
 - Password mínimo 12 caracteres, validado server-side.
 - **Lookup timing-safe**: si el usuario no existe, se compara igual contra un `DUMMY_HASH` para que el tiempo de respuesta no revele la existencia de la cuenta.
-- Bloqueo temporal tras 5 intentos fallidos (15 minutos, escalando).
+- Bloqueo por (cuenta, IP) tras 5 intentos fallidos: 15 minutos, que se duplican con cada bloqueo seguido hasta una hora. Más un tope por cuenta de 30 fallos entre todas las IPs. Ver §3.3.
 
 #### Recuperación del acceso
 
@@ -82,7 +82,7 @@ Sin esto, falsear un puntaje sería tan simple como editar un JSON en devtools.
 - Hasheado con **argon2id**, igual que el password de admin.
 - **Alcance temporal:** la credencial solo funciona mientras el torneo está `en_proceso`. Antes de iniciar y después de completar, no autentica.
 - **Alcance de datos:** la sesión solo puede escribir sobre participantes de su propia patrulla, en su propio torneo. Verificado en cada op (§4).
-- Bloqueo tras 5 intentos fallidos: 5 minutos, escalando a 30. Contador **por patrulla** y **por IP**, de forma independiente.
+- Bloqueo por (patrulla, IP) tras 5 intentos fallidos: 5 minutos, que se duplican con cada bloqueo seguido hasta 20. Más un tope por patrulla de 30 fallos entre todas las IPs. El techo es corto a propósito: un líder trabado en el monte es un torneo parado. Ver §3.3.
 - El admin puede **regenerar** el PIN en cualquier momento; invalida las sesiones activas de esa patrulla.
 
 > **Cambio respecto del brief.** El brief especifica 4 dígitos: 10.000 combinaciones, rompibles por fuerza bruta en minutos. Se elevó a 6 dígitos manteniendo el mismo flujo de uso. Con el rate limit y el bloqueo, un ataque de fuerza bruta requiere años.
@@ -93,13 +93,38 @@ Este es un balance delicado: un rate limit mal calibrado es un **denial of servi
 
 | Endpoint | Límite | Motivo |
 |---|---|---|
-| `POST /api/auth/admin/login` | 10 / 15 min por IP | Fuerza bruta |
-| `POST /api/auth/patrol/login` | 10 / 15 min por IP **y** 5 / 15 min por patrulla | Fuerza bruta del PIN |
-| `POST /api/wafl/sync` | **300 / min por sesión de patrulla** | Generoso a propósito: una patrulla que vuelve de 3 horas sin señal envía cientos de ops de golpe. Nunca debe ser rechazada. |
-| `/api/admin/*` (escritura) | 60 / min por sesión | Abuso |
+| `POST /api/auth/admin/login` y `POST /api/auth/patrol/login` | 60 intentos **fallidos** / 15 min por IP (cupo compartido), **y** el bloqueo de cada par (cuenta, IP) tras 5 intentos, **y** un tope de 30 fallos por cuenta entre todas las IPs | Fuerza bruta. Los ingresos correctos no gastan nada: el wifi del club es una sola IP para todas las patrullas |
+| `POST /api/auth/admin/recover` | 5 intentos **fallidos** / 15 min por IP, cupo aparte | Es la única ruta sin sesión que cambia una credencial y **no tiene bloqueo por cuenta**: el cupo de la IP es lo único que frena adivinar el código |
+| `POST /api/wafl/sync` | **300 / min por sesión** (la cookie), **y** 6000 / min por IP | Generoso a propósito: una patrulla que vuelve de 3 horas sin señal envía cientos de ops de golpe. Nunca debe ser rechazada. **El cupo es de la sesión** porque el wifi del club es una sola IP para todas las patrullas, y uno por IP las cortaría entre sí al vaciar el outbox. **El tope por IP** (20 veces el de la sesión) existe porque una cookie inventada tiene su propio cupo: sin él, quien rota la cookie en cada request no gastaría nunca el mismo (`REF6-15`) |
 | `/api/public/*` | 120 / min por IP | Scraping |
+| `POST /api/public/archers` | **20 / hora por IP** (`RATE_LIMIT_REGISTER`), además del anterior | El alta escribe y cada una es una fila que el admin revisa. Generoso: el día de la inscripción varios arqueros se anotan desde el wifi del club |
 
 Los límites viven en variables de entorno para poder ajustarlos sin redeploy si algo se calibra mal en el campo.
+
+**`/api/admin/*` no tiene rate limit** (`REF6-15`). El doc decía «60 / min por sesión» y el código nunca lo tuvo. No se agregó: es una sola persona, autenticada, con CSRF, y un tope no protege de una sesión robada —quien la tiene hace lo que el admin puede hacer, a ritmo humano— mientras que sí puede cortar a un administrador legítimo cargando un torneo grande. Si alguna vez hace falta, la clave del límite es la sesión, como en `sync` (`clavePorSesion`).
+
+**Qué cuenta y qué no (`REF6-2`).** Antes el límite de login se aplicaba a todo `/api/auth/*` y contaba cada request, así que `/me` y `/csrf` —que la app pide en cada carga— y los ingresos correctos gastaban el mismo cupo que un ataque: la patrulla 11 que entraba desde el wifi del club quedaba afuera por culpa de las diez anteriores. Ahora el cupo cuenta sólo las respuestas `401` (credenciales equivocadas) de las tres rutas de ingreso. Un `429` del bloqueo de la cuenta, un `403` de CSRF o un `409` de torneo no iniciado **no** cuentan.
+
+**El cupo se reserva al entrar y se devuelve si no fue un fallo.** No alcanza con mirar el contador al entrar y anotar el fallo al salir: una ráfaga de requests simultáneos mira el contador antes de que el primero termine y pasan todos (en la primera versión, treinta intentos contra un cupo de cinco). En la recuperación del password, que no tiene bloqueo por cuenta, eso dejaba adivinar el código sin otro freno que el tamaño de la ráfaga. Por eso cada intento suma uno apenas llega y lo resta si la respuesta no fue `401`. El costo: los intentos *en vuelo* cuentan unos milisegundos, así que hacen falta tantos ingresos simultáneos como el cupo para cortar a uno legítimo (60 en el login).
+
+#### El bloqueo de la cuenta (`REF6-6`)
+
+Era por cuenta sola: cinco intentos fallidos, **desde cualquier lado**, dejaban afuera a su dueño 15 minutos. El usuario del admin es `admin` y los de las patrullas los publica `/api/public/tournaments/:id`, así que dejar afuera al admin en pleno torneo —cuando necesita desbloquear una firma o regenerar un PIN— costaba cinco requests. Ahora son **dos capas**:
+
+1. **Por par (cuenta, IP), en memoria** (`lib/bloqueoDeIngreso.ts`). Cinco intentos y el sexto dispara el bloqueo; cada bloqueo seguido dura el doble (admin: 15 → 30 → 60 min; patrulla: 5 → 10 → 20 min) y un ingreso correcto, o una hora sin intentos, reinicia el castigo. Quien insiste se bloquea a sí mismo; el dueño, que entra desde otra IP, no se entera. Insistir *mientras* está bloqueado no lo alarga.
+2. **Por cuenta, en la base**, con el umbral en **30** fallos entre todas las IPs. Es la red de seguridad de la primera: sin ella, adivinar un PIN de seis dígitos desde muchas IPs —cinco intentos por cada una— no tendría techo. Tiene que ser mucho más alto que cinco: a cinco, volvía a ser lo de antes y cualquiera dejaba afuera al dueño con cinco requests.
+
+**El intento se reserva al entrar** y no se anota al salir: mirar el contador antes de verificar y sumar el fallo después dejaba que una ráfaga de treinta requests simultáneos pasara entera (cada uno miraba el contador antes de que el primero terminara). El costo: **un mismo par no admite más de cinco intentos en vuelo a la vez**; el sexto simultáneo recibe `429` aunque la clave sea buena. Un humano no manda seis ingresos al mismo tiempo desde la misma IP y para la misma cuenta, y argon2 tarda lo bastante como para que la ventana sea corta.
+
+**Se aplica igual a una cuenta que no existe** (`nadie`, `patrulla99`). Si sólo se bloquearan las cuentas reales, que el bloqueo aparezca o no distinguiría un usuario válido de uno inventado: un oráculo para enumerarlos. La clave de una patrulla usa el id **canónico** del torneo y no el texto del request: el esquema acepta el hexadecimal en mayúsculas, y el mismo torneo escrito de otra forma daría un cupo nuevo.
+
+**Recuperar el acceso suelta el bloqueo** de todas las IPs de la cuenta: recuperar el password (`recoverAdminPassword`) y regenerar el PIN (`regeneratePin`). Que el dueño siga esperando después de eso no tiene sentido.
+
+> **Límites de la capa en memoria.** Se pierde al reiniciar el proceso y no se comparte entre instancias; alcanza para el despliegue de un solo contenedor (`ARCHITECTURE.md` §3). La capa de la base sí sobrevive. Tiene un tope de 10 000 pares: sin él, una IP inventada por request lo hacía crecer sin límite. Si se escala a más de una instancia, el bloqueo por par pasa a la base.
+
+**La IP del cliente.** El código tomaba el primer valor de `X-Forwarded-For`, y los proxies *agregan* al final: el primero lo escribe quien hace el request, así que un valor distinto en cada intento esquivaba el cupo. Ahora se usa `TRUSTED_IP_HEADER`, por defecto `x-real-ip` en producción —el header que Railway documenta como la IP del cliente en *Specs & Limits → Request Headers*—, y el mismo valor alimenta las sesiones y el audit log. El `Map` de contadores tiene un tope de 10 000 claves: sin él, una IP inventada por request lo hacía crecer sin límite.
+
+> **Pendiente de verificar en el primer deploy (`INF-4`).** La documentación de Railway dice que `X-Real-IP` identifica la IP del cliente, pero **no dice que el borde pise un `X-Real-IP` mandado por el cliente**. Antes de dar el cupo por bueno: iniciar sesión como admin con `curl -H 'X-Real-IP: 1.2.3.4' -H 'x-csrf-token: …' …/api/auth/admin/login` y mirar el campo `ip` de la sesión recién creada en la colección `sessions` (es la IP que ve el servidor, la misma que usa el cupo). Si guardó `1.2.3.4`, el borde no reescribe el header: hay que usar otro o poner un proxy que lo haga.
 
 **Regla:** ante la duda entre seguridad y disponibilidad en `/api/wafl/sync`, gana la disponibilidad. Ese endpoint está protegido por la autenticación y la autorización, no por el rate limit.
 
@@ -140,7 +165,7 @@ Un recurso que existe pero no pertenece al solicitante responde **404**, no 403.
 
 - **Zod `.strict()` en absolutamente todo input.** Rechaza propiedades no declaradas → sin mass assignment, sin contaminación del documento.
 - Longitudes máximas en todos los strings. Cantidad máxima de elementos en todos los arrays.
-- Tamaño máximo del body: 1 MB. Máximo 200 ops por batch de sync.
+- Tamaño máximo del body, **medido en bytes reales** (`middleware/limiteDeBody.ts`): **64 KB** en cualquier ruta salvo `POST /api/wafl/sync`, que admite **1 MB**. Antes sólo se miraba el `Content-Length` que declara el cliente: con `Transfer-Encoding: chunked` no hay header, y el body entero se leía a memoria antes de decidir nada. Ahora se cuentan los bytes que llegan y se corta apenas se pasa del máximo. El sync es la excepción porque un lote de 200 operaciones con firmas pesa cientos de KB y una patrulla que vuelve de tres horas sin señal **nunca** debe ser rechazada por esto. Máximo 200 ops por batch de sync.
 - Firmas: máximo 60 KB de data URL, prefijo `data:image/png;base64,` obligatorio, y validación de que el contenido decodificado es un PNG real (magic bytes) antes de persistir.
 - IDs validados con regex de `ObjectId` (`/^[a-f\d]{24}$/i`) antes de construir cualquier `ObjectId`, para que un valor malformado no llegue al driver.
 
@@ -178,7 +203,9 @@ scorecardHash = sha256(JSON.stringify({
 
 - Se calcula **server-side** al recibir la firma y se guarda junto a ella.
 - Al cerrar el circuito, se **recalcula y se compara**. Si difiere, el cierre se rechaza con `SIGNATURE_MISMATCH`: el puntaje cambió después de firmarse.
-- Al publicar, se verifica de nuevo para todos los participantes.
+- Al publicar, se verifica de nuevo para todos los participantes firmados. Si alguno difiere, publicar se rechaza con `SIGNATURE_MISMATCH` y el mensaje dice de quién. *(Desde `REF6-1`: esta línea estaba escrita y el código no lo hacía.)*
+- **Lo firmado no se escribe.** Una op de score sobre un arquero que ya firmó se rechaza con `SIGNATURE_LOCKED`, y toda op de score o de firma sobre una patrulla cerrada, con `PATROL_CLOSED`. Antes el hash se comparaba una sola vez, en el cierre, y lo que llegara después no lo miraba nadie. La firma desbloqueada por el admin cuenta como firmada.
+- `SIGNATURE_MISMATCH` queda entonces como **defensa en profundidad**: salta cuando el dato cambia por un camino que no es `/sync` (una corrección a mano en la base, un script, un bug).
 
 **Desbloqueo por el admin:** si un arquero se fue sin firmar, el admin puede desbloquear indicando el motivo. Se registra `unlockedBy`, `unlockReason` y una entrada en `auditLog`. El participante queda marcado como firmado por excepción, y eso es visible en el detalle del torneo — no se oculta.
 
@@ -196,7 +223,7 @@ scorecardHash = sha256(JSON.stringify({
 ### CSRF
 
 - Token CSRF en cookie legible por JavaScript + header **`x-csrf-token` obligatorio** en toda mutación (`POST`, `PUT`, `PATCH`, `DELETE`).
-- El frontend obtiene el token con `GET /api/auth/csrf` antes de la primera mutación.
+- El frontend obtiene el token con `GET /api/auth/csrf` antes de la primera mutación. Lo lee de la cookie; si el navegador todavía no la muestra en `document.cookie` (WebKit en Linux, justo después de la respuesta), usa el `csrfToken` del cuerpo de esa misma respuesta. Es el mismo valor que la cookie, que el navegador manda igual: el par cookie/header sigue coincidiendo.
 - Falta o no coincide → **403**.
 - `SameSite=Lax` es la primera línea; el token es la segunda. Defensa en profundidad.
 
@@ -217,7 +244,7 @@ pinEnc:  "base64(iv | ciphertext | tag)"    // AES-256-GCM, para mostrarlo
 - La clave `PIN_ENC_KEY` (32 bytes) vive **solo** en variables de entorno, nunca en la base ni en el repositorio.
 - El descifrado ocurre **únicamente** bajo sesión de administrador autenticada.
 - **Solo** mientras el torneo no está `publicado`.
-- Cada visualización queda registrada en `auditLog`.
+- Cada visualización queda registrada en `auditLog` (`patrol.pin.reveal`). **Una visualización es una decisión** (`REF6-7` / `S-7`): `GET /api/admin/tournaments/:id/patrols` **no trae los PIN** salvo que se pidan con `?pins=1` (y con ese valor y ningún otro: otro valor o un parámetro desconocido es un `400`). Antes los traía siempre, y como la pantalla del torneo la usa para mostrar el avance, cada vistazo —y cada refresco— descifraba todos los PIN y escribía en el log: el registro se llenaba de ruido y dejaba de servir para lo que está. Sólo piden `?pins=1` la pantalla de credenciales de la patrulla, y el `PUT` que guarda una redistribución (se hace desde esa misma pantalla). Publicado el torneo, no se devuelven ni pidiéndolos.
 - El admin puede **regenerar** el PIN en cualquier momento.
 
 **Lo que esto significa.** Quien obtenga *a la vez* un volcado de la base **y** la variable de entorno puede leer los PINs. Es una degradación real frente a "solo hash".
@@ -225,6 +252,22 @@ pinEnc:  "base64(iv | ciphertext | tag)"    // AES-256-GCM, para mostrarlo
 **Por qué se acepta.** El activo protegido es un PIN de torneo de un día, de alcance acotado a una patrulla, cuya única capacidad es escribir puntajes de sus 4 miembros — puntajes que además quedan firmados y auditados. La alternativa — que el admin no pueda recuperar el PIN — llevaría inevitablemente a que los PINs terminen anotados en un papel o en un chat de WhatsApp, que es estrictamente peor.
 
 La alternativa superior existe y está en el backlog como P2: **acceso por QR con token firmado**, que elimina la necesidad de mostrar el PIN.
+
+---
+
+## 9 bis. Qué queda en el audit log
+
+El log existe para contestar «quién hizo esto, cuándo y desde dónde». Cada entrada guarda el actor, la acción, la entidad, el momento y la IP (la de `TRUSTED_IP_HEADER`, ver §3.3). El `meta` guarda **qué pasó, nunca datos de las personas**: sin nombres, DNI, tokens, hashes ni PIN. (`REF6-7` / `S-9` completó la lista: antes sólo se auditaban publicar, desbloquear firmas, PIN y sync.)
+
+| Quién | Acciones |
+|---|---|
+| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/publish/unpublish/target_edit/participants_edit` · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
+| Patrulla | `patrol.close` (con la IP de quien cerró) · `sync.forbidden` · `sync.conflict` |
+| Público | `archer.register_duplicate` |
+
+**Qué no se registra, a propósito.** Los ingresos **fallidos**: un `401` por request llenaría el log con el ruido de cualquier bot, y ya tienen su freno (§3.3). Las lecturas, salvo la de los PIN. Los puntajes uno por uno: el sync ya los guarda con su `opId`, su autor y su `clientUpdatedAt`.
+
+**Lo que el log no hace todavía:** ninguna pantalla lo muestra. Está en la base y se consulta ahí. Mostrarlo al admin es lo siguiente.
 
 ---
 
@@ -248,7 +291,11 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains    (solo producci
 
 - `img-src data: blob:` es necesario para las firmas en canvas.
 - `camera=(self)` es necesario para el escaneo de QR (P2). Si esa función no se implementa, se quita.
-- El script anti-FOUC del tema va con **hash en la CSP**, no con `'unsafe-inline'`.
+- **El JIT de Zod se apaga en el navegador desde `schemas.ts`, no desde el punto de entrada** (`REF6-8`). Zod 4 prueba `new Function('')` al construir cada schema, y con la CSP sin `'unsafe-eval'` el navegador lo reporta como violación en cada carga. `REF6-3` lo evitaba con un `import` de efecto puesto primero en cada `main.tsx`; con `React.lazy` el chunk de los schemas se evalúa **antes** que el cuerpo de la entrada y la violación volvió. Ahora `schemas.ts` importa `configuracionZod.ts`, que apaga el JIT si hay un DOM (el backend lo conserva: valida hasta 200 ops por lote). `e2e/tema-sin-parpadeo.spec.ts` sigue mirando las cuatro rutas.
+- **La PWA no cachea nada de la API** (`REF6-8` / `S-8`). Había una regla `runtimeCaching` que nunca matcheaba; si alguien la «arreglaba», habría guardado 24 h `/api/admin/*` —con los PIN en claro— en Cache Storage, y el logout no lo limpia. Se borró, y un test E2E mira que `sw.js` no tenga ninguna. Ver `OFFLINE_SYNC.md` §8.
+- **Compresión de `/api/*` y BREACH.** El JSON de la API puede ir comprimido con gzip. BREACH necesita un secreto y datos del atacante reflejados en el mismo cuerpo; `/api/auth/csrf`, la única respuesta con un token, no refleja nada del request. Si esa respuesta cambia, hay que revisarlo.
+- El script anti-FOUC del tema es un **archivo externo del mismo origen** (`theme-init.js`), no un script inline: la CSP se queda en `script-src 'self'`, sin `'unsafe-inline'` y sin hashes que mantener a mano. *(Hasta `REF6-3` los `index.html` lo llevaban inline y la CSP no tenía el hash: el navegador lo bloqueaba en producción.)*
+- **Cero violaciones de CSP en la consola.** Zod 4 sondea `eval` con `new Function('')` al construir cada schema, y la CSP no lo permite: el `try` atrapaba el error pero el navegador lo reportaba igual. Los frontends importan `@bal/shared/navegador` primero, que pone `jitless`. Sólo en el navegador: el backend corre sin CSP y se beneficia del JIT.
 - HTTPS obligatorio. Railway termina TLS.
 
 ---
@@ -292,6 +339,11 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - [x] Cookies con `HttpOnly`, `Secure` (prod) y `SameSite=Lax`. — auth.test.ts · env.test.ts
 - [x] Logout invalida la sesión **en base**. — auth.test.ts
 - [x] Bloqueo tras 5 intentos fallidos, en admin y en patrulla. — auth.test.ts · wafl.test.ts
+- [x] El bloqueo es por (cuenta, IP): quien insiste no deja afuera al dueño desde otra IP. — bloqueo-de-cuentas.test.ts
+- [x] Una ráfaga simultánea contra una cuenta no pasa de cinco intentos. — bloqueo-de-cuentas.test.ts
+- [x] Muchas IPs contra una cuenta terminan en el tope por cuenta (30). — bloqueo-de-cuentas.test.ts
+- [x] Una cuenta que no existe se bloquea igual que una real. — bloqueo-de-cuentas.test.ts
+- [x] Recuperar el password y regenerar el PIN sueltan el bloqueo. — bloqueo-de-cuentas.test.ts
 - [x] Credencial de patrulla **no funciona** si el torneo no está `en_proceso`. — wafl.test.ts
 - [x] Regenerar el PIN invalida las sesiones activas de esa patrulla. — ciclo.test.ts
 - [x] En producción, arrancar sin `ADMIN_INITIAL_PASSWORD` **falla el arranque**. — env.test.ts
@@ -300,6 +352,7 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 ### Autorización
 - [x] La patrulla 3 enviando una op de un participante de la patrulla 5 → op `rejected`, registrada en el audit log. — wafl.test.ts · **seguridad.test.ts**
 - [x] Un batch mixto (ops propias + ajenas) aplica **solo** las propias. — wafl.test.ts
+- [x] Un `duplicate` (mismo `opId`) que apunta a un arquero de **otra** patrulla no devuelve su puntaje. El duplicado se detecta por `opId` antes de autorizar nada, y desde `REF6-4` devuelve el puntaje vigente de la celda: sin comprobar de quién es el arquero, reenviar un `opId` propio con el `participantId` ajeno leería los puntajes de otra patrulla. — wafl.test.ts
 - [x] Un recurso de otro torneo → 404, no 403. — **seguridad.test.ts**
 
 ### Integridad del puntaje
@@ -307,7 +360,10 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - [x] Token `11` en un blanco de sala → rechazado con `INVALID_TOKEN`. — wafl.test.ts
 - [x] Token `X` en un blanco 3D → rechazado. — wafl.test.ts
 - [x] Cantidad de flechas distinta a la del blanco → `ARROW_COUNT`. — wafl.test.ts
-- [x] Cambiar un puntaje después de firmar → `SIGNATURE_MISMATCH` al cerrar. — **seguridad.test.ts**
+- [x] Op de score sobre un arquero que ya firmó → `rejected` con `SIGNATURE_LOCKED`; el que no firmó sigue pudiendo corregir. — **seguridad.test.ts**
+- [x] Op de score o de firma con la patrulla cerrada → `rejected` con `PATROL_CLOSED`, también dentro del mismo lote que el cierre. — **seguridad.test.ts**
+- [x] Cambiar un puntaje después de firmar, por fuera de `/sync` → `SIGNATURE_MISMATCH` al cerrar. — **seguridad.test.ts**
+- [x] Publicar un torneo con un puntaje alterado después de firmarse → `SIGNATURE_MISMATCH`, y no queda publicado. — **seguridad.test.ts**
 - [x] Cerrar el circuito sin todas las firmas → `SIGNATURES_MISSING`. — wafl.test.ts
 - [x] Publicar un torneo que no está `completado` → `INVALID_STATE_TRANSITION`. — ciclo.test.ts
 
@@ -318,6 +374,7 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - [x] `ObjectId` malformado → 400, sin excepción del driver. — tournaments.test.ts
 - [x] Firma que no es un PNG real → rechazada. — wafl.test.ts
 - [x] Body > 1 MB → 413. — app.test.ts
+- [x] Body > 64 KB fuera del sync → 413, también con `Transfer-Encoding: chunked` y sin `Content-Length`. — limite-de-body.test.ts
 
 ### Cabeceras y transporte
 - [x] CSP presente y sin `'unsafe-inline'` en `script-src`. — app.test.ts
@@ -351,6 +408,7 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 
 - **Nunca queda usable de inmediato.** Nace `registrationStatus: 'pendiente'` (decisión 7, `ACTION_PLAN.md` Fase 8) y no entra al padrón que alimenta el wizard de torneo (`archerRepo.list` filtra por `'aprobado'` salvo que se pida lo contrario) hasta que un admin la aprueba desde WAFA (`BE-22`). El peor abuso posible —un bot creando cientos de arqueros falsos— no contamina ningún torneo real: queda en una cola que el admin revisa, no en producción.
 - **`.strict()` impide autoaprobarse.** El cuerpo acepta exactamente `{ firstName, lastName, dni, sex, category }`. Un request con `registrationStatus: 'aprobado'` o `isAdmin: true` se rechaza antes de llegar al servicio — no hay una rama de código que decida "confío en este campo si viene"; Zod lo descarta estructuralmente.
-- **El DNI duplicado no es un oráculo.** La respuesta es `409 ARCHER_DNI_DUPLICATE` sin mencionar el nombre con el que ese DNI ya está cargado. Sin esto, el formulario serviría para confirmar si una persona puntual —conociendo su DNI— ya está en el padrón de la liga, lo que no es información que el club decidió hacer pública. El índice único es `{dni, category}`, no `dni` solo —la misma persona puede anotarse en más de una categoría— así que el 409 confirma específicamente "ya anotado en esa categoría", un poco menos de información que antes, no más.
-- **Rate limit compartido.** Usa `RATE_LIMIT_PUBLIC` como cualquier otra ruta de `/api/public/*` (`middleware/rateLimit.ts`, aplicado por prefijo en `app.ts`). No tiene un límite propio más estricto: se decidió no agregar uno porque el freno real contra abuso en volumen es la cola de aprobación manual, no el rate limit.
+- **El DNI duplicado no es un oráculo (`REF6-6`).** Un DNI nuevo y uno ya anotado en esa categoría reciben **la misma respuesta**: `200` con un arquero de forma idéntica. Antes era `409 ARCHER_DNI_DUPLICATE`, y aunque el mensaje no decía el nombre, el solo hecho de que el alta falle confirmaba que ese DNI estaba en el padrón —un oráculo para saber si una persona puntual está inscripta, información que el club no decidió hacer pública—. Cuando es un duplicado no se crea nada: se devuelve un `_id` inventado y se deja una entrada `archer.register_duplicate` en el audit log, para que quede registrado que alguien intentó anotar de nuevo a ese DNI. El índice único sigue siendo `{dni, category}` —la misma persona puede anotarse en más de una categoría—, y `POST /api/admin/archers` sigue devolviendo `409`: el admin tiene sesión y no hay nada que ocultarle.
+- **Rate limit propio (`REF6-6`).** Además de `RATE_LIMIT_PUBLIC` (por minuto), `RATE_LIMIT_REGISTER` (20 por hora y por IP, `scope: 'alta'`). Antes se había decidido no tener uno propio porque «el freno real es la cola de aprobación», pero la cola es un freno *humano*: cada alta basura es una fila que el admin tiene que revisar y descartar. Quien manda mil altas no contamina ningún torneo, pero sí le hace perder la tarde al admin. 20 por hora alcanza para el wifi del club el día de la inscripción.
+- **Campo trampa (*honeypot*).** El formulario lleva un `sitioWeb` oculto —fuera de pantalla, `aria-hidden`, `tabIndex={-1}`, `autoComplete="off"`—. Una persona no lo ve ni lo completa; un bot que llena todo lo que encuentra, sí. Si llega con contenido, el servidor responde **igual que si hubiera funcionado** (mismo `200`, `_id` inventado) y no guarda nada: un error le avisaría al bot que lo detectaron. No es una defensa contra alguien que lea el formulario, pero filtra el grueso del ruido automático.
 - **Sin caché.** `publicCache` (que agrega `Cache-Control`/`ETag` a `/api/public/*`) está escrito para GETs idempotentes; se lo acotó a no tocar un método que no sea `GET`, así una respuesta de creación nunca queda con cabeceras de caché que invitarían a un intermediario a servirla de nuevo.

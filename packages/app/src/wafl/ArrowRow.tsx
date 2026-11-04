@@ -7,6 +7,7 @@
  */
 
 import { type Modality, sortArrowsDescending } from '@bal/shared';
+import { memo } from 'react';
 import { clasesDeTarjeta, cn, StakeChip } from '../components/ui.js';
 
 export interface ArrowRowProps {
@@ -31,7 +32,7 @@ export interface ArrowRowProps {
   readonly firmado?: boolean;
 }
 
-export function ArrowRow({
+function ArrowRowBase({
   firstName,
   lastName,
   stake,
@@ -123,3 +124,31 @@ export function ArrowRow({
     </div>
   );
 }
+
+/**
+ * ¿La fila quedó igual? (`REF6-14` / `P-7`)
+ *
+ * Las flechas llegan de IndexedDB: cada lectura trae **arreglos nuevos** aunque el puntaje no haya
+ * cambiado, así que una comparación por referencia repintaría todas las filas en cada toque. Se
+ * comparan por contenido. Los callbacks sí por referencia: quien usa la fila los tiene que dar
+ * estables.
+ */
+function filaIgual(a: ArrowRowProps, b: ArrowRowProps): boolean {
+  return (
+    a.firstName === b.firstName &&
+    a.lastName === b.lastName &&
+    a.stake === b.stake &&
+    a.unit === b.unit &&
+    a.modality === b.modality &&
+    a.total === b.total &&
+    a.arrowsPerTarget === b.arrowsPerTarget &&
+    a.seleccionado === b.seleccionado &&
+    a.firmado === b.firmado &&
+    a.onSelect === b.onSelect &&
+    a.onBorrarUltima === b.onBorrarUltima &&
+    a.arrows.length === b.arrows.length &&
+    a.arrows.every((flecha, i) => flecha === b.arrows[i])
+  );
+}
+
+export const ArrowRow = memo(ArrowRowBase, filaIgual);

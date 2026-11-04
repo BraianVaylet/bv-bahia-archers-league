@@ -5,22 +5,21 @@
  * muestra primero qué va a pasar —los podios— y recién después ofrece el
  * botón, con una confirmación aparte.
  *
+ * Es sólo la composición (`REF6-11` / `C-1`): `Despublicar` y el podio de cada categoría viven en
+ * `wafa/publicacion/`.
+ *
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
+import { useCarga } from '@bal/cliente';
 import type { TournamentStatus } from '@bal/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useTituloDePagina } from '@bal/ui';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  Button,
-  clasesDeTarjeta,
-  cn,
-  Encabezado,
-  Pantalla,
-  Screen,
-  StakeChip,
-} from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
+import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
+import { Despublicar } from '../publicacion/Despublicar.js';
+import { PodioDeCategoria } from '../publicacion/PodioDeCategoria.js';
 import {
   avisosDePublicacion,
   podios,
@@ -34,110 +33,42 @@ interface Torneo {
   readonly status: TournamentStatus;
 }
 
-// ── Despublicar ──────────────────────────────────────────────────────────────
-
-function Despublicar({ id, onHecho }: { readonly id: string; readonly onHecho: () => void }) {
-  const [abierto, setAbierto] = useState(false);
-  const [motivo, setMotivo] = useState('');
-  const [error, setError] = useState<string>();
-
-  const despublicar = async () => {
-    try {
-      await api.post(`/admin/tournaments/${id}/unpublish`, { reason: motivo.trim() });
-      setAbierto(false);
-      onHecho();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo despublicar.');
-    }
-  };
-
-  if (!abierto) {
-    return (
-      <Button variante="secundario" ancho onClick={() => setAbierto(true)}>
-        Despublicar
-      </Button>
-    );
-  }
-
-  return (
-    <div className={cn(clasesDeTarjeta({ nivel: 'transparente' }), 'flex flex-col gap-2')}>
-      {/* Se dice exactamente qué revierte, no un "¿estás seguro?" genérico. */}
-      <p className="text-sm text-[var(--warn)]">
-        Despublicar saca este torneo de la liga: el promedio de cada arquero se recalcula
-        <strong> sin él</strong>, y los resultados dejan de verse en la página pública. Los puntajes
-        cargados no se borran, y se puede volver a publicar.
-      </p>
-
-      <label className="text-sm" htmlFor="motivo-despublicar">
-        Por qué lo despublicás
-      </label>
-      <textarea
-        id="motivo-despublicar"
-        value={motivo}
-        onChange={(e) => setMotivo(e.target.value)}
-        rows={2}
-        className="px-3 py-2 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-      />
-
-      {error && (
-        <p role="alert" className="text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <Button variante="secundario" onClick={() => setAbierto(false)}>
-          Cancelar
-        </Button>
-        <Button
-          ancho
-          variante="peligro"
-          disabled={motivo.trim().length < 5}
-          onClick={() => void despublicar()}
-        >
-          Despublicar
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ── Pantalla ─────────────────────────────────────────────────────────────────
+const SIN_PARTICIPANTES: ResultadoParticipante[] = [];
 
 export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
-  const [torneo, setTorneo] = useState<Torneo>();
-  const [participantes, setParticipantes] = useState<ResultadoParticipante[]>([]);
+
+  const carga = useCarga(
+    async (signal): Promise<{ torneo: Torneo; participantes: ResultadoParticipante[] }> => {
+      const param = { id };
+      const [t, r] = await Promise.all([
+        cuerpo(rpc.admin.tournaments[':id'].$get({ param }, conSenal(signal))),
+        cuerpo(rpc.admin.tournaments[':id'].results.$get({ param }, conSenal(signal))),
+      ]);
+      return { torneo: t.tournament, participantes: r.participants };
+    },
+    [id],
+    { mensajeDeError: 'No se pudieron cargar los resultados. Revisá la conexión.' },
+  );
+  const torneo = carga.datos?.torneo;
+  const participantes = carga.datos?.participantes ?? SIN_PARTICIPANTES;
+
   const [confirmando, setConfirmando] = useState(false);
   const [publicando, setPublicando] = useState(false);
-  const [error, setError] = useState<string>();
-
-  const cargar = useCallback(async () => {
-    try {
-      const [t, r] = await Promise.all([
-        api.get<{ tournament: Torneo }>(`/admin/tournaments/${id}`),
-        api.get<{ participants: ResultadoParticipante[] }>(`/admin/tournaments/${id}/results`),
-      ]);
-      setTorneo(t.tournament);
-      setParticipantes(r.participants);
-      setError(undefined);
-    } catch {
-      setError('No se pudieron cargar los resultados. Revisá la conexión.');
-    }
-  }, [id]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  const [errorDePublicar, setErrorDePublicar] = useState<string>();
+  const error = errorDePublicar ?? carga.error;
 
   const publicar = async () => {
     setPublicando(true);
     try {
-      await api.post(`/admin/tournaments/${id}/publish`);
+      await rpc.admin.tournaments[':id'].publish.$post({ param: { id } });
       setConfirmando(false);
-      await cargar();
+      setErrorDePublicar(undefined);
+      await carga.recargar();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo publicar. Revisá la conexión.');
+      setErrorDePublicar(
+        err instanceof ApiError ? err.message : 'No se pudo publicar. Revisá la conexión.',
+      );
     } finally {
       setPublicando(false);
     }
@@ -146,6 +77,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const losPodios = podios(participantes);
   const avisos = torneo ? avisosDePublicacion(torneo.status, participantes) : [];
   const publicado = torneo?.status === 'publicado';
+  useTituloDePagina(publicado ? 'Resultados' : 'Publicar');
 
   return (
     <Pantalla>
@@ -186,40 +118,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
 
         {/* Los podios primero: es lo que el admin tiene que revisar. */}
         {losPodios.map((p) => (
-          <section
-            key={p.category}
-            className="flex flex-col gap-2"
-            data-testid={`podio-${p.category}`}
-          >
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-              {p.label}
-            </h2>
-
-            <ol className="flex flex-col gap-1.5">
-              {p.filas.map((f) => (
-                <li
-                  key={f.participante.id}
-                  className="rounded-[var(--radius-md)] border px-3 py-2 bg-[var(--surface)] flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-[var(--font-display)] font-bold tabular-nums w-6 shrink-0">
-                      {f.position}
-                    </span>
-                    <span className="min-w-0 truncate">
-                      {f.participante.lastName}, {f.participante.firstName}
-                      {/* El empate se dice: dos primeros no es un error de carga. */}
-                      {f.tied && <span className="text-[var(--ink-muted)]"> · empatado</span>}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <StakeChip stake={f.participante.stake} />
-                    <span className="tabular-nums font-medium">{f.participante.total}</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
+          <PodioDeCategoria key={p.category} p={p} />
         ))}
 
         {losPodios.length === 0 && !error && (
@@ -229,7 +128,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
 
       <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
         {publicado ? (
-          <Despublicar id={id} onHecho={() => void cargar()} />
+          <Despublicar id={id} onHecho={() => void carga.recargar()} />
         ) : confirmando ? (
           <>
             <p className="text-sm text-center">

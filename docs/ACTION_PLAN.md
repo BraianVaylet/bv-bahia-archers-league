@@ -554,7 +554,7 @@ _(Hecho. Encontró y corrigió un bug latente en `middleware/cache.ts`: `publicC
 **Contenido:** `POST /api/public/archers`, cuerpo `{ firstName, lastName, dni, sex, category }` validado con `.strict()`. Reusa `RATE_LIMIT_PUBLIC`. Crea el arquero con `registrationStatus: 'pendiente'` (`BE-19`). DNI duplicado → 409 tipado, mensaje que no confirma ni niega si ese DNI ya existe con otro nombre (evitar que el endpoint sirva para buscar gente por DNI).
 **DoD:**
 - 200 con el arquero creado **en estado `pendiente`** — no aparece en `archerRepo.list` del wizard de torneo hasta que `BE-22` lo apruebe.
-- DNI duplicado → 409 `ARCHER_DNI_DUPLICATE`, sin filtrar el nombre con el que ya está cargado.
+- DNI duplicado → 409 `ARCHER_DNI_DUPLICATE`, sin filtrar el nombre con el que ya está cargado. *(Reemplazado en `REF6-6`: el alta pública responde igual para un DNI nuevo y uno repetido, porque el 409 ya confirmaba que el DNI estaba en el padrón. `POST /api/admin/archers` conserva el 409. Ver `post/ref-6/ACTION_PLAN.md` y `BITACORA.md`.)*
 - Un objeto con una propiedad extra (ej. `isAdmin: true`, `registrationStatus: 'aprobado'`) es rechazado por el `.strict()` — **quien se autoregistra no puede autoaprobarse**.
 - Todos los casos de `TESTING.md` §4.x (agregar la subsección) verdes.
 

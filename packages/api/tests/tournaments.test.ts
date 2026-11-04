@@ -464,18 +464,130 @@ describe('alta pública de arqueros', () => {
     expect(res.headers.get('cache-control')).toBeNull();
   });
 
-  it('un DNI repetido devuelve 409 sin filtrar el nombre con el que ya está cargado', async () => {
-    await cliente().post('/api/public/archers', alta);
-    const res = await cliente().post('/api/public/archers', {
-      ...alta,
-      firstName: 'Otra',
-      lastName: 'Persona',
+  // ── REF6-6 / S-6 · el alta pública no es un oráculo ───────────────────────
+
+  /**
+   * Antes un DNI repetido devolvía `409 ARCHER_DNI_DUPLICATE`. Sin mencionar el
+   * nombre, pero el 409 mismo ya confirma «ese DNI está anotado en esa categoría»:
+   * cualquiera, conociendo un DNI, podía preguntar si esa persona está en el padrón
+   * de la liga, categoría por categoría. Ahora responde lo mismo que un alta nueva.
+   */
+  describe('un DNI repetido', () => {
+    const otraPersona = { ...alta, firstName: 'Otra', lastName: 'Persona' };
+    const cuerpoDe = async (res: Response) =>
+      (await res.json()) as { archer: Record<string, string> };
+
+    it('responde igual que un alta nueva: no revela si ya estaba', async () => {
+      const nueva = await cliente().post('/api/public/archers', alta);
+      const repetida = await cliente().post('/api/public/archers', otraPersona);
+
+      expect(repetida.status).toBe(nueva.status);
+      expect(repetida.status).toBe(200);
+
+      const a = await cuerpoDe(nueva);
+      const b = await cuerpoDe(repetida);
+      expect(Object.keys(b.archer).sort()).toEqual(Object.keys(a.archer).sort());
+      expect(b.archer.id).toMatch(/^[0-9a-f]{24}$/);
+
+      // La respuesta repite lo que el visitante mandó, nunca lo que ya estaba cargado.
+      expect(b.archer.firstName).toBe('Otra');
+      expect(JSON.stringify(b)).not.toMatch(/Ana|Pública/);
     });
 
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { code: string; message: string } };
-    expect(body.error.code).toBe('ARCHER_DNI_DUPLICATE');
-    expect(body.error.message).not.toMatch(/Ana|Pública/);
+    it('no crea un segundo arquero', async () => {
+      await cliente().post('/api/public/archers', alta);
+      await cliente().post('/api/public/archers', otraPersona);
+
+      expect(await archers().countDocuments({ dni: '30999999' })).toBe(1);
+    });
+
+    // Un id inventado que apunte a un arquero real sería otro oráculo.
+    it('el id de la respuesta no corresponde a ningún arquero', async () => {
+      await cliente().post('/api/public/archers', alta);
+      const repetida = await cuerpoDe(await cliente().post('/api/public/archers', otraPersona));
+
+      expect(await archers().findOne({ _id: new ObjectId(repetida.archer.id) })).toBeNull();
+    });
+
+    // Que el visitante no se entere no quiere decir que nadie lo sepa.
+    it('queda registrado en el audit log para el admin', async () => {
+      await cliente().post('/api/public/archers', alta);
+      await cliente().post('/api/public/archers', otraPersona);
+
+      const existente = await archers().findOne({ dni: '30999999' });
+      const entrada = await auditLog().findOne({ action: 'archer.register_duplicate' });
+
+      expect(entrada?.entityId.equals(existente?._id as ObjectId)).toBe(true);
+      expect(entrada?.actorType).toBe('system');
+      // Lo que se intentó, para que el admin juzgue; el DNI no se copia al log.
+      expect(entrada?.meta).toMatchObject({ category: 'razo', lastName: 'Persona' });
+      expect(JSON.stringify(entrada?.meta)).not.toContain('30999999');
+    });
+
+    it('el mismo DNI en otra categoría sigue siendo un alta de verdad', async () => {
+      await cliente().post('/api/public/archers', alta);
+      await cliente().post('/api/public/archers', { ...alta, category: 'recurvo' });
+
+      expect(await archers().countDocuments({ dni: '30999999' })).toBe(2);
+    });
+  });
+
+  /**
+   * Un campo que ningún humano ve. Un bot que rellena el formulario entero lo
+   * rellena también. Se **acepta en silencio**: un 400 le enseñaría que es una
+   * trampa, y la respuesta tiene que ser la de un alta que salió bien.
+   */
+  describe('el campo trampa', () => {
+    it('lleno, se descarta sin error y sin crear nada', async () => {
+      const res = await cliente().post('/api/public/archers', {
+        ...alta,
+        sitioWeb: 'http://ofertas.example',
+      });
+
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { archer: { id: string } }).archer.id).toMatch(
+        /^[0-9a-f]{24}$/,
+      );
+      expect(await archers().countDocuments({ dni: '30999999' })).toBe(0);
+    });
+
+    it('vacío, no molesta: es un alta normal', async () => {
+      const res = await cliente().post('/api/public/archers', { ...alta, sitioWeb: '' });
+
+      expect(res.status).toBe(200);
+      expect(await archers().countDocuments({ dni: '30999999' })).toBe(1);
+    });
+  });
+
+  /**
+   * Un cupo propio, más corto que el de lectura. El alta escribe: cien altas por
+   * minuto desde una IP son cien filas que el admin tiene que rechazar a mano. Pero
+   * no tan corto que frene al club: el día de la inscripción, varios arqueros se
+   * anotan a la vez desde el wifi del lugar, que es una sola IP.
+   */
+  it('tiene un cupo propio por hora y por IP', async () => {
+    const desde = (ip: string, dni: string) =>
+      createApp().request('http://localhost/api/public/archers', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie: `bal_csrf=${CSRF}`,
+          'x-csrf-token': CSRF,
+          'x-forwarded-for': ip,
+        },
+        body: JSON.stringify({ ...alta, dni }),
+      });
+
+    for (let i = 0; i < 20; i++) {
+      expect((await desde('203.0.113.5', `3100${String(i).padStart(4, '0')}`)).status).toBe(200);
+    }
+
+    const de_mas = await desde('203.0.113.5', '31009999');
+    expect(de_mas.status).toBe(429);
+    expect(Number(de_mas.headers.get('retry-after'))).toBeGreaterThan(0);
+
+    // Otra IP no se entera.
+    expect((await desde('203.0.113.6', '31009998')).status).toBe(200);
   });
 
   it('nadie se autoaprueba: registrationStatus en el body se rechaza', async () => {

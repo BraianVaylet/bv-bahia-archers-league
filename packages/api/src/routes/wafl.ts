@@ -11,6 +11,7 @@
 import { SyncBatchSchema } from '@bal/shared';
 import { Hono } from 'hono';
 import { AppError } from '../lib/errors.js';
+import { ipDelCliente } from '../lib/ip.js';
 import { currentSubject, requirePatrol } from '../middleware/auth.js';
 import { parseJsonBody } from '../middleware/validate.js';
 import * as syncService from '../services/syncService.js';
@@ -56,5 +57,5 @@ export const wafl = new Hono()
   .post('/sync', async (c) => {
     const { patrolId, tournamentId } = contexto(c);
     const batch = await parseJsonBody(c, SyncBatchSchema);
-    return c.json(await syncService.sync(batch, patrolId, tournamentId));
+    return c.json(await syncService.sync(batch, patrolId, tournamentId, ipDelCliente(c)));
   });

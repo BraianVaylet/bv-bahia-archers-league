@@ -9,7 +9,7 @@
  */
 
 import { type BowCategory, CATEGORY_INFO } from '@bal/shared';
-import { GraficoDeEvolucion } from '@bal/ui';
+import { GraficoDeEvolucion, useTituloDePagina } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import { Cargando, Dato, Fallo, Screen } from '../components/ui.js';
 import { useRecurso } from '../lib/useRecurso.js';
@@ -44,6 +44,11 @@ interface Arquero {
 export function ArcherPage() {
   const { id = '' } = useParams();
   const ficha = useRecurso<{ archer: Arquero }>(`/archers/${id}`);
+  useTituloDePagina(
+    ficha.estado === 'listo'
+      ? `${ficha.datos.archer.lastName}, ${ficha.datos.archer.firstName}`
+      : 'Arquero',
+  );
 
   if (ficha.estado === 'cargando') {
     return (

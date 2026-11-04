@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../lib/apiClient.js';
+import { cuerpo, rpc } from '../lib/rpc.js';
 
 export interface Admin {
   readonly id: string;
@@ -27,21 +27,21 @@ export type EstadoSesion =
   | { readonly estado: 'autenticado'; readonly admin: Admin };
 
 export async function login(username: string, password: string): Promise<Admin> {
-  const { admin } = await api.post<{ admin: Admin }>('/auth/admin/login', { username, password });
+  const { admin } = await cuerpo(rpc.auth.admin.login.$post({ json: { username, password } }));
   return admin;
 }
 
 export async function cambiarPassword(currentPassword: string, newPassword: string): Promise<void> {
-  await api.post('/auth/admin/password', { currentPassword, newPassword });
+  await rpc.auth.admin.password.$post({ json: { currentPassword, newPassword } });
 }
 
 export async function logout(): Promise<void> {
-  await api.post('/auth/logout');
+  await rpc.auth.logout.$post();
 }
 
 async function leerSesion(): Promise<Admin | null> {
   try {
-    const { admin } = await api.get<{ admin: Admin | null }>('/auth/me');
+    const { admin } = await cuerpo(rpc.auth.me.$get());
     return admin;
   } catch {
     // Un 401 no es un error de la app: es el estado normal de quien no entró.

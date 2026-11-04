@@ -1,525 +1,48 @@
 /**
  * Padrón de arqueros.
  *
- * **Eliminar no es lo mismo que archivar.** Un arquero que participó de un
- * torneo no se puede borrar: su histórico y su lugar en los rankings dependen de
- * que siga existiendo. La pantalla lo dice antes de que el admin lo intente, no
- * después.
+ * **Eliminar no es lo mismo que archivar.** Un arquero que participó de un torneo no se puede
+ * borrar: su histórico y su lugar en los rankings dependen de que siga existiendo. La pantalla lo
+ * dice antes de que el admin lo intente, no después.
+ *
+ * Es sólo la composición (`REF6-11` / `C-1`): los datos y los filtros salen de `usePadron`, y cada
+ * pieza vive en `wafa/padron/`.
  *
  * Ver `docs/FUNCTIONAL.md` §6.4.
  */
 
-import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO, SEXES, type Sex } from '@bal/shared';
-import {
-  ChipCategoria,
-  type Icono,
-  IconoArchivar,
-  IconoAviso,
-  IconoEditar,
-  IconoEliminar,
-  IconoRestaurar,
-} from '@bal/ui';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import {
-  Button,
-  clasesDeTarjeta,
-  cn,
-  Encabezado,
-  Field,
-  Pantalla,
-  Screen,
-} from '../../components/ui.js';
-import { ApiError, api } from '../../lib/apiClient.js';
-
-export interface ArcherRow {
-  readonly id: string;
-  readonly firstName: string;
-  readonly lastName: string;
-  readonly category: BowCategory;
-  readonly sex: Sex | null;
-  readonly dni: string | null;
-  /** `true` si falta `sex` o `dni` (padrón viejo). Decisión 6: no se fuerza a completarlo. */
-  readonly profileIncomplete: boolean;
-  readonly archived: boolean;
-  /** Participó de algún torneo, así que **no se puede borrar**. */
-  readonly participated: boolean;
-  /** En cuántos torneos jugó. Distingue al que compite del que está en el padrón. */
-  readonly tournamentCount: number;
-}
-
-interface Borrador {
-  readonly id?: string;
-  firstName: string;
-  lastName: string;
-  category: BowCategory;
-  sex: Sex | '';
-  dni: string;
-}
-
-const BORRADOR_VACIO: Borrador = {
-  firstName: '',
-  lastName: '',
-  category: 'razo',
-  sex: '',
-  dni: '',
-};
-
-const ETIQUETA_DE_SEXO: Record<Sex, string> = { femenino: 'Femenino', masculino: 'Masculino' };
-
-// ── Formulario ───────────────────────────────────────────────────────────────
-
-function ArcherForm({
-  inicial,
-  onGuardar,
-  onCancelar,
-}: {
-  readonly inicial: Borrador;
-  readonly onGuardar: (b: Borrador) => Promise<void>;
-  readonly onCancelar: () => void;
-}) {
-  const [borrador, setBorrador] = useState(inicial);
-  const [error, setError] = useState<string>();
-  const [enviando, setEnviando] = useState(false);
-
-  const enviar = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(undefined);
-    setEnviando(true);
-
-    try {
-      await onGuardar(borrador);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo guardar. Revisá la conexión.');
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const completo = borrador.firstName.trim() !== '' && borrador.lastName.trim() !== '';
-
-  return (
-    <form onSubmit={(e) => void enviar(e)} className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}>
-      <h2 className="font-semibold">{inicial.id ? 'Editar arquero' : 'Nuevo arquero'}</h2>
-
-      <Field
-        label="Apellido"
-        name="lastName"
-        autoComplete="family-name"
-        value={borrador.lastName}
-        onChange={(e) => setBorrador({ ...borrador, lastName: e.target.value })}
-        required
-      />
-      <Field
-        label="Nombre"
-        name="firstName"
-        autoComplete="given-name"
-        value={borrador.firstName}
-        onChange={(e) => setBorrador({ ...borrador, firstName: e.target.value })}
-        required
-      />
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="categoria" className="text-sm font-medium">
-          Categoría
-        </label>
-        <select
-          id="categoria"
-          value={borrador.category}
-          onChange={(e) => setBorrador({ ...borrador, category: e.target.value as BowCategory })}
-          className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-        >
-          {BOW_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_INFO[c].label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/*
-        Sexo y DNI (`FE-29`), opcionales: decisión 6 — el padrón viejo no se
-        fuerza a completarse, así que acá tampoco se bloquea el guardado si
-        quedan en blanco. El aviso en el listado es lo que de verdad señala
-        a quién le falta, no esto.
-      */}
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-sm font-medium">Sexo</legend>
-        <div className="flex gap-2">
-          {SEXES.map((sexo) => (
-            <label
-              key={sexo}
-              className={cn(
-                'flex-1 min-h-[52px] flex items-center justify-center rounded-[var(--radius-md)] border cursor-pointer',
-                borrador.sex === sexo && 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold',
-              )}
-            >
-              <input
-                type="radio"
-                name="sexo"
-                value={sexo}
-                checked={borrador.sex === sexo}
-                onChange={() => setBorrador({ ...borrador, sex: sexo })}
-                className="sr-only"
-              />
-              {ETIQUETA_DE_SEXO[sexo]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {/*
-        Sólo dígitos, filtrados al tipear. Sin `maxLength`: el atributo nativo
-        trunca el valor crudo antes de este `onChange`, así que con letras
-        intercaladas corta antes de filtrarlas (ver `FE-27`). El tope de 8 lo
-        pone el `.slice(0, 8)` sobre el valor ya filtrado.
-      */}
-      <Field
-        label="DNI"
-        name="dni"
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        value={borrador.dni}
-        onChange={(e) =>
-          setBorrador({ ...borrador, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })
-        }
-      />
-
-      {error && (
-        <p role="alert" className="text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <Button variante="secundario" onClick={onCancelar}>
-          Cancelar
-        </Button>
-        <Button type="submit" ancho disabled={enviando || !completo}>
-          Guardar
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-// ── Fila ─────────────────────────────────────────────────────────────────────
-
-/**
- * Botón de sólo ícono.
- *
- * El glifo va `aria-hidden` y el nombre lo pone `aria-label`: un símbolo sin
- * nombre no dice nada en un lector de pantalla, y anunciarlo *además* del
- * `aria-label` diría dos cosas. Ver `docs/DESIGN_SYSTEM.md` §10.
- */
-function BotonIcono({
-  icono: Icono,
-  etiqueta,
-  onClick,
-  disabled,
-  peligro,
-}: {
-  readonly icono: Icono;
-  readonly etiqueta: string;
-  readonly onClick: () => void;
-  readonly disabled?: boolean;
-  readonly peligro?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={etiqueta}
-      title={etiqueta}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border',
-        'flex items-center justify-center',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-        peligro ? 'text-[var(--danger)]' : 'bg-[var(--surface-2)]',
-      )}
-    >
-      <Icono />
-    </button>
-  );
-}
-
-function Fila({
-  arquero,
-  onEditar,
-  onArchivar,
-  onRestaurar,
-  onEliminar,
-}: {
-  readonly arquero: ArcherRow;
-  readonly onEditar: () => void;
-  readonly onArchivar: () => void;
-  readonly onRestaurar: () => void;
-  readonly onEliminar: () => void;
-}) {
-  /**
-   * Eliminar pide un segundo toque, igual que borrar un torneo o rechazar un
-   * alta pendiente: el mismo patrón en toda la app, sin `confirm()` ni modal.
-   * Faltaba acá —era la única acción irreversible de la pantalla sin él—.
-   */
-  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
-
-  const eliminar = () => {
-    if (!confirmandoEliminar) {
-      setConfirmandoEliminar(true);
-      return;
-    }
-    onEliminar();
-  };
-
-  return (
-    <li
-      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
-      data-testid={`arquero-${arquero.lastName}`}
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold">
-          {arquero.lastName}, {arquero.firstName}
-        </span>
-        {/* La categoría resaltada: decide estaca y podio, y es lo que el admin
-            busca de un vistazo al armar un torneo. Ahora con su color y su
-            ícono, para encontrarla en una lista de cuarenta. */}
-        <span className="shrink-0">
-          <ChipCategoria category={arquero.category} compacto />
-        </span>
-      </div>
-
-      <p className="text-sm text-[var(--ink-muted)]">
-        {arquero.tournamentCount === 0
-          ? 'Todavía no jugó ningún torneo'
-          : `${arquero.tournamentCount} ${arquero.tournamentCount === 1 ? 'torneo jugado' : 'torneos jugados'}`}
-      </p>
-
-      {/*
-        A la vista y no en un `<details>`: a diferencia del aviso de «por qué
-        no se puede eliminar» (que se consulta sólo cuando hace falta), éste
-        es para escanear el padrón de un vistazo y ver a quién le falta
-        completar —decisión 6, nadie lo fuerza, pero alguien tiene que verlo.
-      */}
-      {arquero.profileIncomplete && (
-        <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
-          <IconoAviso size={16} />
-          Falta completar sexo o DNI
-        </p>
-      )}
-
-      {/* A iconos para que las tres acciones entren en un renglón sin empujar
-          el nombre. El `aria-label` lleva el APELLIDO además del verbo: con
-          quince arqueros en pantalla, quince botones «Editar» no se distinguen
-          en un lector. Ver docs/DESIGN_SYSTEM.md §10. */}
-      <div className="flex flex-wrap gap-2">
-        <BotonIcono
-          icono={IconoEditar}
-          etiqueta={`Editar a ${arquero.lastName}`}
-          onClick={onEditar}
-        />
-
-        {arquero.archived ? (
-          <BotonIcono
-            icono={IconoRestaurar}
-            etiqueta={`Restaurar a ${arquero.lastName}`}
-            onClick={onRestaurar}
-          />
-        ) : (
-          <BotonIcono
-            icono={IconoArchivar}
-            etiqueta={`Archivar a ${arquero.lastName}`}
-            onClick={onArchivar}
-          />
-        )}
-
-        <BotonIcono
-          icono={IconoEliminar}
-          etiqueta={
-            confirmandoEliminar
-              ? `Confirmar eliminar a ${arquero.lastName}`
-              : `Eliminar a ${arquero.lastName}`
-          }
-          onClick={eliminar}
-          disabled={arquero.participated}
-          peligro
-        />
-      </div>
-
-      {confirmandoEliminar && (
-        <p role="status" className="text-sm text-[var(--danger)]">
-          Se borra del padrón, no se puede deshacer. Tocá de nuevo para confirmar.
-        </p>
-      )}
-
-      {/*
-        La explicación se despliega al tocarla.
-        
-        Antes estaba **siempre visible**, con este razonamiento: un botón gris
-        sin motivo es una pared, no una respuesta. Sigue siendo cierto, y por
-        eso el aviso está: lo que cambió es que en un padrón de cuarenta
-        arqueros, treinta de los cuales participaron, el mismo párrafo repetido
-        treinta veces tapa la lista y deja de leerse.
-        
-        Un `<details>` y no un estado propio: se abre con teclado, lo anuncia un
-        lector de pantalla y no hace falta escribir nada de eso.
-      */}
-      {arquero.participated && (
-        <details className="text-sm text-[var(--ink-muted)]">
-          <summary className="min-h-[44px] flex items-center gap-1.5 cursor-pointer">
-            <IconoAviso size={16} />
-            Por qué no se puede eliminar
-          </summary>
-          <p className="pb-2">
-            Ya participó de un torneo, así que no se puede eliminar sin romper su histórico y los
-            rankings. Archivalo: deja de aparecer al armar torneos nuevos y conserva todo.
-          </p>
-        </details>
-      )}
-    </li>
-  );
-}
-
-// ── Cola de aprobación (`FE-30`) ───────────────────────────────────────────
-
-/**
- * Una alta `pendiente`, con lo que mandó la landing y las dos acciones de
- * `BE-22`.
- *
- * **Cada acción pide un segundo toque**, mismo patrón que borrar un torneo
- * (`Tournament.tsx`): un estado local, no un diálogo aparte. Rechazar borra
- * del padrón sin vuelta atrás, así que el texto de confirmación lo dice.
- */
-function FilaPendiente({
-  arquero,
-  onAprobar,
-  onRechazar,
-}: {
-  readonly arquero: ArcherRow;
-  readonly onAprobar: () => Promise<void>;
-  readonly onRechazar: () => Promise<void>;
-}) {
-  const [confirmando, setConfirmando] = useState<'aprobar' | 'rechazar'>();
-  const [procesando, setProcesando] = useState(false);
-
-  const ejecutar = async (accion: 'aprobar' | 'rechazar', fn: () => Promise<void>) => {
-    if (confirmando !== accion) {
-      setConfirmando(accion);
-      return;
-    }
-    setProcesando(true);
-    try {
-      await fn();
-    } finally {
-      setProcesando(false);
-      setConfirmando(undefined);
-    }
-  };
-
-  return (
-    <li
-      className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
-      data-testid={`arquero-${arquero.lastName}`}
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold">
-          {arquero.lastName}, {arquero.firstName}
-        </span>
-        <span className="shrink-0">
-          <ChipCategoria category={arquero.category} compacto />
-        </span>
-      </div>
-
-      {/* Lo que mandó la landing: es lo único que el admin tiene para decidir. */}
-      <dl className="text-sm text-[var(--ink-muted)] flex flex-col gap-0.5">
-        <div>
-          <dt className="inline font-medium">DNI: </dt>
-          <dd className="inline">{arquero.dni ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="inline font-medium">Sexo: </dt>
-          <dd className="inline">{arquero.sex ? ETIQUETA_DE_SEXO[arquero.sex] : '—'}</dd>
-        </div>
-      </dl>
-
-      <div className="flex gap-2">
-        <Button
-          disabled={procesando}
-          onClick={() => void ejecutar('aprobar', onAprobar)}
-          className="flex-1"
-        >
-          {confirmando === 'aprobar' ? 'Sí, aprobar' : 'Aprobar'}
-        </Button>
-        <Button
-          variante="peligro"
-          disabled={procesando}
-          onClick={() => void ejecutar('rechazar', onRechazar)}
-          className="flex-1"
-        >
-          {confirmando === 'rechazar' ? 'Sí, rechazar' : 'Rechazar'}
-        </Button>
-      </div>
-
-      {confirmando === 'aprobar' && (
-        <p role="status" className="text-sm text-[var(--ink-muted)]">
-          Va a quedar disponible para sumarse a un torneo. Tocá de nuevo para confirmar.
-        </p>
-      )}
-      {confirmando === 'rechazar' && (
-        <p role="status" className="text-sm text-[var(--danger)]">
-          Se borra del padrón, no se puede deshacer. Tocá de nuevo para confirmar.
-        </p>
-      )}
-    </li>
-  );
-}
-
-// ── Pantalla ─────────────────────────────────────────────────────────────────
+import { useTituloDePagina } from '@bal/ui';
+import { useState } from 'react';
+import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { ApiError, rpc } from '../../lib/rpc.js';
+import { FilaDeArquero } from '../padron/FilaDeArquero.js';
+import { FilaPendiente } from '../padron/FilaPendiente.js';
+import { FiltrosDelPadron } from '../padron/FiltrosDelPadron.js';
+import { FormularioDeArquero } from '../padron/FormularioDeArquero.js';
+import { BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
+import { usePadron } from '../padron/usePadron.js';
 
 export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
-  const [arqueros, setArqueros] = useState<ArcherRow[]>();
-  const [busqueda, setBusqueda] = useState('');
-  const [verArchivados, setVerArchivados] = useState(false);
-  const [verPendientes, setVerPendientes] = useState(false);
-  const [categoria, setCategoria] = useState<BowCategory | ''>('');
+  useTituloDePagina('Arqueros');
+  const padron = usePadron();
   const [editando, setEditando] = useState<Borrador>();
-  const [error, setError] = useState<string>();
 
-  const cargar = useCallback(async () => {
-    const params = new URLSearchParams();
-    // Pendientes y archivados no se combinan: son dos vistas, no dos filtros
-    // que se puedan pedir a la vez. Lo exige también la UI, ver más abajo.
-    if (verPendientes) params.set('status', 'pendiente');
-    else if (verArchivados) params.set('archived', 'true');
-    if (busqueda.trim()) params.set('q', busqueda.trim());
-
-    try {
-      const r = await api.get<{ archers: ArcherRow[] }>(
-        `/admin/archers${params.size > 0 ? `?${params}` : ''}`,
-      );
-      setArqueros(r.archers);
-      setError(undefined);
-    } catch {
-      setError('No se pudo cargar el padrón. Revisá la conexión.');
-    }
-  }, [busqueda, verArchivados, verPendientes]);
-
-  useEffect(() => {
-    void cargar();
-  }, [cargar]);
+  /**
+   * El error de la última acción, aparte del de la carga: así un fallo de «archivar» no lo borra
+   * una recarga que sale bien por otro lado, y una carga fallida no tapa un rechazo del servidor.
+   */
+  const [errorDeAccion, setErrorDeAccion] = useState<string>();
+  const error = errorDeAccion ?? padron.error;
 
   const accion = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
-      await cargar();
+      setErrorDeAccion(undefined);
+      await padron.recargar();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo completar la acción.');
+      setErrorDeAccion(err instanceof ApiError ? err.message : 'No se pudo completar la acción.');
     }
   };
-
-  // El filtro se aplica sobre lo que ya llegó: la búsqueda y el archivado sí
-  // viajan al servidor porque necesitan el índice.
-  const visibles = arqueros?.filter((a) => categoria === '' || a.category === categoria);
 
   const guardar = async (b: Borrador) => {
     const cuerpo = {
@@ -529,10 +52,15 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
       sex: b.sex || null,
       dni: b.dni.trim() || null,
     };
-    await (b.id ? api.patch(`/admin/archers/${b.id}`, cuerpo) : api.post('/admin/archers', cuerpo));
+    await (b.id
+      ? rpc.admin.archers[':id'].$patch({ param: { id: b.id }, json: cuerpo })
+      : rpc.admin.archers.$post({ json: cuerpo }));
     setEditando(undefined);
-    await cargar();
+    setErrorDeAccion(undefined);
+    await padron.recargar();
   };
+
+  const { arqueros, visibles, busqueda, verPendientes, verArchivados } = padron;
 
   return (
     <Pantalla>
@@ -541,7 +69,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
       <Screen>
         {editando ? (
           <div className="pt-4">
-            <ArcherForm
+            <FormularioDeArquero
               inicial={editando}
               onGuardar={guardar}
               onCancelar={() => setEditando(undefined)}
@@ -555,62 +83,16 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           </div>
         )}
 
-        <Field
-          label="Buscar"
-          type="search"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Apellido, nombre o DNI"
+        <FiltrosDelPadron
+          busqueda={busqueda}
+          onBusqueda={padron.setBusqueda}
+          categoria={padron.categoria}
+          onCategoria={padron.setCategoria}
+          verArchivados={verArchivados}
+          onVerArchivados={padron.elegirArchivados}
+          verPendientes={verPendientes}
+          onVerPendientes={padron.elegirPendientes}
         />
-
-        {/* El filtro es del cliente y no del servidor: el padrón entero son
-            cientos de arqueros, ya está en memoria, y así responde sin viaje. */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="filtro-categoria" className="text-sm font-medium">
-            Filtrar por categoría
-          </label>
-          <select
-            id="filtro-categoria"
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value as BowCategory | '')}
-            className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-          >
-            <option value="">Todas</option>
-            {BOW_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORY_INFO[c].label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <label className="flex items-center gap-2 min-h-[44px]">
-          <input
-            type="checkbox"
-            checked={verArchivados}
-            onChange={(e) => {
-              setVerArchivados(e.target.checked);
-              if (e.target.checked) setVerPendientes(false);
-            }}
-            className="w-5 h-5"
-          />
-          <span>Ver archivados</span>
-        </label>
-
-        {/* FE-30: la cola de BE-22. Pendientes y archivados no se combinan —
-            marcar uno destilda el otro, arriba. */}
-        <label className="flex items-center gap-2 min-h-[44px]">
-          <input
-            type="checkbox"
-            checked={verPendientes}
-            onChange={(e) => {
-              setVerPendientes(e.target.checked);
-              if (e.target.checked) setVerArchivados(false);
-            }}
-            className="w-5 h-5"
-          />
-          <span>Ver pendientes de aprobar</span>
-        </label>
 
         {error && (
           <p role="alert" className="text-sm text-[var(--danger)]">
@@ -638,11 +120,15 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
               <FilaPendiente
                 key={a.id}
                 arquero={a}
-                onAprobar={() => accion(() => api.post(`/admin/archers/${a.id}/approve`))}
-                onRechazar={() => accion(() => api.post(`/admin/archers/${a.id}/reject`))}
+                onAprobar={() =>
+                  accion(() => rpc.admin.archers[':id'].approve.$post({ param: { id: a.id } }))
+                }
+                onRechazar={() =>
+                  accion(() => rpc.admin.archers[':id'].reject.$post({ param: { id: a.id } }))
+                }
               />
             ) : (
-              <Fila
+              <FilaDeArquero
                 key={a.id}
                 arquero={a}
                 onEditar={() =>
@@ -655,9 +141,15 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
                     dni: a.dni ?? '',
                   })
                 }
-                onArchivar={() => void accion(() => api.post(`/admin/archers/${a.id}/archive`))}
-                onRestaurar={() => void accion(() => api.post(`/admin/archers/${a.id}/restore`))}
-                onEliminar={() => void accion(() => api.del(`/admin/archers/${a.id}`))}
+                onArchivar={() =>
+                  void accion(() => rpc.admin.archers[':id'].archive.$post({ param: { id: a.id } }))
+                }
+                onRestaurar={() =>
+                  void accion(() => rpc.admin.archers[':id'].restore.$post({ param: { id: a.id } }))
+                }
+                onEliminar={() =>
+                  void accion(() => rpc.admin.archers[':id'].$delete({ param: { id: a.id } }))
+                }
               />
             ),
           )}

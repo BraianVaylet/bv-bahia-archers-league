@@ -68,7 +68,7 @@ export async function getBundle(patrolId: ObjectId, tournamentId: ObjectId): Pro
     patrolRepo.findById(patrolId),
   ]);
 
-  if (!torneo || !patrulla || !patrulla.tournamentId.equals(tournamentId)) {
+  if (!torneo || !patrulla?.tournamentId.equals(tournamentId)) {
     throw notFound();
   }
 

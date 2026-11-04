@@ -9,13 +9,13 @@ Esquemas, contratos y convenciones. Para el porqué de las decisiones ver [`ARCH
 | Capa | Tecnología | Versión |
 |---|---|---|
 | Lenguaje | TypeScript `strict` en todo el monorepo | **5.9.3** |
-| Runtime | Node | ≥ 20 LTS |
+| Runtime | Node | ≥ 20 LTS · CI e imagen: **22** |
 | Monorepo | pnpm workspaces | **9.15.0** |
 | Backend | Hono | 4.x |
-| Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver 6.x |
+| Base de datos | MongoDB Atlas (replica set) + driver oficial `mongodb` | server 7.x · driver **7.x** |
 | Validación | Zod `.strict()` | **4.x** |
-| Frontend | **React 19**, **Vite 8**, Tailwind CSS 4, TanStack Query 5, React Router 6 | — |
-| PWA | `vite-plugin-pwa` (Workbox) | 0.21+ |
+| Frontend | **React 19**, **Vite 8**, Tailwind CSS 4, React Router 7 (la carga de datos es un hook propio, `@bal/cliente`) | — |
+| PWA | `vite-plugin-pwa` (Workbox) | **1.x** |
 | Offline | `idb` (wrapper de IndexedDB) | 8.x |
 | Hash | **`@node-rs/argon2`** (argon2id) | 2.x |
 | Lint y format | Biome | **2.5.7** |
@@ -260,11 +260,13 @@ El índice `{ tournamentId, category, total: -1 }` resuelve los podios por categ
   _id: "uuid-v7-del-cliente",           // el opId ES la clave primaria
   patrolId: ObjectId,
   type: "score" | "signature" | "close",
-  appliedAt: Date,
-  result: "applied" | "superseded" | "rejected",
-  expiresAt: Date                       // appliedAt + 7 días
+  appliedAt: Date,                      // cuándo se marcó; con "processing", desde cuándo se procesa
+  result: "processing" | "applied" | "superseded" | "rejected",
+  expiresAt: Date                       // la marca + 7 días
 }
 ```
+
+**La marca nace `processing`** (`REF6-13` / `B-4`) y termina `applied` o `rejected` cuando la transacción termina. Una op que sigue `processing` pasados **30 s** se da por abandonada (el proceso murió) y se reprocesa; una `processing` reciente es de otro request que sigue vivo y no se contesta —el cliente trata una op ausente de la respuesta como «reintentar más tarde»—. Antes nacía `applied`, y si el proceso moría antes del commit el reintento recibía `duplicate` y el puntaje se perdía en silencio.
 Índices: `{ expiresAt: 1 }` **TTL** · `{ patrolId: 1, appliedAt: -1 }`.
 
 Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert` que falla con `E11000`. No hace falta un `findOne` previo.
@@ -307,10 +309,9 @@ Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert`
   at: Date,
   actorType: "admin" | "patrol" | "system",
   actorId: ObjectId | null,
-  action: "tournament.publish" | "tournament.unpublish" | "signature.unlock"
-        | "patrol.pin.regenerate" | "patrol.manual_edit" | "tournament.target_edit"
-        | "sync.conflict",
-  entity: "tournament" | "patrol" | "participant",
+  action: String,                       // la lista completa y qué guarda cada una: SECURITY.md §9 bis
+                                        // p. ej. "tournament.start" | "payment.set" | "patrol.close"
+  entity: "tournament" | "patrol" | "participant" | "user" | "archer" | "season",
   entityId: ObjectId,
   meta: Object,                         // sin datos sensibles
   ip: String | null
@@ -359,7 +360,7 @@ Base `/api`. JSON. Errores con forma uniforme:
 | `DELETE` | `/api/admin/archers/:id` | **409** si participó de algún torneo |
 | `GET` `POST` `PATCH` | `/api/admin/seasons[/:id]` | CRUD de temporadas |
 
-Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`. El mismo DNI en otra categoría se permite: es como una misma persona se anota en más de una.
+Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve **409** `ARCHER_DNI_DUPLICATE`. En el alta **pública** (`POST /api/public/archers`) no: responde igual que para un DNI nuevo, para no confirmar quién está en el padrón (`SECURITY.md` §15). El mismo DNI en otra categoría se permite: es como una misma persona se anota en más de una.
 
 ### 3.3 Admin — torneos
 
@@ -378,8 +379,8 @@ Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve
 
 | Método | Ruta | Notas |
 |---|---|---|
-| `GET` | `/api/admin/tournaments/:id/patrols` | Composición + credenciales (PIN descifrado) |
-| `PUT` | `/api/admin/tournaments/:id/patrols` | Reemplaza la distribución. Solo `sin_iniciar`. Devuelve violaciones sin bloquear |
+| `GET` | `/api/admin/tournaments/:id/patrols` | Composición y avance. **Sin PIN** por defecto; con `?pins=1` trae el PIN descifrado y lo registra en el audit log (`SECURITY.md` §9). Cualquier otro parámetro es un `400` |
+| `PUT` | `/api/admin/tournaments/:id/patrols` | Reemplaza la distribución. Solo `sin_iniciar`. Devuelve violaciones sin bloquear, y las patrullas **con PIN** (se guarda desde la pantalla de credenciales) |
 | `POST` | `/api/admin/patrols/:id/pin/regenerate` | Nuevo PIN; invalida sesiones de esa patrulla |
 | `POST` | `/api/admin/participants/:id/signature/unlock` | `{ reason }` — desbloqueo auditado |
 
@@ -430,7 +431,7 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
 
 ### 3.7 Salud
 
-| `GET` | `/api/health` | `{ status, version, db: "ok" \| "degraded", uptime }`. Usado por el healthcheck de Railway |
+| `GET` | `/api/health` | `{ status, version, db: "ok" \| "degraded", dbMs, uptime }`. Usado por el healthcheck de Railway. `dbMs` es lo que tardó el `ping` a la base (`null` si está caída): sirve para comprobar que Railway y Atlas están en la misma región |
 
 ### 3.8 Ejemplo — sync
 
@@ -528,37 +529,60 @@ export const SyncBatchSchema = z.object({
 
 ### Backend
 - Respuestas públicas con `Cache-Control: public, max-age=60, stale-while-revalidate=300` + `ETag`.
-- Caché en memoria (LRU, TTL 60 s) para rankings, invalidada al publicar.
-- Compresión Brotli/gzip para respuestas > 1 KB.
+- **Sin caché propia de rankings** (`REF6-13` / `P-6`, decisión). Se había previsto un LRU en memoria invalidado al publicar, y se descartó: la consulta es una lectura indexada de unos cientos de documentos, la respuesta ya sale con `ETag` y `Cache-Control`, y el único escritor (`replaceSeason`) corre dentro de una transacción, así que invalidar antes del commit deja que un lector recachee datos viejos. El riesgo de un ranking desactualizado tras publicar no compensa el ahorro. Se reabre si se mide que la consulta pesa.
+- **Compresión.** Los estáticos van **precomprimidos**: `scripts/precomprimir.mjs` (al final de `pnpm build`) deja un `.br` y un `.gz` junto a cada archivo de texto del `dist`, y `serveStatic({ precompressed: true })` entrega el que el cliente acepta, sin comprimir nada por request. El JS de la PWA pasa de 439 KB a 109 KB en brotli. El JSON de la API se comprime con `gzip` si pasa de 1 KB (`middleware/compresion.ts`; `hono/compress` sólo mira el umbral si la respuesta trae `Content-Length`, y `c.json()` no lo trae, así que el middleware lo declara antes).
+- **Caché de los estáticos** (`middleware/estaticos.ts`): lo que está bajo `/assets/` lleva el hash en el nombre y va `public, max-age=31536000, immutable`; todo lo demás —`index.html`, `sw.js`, el manifest, los íconos— va `no-cache` (se guarda y se pregunta antes de usar: con `Last-Modified` cuesta un `304`). `Vary: Accept-Encoding` siempre. Los dos `index.html` se leen una vez al montar, no en cada fallback de SPA.
 
 ### Frontend
-- Code splitting por ruta con `React.lazy`. WAFA y WAFL son chunks separados: entrar como líder no descarga el código de administración.
-- `memo` en las filas de scoring y en el teclado.
+- Code splitting con `React.lazy`. WAFA y WAFL son chunks separados (`WafaApp-<hash>.js`, `WaflApp-<hash>.js`): entrar como líder no descarga el código de administración. Sin señal sigue funcionando: el service worker precachea **todos** los `.js` al instalarse. **La landing no se partió**: se probó con el formulario de alta, la ficha del arquero y la tarjeta de puntajes, y no ganó nada —esas tres pantallas pesan ≈4 KB gz entre las tres; lo pesado es una librería compartida (`api-*.js`, 42 KB gz) que se necesita en todas— y la carga inicial no bajó (102,2 KB gz contra 101,9 del chunk único: la sobrecarga de partirlo se come lo que se saca). Un `React.lazy` que no baja el inicial sólo agrega una espera.
+- **`@bal/shared` declara sus `sideEffects`** (`REF6-15`): sólo `configuracionZod.js` y `navegador.js`, que configuran Zod al evaluarse. Sin la declaración, el empaquetador no puede descartar `schemas.ts` (sus `z.object(...)` son llamadas de nivel superior), así que cualquier import suelto del barril —un `enlaceEntreApps` en la pantalla de elegir rol— arrastraba **362 KB de Zod** (≈ 23 KB gz) a una pantalla que no valida nada. Esa es la primera pantalla que ve un líder de patrulla, con la peor señal del torneo. Si se agrega un módulo con un efecto de verdad (configurar algo, registrar algo), **hay que sumarlo a esa lista**, o el empaquetador lo descarta.
+- `memo` en las filas de scoring (`ArrowRow`, comparando las flechas por contenido: IndexedDB devuelve arreglos nuevos en cada lectura) y en el teclado, con callbacks estables y la lectura de los puntajes por el índice `by-target`, no del almacén entero (`REF6-14` / `P-7`).
 - La UI de scoring lee de IndexedDB: no hay estado de carga en el camino crítico.
 - Tailwind purga el CSS no usado.
 - Iconos como SVG inline; sin librería de iconos.
 
-### Presupuestos — se verifican en CI
+### Presupuestos
 
-| Métrica | Presupuesto |
-|---|---|
-| Registrar una flecha (percibido) | **< 50 ms** |
-| Navegar entre blancos | < 100 ms |
-| Primera carga de WAFL en 3G simulado | < 2.5 s |
-| JS inicial de WAFL | **< 150 KB** gz |
-| JS inicial de la landing | < 120 KB gz |
-| LCP de la landing | < 2.5 s |
-| `GET /api/public/rankings` p95 | < 200 ms |
-| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms |
+El encabezado decía «se verifican en CI», y sólo cuatro de estas filas se verifican ahí. La columna de la derecha dice qué pasa con cada una (`REF6-15`).
 
-Los presupuestos de bundle se hacen fallar el build con `rollup-plugin-visualizer` + un check de tamaño.
+| Métrica | Presupuesto | Medido | Cómo se verifica |
+|---|---|---|---|
+| Registrar una flecha (percibido) | **< 50 ms** | mediana 16 ms (jsdom) | `wafl/rendimiento.test.tsx`, que falla sobre 150 ms. Es el orden de magnitud, no el celular: **la cifra del teléfono no se mide** |
+| Navegar entre blancos | < 100 ms | — | **No se mide** |
+| Primera carga de WAFL en 3G simulado | < 2.5 s | — | **No se mide** |
+| JS que baja la pantalla de elegir rol (`/app/`) | < 90 KB gz | 82.8 | `scripts/presupuesto.mjs` en el CI. Era 105.5 y estaba en rojo: bajaba Zod sin usarlo (ver más abajo) |
+| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 119.1 | `presupuesto.mjs` en el CI |
+| JS que baja WAFA (inicial + su chunk) | < 135 KB gz | 128.9 | `presupuesto.mjs` en el CI |
+| JS inicial de la landing | < 120 KB gz | 109.2 | `presupuesto.mjs` en el CI |
+| LCP de la landing | < 2.5 s | — | **No se mide** (la auditoría de Lighthouse sigue pendiente) |
+| `GET /api/public/rankings` p95 | < 200 ms | — | **No se mide** |
+| `POST /api/wafl/sync` (batch de 20 ops) p95 | < 400 ms | 487 ms con 2 ms de RTT a la base — **no se cumple** | `pnpm --filter @bal/api bench:sync`, a demanda. Lo que sí corre en cada PR es el conteo de comandos (`sync-viajes.test.ts`) |
+#### Sincronización, medida (`REF6-5`)
+
+`pnpm --filter @bal/api bench:sync` pone un proxy con retardo entre la API y MongoDB y mide un lote de ops de score. `tests/sync-viajes.test.ts` cuenta los comandos y falla si crecen. Cada comando es una ida y vuelta, **en serie**.
+
+| RTT a la base | ops | antes | después |
+|---|---|---|---|
+| 0 ms | 20 | 204 comandos · 291 ms | 128 comandos · 227 ms |
+| 2 ms | 20 | 204 comandos · 707 ms | 128 comandos · **487 ms** |
+| 30 ms | 50 | 554 comandos · 17,6 s | 309 comandos · 9,9 s |
+| 120 ms | 50 | 554 comandos · 67,6 s | 309 comandos · 37,8 s |
+
+*Peor de 3 corridas a 20 ops; una a 50. Windows, `mongod` en memoria, API y proxy en el mismo proceso: sirve para comparar antes y después, no como cifra absoluta de producción. Re-medir contra el despliegue real.*
+
+> **Desde `REF6-13` cada lote suma un comando más** (el `updateMany` que confirma las ops aplicadas): 129 a 20 ops, no 128. La tabla de arriba es la medición de `REF6-5`, anterior a ese cambio, y no se repitió.
+
+- **−37 % de comandos a 20 ops, −44 % a 50.** Por score: 10 → 6 (el avance de la patrulla se cuenta una vez por lote, y los rollups son una escritura en vez de dos).
+- **El presupuesto de 400 ms no se cumple:** 487 ms a 2 ms de RTT. Con 6 comandos por op y ~2 ms de procesamiento por comando en esta máquina, 20 ops no bajan de ~230 ms ni con RTT cero, y cada ms de RTT suma 128. Cumplirlo pide ~5 comandos por op, y eso es tocar la idempotencia (dedup en bloque con `insertMany`) o unir las transacciones de un lote: decisiones de diseño, no de ajuste. O recalibrar el número: se escribió antes de medir.
+
+Los presupuestos de bundle los verifica `scripts/presupuesto.mjs` en CI. **Mide lo que una pantalla descarga**, no lo que hay en `assets/`: arma el grafo de chunks del `index.html` (entrada y `modulepreload`) más, para WAFL y WAFA, el chunk de su app y lo que éste importa de forma estática. Y falla si WAFL baja código de WAFA, o al revés: es lo que detecta que alguien volvió a un `import` estático. Hasta `REF6-8` sumaba todo el JS del `dist`, que con las dos apps en un solo chunk coincidía con la carga inicial y con el code splitting dejó de hacerlo.
 
 ---
 
 ## 6. Convenciones de código
 
 - TypeScript `strict`. Sin `any` salvo justificación en comentario.
-- **Ninguna consulta a MongoDB fuera de `repositories/`.** Sin excepciones.
+- **Ninguna consulta a MongoDB fuera de `repositories/`.** Sin excepciones, y `scripts/verificar-capas.mjs` lo comprueba en el CI (`ARCHITECTURE.md` §4). Las rutas no importan repositorios: hablan con servicios.
 - **Ninguna regla de negocio fuera de `@bal/shared`.** Los servicios orquestan y persisten; no deciden.
 - Programación funcional donde aplique: funciones puras, sin mutación de los argumentos, composición sobre herencia.
 - Nombres: componentes `PascalCase`, hooks `useX`, módulos de dominio `camelCase`, colecciones en plural.
@@ -583,6 +607,9 @@ Los presupuestos de bundle se hacen fallar el build con `rollup-plugin-visualize
 | `TARGET_LOCKED` | 409 | Editar un blanco que ya tiene puntajes |
 | `ARCHER_IN_USE` | 409 | Eliminar un arquero que participó de un torneo |
 | `SIGNATURES_MISSING` | 409 | Cerrar el circuito sin todas las firmas |
+| `SIGNATURE_MISMATCH` | 409 | El puntaje cambió después de firmarse: lo devuelven el cierre del circuito y publicar |
+| `SIGNATURE_LOCKED` | 409 | Op de score sobre un arquero que ya firmó (`/sync`, por op) |
+| `PATROL_CLOSED` | 409 | Op de score o de firma sobre una patrulla que ya cerró el circuito (`/sync`, por op) |
 | `RATE_LIMITED` | 429 | Excedido el límite; `Retry-After` en la respuesta |
 | `INTERNAL` | 500 | Inesperado. Se loguea con `requestId`, se responde sin detalle |
 

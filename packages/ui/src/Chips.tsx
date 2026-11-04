@@ -13,8 +13,6 @@
 import {
   type BowCategory,
   CATEGORY_INFO,
-  COLOR_DE_CATEGORIA,
-  COLOR_DE_MODALIDAD,
   ESTADO_DE_TORNEO,
   type Modality,
   SCORING,
@@ -24,6 +22,7 @@ import type { CSSProperties } from 'react';
 import { cn } from './cn.js';
 import { ICONO_DE_CATEGORIA } from './iconos/categoria.js';
 import { ICONO_DE_MODALIDAD } from './iconos/modalidad.js';
+import { COLOR_DE_CATEGORIA, COLOR_DE_MODALIDAD } from './paleta.js';
 
 /**
  * El color se resuelve **en CSS, no en JavaScript**.

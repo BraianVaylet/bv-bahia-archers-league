@@ -27,6 +27,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
+      /**
+       * `offline/` es donde viven el outbox y la sincronización: lo que decide si un
+       * puntaje llega al servidor. Los umbrales de `docs/TESTING.md` §8 bloquean
+       * (`REF6-9` / `T-1`); estaba en 76 % de ramas contra un 85 % exigido y nadie lo
+       * sabía, porque el CI no medía. El resto de la app (70/60) no bloquea: se mira,
+       * no se exige.
+       */
+      thresholds: {
+        'src/offline/**': { lines: 90, branches: 85 },
+      },
     },
   },
 });

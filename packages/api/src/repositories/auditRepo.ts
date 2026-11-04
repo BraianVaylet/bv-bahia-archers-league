@@ -7,13 +7,13 @@
 
 import type { ClientSession, ObjectId } from 'mongodb';
 import { auditLog } from '../db/client.js';
-import type { AuditAction, AuditLogDoc, SubjectType } from '../db/types.js';
+import type { AuditAction, AuditEntity, AuditLogDoc, SubjectType } from '../db/types.js';
 
 export interface AuditInput {
   readonly actorType: SubjectType | 'system';
   readonly actorId: ObjectId | null;
   readonly action: AuditAction;
-  readonly entity: 'tournament' | 'patrol' | 'participant' | 'user' | 'archer';
+  readonly entity: AuditEntity;
   readonly entityId: ObjectId;
   readonly meta?: Record<string, unknown>;
   readonly ip?: string | null;
@@ -35,9 +35,6 @@ export async function record(input: AuditInput, session?: ClientSession): Promis
   );
 }
 
-export function listForEntity(
-  entity: AuditInput['entity'],
-  entityId: ObjectId,
-): Promise<AuditLogDoc[]> {
+export function listForEntity(entity: AuditEntity, entityId: ObjectId): Promise<AuditLogDoc[]> {
   return auditLog().find({ entity, entityId }).sort({ at: -1 }).limit(200).toArray();
 }
