@@ -122,6 +122,63 @@ describe('crearCliente', () => {
       expect(headersDe(llamadas[1]).get('x-csrf-token')).toBe('nuevo');
     });
 
+    /**
+     * WebKit en Linux no deja ver en `document.cookie` la cookie de una respuesta recién resuelta,
+     * aunque el navegador ya la tenga y la mande en el pedido siguiente. El primer POST de un
+     * visitante sin ninguna petición previa (el alta de la landing) salía sin `x-csrf-token` y
+     * volvía 403: lo mostró el E2E de iPhone 14 en el CI. El token también viene en el cuerpo.
+     */
+    describe('si el navegador todavía no muestra la cookie que acaba de recibir', () => {
+      const sinCookieVisible = (cuerpo: () => Response) => (url: string) =>
+        url === '/api/auth/csrf' ? cuerpo() : json({});
+
+      it('usa el token que vino en el cuerpo', async () => {
+        responder = sinCookieVisible(() => json({ csrfToken: 'del-cuerpo' }));
+        const { api } = crearCliente({ base: '/api' });
+
+        await api.post('/x', {});
+
+        expect(headersDe(llamadas[1]).get('x-csrf-token')).toBe('del-cuerpo');
+      });
+
+      it('la cookie manda sobre el cuerpo cuando están las dos', async () => {
+        responder = (url) => {
+          if (url !== '/api/auth/csrf') return json({});
+          ponerCsrf('de-la-cookie');
+          return json({ csrfToken: 'del-cuerpo' });
+        };
+        const { api } = crearCliente({ base: '/api' });
+
+        await api.post('/x', {});
+
+        expect(headersDe(llamadas[1]).get('x-csrf-token')).toBe('de-la-cookie');
+      });
+
+      it('no confía en el cuerpo de una respuesta que no salió bien', async () => {
+        responder = sinCookieVisible(() => json({ csrfToken: 'de-un-error' }, 500));
+        const { api } = crearCliente({ base: '/api' });
+
+        await api.post('/x', {});
+
+        expect(headersDe(llamadas[1]).has('x-csrf-token')).toBe(false);
+      });
+
+      it.each([
+        ['un portal cautivo que devuelve HTML', () => new Response('<html>entrá al wifi</html>')],
+        ['un cuerpo sin token', () => json({})],
+        ['un token que no es texto', () => json({ csrfToken: 42 })],
+        ['un token vacío', () => json({ csrfToken: '' })],
+      ])('con %s manda la mutación igual, sin token', async (_caso, cuerpo) => {
+        responder = sinCookieVisible(cuerpo);
+        const { api } = crearCliente({ base: '/api' });
+
+        await api.post('/x', {});
+
+        expect(llamadas.map((l) => l.url)).toEqual(['/api/auth/csrf', '/api/x']);
+        expect(headersDe(llamadas[1]).has('x-csrf-token')).toBe(false);
+      });
+    });
+
     it('con la cookie puesta no vuelve a pedirla', async () => {
       ponerCsrf('abc');
       const { api } = crearCliente({ base: '/api' });

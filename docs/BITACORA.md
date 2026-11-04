@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-04 · Segundo CI de la PR 80: queda 1 test, y era un bug del cliente (CSRF)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** continúa la corrección de la entrada de abajo; no es una tanda nueva.
+
+### Qué pasó
+
+Con el arreglo de WebKit, el CI de la PR 80 pasó de 8 fallos a **1 de 60**: `el alta pública se completa entera por teclado`, otra vez en iPhone 14, otra vez «La solicitud no pudo validarse». En mi máquina (WebKit en Windows) pasa, así que no pude reproducirlo.
+
+### Causa
+
+La traza del CI, que bajé del artifact, lo muestra sin ambigüedad: `GET /api/auth/csrf` → 200 con la cookie en `Set-Cookie` y el token en el cuerpo; después `POST /api/public/archers` salió **con la cookie y sin el header `x-csrf-token`** → 403. El cliente (`asegurarCsrf`) hacía el `fetch` y releía `document.cookie` de inmediato; en WebKit/Linux la cookie recién recibida todavía no era visible ahí, aunque el navegador ya la tenía y la mandó. Ignoraba el token que la propia respuesta trae.
+
+**No es sólo un problema del E2E.** Es el primer POST de un visitante que llega a `/alta` sin ninguna petición previa a la API: justo lo que hace un arquero nuevo con un link. Si Safari en iPhone se comporta como WebKit/Linux acá, vería «Recargá la página» en su primer intento (y andaría al recargar, porque la cookie ya estaría). No lo pude verificar en un iPhone.
+
+### Qué cambió
+
+- `@bal/cliente`: si la cookie no se ve tras pedir el token, usa el `csrfToken` del cuerpo. La cookie sigue mandando si está; el cuerpo de una respuesta que no salió bien, o que no es JSON (un portal cautivo con un 200 de HTML), se ignora y la mutación sale igual sin header, como antes.
+- `SECURITY.md` §CSRF lo dice.
+
+### Cómo se hizo
+
+Test primero: el caso «usa el token que vino en el cuerpo» falló con el header en `null` (la razón correcta) antes del arreglo. 7 tests nuevos en el cliente (cliente 57 → 64). **6 mutaciones, todas detectadas:** sin el respaldo del cuerpo, el cuerpo por encima de la cookie, confiar en una respuesta con error, relanzar el error de un cuerpo que no es JSON, aceptar un token que no es texto, y pedir el token a otra ruta. Una condición mía (`token !== ''`) la saqué antes de mutar: era redundante, porque `enviar` ya descarta un token vacío.
+
+### Lo que no pude comprobar
+
+- **El arreglo no se puede reproducir acá**: el test unitario simula el comportamiento, y el E2E de iPhone 14 en Linux sólo lo confirma el CI.
+- **iPhone real**: no se sabe si Safari de iOS tiene el mismo retraso.
+
+### Lo que apareció de paso (no lo arreglé)
+
+- **`GET /api/auth/csrf` manda dos `Set-Cookie` con dos tokens distintos** en la misma respuesta: el middleware pone la cookie en toda lectura y el handler vuelve a llamar a `ensureCsrfCookie`, que como la cookie del pedido no existe genera otro. El navegador se queda con el último, que es el que va en el cuerpo, así que es consistente y no rompe nada. Pero es desprolijo; se arregla haciendo que el handler lea el token que dejó el middleware.
+
+---
+
 ## 2026-11-04 · El E2E de iPhone 14 (WebKit) falla en el primer CI (PR 80)
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** corrección de [`REF6-9`](post/ref-6/ACTION_PLAN.md); no es una tanda nueva.

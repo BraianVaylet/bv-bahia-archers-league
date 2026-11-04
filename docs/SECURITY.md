@@ -223,7 +223,7 @@ scorecardHash = sha256(JSON.stringify({
 ### CSRF
 
 - Token CSRF en cookie legible por JavaScript + header **`x-csrf-token` obligatorio** en toda mutación (`POST`, `PUT`, `PATCH`, `DELETE`).
-- El frontend obtiene el token con `GET /api/auth/csrf` antes de la primera mutación.
+- El frontend obtiene el token con `GET /api/auth/csrf` antes de la primera mutación. Lo lee de la cookie; si el navegador todavía no la muestra en `document.cookie` (WebKit en Linux, justo después de la respuesta), usa el `csrfToken` del cuerpo de esa misma respuesta. Es el mismo valor que la cookie, que el navegador manda igual: el par cookie/header sigue coincidiendo.
 - Falta o no coincide → **403**.
 - `SameSite=Lax` es la primera línea; el token es la segunda. Defensa en profundidad.
 

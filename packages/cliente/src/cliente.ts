@@ -71,6 +71,22 @@ function leerCookie(nombre: string): string | undefined {
     ?.slice(nombre.length + 1);
 }
 
+/**
+ * El `csrfToken` del cuerpo de `/api/auth/csrf`, o `undefined` si la respuesta no salió bien o no
+ * trae uno: un portal cautivo responde HTML con un 200, y eso no debe romper la mutación (que
+ * sale igual, sin header, y el servidor la rechaza con su mensaje).
+ */
+async function tokenDelCuerpo(res: Response): Promise<string | undefined> {
+  if (!res.ok) return undefined;
+
+  try {
+    const { csrfToken } = (await res.json()) as { csrfToken?: unknown };
+    return typeof csrfToken === 'string' ? csrfToken : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 type Entrada = string | URL | Request;
 
 const metodoDe = (input: Entrada, init: RequestInit): string =>
@@ -109,13 +125,20 @@ async function rechazoDe(res: Response, porDefecto: string): Promise<ApiError> {
 export function crearCliente(opciones: OpcionesDelCliente): Cliente {
   const { base, rutaCsrf = '/api/auth/csrf', mensajes } = opciones;
 
-  /** Asegura la cookie CSRF antes de la primera mutación. */
+  /**
+   * Asegura la cookie CSRF antes de la primera mutación.
+   *
+   * Si el navegador todavía no deja ver la cookie recién recibida, se usa el token del cuerpo
+   * (`/api/auth/csrf` lo devuelve): WebKit en Linux la muestra recién en el turno siguiente, y el
+   * primer POST de quien llega a `/alta` sin ninguna petición previa salía sin header y volvía 403.
+   * El navegador igual manda la cookie, así que el par cookie/header coincide.
+   */
   async function asegurarCsrf(): Promise<string | undefined> {
     const existente = leerCookie(CSRF_COOKIE);
     if (existente) return existente;
 
-    await fetch(rutaCsrf, { credentials: 'same-origin' });
-    return leerCookie(CSRF_COOKIE);
+    const res = await fetch(rutaCsrf, { credentials: 'same-origin' });
+    return leerCookie(CSRF_COOKIE) ?? (await tokenDelCuerpo(res));
   }
 
   /**
