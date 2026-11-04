@@ -14,6 +14,35 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-04 · El E2E de iPhone 14 (WebKit) falla en el primer CI (PR 80)
+
+**Autor:** Claude Sonnet 5.5 · **Estado:** corrección de [`REF6-9`](post/ref-6/ACTION_PLAN.md); no es una tanda nueva.
+
+### Qué pasó
+
+Al abrir la PR 80, cuatro checks pasaron y **`E2E con tramo offline` falló: 8 tests, todos del proyecto `iPhone 14`**. Chromium y Pixel 7 pasaban. `REF6-9` había entregado ese proyecto sin correrlo (WebKit no estaba instalado), y esa limitación quedó anotada como pendiente; el CI confirmó que el pendiente escondía un fallo real. Lo bajé (60 MB) y lo reproduje local.
+
+### Causas (las dos son del E2E, no de la app)
+
+- **7 tests: la cookie de CSRF no llegaba.** El servidor E2E corre con `NODE_ENV=production`, o sea cookies `Secure`, sobre `http://localhost`. Chromium las guarda; WebKit no. Todo POST respondía «La solicitud no pudo validarse», y el login del líder y del admin y el alta pública fallaban. Arreglo: `COOKIE_SECURE=false` en `e2e/servidor.ts`.
+- **1 test (`offline-recarga`): «WebKit encountered an internal error».** WebKit de Playwright rompe cualquier navegación con el contexto en `setOffline(true)`, aunque el service worker tenga el shell. Arreglo: en WebKit sólo se abortan las llamadas a la API.
+
+### Decisiones y costos
+
+- **Desactivar `COOKIE_SECURE` en el E2E deja de ejercitar la cookie `Secure` en todos los navegadores**, incluido Chromium. `env.test.ts` fija que producción la active por defecto, pero **ningún test mira el header `Set-Cookie` de una respuesta**. Si te importa cubrirlo, es un test del API que lea `Set-Cookie` con `NODE_ENV=production`. No lo agregué.
+- **En Safari, `offline-recarga` ya no prueba que el shell abra sin red.** Sigue probando lo importante del escenario (lo cargado vive en IndexedDB, sobrevive a cerrar la pestaña y se sincroniza), pero esa parte sólo la verifica un iPhone real (`FE-21`). Está escrito en el test, en `TESTING.md` y en el plan.
+- **Probé la alternativa mínima primero:** sólo `COOKIE_SECURE` arregló 7 de 8; el octavo era un problema distinto, no una consecuencia del primero.
+
+### Verificación
+
+Corrida completa local de los tres proyectos: **60/60** (`chromium` 42, `Pixel 7` 9, `iPhone 14` 9). Biome sobre los archivos tocados sin errores. **El CI real todavía no confirmó el arreglo.**
+
+### Lo que apareció de paso
+
+- **`e2e/` no se tipa en el CI**: `pnpm typecheck` sólo recorre `packages/*`. Corriendo `tsc -p e2e/tsconfig.json` a mano salen 3 errores `TS2488` en `objetivos-tactiles.spec.ts` (`NodeListOf` sin iterador: a ese `tsconfig` le falta `DOM.Iterable` en `lib`). No son de este cambio. No los arreglé.
+
+---
+
 ## 2026-11-03 · El CI deja de estar en rojo: la pantalla de elegir rol ya no baja Zod
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** cierra lo que `REF6-11`, `REF6-12` y `REF6-15` dejaban abierto sobre el tope de bundle de «elegir rol». No es una tanda nueva del plan.

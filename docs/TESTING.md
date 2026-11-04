@@ -303,7 +303,12 @@ tests/e2e/flujo-completo.spec.ts
 | `Pixel 7` | Chromium, con el viewport, el user agent y el táctil de un Android | `offline-recarga`, `objetivos-tactiles` y `flujo-corto` |
 | `iPhone 14` | **WebKit** | Los mismos tres |
 
-La app se usa en celulares, y **Safari en iPhone** es donde IndexedDB, el service worker, `storage.persist()` y la política de desalojo de datos se comportan distinto (`REF6-9` / `T-2`). Los proyectos móviles no repiten la suite: corren lo que más importa en un teléfono —recargar sin señal, los objetivos táctiles y un recorrido corto—. WebKit de Playwright **no reemplaza al dispositivo real** (`FE-21`), pero encuentra la mayoría de las diferencias antes. Las specs que corren en los tres navegadores se mantienen independientes del orden: eligen el torneo por **id** y no por nombre, porque cada navegador crea el suyo en la misma base.
+La app se usa en celulares, y **Safari en iPhone** es donde IndexedDB, el service worker, `storage.persist()` y la política de desalojo de datos se comportan distinto (`REF6-9` / `T-2`). Los proyectos móviles no repiten la suite: corren lo que más importa en un teléfono —recargar sin señal, los objetivos táctiles y un recorrido corto—. WebKit de Playwright **no reemplaza al dispositivo real** (`FE-21`), pero encuentra la mayoría de las diferencias antes. Dos diferencias que ya encontró, y que el E2E tiene en cuenta:
+
+- **Cookies `Secure` sobre `http://localhost`.** Chromium las guarda; WebKit no. El servidor E2E corre con `NODE_ENV=production` y por eso se desactiva `COOKIE_SECURE` ahí (`e2e/servidor.ts`): sin eso la cookie de CSRF no llega, todo POST responde «La solicitud no pudo validarse» y el proyecto `iPhone 14` no puede ni entrar. Que en producción la cookie vaya `Secure` por defecto lo fija `env.test.ts`, no el E2E.
+- **`setOffline(true)` rompe toda navegación en WebKit** («WebKit encountered an internal error»), aunque el service worker tenga el shell. En `offline-recarga` WebKit sólo corta las llamadas a la API: se sigue probando que lo cargado sobrevive a cerrar la pestaña y se sincroniza al volver, pero **no que el shell se abra sin red en Safari**. Eso lo prueba un iPhone real.
+
+Las specs que corren en los tres navegadores se mantienen independientes del orden: eligen el torneo por **id** y no por nombre, porque cada navegador crea el suyo en la misma base.
 
 ### Escenarios E2E adicionales
 

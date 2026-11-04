@@ -24,6 +24,12 @@ async function main(): Promise<void> {
   // archivo que alguien tiene que crear a mano no corre en CI.
   Object.assign(process.env, {
     NODE_ENV: 'production',
+    // El E2E habla `http://localhost`. Con `Secure`, Chromium guarda las cookies igual (trata
+    // localhost como seguro) pero WebKit no: la cookie de CSRF no llega, todo POST responde
+    // «La solicitud no pudo validarse» y el proyecto iPhone 14 no puede ni entrar. En producción
+    // el iPhone usa https y la cookie sí va `Secure`: que producción lo active por defecto lo fija
+    // `env.test.ts`.
+    COOKIE_SECURE: 'false',
     PORT: String(PUERTO),
     MONGODB_URI: replSet.getUri(),
     MONGODB_DB: 'bal_e2e',
