@@ -17,7 +17,7 @@
  * quien lo usa.
  */
 
-import cba from '@bal/shared/assets/cba.webp';
+import cba from '../assets/cba.webp';
 import { cn } from './cn.js';
 import { Logo } from './Logo.js';
 

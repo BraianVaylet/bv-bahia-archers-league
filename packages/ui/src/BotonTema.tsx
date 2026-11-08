@@ -10,10 +10,10 @@
  * Ver `docs/DESIGN_SYSTEM.md` §10.
  */
 
-import { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from '@bal/shared';
 import { useEffect, useState } from 'react';
 import { cn } from './cn.js';
 import { IconoLuna, IconoSol } from './iconos/acciones.js';
+import { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from './tema.js';
 
 /**
  * `matchMedia` puede no existir: navegadores viejos, y jsdom sin configurar.

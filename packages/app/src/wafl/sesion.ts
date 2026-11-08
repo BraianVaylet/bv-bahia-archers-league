@@ -5,6 +5,7 @@
  * completa el recorrido sin red. Ver `docs/OFFLINE_SYNC.md` §5.1.
  */
 
+import { validateTargetScore } from '@bal/shared';
 import { api } from '../lib/apiClient.js';
 import {
   type BundleParticipant,
@@ -101,6 +102,33 @@ async function limpiarSiCambioDeTorneo(tournamentId: string): Promise<void> {
   await Promise.all([db.clear('scores'), db.clear('signatures')]);
 }
 
+const SIN_CONTEOS = { innerCount: 0, xCount: 0, tenCount: 0, mCount: 0 } as const;
+
+/**
+ * Cuántas X, 10, M e inner suman estas flechas, con la modalidad **de ese blanco**.
+ *
+ * Es la misma función del dominio que usa el servidor. El bundle sólo trae
+ * `arrows` y `total` de cada puntaje; los conteos se guardaban en cero, y la
+ * pantalla de resultados —la que el arquero mira antes de firmar— los suma.
+ *
+ * Un blanco que no está en el recorrido, o flechas que no validan, se quedan sin
+ * conteos en vez de romper la entrada: el `total` ya es el del servidor.
+ */
+function conteosDe(
+  blancos: readonly BundleTarget[],
+  targetIndex: number,
+  arrows: readonly string[],
+): Pick<StoredScore, 'innerCount' | 'xCount' | 'tenCount' | 'mCount'> {
+  const blanco = blancos.find((b) => b.index === targetIndex);
+  if (!blanco) return SIN_CONTEOS;
+
+  const r = validateTargetScore(blanco.modality, blanco.arrows, arrows);
+  if (!r.ok) return SIN_CONTEOS;
+
+  const { innerCount, xCount, tenCount, mCount } = r.value;
+  return { innerCount, xCount, tenCount, mCount };
+}
+
 /**
  * Vuelca los puntajes que ya estaban en el servidor.
  *
@@ -122,11 +150,9 @@ async function sembrarPuntajes(res: BundleResponse, clockSkewMs: number): Promis
       participantId: s.participantId,
       targetIndex: s.targetIndex,
       arrows: s.arrows,
+      // El total es del servidor (regla 1). Los conteos se derivan de las flechas.
       total: s.total,
-      innerCount: 0,
-      xCount: 0,
-      tenCount: 0,
-      mCount: 0,
+      ...conteosDe(res.tournament.targets, s.targetIndex, s.arrows),
       clientUpdatedAt: ahora,
       syncState: 'synced',
     };

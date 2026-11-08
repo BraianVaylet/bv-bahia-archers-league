@@ -17,7 +17,14 @@ import {
   type TournamentStatus,
 } from '@bal/shared';
 
-export interface ResultadoParticipante extends Rankable {
+/**
+ * Una fila de `/results`, tal como la manda el servidor.
+ *
+ * **No trae `participantId`**: el participante es `id`. `Rankable` lo exige para el desempate de
+ * presentación, así que `podios` se lo agrega; este tipo no puede decir que lo tiene, porque
+ * `REF6-11` / `C-3` mostró que nunca llegaba y el tipo lo daba por hecho.
+ */
+export interface ResultadoParticipante extends Omit<Rankable, 'participantId'> {
   readonly id: string;
   readonly patrolNumber: number;
   readonly normalizedPct: number;
@@ -105,14 +112,15 @@ export interface PodioDeCategoria {
  * ambos quedan en la misma posición y el siguiente salta (1, 1, 3).
  */
 export function podios(participantes: readonly ResultadoParticipante[]): PodioDeCategoria[] {
-  const porCategoria = rankByCategory(participantes);
+  const rankeables = participantes.map((p) => ({ ...p, participantId: p.id }));
+  const porCategoria = rankByCategory(rankeables);
 
   return Object.entries(porCategoria)
     .filter(([, entradas]) => entradas !== undefined && entradas.length > 0)
     .map(([category, entradas]) => ({
       category: category as BowCategory,
       label: CATEGORY_INFO[category as BowCategory].label,
-      filas: (entradas as RankedEntry<ResultadoParticipante>[]).map((e) => ({
+      filas: (entradas as RankedEntry<(typeof rankeables)[number]>[]).map((e) => ({
         position: e.position,
         tied: e.tied,
         participante: e.entry,

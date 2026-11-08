@@ -12,8 +12,8 @@
  */
 
 import { formatearFechaCorta } from '@bal/shared';
-import cba from '@bal/shared/assets/cba.webp';
-import { Logo } from '@bal/ui';
+import { Logo, useTituloDePagina } from '@bal/ui';
+import cba from '@bal/ui/assets/cba.webp';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field, Screen } from '../components/ui.js';
 import { VolverALaLiga } from '../components/VolverALaLiga.js';
@@ -49,6 +49,7 @@ interface PatrullaDelTorneo {
 }
 
 export function LoginPage({ onEntro }: LoginPageProps) {
+  useTituloDePagina('Ingresar');
   const [torneos, setTorneos] = useState<TorneoAbierto[]>();
   const [tournamentId, setTournamentId] = useState('');
   const [username, setUsername] = useState('');

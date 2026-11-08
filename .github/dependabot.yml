@@ -1,0 +1,37 @@
+# Actualizaciones de dependencias (`REF6-14` / `S-10`).
+#
+# Existe porque ahora hay cosas **fijadas**: las actions del CI por SHA y la imagen base por digest.
+# Fijar sin un actualizador congela los parches de seguridad; esto es lo que los trae de vuelta, en un
+# PR que pasa por el mismo CI que todo lo demás. Nada se actualiza solo: cada cambio se revisa.
+#
+# Semanal y agrupado, para que no sean veinte PR sueltos por semana.
+
+version: 2
+
+updates:
+  # Los SHA de `.github/workflows/*.yml`. El comentario `# v4.4.0` junto a cada uno lo mantiene
+  # Dependabot, así que la versión legible no se desactualiza.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # El digest de `node:22-bookworm-slim` del Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # El workspace de pnpm (`pnpm-lock.yaml`). Las menores y los parches van juntos; una mayor llega
+  # sola, porque es la que puede romper algo y conviene mirarla aparte.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]

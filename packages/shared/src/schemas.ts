@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import './configuracionZod.js';
 import {
   MAX_ARROWS_PER_TARGET,
   MAX_PATROL_SIZE,
@@ -136,6 +137,13 @@ export const ArcherSelfRegisterSchema = z.strictObject({
   category: CategorySchema,
   sex: SexSchema,
   dni: DniSchema,
+  /**
+   * Campo trampa (`REF6-6`). El formulario lo trae oculto —fuera de pantalla, sin
+   * foco, para lectores de pantalla—: un humano nunca lo llena, un bot que completa
+   * todos los campos sí. El servidor lo **acepta en silencio** y descarta el alta:
+   * rechazarlo con un 400 le enseñaría al bot que es una trampa.
+   */
+  sitioWeb: z.string().max(200).optional(),
 });
 
 export const SeasonInputSchema = z

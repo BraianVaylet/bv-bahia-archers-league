@@ -4,6 +4,7 @@ import {
   adminApi,
   entrarComoAdmin,
   entrarComoLider,
+  esperarOutboxVacio,
   FLECHAS,
   firmarDeVerdad,
   PNG_VALIDO,
@@ -151,6 +152,7 @@ async function firmarYCerrar(page: Page) {
 
   const cerrar = page.getByRole('button', { name: 'Finalizar torneo' });
   await expect(cerrar).toBeEnabled();
+  await esperarOutboxVacio(page);
   await cerrar.click();
   await expect(page.getByText('Torneo finalizado')).toBeVisible();
 
@@ -220,7 +222,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
       pin: string;
       members: { category: string }[];
     }[];
-  }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+  }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
 
   expect(patrols.length).toBeGreaterThan(0);
   for (const p of patrols) {

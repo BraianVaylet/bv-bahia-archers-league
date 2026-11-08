@@ -117,6 +117,39 @@ describe('PaymentsPanel', () => {
     });
   });
 
+  // El nombre del test de arriba dice «y recarga», pero sólo mira que el pedido salga: acá se mira
+  // que la pantalla **refleje** lo que el servidor contesta después.
+  it('marca un pago y la pantalla pasa a mostrarlo pagado', async () => {
+    let pagado = false;
+    rutas['GET /api/admin/tournaments/t1/payments'] = () => ({
+      json: resumen({ participants: [participante({ paid: pagado })] }),
+    });
+    rutas['POST /api/admin/participants/p1/payment'] = () => {
+      pagado = true;
+      return { json: { paid: true } };
+    };
+    renderPagos();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Marcar pagado' }));
+
+    expect(await screen.findByRole('button', { name: 'Desmarcar' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Marcar pagado' })).toBeNull();
+  });
+
+  // Un pago que el servidor rechaza tiene que decir por qué, aunque la lista haya cargado bien.
+  it('si el servidor rechaza marcar un pago, muestra el motivo', async () => {
+    servidor(resumen());
+    rutas['POST /api/admin/participants/p1/payment'] = () => ({
+      status: 409,
+      json: { error: { code: 'CONFLICT', message: 'El torneo ya está publicado.' } },
+    });
+    renderPagos();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Marcar pagado' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El torneo ya está publicado.');
+  });
+
   // El monto es del torneo. Mandarlo desde acá sería dejar que la pantalla
   // decida cuánto pagó cada uno.
   it('NO manda ningún monto al marcar', async () => {

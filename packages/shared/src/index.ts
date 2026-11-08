@@ -11,14 +11,12 @@
 
 export * from './compartir.js';
 export * from './constants.js';
-export * from './despliegue.js';
 export * from './distribucion.js';
 export * from './domain.js';
 export * from './estados.js';
 export * from './fechas.js';
 export * from './league.js';
 export * from './numeros.js';
-export * from './paleta.js';
 export * from './patrolling.js';
 export * from './podio.js';
 export * from './ranking.js';
@@ -26,5 +24,4 @@ export * from './schemas.js';
 export * from './scoring.js';
 export * from './stats.js';
 export * from './tarjeta.js';
-export * from './tema.js';
 export * from './text.js';

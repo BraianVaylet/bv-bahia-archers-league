@@ -196,9 +196,16 @@ Se dispara ante:
 2. POST /api/wafl/sync { ops }
 3. Por cada resultado:
      applied    → scores.syncState = 'synced'; escribir totales del servidor; borrar la op
-     duplicate  → borrar la op (ya estaba aplicada)
-     superseded → borrar la op; refrescar desde el servidor; syncState = 'synced'
+     duplicate  → borrar la op; alinear la celda con el `score` que trae (lo que el servidor tiene hoy)
+     superseded → borrar la op; alinear la celda con el `score` que trae; syncState = 'synced'
      rejected   → NO borrar; marcar syncState = 'conflict'; mostrar el error al usuario
+
+   «Alinear» = reemplazar flechas y totales locales por los del servidor, sin `error`, en
+   `synced`. Salvo que haya **otra op de score pendiente para la misma celda**: el líder
+   volvió a editar mientras el lote viajaba, esa edición es más nueva que lo que el servidor
+   devuelve, y se resuelve sola cuando le toque. (`REF6-4`: hasta ahí, el puntaje local se
+   quedaba en `pending` con las flechas que perdieron, y `sembrarPuntajes` no pisa lo que no
+   está `synced`.)
 4. Actualizar clockSkewMs con el serverTime de la respuesta
 5. Si quedan ops, repetir
 ```
@@ -208,10 +215,13 @@ Se dispara ante:
 Backoff exponencial con jitter: `min(2^attempts × 1000ms, 60s) × (0.5 + random × 0.5)`.
 
 - **Errores de red** (`TypeError: Failed to fetch`, timeout): se reintenta indefinidamente. Es el caso normal en el monte.
+- **El POST tiene plazo: 20 s** (token CSRF incluido). Un pedido colgado mantiene `corriendo` en `true`, y el evento `online`, el intervalo y el foco llaman a `flush()` y salen de inmediato: sin plazo, **nada más puede vaciar el outbox** aunque la señal ya haya vuelto. Vencido el plazo se cancela el `fetch` y se trata como cualquier error de red: la op se conserva y se reintenta.
+  **Ojo con la latencia a la base:** un lote de 50 ops son ~309 viajes a MongoDB en serie, y a partir de ~60 ms de RTT supera los 20 s (a 120 ms tarda ~38 s). El servidor sigue procesando el pedido cortado y el reintento vuelve como `duplicate`, así que no se pierde ni se duplica nada, pero el outbox se vacía a los tropezones. Railway y Atlas tienen que estar en la misma región (`CONFIG.md` §7).
 - **5xx**: se reintenta con backoff.
 - **401 / 403**: se detiene la sincronización y se pide reingresar. Las ops **se conservan** y se envían tras reautenticar. Nunca se descarta trabajo por un problema de sesión.
 - **408 / 429**: transitorios por definición, se reintentan.
 - **400 / 409** (op inválida): no se reintenta. Se marca `conflict` y se muestra al usuario qué pasó y con qué arquero y blanco.
+- **200 pero sin resultado para una op**: se trata como un intento fallido, igual que un corte de red. Se anota el intento (con el motivo «El servidor no devolvió el resultado de este cambio.», que es lo que lee `requestClose`), **se corta la vuelta del vaciado** y se reintenta con backoff. La op **nunca se descarta**. Ver abajo.
 
 **El 400 llega a nivel de lote, no de op.** La validación de Zod corre sobre el array entero, así que una sola op mala hace fallar el `POST` completo y arrastra a las buenas. Cuando el lote se rechaza con un código que no se reintenta, se **reenvía op por op** para aislar la culpable: el puntaje de un arquero no puede quedar rehén de la firma rota de otro.
 
@@ -251,16 +261,27 @@ El servidor valida server-side que estén todos los puntajes y todas las firmas.
 }
 ```
 
-Máximo **200 ops** por batch, **1 MB** de body. El cliente parte en batches de 50.
+Máximo **200 ops** por batch, **1 MB** de body (el único endpoint con ese techo; el resto admite 64 KB, medidos en bytes reales). El cliente parte en batches de 50.
 
 ### Procesamiento server-side, por op
 
 ```
-1. DEDUP        insert en syncOps con _id = opId.
-                E11000  →  status 'duplicate', se saltea. (Sin findOne previo.)
+1. DEDUP        insert en syncOps con _id = opId y result = 'processing'.
+                E11000  →  se mira la marca:
+                  terminada (applied / rejected)  →  status 'duplicate', se saltea.
+                  'processing' hace más de 30 s   →  el proceso murió: se retoma y se procesa.
+                  'processing' reciente           →  otro request la está procesando:
+                                                     NO se contesta esa op (el cliente la deja
+                                                     en el outbox y reintenta).
+                Al terminar: 'applied' o 'rejected'. Las firmas y el cierre se confirman en la
+                misma transacción; los scores, de a un lote (un solo comando).
 
 2. AUTORIZAR    ¿participantId pertenece a la patrulla de ESTA sesión?
                 No  →  'rejected' con FORBIDDEN. Se registra en auditLog.
+                Patrulla cerrada  →  'rejected' con PATROL_CLOSED (score y firma).
+                Arquero firmado   →  'rejected' con SIGNATURE_LOCKED (score).
+                (El estado de la patrulla se lee una vez por lote; un `close` del
+                mismo lote cuenta para las ops que vienen después.)
                 Esto es lo que impide que la patrulla 3 escriba puntajes de la 5.
 
 3. VALIDAR      modalidad = tournament.targets[targetIndex].modality
@@ -291,7 +312,11 @@ Máximo **200 ops** por batch, **1 MB** de body. El cliente parte en batches de 
   "results": [
     { "opId": "0192f3a1-...", "status": "applied",
       "score": { "total": 11, "innerCount": 0, "xCount": 0, "tenCount": 0, "mCount": 1 } },
-    { "opId": "0192f3a2-...", "status": "duplicate" },
+    // `duplicate` y `superseded` de un score traen lo que el servidor tiene HOY en esa
+    // celda, con sus `arrows`: el celular necesita saber qué ganó, no sólo cuánto suma.
+    { "opId": "0192f3a2-...", "status": "duplicate",
+      "score": { "total": 22, "innerCount": 2, "xCount": 0, "tenCount": 0, "mCount": 0,
+                 "arrows": ["11", "11"] } },
     { "opId": "0192f3a3-...", "status": "rejected",
       "error": { "code": "SIGNATURES_MISSING", "message": "Faltan 2 firmas" } }
   ],
@@ -335,13 +360,11 @@ VitePWA({
   registerType: 'prompt',              // NUNCA autoUpdate
   scope: '/app/',
   workbox: {
-    globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+    // `webp` y `png` tienen que estar: el logo del CBA (`cba.webp`, 18 KB) está en el login de
+    // WAFL y en el pie siempre visible, y sin señal se veía roto.
+    globPatterns: ['**/*.{js,css,html,svg,woff2,webp,png}'],
     navigateFallback: '/app/index.html',
-    runtimeCaching: [{
-      urlPattern: /^\/api\/(?!wafl\/sync)/,
-      handler: 'NetworkFirst',
-      options: { networkTimeoutSeconds: 3, cacheName: 'api-cache' },
-    }],
+    // Sin `runtimeCaching`: ver la regla de abajo.
   },
 })
 ```
@@ -351,7 +374,8 @@ Reglas:
 | Regla | Motivo |
 |---|---|
 | `registerType: 'prompt'`, nunca `autoUpdate` | `autoUpdate` recarga la app sola. A mitad de recorrido es inaceptable. |
-| `POST /api/wafl/sync` **excluido** del runtime caching | Cachear una escritura no tiene sentido y podría enmascarar fallos. |
+| **Sin `runtimeCaching` para la API** (`REF6-8` / `S-8`) | WAFL lee de IndexedDB (regla 6) y WAFA es online por diseño: no hay nada de la API que valga guardar. Había una regla `NetworkFirst` con `/^\/api\/(?!wafl\/sync)/` que **nunca matcheaba** (Workbox evalúa la regex contra la URL completa, y `^\/api` no empieza una URL), así que no hacía nada; pero si alguien la «arreglaba», habría guardado 24 h las respuestas de `/api/admin/*` —**con los PIN en claro**— y de `/api/auth/me`, y el logout no limpia ese caché. Hay un test E2E que mira que el `sw.js` no tenga ninguna. |
+| Los chunks de cada app (`WafaApp`, `WaflApp`) están en el precaché | Se cargan con `React.lazy`, pero el service worker los baja todos al instalarse: sin señal, la app elegida abre igual. |
 | Actualizar el SW **no toca IndexedDB** | Los datos pendientes sobreviven a cualquier actualización. |
 | Si hay ops pendientes, el aviso de actualización lo advierte | "Tenés 12 cambios sin sincronizar. Se conservan al actualizar." Se informa, no se bloquea. |
 | La versión de la app se muestra en la UI | Diagnosticar en el campo sin acceso a devtools. |
@@ -379,6 +403,10 @@ Al tocarlo se abre un panel con: última sincronización exitosa, cantidad de op
 
 ---
 
+**Una respuesta que no menciona una op** (`REF6-9`, hallazgo de la tanda). El contrato dice que el servidor devuelve un resultado por op, y el actual lo cumple en todos sus caminos. Pero la PWA se actualiza con `prompt` (regla 7): hay celulares con el cliente viejo durante días, y un desfase de versiones —o un proxy que altere la respuesta— puede traer una respuesta sin el resultado de alguna op. Antes, `aplicarResultados` la saltaba sin sacarla ni anotar nada, y el `for (;;)` de `flush` volvía a leer el outbox y a mandarla **sin pausa**. Lo único que frenaba el bucle era el 429 del rate limit (300 por minuto y por IP), y el wifi del club es una sola IP: un celular así dejaba sin cuota a las demás patrullas, y volvía a empezar con cada ventana de un minuto.
+
+Ahora `aplicarResultados` devuelve también las ops sin resultado, y `flush` las anota como intento fallido, programa el reintento con backoff y **sale**. En el camino de aislamiento de un lote rechazado, la op sin resultado también cuenta un intento. En ningún caso se descarta: el puntaje es del líder, y que el servidor no lo haya contestado no lo vuelve basura.
+
 ## 10. Matriz de escenarios de falla
 
 | # | Escenario | Comportamiento esperado |
@@ -393,6 +421,7 @@ Al tocarlo se abre un panel con: última sincronización exitosa, cantidad de op
 | 8 | Dos dispositivos en paralelo | LWW por blanco y arquero. Conflictos registrados en el audit log. |
 | 9 | El mismo batch se envía dos veces | Deduplicado por `opId`. `status: 'duplicate'`. Cero duplicados en base. |
 | 10 | El servidor está caído | Reintentos con backoff, indefinidamente. La app sigue plenamente usable. |
+| 10b | El servidor contesta 200 sin el resultado de una op | Un solo intento por vuelta, anotado con su motivo; reintento con backoff. La op no se descarta ni se reenvía en bucle. |
 | 11 | Se llena el almacenamiento del dispositivo | Se detecta con `navigator.storage.estimate()`. Aviso al usuario. Se solicita `persist()` al entrar para evitar el desalojo. |
 | 12 | Token de flecha inválido | Rechazado **en el cliente** antes de encolar. No llega al outbox. |
 | 13 | El admin cambia el torneo mientras se anota | Solo puede editar blancos sin puntajes. Si un blanco cambió, la sincronización devuelve `rejected` con explicación y el bundle se refresca. |

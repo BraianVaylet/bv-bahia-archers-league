@@ -285,6 +285,57 @@ describe('paso 3 · participantes', () => {
     );
   });
 
+  /**
+   * Buscar pide el mismo padrón con otra consulta: si cada tecla vaciara la lista, no se podría
+   * ir tildando mientras se escribe (`REF6-11`: `conservarDatos`).
+   */
+  it('al buscar, la lista se queda a la vista mientras llega la nueva', async () => {
+    await irAlTres();
+    await screen.findByText('Pérez, Juan');
+    const previo = globalThis.fetch;
+    let responder: ((r: Response) => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        url.includes('q=Gom')
+          ? new Promise<Response>((res) => {
+              responder = res;
+            })
+          : previo(url, init),
+      ),
+    );
+
+    fireEvent.change(screen.getByLabelText('Buscar en el padrón'), { target: { value: 'Gom' } });
+    await waitFor(() => expect(responder).toBeDefined());
+
+    expect(screen.getByText('Pérez, Juan')).toBeDefined();
+
+    responder?.(
+      new Response(
+        JSON.stringify({
+          archers: [{ id: 'g1', firstName: 'Ana', lastName: 'Gómez', category: 'razo' }],
+        }),
+      ),
+    );
+    expect(await screen.findByText('Gómez, Ana')).toBeDefined();
+    expect(screen.queryByText('Pérez, Juan')).toBeNull();
+  });
+
+  // Si la búsqueda falla, no se queda la lista de la anterior como si fuera el resultado: se
+  // ve vacía.
+  it('si la búsqueda falla, la lista queda vacía y no la de antes', async () => {
+    await irAlTres();
+    await screen.findByText('Pérez, Juan');
+    rutas['GET /api/admin/archers'] = () => ({
+      status: 500,
+      json: { error: { code: 'INTERNAL', message: 'Se cayó.' } },
+    });
+
+    fireEvent.change(screen.getByLabelText('Buscar en el padrón'), { target: { value: 'x' } });
+
+    await waitFor(() => expect(screen.queryByText('Pérez, Juan')).toBeNull());
+  });
+
   it('crea un arquero sin salir del wizard y lo suma a los elegidos', async () => {
     rutas['POST /api/admin/archers'] = () => ({
       status: 201,

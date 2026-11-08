@@ -17,7 +17,7 @@ import {
   type StakeMap,
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
-import { getClient } from '../db/client.js';
+import { iniciarSesion } from '../db/sesion.js';
 import type { ArcherDoc, ParticipantDoc, PatrolDoc, TargetDoc } from '../db/types.js';
 import { env } from '../env.js';
 import { encryptPin, generatePin, hashSecret } from '../lib/crypto.js';
@@ -250,7 +250,7 @@ export async function materializar(
 
 /** Ejecuta el callback dentro de una transacción. */
 export async function conTransaccion<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
-  const session = getClient().startSession();
+  const session = iniciarSesion();
   try {
     let resultado!: T;
     await session.withTransaction(async () => {

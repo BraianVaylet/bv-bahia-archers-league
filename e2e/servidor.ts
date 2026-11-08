@@ -24,6 +24,12 @@ async function main(): Promise<void> {
   // archivo que alguien tiene que crear a mano no corre en CI.
   Object.assign(process.env, {
     NODE_ENV: 'production',
+    // El E2E habla `http://localhost`. Con `Secure`, Chromium guarda las cookies igual (trata
+    // localhost como seguro) pero WebKit no: la cookie de CSRF no llega, todo POST responde
+    // «La solicitud no pudo validarse» y el proyecto iPhone 14 no puede ni entrar. En producción
+    // el iPhone usa https y la cookie sí va `Secure`: que producción lo active por defecto lo fija
+    // `env.test.ts`.
+    COOKIE_SECURE: 'false',
     PORT: String(PUERTO),
     MONGODB_URI: replSet.getUri(),
     MONGODB_DB: 'bal_e2e',
@@ -35,7 +41,10 @@ async function main(): Promise<void> {
     // chocarían con el límite mientras el test las manda de golpe.
     RATE_LIMIT_SYNC: '10000',
     RATE_LIMIT_PUBLIC: '10000',
-    RATE_LIMIT_LOGIN: '100',
+    // **El login NO se relaja, a propósito.** Se subía a 100 y eso escondía que
+    // el límite real dejaba afuera a la undécima patrulla del wifi del club: el
+    // E2E nunca corría con la configuración que corre el día del torneo. Ahora
+    // sólo cuentan los intentos fallidos, y `ingreso-masivo.spec.ts` lo prueba.
   });
 
   // Los módulos se importan DESPUÉS de sembrar el entorno: `env()` lo cachea al

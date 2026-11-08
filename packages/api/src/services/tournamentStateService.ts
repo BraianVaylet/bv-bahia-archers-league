@@ -11,10 +11,11 @@
 
 import type { TournamentStatus } from '@bal/shared';
 import type { ClientSession, ObjectId } from 'mongodb';
-import { tournaments } from '../db/client.js';
 import type { TournamentDoc } from '../db/types.js';
 import { AppError, notFound } from '../lib/errors.js';
+import * as auditRepo from '../repositories/auditRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
+import * as tournamentRepo from '../repositories/tournamentRepo.js';
 
 /** Transiciones permitidas. Lo que no está acá, no se puede. */
 const TRANSICIONES: Readonly<Record<TournamentStatus, readonly TournamentStatus[]>> = {
@@ -45,7 +46,7 @@ export async function transition(
   extra: Partial<TournamentDoc> = {},
   session?: ClientSession,
 ): Promise<TournamentDoc> {
-  const doc = await tournaments().findOne({ _id: tournamentId });
+  const doc = await tournamentRepo.findById(tournamentId);
   if (!doc) throw notFound();
 
   if (doc.status === hasta) {
@@ -61,10 +62,11 @@ export async function transition(
     });
   }
 
-  const actualizado = await tournaments().findOneAndUpdate(
-    { _id: tournamentId, status: doc.status },
-    { $set: { status: hasta, ...extra } },
-    { returnDocument: 'after', ...(session ? { session } : {}) },
+  const actualizado = await tournamentRepo.updateIfStatus(
+    tournamentId,
+    doc.status,
+    { status: hasta, ...extra },
+    session,
   );
 
   if (!actualizado) {
@@ -77,8 +79,30 @@ export async function transition(
 }
 
 /** `sin_iniciar` → `en_proceso`. A partir de acá las patrullas quedan congeladas. */
-export async function start(tournamentId: ObjectId): Promise<TournamentDoc> {
-  return transition(tournamentId, 'en_proceso', { startedAt: new Date() });
+export async function start(
+  tournamentId: ObjectId,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<TournamentDoc> {
+  const doc = await transition(tournamentId, 'en_proceso', { startedAt: new Date() });
+  await auditarTorneo('tournament.start', tournamentId, actorId, ip);
+  return doc;
+}
+
+async function auditarTorneo(
+  action: 'tournament.start' | 'tournament.unstart',
+  tournamentId: ObjectId,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<void> {
+  await auditRepo.record({
+    actorType: 'admin',
+    actorId,
+    action,
+    entity: 'tournament',
+    entityId: tournamentId,
+    ip,
+  });
 }
 
 /**
@@ -95,7 +119,11 @@ export async function start(tournamentId: ObjectId): Promise<TournamentDoc> {
  * La guarda es del servidor y no del botón: el botón se puede tocar dos veces,
  * o desde una pantalla que todavía no se enteró de que alguien anotó.
  */
-export async function unstart(tournamentId: ObjectId): Promise<TournamentDoc> {
+export async function unstart(
+  tournamentId: ObjectId,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<TournamentDoc> {
   const cargados = await scoreRepo.countScoresOfTournament(tournamentId);
 
   if (cargados > 0) {
@@ -108,5 +136,7 @@ export async function unstart(tournamentId: ObjectId): Promise<TournamentDoc> {
     });
   }
 
-  return transition(tournamentId, 'sin_iniciar', { startedAt: null });
+  const doc = await transition(tournamentId, 'sin_iniciar', { startedAt: null });
+  await auditarTorneo('tournament.unstart', tournamentId, actorId, ip);
+  return doc;
 }

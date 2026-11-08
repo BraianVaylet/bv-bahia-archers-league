@@ -581,3 +581,104 @@ describe('descargarBundle al cambiar de torneo', () => {
     expect(await countOutbox()).toBeGreaterThan(0);
   });
 });
+
+// ── Volver a entrar: lo que el servidor ya tenía ─────────────────────────────
+
+describe('descargarBundle: puntajes que ya estaban en el servidor', () => {
+  /**
+   * `REF6-4` / `U-2`. Un líder que cambia de celular, o que vuelve a entrar,
+   * recupera lo que ya había cargado. `sembrarPuntajes` los guardaba con X, 10 y
+   * M en **cero**, y la pantalla de resultados —la que el arquero mira para
+   * firmar— suma esos campos: mostraba menos X y menos 10 que los que el
+   * servidor tiene.
+   */
+  const respuesta = (
+    scores: { participantId: string; targetIndex: number; arrows: string[]; total: number }[],
+  ) => ({
+    tournament: {
+      id: 't1',
+      name: '3ª fecha',
+      date: '2026-08-08',
+      maxPossibleScore: 74,
+      targets: [
+        { index: 2, modality: 'sala', arrows: 3, description: null },
+        { index: 1, modality: '3d', arrows: 2, description: null },
+      ],
+    },
+    patrol: { id: 'p1', number: 1, startTargetIndex: 2, status: 'en_curso', targetsCompleted: 2 },
+    participants: participantes,
+    scores,
+    signatures: [],
+    serverTime: new Date().toISOString(),
+  });
+
+  const conServidor = (cuerpo: unknown) =>
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(JSON.stringify(cuerpo), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+
+  const delServidor = async (participantId: string, targetIndex: number) =>
+    (await readScores()).find(
+      (s) => s.participantId === participantId && s.targetIndex === targetIndex,
+    );
+
+  it('recupera cada puntaje con sus X, 10 y M, no en cero', async () => {
+    conServidor(
+      respuesta([
+        { participantId: P1, targetIndex: 2, arrows: ['X', '10', 'M'], total: 20 },
+        { participantId: P1, targetIndex: 1, arrows: ['11', 'M'], total: 11 },
+      ]),
+    );
+
+    await descargarBundle();
+
+    expect(await delServidor(P1, 2)).toMatchObject({
+      total: 20,
+      innerCount: 1,
+      xCount: 1,
+      tenCount: 2,
+      mCount: 1,
+      syncState: 'synced',
+    });
+    expect(await delServidor(P1, 1)).toMatchObject({
+      total: 11,
+      innerCount: 1,
+      xCount: 0,
+      tenCount: 0,
+      mCount: 1,
+    });
+  });
+
+  // El total es del servidor (regla 1). Si alguna vez discrepara de lo que dan
+  // las flechas, gana el del servidor: lo que se muestra es lo que se publica.
+  it('el total que manda el servidor manda sobre el recalculado', async () => {
+    conServidor(
+      respuesta([{ participantId: P1, targetIndex: 2, arrows: ['X', '10', 'M'], total: 999 }]),
+    );
+
+    await descargarBundle();
+
+    expect((await delServidor(P1, 2))?.total).toBe(999);
+    // Y los conteos salen de las flechas, no del total.
+    expect((await delServidor(P1, 2))?.xCount).toBe(1);
+  });
+
+  it('un blanco que no está en el recorrido no rompe la entrada', async () => {
+    conServidor(
+      respuesta([
+        { participantId: P1, targetIndex: 99, arrows: ['X', '10', 'M'], total: 20 },
+        { participantId: P1, targetIndex: 2, arrows: ['X', '10', 'M'], total: 20 },
+      ]),
+    );
+
+    await descargarBundle();
+
+    // El conocido se recupera bien; el desconocido queda con el total del servidor.
+    expect((await delServidor(P1, 2))?.xCount).toBe(1);
+    expect((await delServidor(P1, 99))?.total).toBe(20);
+  });
+});

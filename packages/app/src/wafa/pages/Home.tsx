@@ -7,14 +7,15 @@
  * Ver `docs/FUNCTIONAL.md` §6.2.
  */
 
+import { useCarga } from '@bal/cliente';
 import {
   ESTADO_DE_TORNEO,
   formatearFecha,
   type ParteDeModalidad,
   type TournamentStatus,
 } from '@bal/shared';
-import { ChipModalidad } from '@bal/ui';
-import { useEffect, useState } from 'react';
+import { ChipModalidad, useTituloDePagina } from '@bal/ui';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
 import {
@@ -25,7 +26,7 @@ import {
   Pantalla,
   Screen,
 } from '../../components/ui.js';
-import { api } from '../../lib/apiClient.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export interface TournamentRow {
   readonly id: string;
@@ -82,16 +83,16 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
 }
 
 export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
-  const [torneos, setTorneos] = useState<TournamentRow[]>();
+  useTituloDePagina('Inicio');
   const [cerrando, setCerrando] = useState(false);
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    api
-      .get<{ tournaments: TournamentRow[] }>('/admin/tournaments')
-      .then((r) => setTorneos(r.tournaments))
-      .catch(() => setError('No se pudieron cargar los torneos. Revisá la conexión.'));
-  }, []);
+  const carga = useCarga(
+    async (signal): Promise<TournamentRow[]> =>
+      (await cuerpo(rpc.admin.tournaments.$get({ query: {} }, conSenal(signal)))).tournaments,
+    [],
+    { mensajeDeError: 'No se pudieron cargar los torneos. Revisá la conexión.' },
+  );
+  const torneos = carga.datos;
+  const error = carga.error;
 
   return (
     <Pantalla>

@@ -12,6 +12,7 @@
  */
 
 import { type BowCategory, CATEGORY_INFO, medallaDe } from '@bal/shared';
+import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -159,6 +160,7 @@ function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
 }
 
 export function RankingPage() {
+  useTituloDePagina('Ranking');
   const [params, setParams] = useSearchParams();
   const [vista, setVista] = useState<Vista>('general');
 

@@ -236,13 +236,21 @@ export interface ScoreDoc {
 // ── Sincronización ───────────────────────────────────────────────────────────
 
 export type SyncOpType = 'score' | 'signature' | 'close';
-export type SyncOpResult = 'applied' | 'superseded' | 'rejected';
+/**
+ * Cómo terminó una op de sync. `processing` es la marca de dedup que nace antes de aplicarla
+ * (`REF6-13` / `B-4`): si el proceso muere antes del commit, la op queda ahí y se reprocesa.
+ */
+export type SyncOpResult = 'processing' | 'applied' | 'superseded' | 'rejected';
 
 export interface SyncOpDoc {
   /** El `opId` del cliente ES la clave primaria: deduplicar es un insert que falla. */
   _id: string;
   patrolId: ObjectId;
   type: SyncOpType;
+  /**
+   * Cuándo se marcó la op. Con `processing`, desde cuándo se está procesando: pasado el plazo de
+   * reproceso se da por abandonada (el proceso murió) y otro request la retoma, renovando la hora.
+   */
   appliedAt: Date;
   result: SyncOpResult;
   /** TTL. */
@@ -288,21 +296,47 @@ export type AuditAction =
   | 'tournament.participants_edit'
   | 'tournament.unstart'
   | 'tournament.create'
+  | 'tournament.start'
+  | 'tournament.delete'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'
   | 'patrol.pin.reveal'
   | 'patrol.manual_edit'
+  /** La patrulla cerró el circuito: todas las firmas puestas. */
+  | 'patrol.close'
   | 'sync.conflict'
   | 'sync.forbidden'
   /** El operador cambió `ADMIN_INITIAL_PASSWORD` y el admin quedó reseteado. */
   /** Se recuperó el password con el código de `ADMIN_INITIAL_PASSWORD`. */
   | 'admin.password_recovered'
+  /** Un ingreso correcto del administrador. Los fallidos no se registran: ver `REF6-7`. */
+  | 'admin.login'
+  /** Padrón: alta, edición, archivo, restauración y baja hechos por el admin. */
+  | 'archer.create'
+  | 'archer.update'
+  | 'archer.archive'
+  | 'archer.restore'
+  | 'archer.delete'
+  | 'season.create'
+  | 'season.update'
+  | 'season.close'
+  | 'season.reopen'
+  /** Se marcó o desmarcó el pago de un arquero. Es plata. */
+  | 'payment.set'
   /** Alguien probó un código de recuperación equivocado. */
   | 'admin.recovery_failed'
   /** Un arquero autoregistrado (`BE-20`) pasó de `pendiente` a `aprobado`. */
   | 'archer.approve'
   /** Un arquero autoregistrado se rechazó y se borró del padrón. */
-  | 'archer.reject';
+  | 'archer.reject'
+  /**
+   * Alguien se anotó con un DNI que ya estaba en esa categoría. Al visitante se le
+   * responde igual que a un alta nueva (no puede ser un oráculo); acá queda el
+   * rastro para el admin.
+   */
+  | 'archer.register_duplicate';
+
+export type AuditEntity = 'tournament' | 'patrol' | 'participant' | 'user' | 'archer' | 'season';
 
 export interface AuditLogDoc {
   _id: ObjectId;
@@ -310,7 +344,7 @@ export interface AuditLogDoc {
   actorType: SubjectType | 'system';
   actorId: ObjectId | null;
   action: AuditAction;
-  entity: 'tournament' | 'patrol' | 'participant' | 'user' | 'archer';
+  entity: AuditEntity;
   entityId: ObjectId;
   /** Nunca datos sensibles: ni tokens, ni hashes, ni PIN. */
   meta: Record<string, unknown>;

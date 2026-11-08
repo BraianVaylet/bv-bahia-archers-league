@@ -342,6 +342,41 @@ describe('ArchersPage', () => {
     expect(screen.getByTestId('arquero-Pérez')).toHaveTextContent('Razo');
   });
 
+  /**
+   * Buscar pide **el mismo padrón con otra consulta**. Si cada tecla vaciara la lista para mostrar
+   * «Cargando…», el padrón parpadearía mientras se escribe (`REF6-11`: `conservarDatos`).
+   */
+  it('al buscar, la lista se queda a la vista mientras llega la nueva', async () => {
+    listar([arquero()]);
+    const previo = globalThis.fetch;
+    let responder: ((r: Response) => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        url.includes('q=G')
+          ? new Promise<Response>((res) => {
+              responder = res;
+            })
+          : previo(url, init),
+      ),
+    );
+    renderArqueros();
+    await screen.findByTestId('arquero-Pérez');
+
+    fireEvent.change(screen.getByLabelText('Buscar'), { target: { value: 'G' } });
+    await waitFor(() => expect(responder).toBeDefined());
+
+    // La búsqueda nueva está en camino: lo que ya se veía sigue ahí, sin «Cargando…».
+    expect(screen.getByTestId('arquero-Pérez')).toBeDefined();
+    expect(screen.queryByText('Cargando…')).toBeNull();
+
+    responder?.(
+      new Response(JSON.stringify({ archers: [arquero({ id: 'x2', lastName: 'Gómez' })] })),
+    );
+    expect(await screen.findByTestId('arquero-Gómez')).toBeDefined();
+    expect(screen.queryByTestId('arquero-Pérez')).toBeNull();
+  });
+
   // Distingue al que compite del que está anotado en el padrón y nada más.
   it('dice en cuántos torneos jugó cada uno', async () => {
     listar([

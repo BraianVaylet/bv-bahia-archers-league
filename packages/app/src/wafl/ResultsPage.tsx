@@ -5,6 +5,7 @@
  * están guardados desde la primera flecha. Ver `docs/FUNCTIONAL.md` §7.5.
  */
 
+import { useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
@@ -21,6 +22,7 @@ export interface ResultsPageProps {
 }
 
 export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
+  useTituloDePagina('Resultados');
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [firmas, setFirmas] = useState<StoredSignature[]>([]);
   const [firmando, setFirmando] = useState<string>();

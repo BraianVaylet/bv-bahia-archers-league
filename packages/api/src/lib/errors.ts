@@ -6,6 +6,7 @@
  */
 
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { MongoServerError } from 'mongodb';
 
 export type ErrorCode =
   | 'UNAUTHORIZED'
@@ -22,6 +23,8 @@ export type ErrorCode =
   | 'ARCHER_DNI_DUPLICATE'
   | 'SIGNATURES_MISSING'
   | 'SIGNATURE_MISMATCH'
+  | 'SIGNATURE_LOCKED'
+  | 'PATROL_CLOSED'
   | 'PAYLOAD_TOO_LARGE'
   | 'RATE_LIMITED'
   | 'INTERNAL';
@@ -41,6 +44,8 @@ const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   ARCHER_DNI_DUPLICATE: 409,
   SIGNATURES_MISSING: 409,
   SIGNATURE_MISMATCH: 409,
+  SIGNATURE_LOCKED: 409,
+  PATROL_CLOSED: 409,
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   INTERNAL: 500,
@@ -62,6 +67,9 @@ const MENSAJES: Record<ErrorCode, string> = {
   ARCHER_DNI_DUPLICATE: 'Ya existe un arquero con ese DNI en esa categoría.',
   SIGNATURES_MISSING: 'Faltan firmas para cerrar el circuito.',
   SIGNATURE_MISMATCH: 'El puntaje cambió después de firmarse.',
+  SIGNATURE_LOCKED: 'Ese arquero ya firmó y su puntaje no se puede cambiar.',
+  PATROL_CLOSED:
+    'La patrulla ya cerró el circuito y no admite cambios. Consultá con la organización.',
   PAYLOAD_TOO_LARGE: 'El contenido enviado es demasiado grande.',
   RATE_LIMITED: 'Demasiados intentos. Esperá un momento.',
   INTERNAL: 'Ocurrió un error inesperado.',
@@ -104,3 +112,16 @@ export const validationError = (details: Record<string, unknown>) =>
 
 export const invalidState = (message: string) =>
   new AppError('INVALID_STATE_TRANSITION', { message });
+
+/** El código con que MongoDB avisa que un índice único rechazó el valor (`E11000`). */
+const CLAVE_DUPLICADA = 11000;
+
+/**
+ * ¿Este error es «ya existe» por un índice único? (`REF6-13` / `C-5`)
+ *
+ * Se mira el **código** que expone el driver y no el texto del mensaje: el texto puede cambiar sin
+ * aviso, y cualquier otro error podría contenerlo. Un `Error` común nunca es una clave duplicada.
+ */
+export function esClaveDuplicada(error: unknown): boolean {
+  return error instanceof MongoServerError && error.code === CLAVE_DUPLICADA;
+}

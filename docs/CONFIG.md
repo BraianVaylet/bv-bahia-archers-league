@@ -6,7 +6,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 
 ## 1. Requisitos
 
-- **Node** ≥ 20 LTS
+- **Node** ≥ 20 LTS (el CI y la imagen usan 22; las pruebas de mutación piden ≥ 22)
 - **pnpm** ≥ 9 (`corepack enable && corepack prepare pnpm@9 --activate`)
 - **MongoDB**: cuenta en [MongoDB Atlas](https://cloud.mongodb.com) (el tier M0 es gratuito y suficiente para empezar), o una instancia local **en modo replica set**
 - **Docker** (solo para probar la imagen de producción localmente)
@@ -36,21 +36,21 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 | `COOKIE_SECURE` | no | `false` dev / `true` prod | Flag `Secure` de las cookies |
 | `SESSION_TTL_HOURS_ADMIN` | no | `12` | Vigencia de la sesión de admin |
 | `SESSION_TTL_HOURS_PATROL` | no | `24` | Máximo de la sesión de patrulla |
-| `RATE_LIMIT_LOGIN` | no | `10` | Intentos de login por ventana e IP |
-| `RATE_LIMIT_LOGIN_WINDOW_MIN` | no | `15` | Ventana de login, en minutos |
-| `RATE_LIMIT_SYNC` | no | `300` | Ops de sync por minuto y sesión. **Generoso a propósito** |
+| `RATE_LIMIT_LOGIN` | no | `60` | Intentos de login **fallidos** por ventana e IP (admin y patrulla comparten cupo). Los ingresos correctos no cuentan. Generoso a propósito: el wifi del club es una sola IP para todas las patrullas |
+| `RATE_LIMIT_LOGIN_WINDOW_MIN` | no | `15` | Ventana de login y de recuperación, en minutos |
+| `RATE_LIMIT_REGISTER` | no | `20` | Altas públicas de arqueros por hora e IP. El alta escribe y cada una es una fila que el admin tiene que revisar. Generoso a propósito: el día de la inscripción varios se anotan desde el wifi del club |
+| `RATE_LIMIT_RECOVER` | no | `5` | Intentos **fallidos** de recuperar el password por ventana e IP. Más corto: es la única ruta sin sesión que cambia una credencial y no tiene bloqueo por cuenta |
+| `TRUSTED_IP_HEADER` | no | `x-real-ip` prod / ninguno dev | Header donde el proxy de adelante deja la IP real del cliente. Railway documenta `X-Real-IP`. Si el servicio queda detrás de otra cosa (p. ej. Cloudflare) poné su header (`cf-connecting-ip`). Ver `SECURITY.md` §3.3 |
+| `RATE_LIMIT_SYNC` | no | `300` | Requests de sync por minuto **y por sesión** (cada uno trae hasta 50 ops). El tope por IP es 20 veces este valor. **Generoso a propósito** |
 | `RATE_LIMIT_PUBLIC` | no | `120` | Requests públicos por minuto e IP |
 | `LEAGUE_BEST_N` | no | `2` | Cuántos mejores porcentajes entran en el promedio de «mejor de N». También el mínimo de torneos para figurar en el ranking. Ver `DOMAIN_WA.md` §9 |
-| `WEB_DIST_APP` | no | `public/app` | Ruta del build de la PWA |
-| `WEB_DIST_LANDING` | no | `public/landing` | Ruta del build de la landing |
-| `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error` |
+| `LOG_LEVEL` | no | `info` | `debug` · `info` · `warn` · `error`. Filtra el logger estructurado (`lib/logger.ts`): una línea JSON por evento, con `t`, `nivel` y `evento` |
 
 ### Frontend (build-time, prefijo `VITE_`)
 
 | Variable | Ámbito | Default | Descripción |
 |---|---|---|---|
 | `VITE_API_BASE` | app, landing | `/api` | Base de la API. Relativa en el monolito; URL absoluta si algún día se separan los repos |
-| `VITE_APP_NAME` | app | `Liga Bahiense` | Nombre en el manifest de la PWA |
 | `__APP_VERSION__` | app | de `package.json` | Inyectada por Vite. Se muestra en la UI para diagnóstico en el campo |
 
 ### Generar los secretos
@@ -67,7 +67,7 @@ Se necesitan **dos** valores distintos: uno para `SESSION_SECRET` y otro para `P
 
 ## 3. Setup de MongoDB Atlas
 
-1. **Crear cuenta y cluster** en [cloud.mongodb.com](https://cloud.mongodb.com). Elegir **M0 (Free)** para empezar. Región: la más cercana a la de Railway (`us-east` suele ser la mejor combinación).
+1. **Crear cuenta y cluster** en [cloud.mongodb.com](https://cloud.mongodb.com). Elegir **M0 (Free)** para empezar. Región: **la misma que la del servicio de Railway**, no "la más cercana" (`us-east` suele ser la mejor combinación). No es un detalle: ver §7, *Región*.
 2. **Database Access** → *Add New Database User*. Autenticación por password. Rol: **`readWrite` sobre la base `bal` únicamente** — nunca `atlasAdmin`.
 3. **Network Access** → *Add IP Address*.
    - Para desarrollo: agregar tu IP.
@@ -197,7 +197,7 @@ Multi-stage, imagen final slim y sin herramientas de build:
 ```dockerfile
 # 1) deps    — pnpm install --frozen-lockfile
 # 2) build   — pnpm build (shared → api + app + landing)
-# 3) runner  — node:20-bookworm-slim
+# 3) runner  — node:22-bookworm-slim (fijada por digest)
 #              · copia dist de api + public/{app,landing} + node_modules de producción
 #              · USER node   (no root)
 #              · EXPOSE ${PORT}
@@ -236,6 +236,20 @@ docker run -p 8787:8787 -e MONGODB_URI="mongodb+srv://..." -e SESSION_SECRET="..
 
 4. **Healthcheck**: ya configurado en `railway.json` apuntando a `/api/health`.
 
+5. **Región: Railway y Atlas en la misma.** Settings → Region del servicio, y la región del cluster de Atlas.
+
+   Cada puntaje que se sincroniza son **6 viajes a la base, en serie**, y cada lote tiene 8 más de costo fijo (`REF6-5`). El tiempo de un lote es entonces aproximadamente `comandos × (RTT + ~2 ms)`, y la región decide el RTT. Medido con `pnpm --filter @bal/api bench:sync` (latencia inyectada a la base):
+
+   | RTT Railway ↔ Atlas | Lote de 50 ops |
+   |---|---|
+   | 2 ms (misma región) | ~1,2 s *(calculado: 309 comandos × ~3,8 ms, medido a 20 ops)* |
+   | 30 ms (regiones distintas del mismo continente) | 9,9 s |
+   | 120 ms (otro continente) | 37,8 s |
+
+   Y a partir de ~60 ms un lote de 50 ya supera el **plazo de 20 s** del cliente (`OFFLINE_SYNC.md` §5.4): el POST se corta, se reintenta, y el outbox se vacía a los tropezones. Por eso esto es un requisito de despliegue y no una preferencia.
+
+   **Cómo verificarlo:** `curl https://<dominio>/api/health` y mirar `dbMs`: es lo que tarda el `ping` a la base. **Menos de ~5 ms**: misma región. **Más de ~20 ms**: están en regiones distintas, y hay que mover uno de los dos. Repetí el `curl`: la primera consulta tras un arranque en frío incluye abrir la conexión.
+
 5. **Primer arranque**: los índices se crean automáticamente y el usuario administrador se siembra con `ADMIN_INITIAL_PASSWORD`. **Entrar de inmediato y cambiar el password** — la app lo va a exigir.
 
 ### 7.1 Si el administrador se olvida el password
@@ -262,13 +276,24 @@ Detalles que conviene saber:
 
 | Job | Pasos | Bloquea el merge |
 |---|---|---|
-| `quality` | `pnpm install --frozen-lockfile` → `biome check` → `typecheck` → `test` | **Sí** |
+| `quality` | `pnpm install --frozen-lockfile` → capas del backend → **docs al día** → `biome check` → `typecheck` → `test` | **Sí** |
 | `e2e` | Playwright (Chromium) contra el stack real con Mongo efímero | **Sí** |
 | `audit` | `pnpm audit --audit-level=high` | **Sí** ante crítico o alto |
 | `budget` | Verifica los presupuestos de tamaño de bundle de `TECHNICAL.md` §5 | **Sí** |
 | `imagen` | `docker build` de la imagen de producción, verifica que **no corre como root** y que sin configuración falla ruidosamente | **Sí** |
 
 Los tests de integración usan `mongodb-memory-server` en modo replica set. Los E2E levantan un Mongo en Docker dentro del runner.
+
+**Cadena de suministro** (`REF6-14` / `S-10`):
+
+- El token del workflow es de **sólo lectura** (`permissions: contents: read`); ningún job escribe.
+- Las actions van **fijadas por SHA** de commit, con la versión de comentario (`# v4.4.0`).
+- La imagen base del `Dockerfile` va **fijada por digest** (`node:22-bookworm-slim@sha256:…`), el del índice multi-arquitectura.
+- `.github/dependabot.yml` propone semanalmente los SHA, el digest y las dependencias de pnpm, en PR que pasan por este mismo CI. **Fijar sin esto congelaría los parches de seguridad.** Las menores y los parches de npm llegan agrupados; una mayor, sola.
+
+`pnpm lint` corre con `--error-on-warnings`: un warning de Biome rompe el job `quality`.
+
+**Pruebas de mutación** (`REF6-14` / `T-7`): `.github/workflows/mutacion.yml`, **de noche** (05:00 UTC) y a demanda (`workflow_dispatch`). No corre en cada PR ni bloquea ningún merge: avisa. Dos jobs, `@bal/shared` (el dominio) y `syncService`, cada uno con el piso (`break`) de su `stryker.config.json`; si el puntaje baja de ahí, el job falla. El reporte HTML queda 14 días como artefacto. En local: `pnpm --filter @bal/shared mutacion` o `pnpm --filter @bal/api mutacion`; con `--mutate src/archivo.ts` se acota a un archivo.
 
 ---
 
@@ -306,6 +331,7 @@ Al pasar a M10 o superior, Atlas provee backups continuos con point-in-time reco
 - [ ] `PORT` **no** seteado en Railway.
 - [ ] Dominio generado y respondiendo por HTTPS.
 - [ ] `/api/health` responde 200 con `db: "ok"`.
+- [ ] `/api/health` dice `dbMs` **menor a ~5 ms**: Railway y Atlas están en la misma región (§7, *Región*).
 - [ ] Cabeceras de seguridad presentes (verificar con `curl -i`).
 - [ ] Password de admin cambiado en el primer login.
 - [ ] Checklist completo de [`SECURITY.md`](SECURITY.md) §13 verde.

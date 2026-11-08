@@ -165,7 +165,7 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 - `{ "username": { "$ne": null } }` → 400, **sin llegar a la base**.
 - Clave con `$` o `.` en un objeto anidado → rechazada.
 - `ObjectId` malformado → 400, sin excepción del driver.
-- Body > 1 MB → 413.
+- Body > 64 KB → 413 (también chunked, sin `Content-Length`); el sync admite hasta 1 MB.
 
 ### 4.4 Crear torneo
 - Crea torneo + participantes + patrullas + credenciales en **una transacción**.
@@ -190,7 +190,9 @@ Contra MongoDB real (`mongodb-memory-server` en **modo replica set**, necesario 
 
 ### 4.6 Firmas y cierre
 - Firma persistida con `scorecardHash`.
-- Modificar un score después de firmar → cerrar devuelve `SIGNATURE_MISMATCH`.
+- Score sobre un arquero que ya firmó → `rejected` con `SIGNATURE_LOCKED`.
+- Score o firma con la patrulla cerrada → `rejected` con `PATROL_CLOSED`.
+- Modificar un score después de firmar **por fuera de `/sync`** → cerrar y publicar devuelven `SIGNATURE_MISMATCH`.
 - Cerrar sin todas las firmas → `SIGNATURES_MISSING`.
 - Cerrar sin todos los blancos cargados → rechazado.
 - Cerrar la última patrulla → el torneo pasa a `completado` automáticamente.
@@ -293,6 +295,21 @@ tests/e2e/flujo-completo.spec.ts
 23. Verifica que el resultado se aplicó a la liga —«mejor de N», sin puntos por posición desde `SH-9`—
 ```
 
+### En qué navegadores corre
+
+| Proyecto | Motor | Qué corre |
+|---|---|---|
+| `chromium` | Chrome de escritorio | **Toda** la suite |
+| `Pixel 7` | Chromium, con el viewport, el user agent y el táctil de un Android | `offline-recarga`, `objetivos-tactiles` y `flujo-corto` |
+| `iPhone 14` | **WebKit** | Los mismos tres |
+
+La app se usa en celulares, y **Safari en iPhone** es donde IndexedDB, el service worker, `storage.persist()` y la política de desalojo de datos se comportan distinto (`REF6-9` / `T-2`). Los proyectos móviles no repiten la suite: corren lo que más importa en un teléfono —recargar sin señal, los objetivos táctiles y un recorrido corto—. WebKit de Playwright **no reemplaza al dispositivo real** (`FE-21`), pero encuentra la mayoría de las diferencias antes. Dos diferencias que ya encontró, y que el E2E tiene en cuenta:
+
+- **Cookies `Secure` sobre `http://localhost`.** Chromium las guarda; WebKit no. El servidor E2E corre con `NODE_ENV=production` y por eso se desactiva `COOKIE_SECURE` ahí (`e2e/servidor.ts`): sin eso la cookie de CSRF no llega, todo POST responde «La solicitud no pudo validarse» y el proyecto `iPhone 14` no puede ni entrar. Que en producción la cookie vaya `Secure` por defecto lo fija `env.test.ts`, no el E2E.
+- **`setOffline(true)` rompe toda navegación en WebKit** («WebKit encountered an internal error»), aunque el service worker tenga el shell. En `offline-recarga` WebKit sólo corta las llamadas a la API: se sigue probando que lo cargado sobrevive a cerrar la pestaña y se sincroniza al volver, pero **no que el shell se abra sin red en Safari**. Eso lo prueba un iPhone real.
+
+Las specs que corren en los tres navegadores se mantienen independientes del orden: eligen el torneo por **id** y no por nombre, porque cada navegador crea el suyo en la misma base.
+
 ### Escenarios E2E adicionales
 
 | Test | Verifica |
@@ -368,24 +385,41 @@ Modo watch durante el desarrollo: agregar `--watch` a cualquiera de los anterior
 | `@bal/app` — `offline/` | 90% | 85% | Sí |
 | `@bal/app` — resto | 70% | 60% | No |
 
+**Dónde viven y quién los aplica (`REF6-9` / `T-1`).** Los umbrales están en el `vitest.config.ts` de cada paquete, por carpeta y no sobre el total —un 95 % global deja pasar un servicio entero sin probar si el resto está muy cubierto—, y el CI corre `pnpm test:coverage` en **todos** los paquetes. Hasta entonces el CI ejecutaba `vitest run` sin `--coverage`: los umbrales estaban escritos y no corría nada, y `middleware/auth` llevaba semanas en 88 % de ramas contra un 100 % exigido, y `offline/` en 76 % contra 85 %. Un test verde con la cobertura por debajo del umbral **falla igual** (se verificó sacando los tests y mirando que el comando salga con 1).
+
+| Alcance | Umbral aplicado | Medido |
+|---|---|---|
+| `@bal/shared` | 95 / 95 / 95 / 95 | 99,6 líneas · 98,1 ramas |
+| `@bal/api` — `src/services/**` | 85 líneas · 80 ramas | 97,2 · 85,5 |
+| `@bal/api` — `src/middleware/auth.ts` | 100 en todo | 100 |
+| `@bal/app` — `src/offline/**` | 90 líneas · 85 ramas | 99,3 · 89,2 |
+| `@bal/app` — resto | **no bloquea**: se mide, no se exige | 89 · 82 |
+
+«Autorización de sync» (`§8` pedía 100 % también ahí) vive dentro de `syncService.ts`, que comparte archivo con el resto de la sincronización: no se puede separar por carpeta, y queda cubierta por el umbral de `services/`. Y `--passWithNoTests` se sacó de `app` y `landing`: un cambio de glob que dejara de encontrar los tests daba verde con cero tests.
+
 CI bloquea el merge ante: lint, typecheck, cualquier test rojo, umbral de cobertura no alcanzado, `pnpm audit` con crítico o alto, o presupuesto de bundle excedido.
 
 ---
 
 ## 9. Datos de prueba
 
-`packages/api/tests/fixtures/` provee constructores reutilizables:
+`packages/api/tests/helpers.ts` provee lo que los tests de integración comparten (`REF6-15`; este documento describía una carpeta `tests/fixtures/` con constructores `buildArcher`, `buildTournament`… que **nunca existió**):
 
 ```ts
-buildArcher({ category: 'razo' })
-buildTournament({ targets: mixedCircuit(14) })   // 6×3D, 6×campo, 1×aire libre, 1×sala
-buildPatrolWithMembers({ categories: ['razo','razo','escuela','escuela'] })
-buildScoreOp({ participantId, targetIndex, arrows })
+startDb() · stopDb() · clearDb(db)                // MongoDB en memoria, en modo replica set
+testEnvRaw(overrides) · testEnv(overrides)        // variables de entorno válidas para tests
+cliente(ip?)                                       // un cliente HTTP con su cookie de sesión y su CSRF
+adminListo()                                       // un cliente ya logueado como admin
+crearTemporada(admin) · crearArqueros(admin, [['razo', 4]])
+recorridoDeReferencia()                            // 14 blancos: 6×3D, 6×campo, 1×aire libre, 1×sala
+escenarioDeSync()                                  // torneo iniciado, una patrulla de 4 y el líder adentro
 ```
 
-**Reglas de los fixtures:**
+Los datos se arman **por la API**, igual que lo haría un cliente, y no insertando documentos a mano: así el test pasa por las mismas validaciones y transacciones que producción. Las excepciones, donde hace falta un estado que la API no deja armar (una marca vencida, un arquero que cambió de patrulla), se insertan directo y el test lo dice.
+
+**Reglas:**
 - Deterministas. Sin `Math.random`, sin `Date.now()` sin congelar.
-- Cada test crea su propia base limpia. Sin estado compartido entre tests.
+- Cada test crea su propia base limpia (`clearDb` en `beforeEach`). Sin estado compartido entre tests.
 - Los datos representan casos reales de la liga, no valores arbitrarios: eso hace que los tests fallen de formas informativas.
 
 ---

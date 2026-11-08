@@ -9,31 +9,9 @@
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#fbfaf5" />
-    <script>
-      /**
-       * Anti-FOUC: el tema se aplica ANTES del primer pintado.
-       *
-       * Si esperara a React, la pantalla arrancaría en claro y saltaría a oscuro
-       * en la primera pintada. Ver docs/DESIGN_SYSTEM.md §9.
-       */
-      (() => {
-        let oscuro = false;
-
-        try {
-          const guardado = localStorage.getItem('bal_tema');
-          oscuro =
-            guardado === 'dark' ||
-            (guardado === null && matchMedia('(prefers-color-scheme: dark)').matches);
-        } catch {
-          /* Sin localStorage se queda en claro, que es el default. */
-        }
-
-        if (oscuro) {
-          document.documentElement.setAttribute('data-theme', 'dark');
-          document.querySelector('meta[name=theme-color]').setAttribute('content', '#16170f');
-        }
-      })();
-    </script>
+    <!-- Anti-FOUC: aplica el tema antes del primer pintado. Externo y bloqueante a
+         propósito: la CSP (`script-src 'self'`) bloquea los inline. Ver public/theme-init.js. -->
+    <script src="/theme-init.js"></script>
     <title>Liga Bahiense de Arquería — Resultados y ranking</title>
   </head>
   <body>

@@ -9,8 +9,8 @@
  * Ver `docs/SECURITY.md` §5 y §6.
  */
 
-import type { Context, MiddlewareHandler } from 'hono';
-import type { ZodType } from 'zod';
+import type { Context, Env, MiddlewareHandler } from 'hono';
+import type { input, output, ZodType } from 'zod';
 import { AppError, validationError } from '../lib/errors.js';
 
 /** 1 MB. Un batch de sincronización de 200 ops entra con holgura. */
@@ -57,12 +57,31 @@ export function parseQuery<T>(c: Context, schema: ZodType<T>): T {
 }
 
 /**
- * Valida el body y lo deja en `c.set('body', ...)`.
- * Útil cuando el handler ya recibe el contexto tipado.
+ * Valida el body **antes del handler** y lo deja en `c.req.valid('json')`, ya con el tipo que
+ * devuelve el schema.
+ *
+ * Es `parseJsonBody` movido a un middleware, y nada más: misma validación, mismos errores, mismo
+ * orden (después de la sesión y del CSRF, antes del servicio). Lo que gana es que Hono ve el schema
+ * en el tipo de la ruta, y el cliente RPC de los frontends (`hc<…>`) sabe qué cuerpo acepta
+ * cada una: un campo que el servidor ya no espera rompe el `typecheck` de quien lo manda
+ * (`REF6-11` / `C-3`). Lo que entra es el tipo de **entrada** del schema; lo que el handler lee,
+ * el de **salida** (con las transformaciones aplicadas).
  */
-export const validateBody =
-  <T>(schema: ZodType<T>): MiddlewareHandler =>
+export const bodyValidado =
+  <S extends ZodType>(
+    schema: S,
+  ): MiddlewareHandler<Env, string, { in: { json: input<S> }; out: { json: output<S> } }> =>
   async (c, next) => {
-    c.set('body', await parseJsonBody(c, schema));
-    return next();
+    c.req.addValidatedData('json', (await parseJsonBody(c, schema)) as object);
+    await next();
+  };
+
+/** Lo mismo para los query params: `c.req.valid('query')`. Ver `bodyValidado`. */
+export const consultaValidada =
+  <S extends ZodType>(
+    schema: S,
+  ): MiddlewareHandler<Env, string, { in: { query: input<S> }; out: { query: output<S> } }> =>
+  async (c, next) => {
+    c.req.addValidatedData('query', parseQuery(c, schema) as object);
+    await next();
   };

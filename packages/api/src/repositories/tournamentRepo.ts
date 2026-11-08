@@ -18,6 +18,28 @@ export async function insert(doc: TournamentDoc, session?: ClientSession): Promi
   return insertedId;
 }
 
+/**
+ * Actualiza el torneo **sólo si todavía está en `status`**, y devuelve el resultado.
+ *
+ * La guarda va en el filtro y no en un `findOne` previo: entre leer y escribir otro
+ * request puede haber cambiado el estado (dos clicks seguidos en «publicar»), y la
+ * comprobación y la escritura tienen que ser una sola operación atómica.
+ *
+ * @returns el documento nuevo, o `null` si el estado ya no era `status`.
+ */
+export function updateIfStatus(
+  id: ObjectId,
+  status: TournamentDoc['status'],
+  cambios: Partial<TournamentDoc>,
+  session?: ClientSession,
+): Promise<TournamentDoc | null> {
+  return tournaments().findOneAndUpdate(
+    { _id: id, status },
+    { $set: cambios },
+    { returnDocument: 'after', ...(session ? { session } : {}) },
+  );
+}
+
 export function findById(id: ObjectId): Promise<TournamentDoc | null> {
   return tournaments().findOne({ _id: id });
 }
@@ -33,6 +55,31 @@ export function list(filter: ListFilter = {}): Promise<TournamentDoc[]> {
   if (filter.seasonId) q.seasonId = filter.seasonId;
 
   return tournaments().find(q).sort({ date: -1 }).limit(200).toArray();
+}
+
+/** Lo que el listado público lee de cada torneo. Los blancos hacen falta: de ellos salen la cantidad y las modalidades. */
+export type TorneoParaListar = Pick<
+  TournamentDoc,
+  '_id' | 'name' | 'date' | 'status' | 'targets' | 'participantCount'
+>;
+
+/**
+ * Los torneos que se ven desde afuera: publicados y en proceso, el más nuevo primero (`REF6-13` / `P-6`).
+ *
+ * **El filtro va en la consulta, no después**: antes se traían los 200 más nuevos de *cualquier*
+ * estado y recién entonces se descartaban los que no eran públicos, así que 200 torneos recientes
+ * sin publicar dejaban afuera a los publicados. Usa `ix_status_date`. La proyección deja afuera lo
+ * que el listado no muestra (`stakeMap`, `payment`, `description`…).
+ */
+export function listPublicos(): Promise<TorneoParaListar[]> {
+  return tournaments()
+    .find(
+      { status: { $in: ['publicado', 'en_proceso'] } },
+      { projection: { name: 1, date: 1, status: 1, targets: 1, participantCount: 1 } },
+    )
+    .sort({ date: -1 })
+    .limit(200)
+    .toArray() as Promise<TorneoParaListar[]>;
 }
 
 export async function remove(id: ObjectId, session?: ClientSession): Promise<void> {

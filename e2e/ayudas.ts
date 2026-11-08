@@ -126,7 +126,7 @@ export async function torneoIniciado(
 
   const { patrols } = await api.get<{
     patrols: { id: string; number: number; username: string; pin: string }[];
-  }>(`/api/admin/tournaments/${tournament.id}/patrols`);
+  }>(`/api/admin/tournaments/${tournament.id}/patrols?pins=1`);
 
   return { tournamentId: tournament.id, seasonId: season.id, patrols };
 }
@@ -152,7 +152,11 @@ export async function entrarComoLider(
 
   // Se espera la OPCIÓN, no el select: elegir un valor cuya opción todavía no
   // cargó no hace nada, y el formulario quedaría vacío sin que se note.
-  await expect(page.getByRole('option', { name: new RegExp(nombreTorneo) })).toBeAttached();
+  //
+  // Por **id** y no por nombre: la misma spec corre en tres navegadores contra la
+  // misma base, y con un torneo del mismo nombre por navegador el selector por texto
+  // encontraría varios y Playwright se negaría a elegir.
+  await expect(page.locator(`option[value="${tournamentId}"]`), nombreTorneo).toBeAttached();
   await page.getByLabel('Torneo').selectOption(tournamentId);
   await page.getByLabel('Patrulla').fill(username);
   await page.getByLabel('PIN').fill(pin);
@@ -167,8 +171,16 @@ export async function entrarComoLider(
  * La condición de corte es el **conteo de puntajes completos**, que es estado
  * del dominio y no del DOM: preguntarle al botón «Continuar» si hay que seguir
  * es frágil, porque se re-renderiza cuando termina una sincronización de fondo.
+ *
+ * `fichas` pisa las de `FLECHAS`: hace falta cuando dos celulares tienen que cargar
+ * **cosas distintas** en el mismo blanco para provocar un conflicto.
  */
-export async function cargarBlanco(page: Page, posicion: number, modality: string): Promise<void> {
+export async function cargarBlanco(
+  page: Page,
+  posicion: number,
+  modality: string,
+  fichas?: readonly string[],
+): Promise<void> {
   const tarjetas = page.getByTestId('numero-blanco');
   await tarjetas.nth(posicion).click();
 
@@ -181,13 +193,47 @@ export async function cargarBlanco(page: Page, posicion: number, modality: strin
   const arqueros = await tarjetasDeArquero.count();
 
   for (let cargados = 0; cargados < arqueros; cargados++) {
-    for (const token of FLECHAS[modality] ?? []) {
+    for (const token of fichas ?? FLECHAS[modality] ?? []) {
       await page.getByRole('button', { name: `Puntaje ${token}` }).click();
     }
     await expect(completos).toHaveCount(cargados + 1, { timeout: 15_000 });
   }
 
   await page.getByRole('button', { name: 'Continuar' }).click();
+}
+
+/**
+ * Espera a que todo lo anotado y firmado haya llegado al servidor: el outbox vacío.
+ *
+ * **Es la condición exacta de «Finalizar torneo».** `requestClose` encola el cierre sólo con el
+ * outbox vacío, y firmar sincroniza en segundo plano: un click apenas después de la última firma
+ * puede llegar antes que la op y recibir «Falta sincronizar 1 cambio». Un líder con señal toca de
+ * nuevo; el test no tiene por qué apostar a ganar la carrera, y en un CI cargado la perdía.
+ * Se mira el outbox y no el indicador del encabezado porque el outbox es lo que `requestClose` lee.
+ */
+export async function esperarOutboxVacio(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            new Promise<number>((resolve, reject) => {
+              const abrir = indexedDB.open('bal-wafl');
+              abrir.onerror = () => reject(abrir.error);
+              abrir.onsuccess = () => {
+                const db = abrir.result;
+                const cuenta = db.transaction('outbox').objectStore('outbox').count();
+                cuenta.onerror = () => reject(cuenta.error);
+                cuenta.onsuccess = () => {
+                  db.close();
+                  resolve(cuenta.result);
+                };
+              };
+            }),
+        ),
+      { message: 'el outbox no se vació: queda algo sin sincronizar', timeout: 30_000 },
+    )
+    .toBe(0);
 }
 
 /**

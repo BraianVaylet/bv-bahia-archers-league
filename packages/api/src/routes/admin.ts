@@ -8,7 +8,6 @@
 import {
   ArcherInputSchema,
   CreateTournamentSchema,
-  distribucionDeModalidades,
   MarkPaymentSchema,
   ObjectIdSchema,
   PatrolDistributionSchema,
@@ -17,18 +16,17 @@ import {
 } from '@bal/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
+import { ipDelCliente } from '../lib/ip.js';
 import { currentAdminId, requireAdmin } from '../middleware/auth.js';
-import { clientIp } from '../middleware/rateLimit.js';
-import { parseJsonBody, parseQuery } from '../middleware/validate.js';
-import * as seasonRepo from '../repositories/seasonRepo.js';
-import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { bodyValidado, consultaValidada } from '../middleware/validate.js';
 import * as archerService from '../services/archerService.js';
 import * as patrolAdminService from '../services/patrolAdminService.js';
 import * as paymentService from '../services/paymentService.js';
 import * as publishService from '../services/publishService.js';
+import * as seasonService from '../services/seasonService.js';
 import * as tournamentEditService from '../services/tournamentEditService.js';
+import * as tournamentQueryService from '../services/tournamentQueryService.js';
 import * as tournamentService from '../services/tournamentService.js';
 import * as tournamentStateService from '../services/tournamentStateService.js';
 
@@ -42,18 +40,29 @@ const ListArchersQuery = z
   })
   .transform((v) => ({ archived: v.archived === 'true', query: v.q, status: v.status }));
 
+/**
+ * Los PIN se piden con `?pins=1` y con nada más: un valor distinto o un parámetro
+ * desconocido es un `400`, no un «no» silencioso (`REF6-7` / `S-7`).
+ */
+const ListPatrolsQuery = z
+  .strictObject({ pins: z.literal('1').optional() })
+  .transform((v) => ({ conPins: v.pins === '1' }));
+
 const ListTournamentsQuery = z.strictObject({
   status: z.enum(['sin_iniciar', 'en_proceso', 'completado', 'publicado']).optional(),
   seasonId: ObjectIdSchema.optional(),
 });
+
+/** El motivo de despublicar o de desbloquear una firma: queda en la auditoría, así que no puede ser un «ok». */
+const MotivoSchema = z.strictObject({ reason: z.string().trim().min(5).max(500) });
 
 export const admin = new Hono()
   .use('*', requireAdmin())
 
   // ── Arqueros ───────────────────────────────────────────────────────────────
 
-  .get('/archers', async (c) => {
-    const { archived, query, status } = parseQuery(c, ListArchersQuery);
+  .get('/archers', consultaValidada(ListArchersQuery), async (c) => {
+    const { archived, query, status } = c.req.valid('query');
     return c.json({
       archers: await archerService.list({
         archived,
@@ -63,23 +72,45 @@ export const admin = new Hono()
     });
   })
 
-  .post('/archers', async (c) => {
-    const input = await parseJsonBody(c, ArcherInputSchema);
-    return c.json({ archer: await archerService.create(input) }, 201);
+  .post('/archers', bodyValidado(ArcherInputSchema), async (c) => {
+    const input = c.req.valid('json');
+    return c.json(
+      { archer: await archerService.create(input, currentAdminId(c), ipDelCliente(c)) },
+      201,
+    );
   })
 
-  .patch('/archers/:id', async (c) => {
-    const input = await parseJsonBody(c, ArcherInputSchema);
-    return c.json({ archer: await archerService.update(toObjectId(c.req.param('id')), input) });
+  .patch('/archers/:id', bodyValidado(ArcherInputSchema), async (c) => {
+    const input = c.req.valid('json');
+    return c.json({
+      archer: await archerService.update(
+        toObjectId(c.req.param('id')),
+        input,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    });
   })
 
   .post('/archers/:id/archive', async (c) => {
-    return c.json({ archer: await archerService.setArchived(toObjectId(c.req.param('id')), true) });
+    return c.json({
+      archer: await archerService.setArchived(
+        toObjectId(c.req.param('id')),
+        true,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    });
   })
 
   .post('/archers/:id/restore', async (c) => {
     return c.json({
-      archer: await archerService.setArchived(toObjectId(c.req.param('id')), false),
+      archer: await archerService.setArchived(
+        toObjectId(c.req.param('id')),
+        false,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
     });
   })
 
@@ -95,35 +126,28 @@ export const admin = new Hono()
   })
 
   .delete('/archers/:id', async (c) => {
-    await archerService.remove(toObjectId(c.req.param('id')));
+    await archerService.remove(toObjectId(c.req.param('id')), currentAdminId(c), ipDelCliente(c));
     return c.json({ ok: true });
   })
 
   // ── Temporadas ─────────────────────────────────────────────────────────────
 
-  .get('/seasons', async (c) => {
-    const docs = await seasonRepo.list();
-    return c.json({
-      seasons: docs.map((s) => ({
-        id: s._id.toHexString(),
-        name: s.name,
-        startsAt: s.startsAt,
-        endsAt: s.endsAt,
-        status: s.status,
-      })),
-    });
-  })
+  .get('/seasons', async (c) => c.json({ seasons: await seasonService.listar() }))
 
-  .post('/seasons', async (c) => {
-    const input = await parseJsonBody(c, SeasonInputSchema);
-    const doc = await seasonRepo.create(input);
+  .post('/seasons', bodyValidado(SeasonInputSchema), async (c) => {
+    const input = c.req.valid('json');
+    const doc = await seasonService.create(input, currentAdminId(c), ipDelCliente(c));
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } }, 201);
   })
 
-  .patch('/seasons/:id', async (c) => {
-    const input = await parseJsonBody(c, SeasonInputSchema);
-    const doc = await seasonRepo.update(toObjectId(c.req.param('id')), input);
-    if (!doc) throw notFound();
+  .patch('/seasons/:id', bodyValidado(SeasonInputSchema), async (c) => {
+    const input = c.req.valid('json');
+    const doc = await seasonService.update(
+      toObjectId(c.req.param('id')),
+      input,
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), name: doc.name } });
   })
 
@@ -134,57 +158,53 @@ export const admin = new Hono()
    * curso cuando hay varias, que es el caso normal a fin de año.
    */
   .post('/seasons/:id/archive', async (c) => {
-    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'cerrada');
-    if (!doc) throw notFound();
+    const doc = await seasonService.setStatus(
+      toObjectId(c.req.param('id')),
+      'cerrada',
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
   })
 
   .post('/seasons/:id/restore', async (c) => {
-    const doc = await seasonRepo.setStatus(toObjectId(c.req.param('id')), 'activa');
-    if (!doc) throw notFound();
+    const doc = await seasonService.setStatus(
+      toObjectId(c.req.param('id')),
+      'activa',
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ season: { id: doc._id.toHexString(), status: doc.status } });
   })
 
   // ── Torneos ────────────────────────────────────────────────────────────────
 
-  .post('/tournaments', async (c) => {
-    const input = await parseJsonBody(c, CreateTournamentSchema);
+  .post('/tournaments', bodyValidado(CreateTournamentSchema), async (c) => {
+    const input = c.req.valid('json');
     const creado = await tournamentService.createTournament(input, currentAdminId(c));
     return c.json({ tournament: creado }, 201);
   })
 
-  .get('/tournaments', async (c) => {
-    const q = parseQuery(c, ListTournamentsQuery);
-    const docs = await tournamentRepo.list({
-      ...(q.status ? { status: q.status } : {}),
-      ...(q.seasonId ? { seasonId: toObjectId(q.seasonId) } : {}),
-    });
-
-    return c.json({
-      tournaments: docs.map((t) => ({
-        id: t._id.toHexString(),
-        name: t.name,
-        date: t.date,
-        status: t.status,
-        targetCount: t.targets.length,
-        patrolCount: t.patrolCount,
-        participantCount: t.participantCount,
-        maxPossibleScore: t.maxPossibleScore,
-        // La distribución se calcula acá y no en el cliente: el listado no
-        // manda los blancos, y mandarlos para que el cliente los cuente sería
-        // enviar catorce objetos por torneo para mostrar cuatro números.
-        modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
-      })),
-    });
+  .get('/tournaments', consultaValidada(ListTournamentsQuery), async (c) => {
+    const q = c.req.valid('query');
+    return c.json(
+      await tournamentQueryService.listadoAdmin({
+        ...(q.status ? { status: q.status } : {}),
+        ...(q.seasonId ? { seasonId: toObjectId(q.seasonId) } : {}),
+      }),
+    );
   })
-
   .post('/tournaments/:id/start', async (c) => {
-    const doc = await tournamentStateService.start(toObjectId(c.req.param('id')));
+    const doc = await tournamentStateService.start(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
-  .patch('/tournaments/:id', async (c) => {
-    const input = await parseJsonBody(c, UpdateTournamentSchema);
+  .patch('/tournaments/:id', bodyValidado(UpdateTournamentSchema), async (c) => {
+    const input = c.req.valid('json');
     const doc = await tournamentEditService.updateTournament(
       toObjectId(c.req.param('id')),
       input,
@@ -196,7 +216,11 @@ export const admin = new Hono()
   })
 
   .delete('/tournaments/:id', async (c) => {
-    await tournamentEditService.removeTournament(toObjectId(c.req.param('id')));
+    await tournamentEditService.removeTournament(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ ok: true });
   })
 
@@ -208,7 +232,11 @@ export const admin = new Hono()
    * todavía no se enteró de que alguien anotó.
    */
   .post('/tournaments/:id/unstart', async (c) => {
-    const doc = await tournamentStateService.unstart(toObjectId(c.req.param('id')));
+    const doc = await tournamentStateService.unstart(
+      toObjectId(c.req.param('id')),
+      currentAdminId(c),
+      ipDelCliente(c),
+    );
     return c.json({ tournament: { id: doc._id.toHexString(), status: doc.status } });
   })
 
@@ -216,20 +244,18 @@ export const admin = new Hono()
     return c.json(await publishService.publish(toObjectId(c.req.param('id')), currentAdminId(c)));
   })
 
-  .post('/tournaments/:id/unpublish', async (c) => {
-    const { reason } = await parseJsonBody(
-      c,
-      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
-    );
+  .post('/tournaments/:id/unpublish', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
     return c.json(
       await publishService.unpublish(toObjectId(c.req.param('id')), currentAdminId(c), reason),
     );
   })
 
-  .get('/tournaments/:id/patrols', async (c) => {
+  .get('/tournaments/:id/patrols', consultaValidada(ListPatrolsQuery), async (c) => {
     const id = toObjectId(c.req.param('id'));
+    const { conPins } = c.req.valid('query');
     const [patrols, violations] = await Promise.all([
-      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), conPins),
       patrolAdminService.validateCurrentDistribution(id),
     ]);
     return c.json({ patrols, violations });
@@ -239,63 +265,24 @@ export const admin = new Hono()
    * Redistribución manual. **Avisa pero no bloquea**: la respuesta trae las
    * violaciones que el admin acaba de aceptar. Ver `FUNCTIONAL.md` §6.6.
    */
-  .put('/tournaments/:id/patrols', async (c) => {
+  .put('/tournaments/:id/patrols', bodyValidado(PatrolDistributionSchema), async (c) => {
     const id = toObjectId(c.req.param('id'));
-    const input = await parseJsonBody(c, PatrolDistributionSchema);
+    const input = c.req.valid('json');
 
-    await patrolAdminService.redistribute(id, input, currentAdminId(c), clientIp(c));
+    await patrolAdminService.redistribute(id, input, currentAdminId(c), ipDelCliente(c));
 
+    // Guardar se hace desde la pantalla de credenciales, que muestra los PIN: acá sí.
     const [patrols, violations] = await Promise.all([
-      patrolAdminService.listPatrols(id, currentAdminId(c), clientIp(c)),
+      patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), true),
       patrolAdminService.validateCurrentDistribution(id),
     ]);
     return c.json({ patrols, violations });
   })
 
-  /**
-   * Resultados con los rollups de cada participante.
-   *
-   * Es lo que le falta a WAFA para seguir un torneo en curso y para previsualizar
-   * los podios **antes** de publicar. A diferencia del endpoint público, acá sí se
-   * ven los puntajes de un torneo `completado`: el admin tiene que poder revisar
-   * lo que está por aplicar a la liga.
-   */
-  .get('/tournaments/:id/results', async (c) => {
-    const id = toObjectId(c.req.param('id'));
-    const doc = await tournamentRepo.findById(id);
-    if (!doc) throw notFound();
-
-    const [miembros, patrullas] = await Promise.all([
-      tournamentRepo.listParticipants(id),
-      tournamentRepo.listPatrols(id),
-    ]);
-    const numeroDePatrulla = new Map(patrullas.map((p) => [p._id.toHexString(), p.number]));
-
-    return c.json({
-      maxPossibleScore: doc.maxPossibleScore,
-      participants: miembros.map((m) => ({
-        id: m._id.toHexString(),
-        archerId: m.archerId.toHexString(),
-        firstName: m.firstName,
-        lastName: m.lastName,
-        category: m.category,
-        stake: m.stake,
-        patrolNumber: numeroDePatrulla.get(m.patrolId.toHexString()) ?? 0,
-        total: m.total,
-        normalizedPct: m.normalizedPct,
-        innerCount: m.innerCount,
-        tenCount: m.tenCount,
-        mCount: m.mCount,
-        targetsCompleted: m.targetsCompleted,
-        status: m.status,
-        signed: m.signature !== null,
-        // Que la firma haya sido desbloqueada no se oculta: el podio se mira
-        // distinto si alguien no firmó de puño y letra.
-        signatureUnlocked: m.signature?.unlockedBy != null,
-      })),
-    });
-  })
-
+  /** Resultados con los rollups de cada participante. Ver `tournamentQueryService`. */
+  .get('/tournaments/:id/results', async (c) =>
+    c.json(await tournamentQueryService.resultadosAdmin(toObjectId(c.req.param('id')))),
+  )
   /**
    * Estado de los pagos, con la recaudación derivada.
    *
@@ -311,55 +298,38 @@ export const admin = new Hono()
     return c.json(await paymentService.summary(toObjectId(c.req.param('id'))));
   })
 
-  .post('/participants/:id/payment', async (c) => {
-    const { paid } = await parseJsonBody(c, MarkPaymentSchema);
-    return c.json(await paymentService.setPaid(toObjectId(c.req.param('id')), paid));
+  .post('/participants/:id/payment', bodyValidado(MarkPaymentSchema), async (c) => {
+    const { paid } = c.req.valid('json');
+    return c.json(
+      await paymentService.setPaid(
+        toObjectId(c.req.param('id')),
+        paid,
+        currentAdminId(c),
+        ipDelCliente(c),
+      ),
+    );
   })
 
-  .get('/tournaments/:id/locked-targets', async (c) => {
-    const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
-    if (!doc) throw notFound();
-    return c.json({ lockedTargets: await tournamentEditService.blancosBloqueados(doc) });
-  })
-
+  .get('/tournaments/:id/locked-targets', async (c) =>
+    c.json(await tournamentQueryService.blancosBloqueados(toObjectId(c.req.param('id')))),
+  )
   .post('/patrols/:id/pin/regenerate', async (c) => {
     return c.json(
       await patrolAdminService.regeneratePin(toObjectId(c.req.param('id')), currentAdminId(c)),
     );
   })
 
-  .post('/participants/:id/signature/unlock', async (c) => {
-    const { reason } = await parseJsonBody(
-      c,
-      z.strictObject({ reason: z.string().trim().min(5).max(500) }),
-    );
+  .post('/participants/:id/signature/unlock', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
     await patrolAdminService.unlockSignature(
       toObjectId(c.req.param('id')),
       reason,
       currentAdminId(c),
-      clientIp(c),
+      ipDelCliente(c),
     );
     return c.json({ ok: true });
   })
 
-  .get('/tournaments/:id', async (c) => {
-    const doc = await tournamentRepo.findById(toObjectId(c.req.param('id')));
-    if (!doc) throw notFound();
-
-    return c.json({
-      tournament: {
-        id: doc._id.toHexString(),
-        seasonId: doc.seasonId.toHexString(),
-        name: doc.name,
-        date: doc.date,
-        description: doc.description,
-        status: doc.status,
-        payment: doc.payment,
-        targets: doc.targets,
-        maxPossibleScore: doc.maxPossibleScore,
-        stakeMap: doc.stakeMap,
-        patrolCount: doc.patrolCount,
-        participantCount: doc.participantCount,
-      },
-    });
-  });
+  .get('/tournaments/:id', async (c) =>
+    c.json(await tournamentQueryService.detalleAdmin(toObjectId(c.req.param('id')))),
+  );

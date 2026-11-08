@@ -467,3 +467,54 @@ describe('editar hasta la firma', () => {
     );
   });
 });
+
+// ── Pantalla encendida (REF6-12 / U-7) ───────────────────────────────────────
+
+describe('TargetPage y la pantalla encendida', () => {
+  const instalarWakeLock = () => {
+    const sentinel = {
+      released: false,
+      release: vi.fn(async () => {
+        sentinel.released = true;
+      }),
+      addEventListener: vi.fn(),
+    };
+    const request = vi.fn(async () => sentinel);
+    Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true });
+    return { request, sentinel };
+  };
+
+  afterEach(() => {
+    // @ts-expect-error — se quita lo instalado para que el resto de la suite parta sin la API.
+    delete navigator.wakeLock;
+  });
+
+  const montar = () => {
+    const target = bundle.tournament.targets[0];
+    if (!target) throw new Error('falta el blanco');
+    return render(
+      <TargetPage
+        target={target}
+        participants={participantes}
+        onContinuar={() => {}}
+        onVolver={() => {}}
+      />,
+    );
+  };
+
+  it('la pide al entrar al blanco y la suelta al salir', async () => {
+    const { request, sentinel } = instalarWakeLock();
+
+    const { unmount } = montar();
+    await waitFor(() => expect(request).toHaveBeenCalledWith('screen'));
+
+    unmount();
+    await waitFor(() => expect(sentinel.released).toBe(true));
+  });
+
+  it('sin la API se anota igual: la pantalla de un blanco funciona en cualquier navegador', async () => {
+    montar();
+
+    expect(await screen.findByText('Blanco 1')).toBeDefined();
+  });
+});
