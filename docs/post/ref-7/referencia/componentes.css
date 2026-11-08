@@ -1,0 +1,238 @@
+/* Bahía Archers League — componentes de referencia (prefijo bal-).
+   Se cargan después de tokens.css. Todo valor de color, radio y espacio sale de un token. */
+
+@font-face {
+  font-family: "Archivo Expanded";
+  src: url("./fonts/archivo-latin-wdth-normal.woff2") format("woff2-variations"),
+       url("./fonts/archivo-latin-wdth-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); font-size: 16px; line-height: 1.5;
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+a { color: inherit; }
+
+/* ---------- Tipografía ---------- */
+.bal-display { font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-weight: 700; letter-spacing: -0.01em; }
+.bal-eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 1.3; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.bal-mono { font-family: var(--font-mono); font-size: 13px; line-height: 1.4; letter-spacing: .02em; }
+.bal-muted { color: var(--ink-muted); }
+.bal-link { color: var(--nock-text); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; }
+.bal-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Íconos ---------- */
+.bal-ico { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.bal-ico--sm { width: 16px; height: 16px; }
+.bal-ico--lg { width: 24px; height: 24px; }
+
+/* ---------- Botón ---------- */
+.bal-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 52px; padding: 0 20px; border-radius: var(--radius-md);
+  font: inherit; font-size: 16px; font-weight: 600; line-height: 1.2; text-decoration: none;
+  border: 1px solid transparent; cursor: pointer;
+  transition: background-color 80ms ease-out, border-color 80ms ease-out, transform 80ms ease-out;
+}
+.bal-btn:active { transform: translateY(1px); }
+.bal-btn--primario { background: var(--nock); color: var(--nock-ink); }
+.bal-btn--primario:hover { box-shadow: inset 0 0 0 999px rgba(255,255,255,.12); }
+.bal-btn--secundario { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.bal-btn--secundario:hover { background: var(--surface-2); }
+.bal-btn--fantasma { background: transparent; color: var(--ink); }
+.bal-btn--fantasma:hover { background: var(--surface-2); }
+.bal-btn--peligro { background: var(--danger); color: var(--danger-ink); }
+.bal-btn--sobre-monte { background: transparent; color: var(--monte-ink); border-color: var(--monte-muted); }
+.bal-btn--sobre-monte:hover { background: var(--monte-2); }
+.bal-btn--sm { min-height: 44px; padding: 0 14px; font-size: 15px; }
+.bal-btn--lg { min-height: 56px; padding: 0 28px; font-size: 17px; }
+.bal-btn--block { width: 100%; }
+.bal-btn[disabled], .bal-btn[aria-disabled="true"] { background: var(--surface-2); color: var(--ink-muted); border-color: var(--line); cursor: not-allowed; transform: none; box-shadow: none; }
+
+.bal-iconbtn {
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.bal-iconbtn:hover { background: var(--surface-2); }
+
+/* ---------- Campo ---------- */
+.bal-field { display: flex; flex-direction: column; gap: 6px; }
+.bal-field label { font-size: 14px; font-weight: 600; }
+.bal-input {
+  min-height: 52px; padding: 0 16px; font: inherit; font-size: 16px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+}
+.bal-input::placeholder { color: var(--ink-muted); }
+.bal-input[aria-invalid="true"] { border-color: var(--danger); border-width: 2px; }
+.bal-field .bal-hint { font-size: 14px; color: var(--ink-muted); margin: 0; }
+.bal-field .bal-error { font-size: 14px; color: var(--danger); margin: 0; display: flex; gap: 6px; align-items: center; }
+
+/* ---------- Tarjeta ---------- */
+.bal-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-3); }
+.bal-card--amplia { padding: var(--space-4); }
+.bal-card--anidada { background: var(--surface-2); }
+a.bal-card, button.bal-card { display: block; text-decoration: none; color: inherit; transition: border-color 120ms ease-out, transform 120ms ease-out; }
+a.bal-card:hover { border-color: var(--line-strong); }
+
+/* ---------- Chips ---------- */
+.bal-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  font-size: 14px; font-weight: 500; background: var(--surface-2); color: var(--chip, var(--ink)); white-space: nowrap;
+}
+.bal-chip--cat { border-radius: var(--radius-full); }
+.bal-chip--mod { border-radius: var(--radius-sm); }
+.bal-chip--sm { height: 24px; padding: 0 8px; font-size: 12px; gap: 4px; }
+.bal-chip--sm .bal-ico { width: 14px; height: 14px; }
+.bal-chip b { font-weight: 700; }
+
+.bal-stake { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: var(--radius-full); background: var(--surface-2); color: var(--ink); font-size: 14px; }
+.bal-stake::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--stake); flex: none; }
+
+/* ---------- Estado del torneo ---------- */
+.bal-status {
+  display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px 0 10px;
+  border-radius: var(--radius-full); border: 1px solid var(--line); background: var(--surface);
+  font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap;
+}
+.bal-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--st, var(--ink-muted)); flex: none; }
+.bal-status--vivo { --st: var(--nock-text); }
+.bal-status--vivo::before { box-shadow: 0 0 0 0 var(--nock-text); animation: bal-pulso 1.6s ease-out infinite; }
+.bal-status--completo { --st: var(--warn); }
+.bal-status--oficial { --st: var(--ok); }
+.bal-status--sobre-monte { background: var(--monte-2); border-color: var(--monte-line); color: var(--monte-ink); }
+.bal-status--sobre-monte.bal-status--vivo { --st: var(--monte-accent); }
+@keyframes bal-pulso { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--st) 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+
+/* ---------- Distribución de modalidades ---------- */
+.bal-modbar { display: flex; flex-direction: column; gap: var(--space-2); }
+.bal-modbar__track { display: flex; gap: 2px; height: 8px; border-radius: var(--radius-full); overflow: hidden; }
+.bal-modbar__track span { background: var(--chip); }
+.bal-modbar__legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--ink-muted); }
+.bal-modbar__legend span { display: inline-flex; align-items: center; gap: 4px; }
+.bal-modbar__legend .bal-ico { width: 14px; height: 14px; color: var(--chip); }
+.bal-modbar__legend b { color: var(--ink); font-weight: 600; }
+
+/* ---------- Rótulo de sección ---------- */
+.bal-section-head { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--line); }
+.bal-section-head .bal-count { font-family: var(--font-mono); font-size: 12px; font-weight: 600; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--radius-full); background: var(--surface-2); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; }
+.bal-section-head .bal-link { margin-left: auto; min-height: 32px; font-size: 14px; }
+
+/* ---------- Tarjeta de torneo ---------- */
+.bal-tcard { display: flex; flex-direction: column; gap: var(--space-3); padding: 20px; }
+.bal-tcard__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.bal-tcard__title { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600; }
+.bal-tcard__meta { margin: 2px 0 0; font-size: 14px; color: var(--ink-muted); }
+.bal-tcard__foot { display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-3); border-top: 1px solid var(--line); font-size: 14px; }
+
+/* ---------- Encabezado de app (WAFA / WAFL) ---------- */
+.bal-appbar { position: sticky; top: 0; z-index: 10; height: 60px; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-3) 0 var(--space-4); background: var(--bg); border-bottom: 1px solid var(--line); }
+.bal-appbar__back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 44px; padding-right: 8px; background: none; border: 0; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.bal-appbar__title { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.bal-appbar__title strong { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bal-appbar__title span { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.bal-appbar__end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
+
+/* ---------- SyncBadge ---------- */
+.bal-sync { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: var(--radius-full); background: transparent; border: 1px solid var(--line); color: var(--sync); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.bal-sync .bal-ico { width: 16px; height: 16px; }
+.bal-sync--ok { --sync: var(--ok); }
+.bal-sync--pendiente { --sync: var(--warn); }
+.bal-sync--offline { --sync: var(--ink-muted); }
+.bal-sync--error { --sync: var(--danger); }
+
+/* ---------- Teclado de scoring ---------- */
+.bal-keypad { background: var(--surface); border-top: 1px solid var(--line); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-dock); padding: var(--space-3) var(--space-3) var(--space-4); }
+.bal-keypad__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
+.bal-key {
+  min-height: 64px; min-width: 56px; border-radius: var(--radius-md); border: 1px solid var(--line-strong);
+  background: var(--surface-2); color: var(--ink); font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125;
+  font-size: 26px; font-weight: 700; cursor: pointer; transition: transform 80ms ease-out, background-color 80ms ease-out;
+}
+.bal-key:active { transform: scale(.96); background: var(--nock); color: var(--nock-ink); }
+.bal-key--centro { background: var(--nock); color: var(--nock-ink); border-color: transparent; }
+.bal-key--m { background: var(--surface); border-style: dashed; color: var(--ink-muted); }
+.bal-key[disabled] { opacity: .45; cursor: not-allowed; }
+.bal-keypad__cta { margin-top: var(--space-3); }
+.bal-keypad__hint { margin: var(--space-2) 0 0; font-size: 14px; text-align: center; color: var(--ink-muted); }
+
+/* ---------- Unidad de tiro / fila de flechas ---------- */
+.bal-unit { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); display: grid; grid-template-columns: 1fr auto; gap: var(--space-2) var(--space-3); }
+.bal-unit--activa { border: 2px solid var(--nock-text); padding: calc(var(--space-3) - 1px) calc(var(--space-4) - 1px); }
+.bal-unit__name { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600; }
+.bal-unit__sub { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: 13px; color: var(--ink-muted); }
+.bal-unit__total { grid-row: span 2; align-self: center; text-align: right; }
+.bal-unit__total strong { display: block; font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-size: 36px; line-height: 1; font-weight: 700; }
+.bal-unit__total span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); letter-spacing: .06em; text-transform: uppercase; }
+.bal-arrows { grid-column: 1 / -1; display: flex; gap: var(--space-2); }
+.bal-arrow { width: 48px; height: 48px; border-radius: var(--radius-md); border: 1px dashed var(--line-strong); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 600; font-size: 16px; }
+.bal-arrow--llena { border: 1px solid var(--line); background: var(--surface-2); }
+.bal-arrow--siguiente { border: 2px solid var(--nock-text); }
+
+/* ---------- CircuitRing ---------- */
+.bal-ring { position: relative; display: inline-grid; place-items: center; }
+.bal-ring svg { display: block; }
+.bal-ring .seg { fill: none; stroke: var(--line); stroke-width: 10; }
+.bal-ring .seg.ok { stroke: var(--nock-text); }
+.bal-ring .start { fill: var(--ink); }
+.bal-ring__label { position: absolute; text-align: center; line-height: 1; }
+.bal-ring__label strong { display: block; font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-size: 28px; font-weight: 700; }
+.bal-ring__label span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); letter-spacing: .06em; text-transform: uppercase; }
+
+/* ---------- Ranking ---------- */
+.bal-rank { width: 100%; border-collapse: collapse; font-size: 15px; }
+.bal-rank th { text-align: left; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); padding: 0 var(--space-3) var(--space-2); border-bottom: 1px solid var(--line); }
+.bal-rank td { padding: 0 var(--space-3); height: 56px; border-bottom: 1px solid var(--line); }
+.bal-rank .pos { width: 56px; font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-weight: 700; font-size: 18px; }
+.bal-rank tr.podio .pos span { display: inline-flex; width: 32px; height: 32px; border-radius: 50%; align-items: center; justify-content: center; background: var(--nock-soft); color: var(--ink); }
+.bal-rank .pts { text-align: right; font-family: var(--font-mono); font-weight: 600; font-size: 15px; }
+.bal-rank th.pts { text-align: right; font-size: 11px; font-weight: 600; }
+.bal-rank a { text-decoration: none; font-weight: 600; }
+.bal-rank a:hover { text-decoration: underline; }
+
+/* ---------- Tarjeta de rol (/app) ---------- */
+.bal-role { display: grid; grid-template-columns: 56px 1fr 24px; align-items: center; gap: var(--space-4); min-height: 96px; padding: var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); text-decoration: none; transition: border-color 120ms ease-out, background-color 120ms ease-out; }
+.bal-role:hover { background: var(--surface-2); }
+.bal-role--principal { border: 2px solid var(--nock-text); padding: calc(var(--space-4) - 1px); }
+.bal-role__icon { width: 56px; height: 56px; border-radius: var(--radius-md); background: var(--monte); color: var(--monte-accent); display: grid; place-items: center; }
+.bal-role__icon .bal-ico { width: 28px; height: 28px; }
+.bal-role__title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; }
+.bal-role__desc { margin: 2px 0 0; font-size: 14px; color: var(--ink-muted); }
+.bal-role__tag { display: inline-block; margin-top: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--nock-text); }
+.bal-role__chev { color: var(--ink-muted); }
+
+/* ---------- Encabezado del sitio ---------- */
+.bal-sitebar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bal-sitebar__in { max-width: 1200px; margin: 0 auto; height: 64px; padding: 0 var(--space-4); display: flex; align-items: center; gap: var(--space-6); }
+.bal-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.bal-brand img { width: 32px; height: 32px; }
+.bal-brand span { font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-weight: 700; font-size: 15px; line-height: 1.05; letter-spacing: -0.01em; }
+.bal-brand small { display: block; font-family: var(--font-sans); font-stretch: 100%; font-variation-settings: normal; font-weight: 500; font-size: 12px; color: var(--ink-muted); letter-spacing: 0; }
+.bal-nav { display: flex; gap: var(--space-1); }
+.bal-nav a { position: relative; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; font-weight: 500; text-decoration: none; color: var(--ink-muted); border-radius: var(--radius-sm); }
+.bal-nav a:hover { color: var(--ink); background: var(--surface-2); }
+.bal-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.bal-nav a[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -10px; height: 3px; border-radius: 3px 3px 0 0; background: var(--nock-text); }
+.bal-sitebar__end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
+
+/* ---------- Pie ---------- */
+.bal-footer { border-top: 1px solid var(--line); background: var(--surface); }
+.bal-footer__in { max-width: 1200px; margin: 0 auto; padding: var(--space-12) var(--space-4) var(--space-8); display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--space-8); }
+.bal-footer__logos { display: flex; gap: var(--space-3); align-items: center; }
+.bal-footer__logos img { width: 44px; height: 44px; }
+.bal-footer__logos img.bal-cba { background: #fff; border-radius: var(--radius-sm); padding: 4px; } /* placa blanca literal: el escudo es tinta oscura y desaparece sobre el tema oscuro (ver Footer.tsx) */
+.bal-footer h4 { margin: 0 0 var(--space-2); }
+.bal-footer ul { list-style: none; margin: 0; padding: 0; }
+.bal-footer li a { display: inline-flex; min-height: 36px; align-items: center; text-decoration: none; color: var(--ink); }
+.bal-footer li a:hover { color: var(--nock-text); }
+.bal-footer__legal { max-width: 1200px; margin: 0 auto; padding: var(--space-4); border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: var(--space-4); font-size: 13px; color: var(--ink-muted); }
+@media (max-width: 720px) { .bal-footer__in { grid-template-columns: 1fr 1fr; } .bal-footer__in > :first-child { grid-column: 1 / -1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es-AR" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Landing</title><link rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../componentes.css"><script>document.documentElement.dataset.theme=/oscuro/.test(location.search)?"dark":"light"</script><style>body{max-width:1280px;margin:0 auto;box-shadow:0 0 0 1px var(--line)}</style>
+<style>
+.pv { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.pv-col { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-4); }
+.hero { position: relative; overflow: hidden; background: var(--monte); color: var(--monte-ink); }
+.hero .rings { position: absolute; width: 900px; height: 900px; right: -260px; top: -200px; fill: none; stroke: var(--monte-line); stroke-width: 2; }
+.hero .rings .c { stroke: var(--monte-accent); stroke-width: 3; opacity: .5; }
+.hero__in { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; gap: var(--space-12); align-items: center; padding: var(--space-16) var(--space-4); max-width: 1200px; margin: 0 auto; }
+.hero .bal-eyebrow { color: var(--monte-muted); }
+.hero h1 { margin: var(--space-4) 0 var(--space-4); font-size: 64px; line-height: .95; font-weight: 800; letter-spacing: -0.02em; }
+.hero h1 em { font-style: normal; color: var(--monte-accent); }
+.hero p.lead { margin: 0; max-width: 480px; font-size: 18px; line-height: 1.55; color: var(--monte-muted); }
+.hero .ctas { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-8); }
+.hero__media { position: relative; }
+.hero__media img { display: block; width: 100%; height: auto; aspect-ratio: 4/3.2; object-fit: cover; border-radius: var(--radius-lg); }
+.live { position: absolute; left: -32px; bottom: -28px; width: 320px; background: var(--surface); color: var(--ink); border-radius: var(--radius-lg); border: 1px solid var(--line); box-shadow: var(--shadow-float); padding: var(--space-4); display: grid; grid-template-columns: auto 1fr; gap: var(--space-4); align-items: center; }
+.live h3 { margin: 6px 0 2px; font-size: 16px; line-height: 1.3; }
+.live p { margin: 0; font-size: 13px; color: var(--ink-muted); }
+.how { padding-top: var(--space-16); padding-bottom: var(--space-12); }
+.how__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); margin-top: var(--space-6); }
+.how__item { border-top: 2px solid var(--ink); padding-top: var(--space-4); }
+.how__item .n { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+.how__item h3 { margin: var(--space-2) 0 var(--space-1); font-size: 20px; }
+.how__item p { margin: 0; color: var(--ink-muted); font-size: 15px; }
+.sec { padding-top: var(--space-12); padding-bottom: var(--space-12); }
+.sec h2 { margin: var(--space-2) 0 var(--space-6); font-size: 32px; line-height: 1.1; }
+.tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.rank { display: grid; grid-template-columns: 320px 1fr; gap: var(--space-8); align-items: start; }
+.rank__tabs { display: flex; flex-direction: column; gap: var(--space-1); }
+.rank__tabs a { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 var(--space-3); border-radius: var(--radius-md); text-decoration: none; color: var(--ink); }
+.rank__tabs a:hover { background: var(--surface-2); }
+.rank__tabs a[aria-current="true"] { background: var(--nock-soft); font-weight: 600; }
+.rank__tabs .bal-mono { color: var(--ink-muted); }
+.mods { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+.mod { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-4); }
+.mod .glyph { width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--surface-2); color: var(--chip); display: grid; place-items: center; }
+.mod .glyph .bal-ico { width: 26px; height: 26px; }
+.mod h3 { margin: var(--space-4) 0 var(--space-1); font-size: 18px; }
+.mod p { margin: 0; font-size: 14px; color: var(--ink-muted); }
+.mod .tokens { margin-top: var(--space-3); display: flex; flex-wrap: wrap; gap: 4px; }
+.mod .tokens span { font-family: var(--font-mono); font-size: 12px; font-weight: 600; min-width: 28px; height: 24px; padding: 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; }
+.join { margin: var(--space-12) 0 var(--space-16); background: var(--nock-soft); border-radius: var(--radius-lg); padding: var(--space-12) var(--space-8); display: flex; justify-content: space-between; align-items: center; gap: var(--space-6); }
+.join h2 { margin: 0 0 var(--space-2); font-size: 32px; line-height: 1.1; }
+.join p { margin: 0; max-width: 520px; color: var(--ink); }
+@media (max-width: 760px) {
+  .bal-nav { display: none; }
+  .bal-brand small { display: none; }
+  .hero__in { grid-template-columns: 1fr; gap: var(--space-8); padding: var(--space-12) var(--space-4) var(--space-16); }
+  .hero h1 { font-size: 40px; }
+  .hero p.lead { font-size: 16px; }
+  .hero .ctas { flex-direction: column; }
+  .hero .ctas .bal-btn { width: 100%; }
+  .hero__media img { aspect-ratio: 4/3; }
+  .hero .rings { width: 560px; height: 560px; right: -260px; top: -140px; }
+  .live { left: 12px; right: 12px; width: auto; bottom: -40px; }
+  .how { padding-top: var(--space-16); }
+  .how__grid, .tgrid, .mods { grid-template-columns: 1fr; }
+  .mods { grid-template-columns: 1fr 1fr; }
+  .rank { grid-template-columns: 1fr; gap: var(--space-4); }
+  .rank__tabs { flex-direction: row; overflow-x: auto; }
+  .rank__tabs a { white-space: nowrap; }
+  .rank__tabs .bal-mono { display: none; }
+  .sec h2, .join h2 { font-size: 26px; }
+  .join { flex-direction: column; align-items: flex-start; padding: var(--space-8) var(--space-6); }
+  .join .bal-btn { width: 100%; }
+}
+
+</style></head>
+<body class="">
+<header class="bal-sitebar"><div class="bal-sitebar__in">
+ <a class="bal-brand" href="#"><img src="../../../../../packages/ui/assets/liga.svg" alt=""><span>Liga Bahiense<small>de Arquería</small></span></a>
+ <nav class="bal-nav" aria-label="Principal"><a href="#" aria-current="page">Inicio</a><a href="#">Ranking</a><a href="#">Torneos</a><a href="#">Sumate</a></nav>
+ <div class="bal-sitebar__end"><button class="bal-iconbtn" aria-label="Cambiar a tema oscuro"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.7 6.7 0 0 0 10.5 10.5Z" /></svg></button><a class="bal-btn bal-btn--secundario bal-btn--sm" href="#">Ingresar</a></div>
+</div></header>
+<main>
+<section class="hero">
+ <svg class="rings" viewBox="0 0 800 800" aria-hidden="true">
+<circle cx="400" cy="400" r="390"/><circle cx="400" cy="400" r="310"/><circle cx="400" cy="400" r="230"/><circle cx="400" cy="400" r="150"/><circle class="c" cx="400" cy="400" r="70"/></svg>
+ <div class="hero__in">
+  <div>
+   <span class="bal-eyebrow">Temporada 2026 · Bahía Blanca</span>
+   <h1 class="bal-display">La liga de <em>arquería</em> de Bahía&nbsp;Blanca.</h1>
+   <p class="lead">Un torneo por mes, un recorrido por el monte. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.</p>
+   <div class="ctas"><a class="bal-btn bal-btn--primario bal-btn--lg" href="#">Ver el ranking<svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a><a class="bal-btn bal-btn--sobre-monte bal-btn--lg" href="#">Torneos</a></div>
+  </div>
+  <div class="hero__media">
+   <img src="../../../../../packages/ui/assets/portada.webp" alt="" width="1120" height="630">
+   <a class="live" href="#" style="text-decoration:none"><div class="bal-ring" role="img" aria-label="2 de 6 blancos cargados"><svg width="76" height="76" viewBox="0 0 76 76"><path class="seg ok" style="stroke-width:8" d="M39.12 6.02 A32.00 32.00 0 0 1 65.14 21.04"/><path class="seg ok" style="stroke-width:8" d="M66.25 22.98 A32.00 32.00 0 0 1 66.25 53.02"/><path class="seg" style="stroke-width:8" d="M65.14 54.96 A32.00 32.00 0 0 1 39.12 69.98"/><path class="seg" style="stroke-width:8" d="M36.88 69.98 A32.00 32.00 0 0 1 10.86 54.96"/><path class="seg" style="stroke-width:8" d="M9.75 53.02 A32.00 32.00 0 0 1 9.75 22.98"/><path class="seg" style="stroke-width:8" d="M10.86 21.04 A32.00 32.00 0 0 1 36.88 6.02"/><path class="start" d="M33.0 0 h10 l-5 6 z"/></svg></div><div><span class="bal-status bal-status--vivo">En curso</span><h3>3ª fecha · Sierra de la Ventana</h3><p>3 patrullas en el recorrido</p></div></a>
+  </div>
+ </div>
+</section>
+
+<section class="how wrap" aria-labelledby="como">
+ <span class="bal-eyebrow" id="como">Cómo se juega</span>
+ <div class="how__grid">
+  <div class="how__item"><span class="n">01</span><h3>Un recorrido multitarget</h3><p>Cada fecha es una vuelta por el predio con blancos de sala, aire libre, campo y 3D.</p></div>
+  <div class="how__item"><span class="n">02</span><h3>En patrullas</h3><p>Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, con o sin señal.</p></div>
+  <div class="how__item"><span class="n">03</span><h3>Ranking por categoría</h3><p>Suman las mejores fechas de la temporada, normalizadas para comparar recorridos distintos.</p></div>
+ </div>
+</section>
+
+<section class="sec wrap" aria-labelledby="fechas">
+ <div class="bal-section-head"><span class="bal-eyebrow">Fechas de la temporada</span><span class="bal-count">3</span><a class="bal-link" href="#">Ver todas<svg class="bal-ico bal-ico--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a></div>
+ <h2 class="bal-display" id="fechas">Torneos</h2>
+ <div class="tgrid"><a class="bal-card bal-tcard" href="#">
+  <div class="bal-tcard__top"><span class="bal-status bal-status--vivo">En curso</span><span class="bal-mono bal-muted">08/08/2026</span></div>
+  <div><h3 class="bal-tcard__title">3ª fecha · Sierra de la Ventana</h3><p class="bal-tcard__meta">6 blancos · 8 arqueros · 3 patrullas</p></div>
+  <div class="bal-modbar"><div class="bal-modbar__track" role="img" aria-label="Distribución de modalidades: Campo 33%, 3D 33%, 18 m 17%, Aire libre 17%"><span style="--chip:var(--mod-campo);flex:33"></span><span style="--chip:var(--mod-3d);flex:33"></span><span style="--chip:var(--mod-sala);flex:17"></span><span style="--chip:var(--mod-aire-libre);flex:17"></span></div><div class="bal-modbar__legend"><span style="--chip:var(--mod-campo)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 10h2.5L3 16h10L9.5 10H12L8 3Z" /> <path d="M8 16v4" /> <path d="M16 8l-2.5 4.5H15L13 17h6l-2-4.5h1.5L16 8Z" /> <path d="M16 17v3" /></svg>Campo <b>33%</b></span><span style="--chip:var(--mod-3d)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l2 3M9 4L7 7" /> <path d="M7 7c-1.5 0-2.5 1.2-2.5 2.7 0 1.3 1 2.3 2.3 2.3" /> <path d="M7 12v4.5a1.5 1.5 0 0 0 1.5 1.5h.5" /> <path d="M7 9.5h7.5c2.2 0 3.5 1.4 3.5 3.4V18" /> <path d="M11 18v-3" /> <path d="M18 18v-3" /></svg>3D <b>33%</b></span><span style="--chip:var(--mod-sala)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /> <circle cx="12" cy="12" r="5.5" /> <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /></svg>18 m <b>17%</b></span><span style="--chip:var(--mod-aire-libre)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11" r="4" /> <path d="M12 2.5V4M12 18v1.5M4.2 11H2.7M21.3 11h-1.5M6.4 5.4 5.3 4.3M18.7 4.3l-1.1 1.1" /> <path d="M3 20.5h18" /></svg>Aire libre <b>17%</b></span></div></div>
+  <div class="bal-tcard__foot"><span class="bal-muted">Ver en vivo</span><span class="bal-link" style="min-height:auto"><svg class="bal-ico bal-ico--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></div>
+</a><a class="bal-card bal-tcard" href="#">
+  <div class="bal-tcard__top"><span class="bal-status bal-status--oficial">Resultados oficiales</span><span class="bal-mono bal-muted">12/07/2026</span></div>
+  <div><h3 class="bal-tcard__title">2ª fecha · Predio CBA</h3><p class="bal-tcard__meta">4 blancos · 12 arqueros</p></div>
+  <div class="bal-modbar"><div class="bal-modbar__track" role="img" aria-label="Distribución de modalidades: 18 m 50%, 3D 50%"><span style="--chip:var(--mod-sala);flex:50"></span><span style="--chip:var(--mod-3d);flex:50"></span></div><div class="bal-modbar__legend"><span style="--chip:var(--mod-sala)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /> <circle cx="12" cy="12" r="5.5" /> <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /></svg>18 m <b>50%</b></span><span style="--chip:var(--mod-3d)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l2 3M9 4L7 7" /> <path d="M7 7c-1.5 0-2.5 1.2-2.5 2.7 0 1.3 1 2.3 2.3 2.3" /> <path d="M7 12v4.5a1.5 1.5 0 0 0 1.5 1.5h.5" /> <path d="M7 9.5h7.5c2.2 0 3.5 1.4 3.5 3.4V18" /> <path d="M11 18v-3" /> <path d="M18 18v-3" /></svg>3D <b>50%</b></span></div></div>
+  <div class="bal-tcard__foot"><span class="bal-muted">Podios y estadísticas</span><span class="bal-link" style="min-height:auto"><svg class="bal-ico bal-ico--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></div>
+</a><a class="bal-card bal-tcard" href="#">
+  <div class="bal-tcard__top"><span class="bal-status bal-status--oficial">Resultados oficiales</span><span class="bal-mono bal-muted">14/06/2026</span></div>
+  <div><h3 class="bal-tcard__title">1ª fecha · Apertura</h3><p class="bal-tcard__meta">5 blancos · 10 arqueros</p></div>
+  <div class="bal-modbar"><div class="bal-modbar__track" role="img" aria-label="Distribución de modalidades: Aire libre 40%, Campo 40%, 18 m 20%"><span style="--chip:var(--mod-aire-libre);flex:40"></span><span style="--chip:var(--mod-campo);flex:40"></span><span style="--chip:var(--mod-sala);flex:20"></span></div><div class="bal-modbar__legend"><span style="--chip:var(--mod-aire-libre)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11" r="4" /> <path d="M12 2.5V4M12 18v1.5M4.2 11H2.7M21.3 11h-1.5M6.4 5.4 5.3 4.3M18.7 4.3l-1.1 1.1" /> <path d="M3 20.5h18" /></svg>Aire libre <b>40%</b></span><span style="--chip:var(--mod-campo)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 10h2.5L3 16h10L9.5 10H12L8 3Z" /> <path d="M8 16v4" /> <path d="M16 8l-2.5 4.5H15L13 17h6l-2-4.5h1.5L16 8Z" /> <path d="M16 17v3" /></svg>Campo <b>40%</b></span><span style="--chip:var(--mod-sala)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /> <circle cx="12" cy="12" r="5.5" /> <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /></svg>18 m <b>20%</b></span></div></div>
+  <div class="bal-tcard__foot"><span class="bal-muted">Podios y estadísticas</span><span class="bal-link" style="min-height:auto"><svg class="bal-ico bal-ico--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></div>
+</a></div>
+</section>
+
+<section class="sec wrap" aria-labelledby="ranking">
+ <div class="bal-section-head"><span class="bal-eyebrow">Ranking de la liga</span><a class="bal-link" href="#">Ranking completo<svg class="bal-ico bal-ico--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a></div>
+ <h2 class="bal-display" id="ranking">Quién va adelante</h2>
+ <div class="rank"><nav class="rank__tabs" aria-label="Categorías"><a href="#" aria-current="true"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-recurvo)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="12" r="2.2" /> <path d="M10.7 12H21" /> <path d="M7 10.3 3.5 6.8" /> <path d="M7 13.7 3.5 17.2" /></svg><span style="color:var(--ink)">Recurvo olímpico</span></span><span class="bal-mono">14</span></a><a href="#"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-compuesto)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5" /> <path d="M12 4.5V12" /> <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /></svg><span style="color:var(--ink)">Compuesto libre</span></span><span class="bal-mono">9</span></a><a href="#"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-cazador)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /> <path d="M4.5 9H12M4.5 12H12M4.5 15H12" /> <circle cx="13" cy="9" r="0.9" fill="currentColor" stroke="none" /> <circle cx="13" cy="12" r="0.9" fill="currentColor" stroke="none" /> <circle cx="13" cy="15" r="0.9" fill="currentColor" stroke="none" /></svg><span style="color:var(--ink)">Compuesto cazador</span></span><span class="bal-mono">6</span></a><a href="#"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-tradicional)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3C16 7 16 17 9 21" /> <path d="M9 3C4 3.5 4.5 7 9.5 7" /> <path d="M9 21C4 20.5 4.5 17 9.5 17" /> <path d="M9 3V21" /></svg><span style="color:var(--ink)">Tradicional</span></span><span class="bal-mono">7</span></a><a href="#"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-longbow)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2C17 8 17 16 9 22" /> <path d="M9 2V22" /></svg><span style="color:var(--ink)">Longbow</span></span><span class="bal-mono">4</span></a><a href="#"><span style="display:flex;gap:10px;align-items:center;color:var(--cat-razo)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 21 3" /> <path d="M21 3h-5.5M21 3v5.5" /> <path d="M6.5 17.5 3 21l3.5-.5" /></svg><span style="color:var(--ink)">Razo</span></span><span class="bal-mono">5</span></a></nav>
+<div>
+<table class="bal-rank">
+ <thead><tr><th>#</th><th>Arquero</th><th>Fechas</th><th class="pts">Puntos</th></tr></thead>
+ <tbody>
+  <tr class="podio"><td class="pos"><span>1</span></td><td><a href="#">Esquivel, Julián</a></td><td class="bal-mono">3/3</td><td class="pts">94,2%</td></tr>
+  <tr class="podio"><td class="pos"><span>2</span></td><td><a href="#">Ferreyra, Camila</a></td><td class="bal-mono">3/3</td><td class="pts">91,8%</td></tr>
+  <tr class="podio"><td class="pos"><span>3</span></td><td><a href="#">Gauna, Martín</a></td><td class="bal-mono">2/3</td><td class="pts">88,5%</td></tr>
+  <tr><td class="pos">4</td><td><a href="#">Ibarra, Lucía</a></td><td class="bal-mono">3/3</td><td class="pts">85,0%</td></tr>
+  <tr><td class="pos">5</td><td><a href="#">Paz, Tomás</a></td><td class="bal-mono">2/3</td><td class="pts">79,4%</td></tr>
+ </tbody>
+</table></div></div>
+</section>
+
+<section class="sec wrap" aria-labelledby="modalidades">
+ <div class="bal-section-head"><span class="bal-eyebrow">Modalidades</span></div>
+ <h2 class="bal-display" id="modalidades">Cuatro escenarios, un recorrido</h2>
+ <div class="mods"><div class="mod" style="--chip:var(--mod-sala)"><div class="glyph"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /> <circle cx="12" cy="12" r="5.5" /> <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /></svg></div><h3>Sala 18 m</h3><p>Bajo techo, cara de 10 zonas.</p><div class="tokens"><span>X</span><span>10</span><span>9</span><span>8</span><span>…</span><span>M</span></div></div><div class="mod" style="--chip:var(--mod-aire-libre)"><div class="glyph"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="11" r="4" /> <path d="M12 2.5V4M12 18v1.5M4.2 11H2.7M21.3 11h-1.5M6.4 5.4 5.3 4.3M18.7 4.3l-1.1 1.1" /> <path d="M3 20.5h18" /></svg></div><h3>Aire libre</h3><p>Distancia larga según la estaca.</p><div class="tokens"><span>X</span><span>10</span><span>9</span><span>…</span><span>1</span><span>M</span></div></div><div class="mod" style="--chip:var(--mod-campo)"><div class="glyph"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 10h2.5L3 16h10L9.5 10H12L8 3Z" /> <path d="M8 16v4" /> <path d="M16 8l-2.5 4.5H15L13 17h6l-2-4.5h1.5L16 8Z" /> <path d="M16 17v3" /></svg></div><h3>Juego de campo</h3><p>Cara negra con centro amarillo.</p><div class="tokens"><span>X6</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>M</span></div></div><div class="mod" style="--chip:var(--mod-3d)"><div class="glyph"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l2 3M9 4L7 7" /> <path d="M7 7c-1.5 0-2.5 1.2-2.5 2.7 0 1.3 1 2.3 2.3 2.3" /> <path d="M7 12v4.5a1.5 1.5 0 0 0 1.5 1.5h.5" /> <path d="M7 9.5h7.5c2.2 0 3.5 1.4 3.5 3.4V18" /> <path d="M11 18v-3" /> <path d="M18 18v-3" /></svg></div><h3>3D</h3><p>Siluetas de animales en el monte.</p><div class="tokens"><span>11</span><span>10</span><span>8</span><span>5</span><span>M</span></div></div></div>
+</section>
+
+<section class="wrap"><div class="join">
+ <div><h2 class="bal-display">Sumate al padrón</h2><p>Dejá tus datos y el club revisa tu alta antes de habilitarla. Después ya podés competir en la próxima fecha.</p></div>
+ <a class="bal-btn bal-btn--primario bal-btn--lg" href="#">Sumarme al padrón<svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+</div></section>
+</main>
+<footer class="bal-footer">
+ <div class="bal-footer__in">
+  <div><div class="bal-footer__logos"><img class="bal-cba" src="../../../../../packages/ui/assets/cba.webp" alt="Círculo Bahiense de Arquería"><img src="../../../../../packages/ui/assets/liga.svg" alt=""></div>
+   <p class="bal-muted" style="max-width:340px;font-size:14px;margin:12px 0 0">Liga Bahiense de Arquería. Un torneo por mes en Bahía Blanca: recorridos multitarget con sala, aire libre, campo y 3D.</p></div>
+  <div><h4 class="bal-eyebrow">La liga</h4><ul><li><a href="#">Ranking</a></li><li><a href="#">Torneos</a></li><li><a href="#">Sumate al padrón</a></li></ul></div>
+  <div><h4 class="bal-eyebrow">Acceso</h4><ul><li><a href="#">Líderes de patrulla</a></li><li><a href="#">Administración</a></li></ul></div>
+ </div>
+ <div class="bal-footer__legal"><span>Círculo Bahiense de Arquería · Bahía Blanca</span><span class="bal-mono">Temporada 2026</span></div>
+</footer>
+</body>
+</html>

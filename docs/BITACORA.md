@@ -14,6 +14,32 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-08 · `ref-7` — Informe y plan del rediseño visual
+
+**Autor:** Claude Opus 5.5 · **Estado:** solo documentación, en la rama `design/ref-7-rediseno`. Ningún cambio de código.
+
+### Qué se hizo
+
+Revisión visual de las tres apps, a pedido del autor: «mejorar el diseño para que sea más profesional; diseño completamente nuevo para la landing y `/app` (prioridad absoluta); cambios simples y de alto impacto en Líder y Admin; mejorar la UI/UX general». Quedó en [`post/ref-7/`](post/ref-7/README.md):
+
+- [`INFORME.md`](post/ref-7/INFORME.md): 26 hallazgos con ID y las 6 decisiones a confirmar.
+- [`ACTION_PLAN.md`](post/ref-7/ACTION_PLAN.md): 13 tandas `REF7-N`.
+- [`DISENO.md`](post/ref-7/DISENO.md): la especificación con valores exactos.
+- [`referencia/`](post/ref-7/referencia/index.html): las pantallas y los componentes propuestos en HTML, con capturas.
+
+### Hallazgos que conviene saber aunque no se implemente nada
+
+- **Las fuentes nunca cargaron.** No hay `@font-face` en el repo y `'Archivo Expanded'` no existe como familia (el ancho es un eje de Archivo variable). Todo se ve en la fuente del sistema. → `REF7-1`.
+- **El foco en el tema claro da 2.59:1** (`--nock` sobre `--bg`), por debajo del 3:1. El comentario de `tokens.css` asumía que el foco estaba bien. → `REF7-2`.
+- **El borde de los controles da 1.3:1**, el **botón de peligro en oscuro** ~3:1 y el **badge "Completado, sin publicar" en claro** 2.59:1. → `REF7-2` y `REF7-4`.
+- **En WAFL, el pie con los logos queda entre la lista y el teclado de scoring.** → `REF7-10`.
+
+### Decisiones
+
+Ninguna tomada todavía: las 6 de `INFORME.md` §5 se confirman antes de cada tanda. Los valores existentes de `DESIGN_SYSTEM.md` §2.1 **no cambian**: solo se agregan tokens. `DESIGN_SYSTEM.md` se actualiza en `REF7-11`, cuando lo implementado lo justifique.
+
+---
+
 ## 2026-11-04 · Tercer CI de la PR 80: una carrera del test al cerrar el circuito
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** sigue la serie de correcciones de la PR 80; no es una tanda nueva.
