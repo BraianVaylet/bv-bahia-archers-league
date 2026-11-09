@@ -14,6 +14,25 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La puerta de `DISENO.md` §5.3 (`P-1`): a la izquierda (arriba en el celular) la banda `monte` con la marca, los anillos de fondo y la promesa «Anotá, sincronizá y publicá.»; a la derecha «¿Cómo entrás hoy?» (`h1`) con dos `TarjetaDeRol` que dicen qué hace cada app —la de líder es la principal, con «Funciona sin señal»—, la salida a la landing en verde con su flecha, «Instalá la app» como tarjeta de borde punteado y el pie con el club.
+
+**Decisiones:**
+- `TarjetaDeRol` (el `RoleCard` de §4.15) vive en `app/src/components/`: sólo la usa la puerta. El título va primero en el DOM, así el nombre accesible empieza por «Soy líder de patrulla» y el E2E de `ingreso` lo sigue encontrando.
+- **Los anillos no pasan por detrás del texto**, medido con geometría (cada círculo contra la caja de cada texto del panel) a 360, 390, 768, 1024 y 1280. Los valores de la spec (760px a la derecha y arriba) cruzaban la marca con el panel angosto: se usan sólo desde 1280; entre 760 y 1280 van de 400px, y en el celular de 280px (con los 420px de la spec el anillo exterior cruzaba la promesa).
+- `InstalarApp` sólo cambió la piel y la copia («Instalá la app · Abre directo acá y funciona sin señal.» y el botón «Instalar»); `beforeinstallprompt`, la explicación de iOS y el diálogo no se tocaron. Los tests que buscaban «Instalar la app» buscan «Instalar».
+- `VolverALaLiga` es un enlace en `--nock-text` con `IconoVolver` también en los dos logins (centrado ahí; al principio de la línea en la puerta).
+- **La versión no se muestra en el pie**: no hay ninguna expuesta en el código (§5.3 dice «si está disponible»).
+- `transition-colors` animaba también el color del anillo de foco: al llegar con Tab, el anillo arrancaba en el color del texto y tardaba 120ms en volverse verde. La tarjeta de rol y la tarjeta-enlace (`clasesDeTarjeta`) transicionan sólo fondo y borde.
+
+**Desvíos:** ninguno respecto del alcance.
+**Tests:** 8 casos nuevos en `components/puerta.test.tsx` (h1, qué hace cada rol con el título primero, la principal con «Funciona sin señal», 96px de alto, la promesa en el panel, la salida verde con flecha, el pie y la tarjeta de instalar), vistos fallar.
+
+---
+
 ## 2026-11-09 · `REF7-6` — Landing: portada nueva
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

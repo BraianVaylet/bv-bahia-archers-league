@@ -156,17 +156,17 @@ REF7-3 ─┘           │           └─→ REF7-8
 **DoD:** a 1280 y 390 px, en claro y oscuro, coincide con `referencia/capturas/` · `landing.test.tsx` cubre: con torneo en curso, sin torneo en curso, sin torneos, ranking vacío y error de una sección · `web-design-guidelines` sin issues críticos · el bundle de la landing sigue dentro del presupuesto (120 KB gz, `TECHNICAL.md`).
 **Cuidado:** la portada hace hasta 4 pedidos. Que salgan **en paralelo**, y que ninguno bloquee el render del hero.
 
-### `[ ] REF7-7` · Puerta `/app` nueva · **P0** · M
+### `[x] REF7-7` · Puerta `/app` nueva · **P0** · M
 
 **Hallazgo:** `P-1`. **Spec:** `DISENO.md` §4.15 y §5.3. **Objetivo visual:** `referencia/pantallas/Puerta.html` y `PuertaMovil.html`.
 **Archivos:** `packages/app/src/App.tsx` (`Elegir`), `packages/app/src/components/InstalarApp.tsx`, `packages/app/src/components/VolverALaLiga.tsx`, `RoleCard` nuevo en `packages/app/src/components/` (no es compartido), `packages/app/src/navegacion.test.tsx`, `e2e/ingreso.spec.ts`.
 
-- [ ] Panel `monte` con marca, anillos (que **no** pasen por detrás del texto) y promesa
-- [ ] "¿Cómo entrás hoy?" como `h1` con foco
-- [ ] Dos `RoleCard` (líder principal con el tag "FUNCIONA SIN SEÑAL")
-- [ ] `VolverALaLiga` como enlace `--nock-text` con `IconoVolver`
-- [ ] `InstalarApp` con la piel nueva, **sin tocar su lógica** (`beforeinstallprompt` e iOS)
-- [ ] Pie de la caja con "Círculo Bahiense de Arquería" y la versión si está disponible
+- [x] Panel `monte` con marca, anillos (que **no** pasen por detrás del texto) y promesa
+- [x] "¿Cómo entrás hoy?" como `h1` con foco
+- [x] Dos `RoleCard` (líder principal con el tag "FUNCIONA SIN SEÑAL")
+- [x] `VolverALaLiga` como enlace `--nock-text` con `IconoVolver`
+- [x] `InstalarApp` con la piel nueva, **sin tocar su lógica** (`beforeinstallprompt` e iOS)
+- [x] Pie de la caja con "Círculo Bahiense de Arquería" y la versión si está disponible
 
 **DoD:** a 1280 y 390 px, en claro y oscuro, coincide con la referencia · `e2e/ingreso.spec.ts` verde (`getByRole('link', { name: 'Soy líder de patrulla' })` busca por subcadena) · cada `RoleCard` mide ≥ 96px de alto · se navega por teclado con el foco visible.
 
