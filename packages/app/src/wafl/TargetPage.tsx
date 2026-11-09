@@ -167,9 +167,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
       <Screen conBarraFija>
         <div className="flex items-baseline gap-3 pt-2">
-          <h1 className="font-display text-[var(--text-display)] font-bold">
-            Blanco {target.index}
-          </h1>
+          <h1 className="font-display text-display font-bold">Blanco {target.index}</h1>
           <p className="text-[var(--ink-muted)]">
             {SCORING[target.modality].label} · {target.arrows}{' '}
             {target.arrows === 1 ? 'flecha' : 'flechas'}

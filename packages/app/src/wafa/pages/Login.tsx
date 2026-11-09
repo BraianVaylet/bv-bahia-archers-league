@@ -58,7 +58,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
   return (
     <Screen>
       <div className="pt-10 pb-2">
-        <h1 className="font-display text-[var(--text-display)] font-bold flex items-center gap-3">
+        <h1 className="font-display text-display font-bold flex items-center gap-3">
           <Logo size={40} className="shrink-0" />
           WAFA
         </h1>

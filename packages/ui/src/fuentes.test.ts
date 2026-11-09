@@ -118,4 +118,20 @@ describe('quien usa la tipografía display', () => {
 
     expect(conLaClaseVieja).toEqual([]);
   });
+
+  /**
+   * El mismo problema con el tamaño (`REF7-2`, hallado en `REF7-1`). Con un `var()` en un valor
+   * arbitrario, `text-[…]` es ambiguo entre color y tamaño, y Tailwind 4 elige **color**: el
+   * tamaño no se aplica. Los `h1` de las tres apps medían 16px y no 32. Cada token de la escala
+   * genera su utilidad (`text-display`, `text-score`, `text-h2`…), que es lo que se usa.
+   */
+  const TAMAÑO_ARBITRARIO = ['text-[var(', '--text-'].join('');
+
+  it('nadie pide un tamaño de la escala con un valor arbitrario', () => {
+    const conTamañoArbitrario = archivos
+      .filter((ruta) => readFileSync(ruta, 'utf8').includes(TAMAÑO_ARBITRARIO))
+      .map((ruta) => ruta.split('packages')[1]);
+
+    expect(conTamañoArbitrario).toEqual([]);
+  });
 });

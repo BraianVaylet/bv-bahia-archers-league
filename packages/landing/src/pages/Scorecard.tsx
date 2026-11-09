@@ -142,7 +142,7 @@ export function ScorecardPage() {
           ← {t.tournament.name}
         </Link>
 
-        <h1 className="font-display text-[var(--text-display)] font-bold">
+        <h1 className="font-display text-display font-bold">
           {t.archer.lastName}, {t.archer.firstName}
         </h1>
 

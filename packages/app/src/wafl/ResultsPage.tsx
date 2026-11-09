@@ -120,7 +120,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
       </Encabezado>
 
       <Screen conBarraFija>
-        <h1 className="pt-2 font-display text-[var(--text-display)] font-bold">Resultados</h1>
+        <h1 className="pt-2 font-display text-display font-bold">Resultados</h1>
 
         {aviso && (
           <p role="alert" className="text-[var(--warn)] text-sm">

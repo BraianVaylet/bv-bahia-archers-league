@@ -33,7 +33,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
       <Encabezado titulo="Patrullas" onVolver={onVolver} />
 
       <Screen conBarraFija>
-        <h1 className="pt-2 font-display text-[var(--text-display)] font-bold">
+        <h1 className="pt-2 font-display text-display font-bold">
           {p.torneo?.name ?? 'Patrullas'}
         </h1>
 

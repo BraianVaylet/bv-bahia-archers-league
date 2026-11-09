@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-2` — Tokens nuevos y contraste
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Los 13 tokens de `DISENO.md` §2.2 en los dos temas, la escala tipográfica completa en `@theme` (`text-hero`, `text-h2`, `text-h3`, `text-sm`, `text-mono`, `text-eyebrow`, con interlineado, peso y tracking) y `--radius-full`. El foco pasa de `--nock` a `--focus-ring` (`A-1`: 2.59:1 → 6.19:1 en claro). Ningún valor existente cambió: en `tokens.css` sólo se quitaron las dos líneas del `:focus-visible`.
+
+**Decisiones:**
+- **Los `h1` vuelven a medir 32px.** Los 21 `text-[var(--text-display)]` / `text-[var(--text-score)]` pasaron a `text-display` / `text-score` (hallazgo de `REF7-1`: Tailwind 4 tomaba el valor arbitrario como color). Es un cambio visible en todas las pantallas con título: es el tamaño que `DESIGN_SYSTEM.md` §3 siempre pidió, no uno nuevo.
+- Los tokens nuevos de la escala llevan el peso (`--text-h2--font-weight: 700`…); un `font-*` explícito al lado gana. A `--text-score` y `--text-display` **no** se les agregó peso, para no cambiar valores existentes: los usos ya llevan `font-bold`.
+- `--text-sm` pisa el `text-sm` de Tailwind: el interlineado pasa de 1.43 a 1.45 en todos los metadatos. Es el valor de §3.2.
+- El test de contraste cubre, además de la tabla de §2.3, los puntos de `BadgeEstado` (marca, 3:1) y el texto de estado de `SyncBadge` y de los errores (4.5:1) sobre `bg` y `surface`, que `REF7-4` va a usar.
+
+**Deuda:** `--danger` como **texto** sobre `--surface-2` en oscuro da **4.42:1** (pide 4.5). Hoy no hay texto de error sobre `surface-2`, así que no entró al test; si aparece uno, hay que oscurecer o usar `--surface`.
+**Tests:** `ui/src/contraste.test.ts` (87 casos, visto fallar 43 antes): todos los pares de §2.3 en los dos temas leyendo `tokens.css`, el foco con `--focus-ring` y las dos sombras en los dos temas. `fuentes.test.ts` suma un caso que prohíbe `text-[var(--text-…)]` en los `.tsx` (visto fallar con los 21 usos). `paleta.test.ts` y `accion-primaria.test.ts` siguen verdes.
+
+---
+
 ## 2026-11-09 · `REF7-1` — Fuentes autohospedadas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

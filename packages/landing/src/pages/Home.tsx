@@ -40,9 +40,7 @@ export function HomePage() {
       />
 
       <div>
-        <h1 className="font-display text-[var(--text-display)] font-bold">
-          Liga Bahiense de Arquería
-        </h1>
+        <h1 className="font-display text-display font-bold">Liga Bahiense de Arquería</h1>
         <p className="pt-1 text-[var(--ink-muted)]">
           Club Bahiense de Arquería · Bahía Blanca. Resultados, rankings y estadísticas de la
           temporada.

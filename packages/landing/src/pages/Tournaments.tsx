@@ -108,7 +108,7 @@ export function TournamentsPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-display text-[var(--text-display)] font-bold">Torneos</h1>
+        <h1 className="font-display text-display font-bold">Torneos</h1>
       </div>
 
       {torneos.estado === 'cargando' && <Cargando />}
@@ -272,7 +272,7 @@ export function TournamentPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-display text-[var(--text-display)] font-bold">{t.name}</h1>
+        <h1 className="font-display text-display font-bold">{t.name}</h1>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <EstadoChip status={t.status} />
 

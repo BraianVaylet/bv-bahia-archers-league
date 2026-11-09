@@ -96,9 +96,7 @@ export function CircuitPage({
 
       <Screen conBarraFija>
         <div className="pt-2">
-          <h1 className="font-display text-[var(--text-display)] font-bold">
-            {bundle.tournament.name}
-          </h1>
+          <h1 className="font-display text-display font-bold">{bundle.tournament.name}</h1>
           <p className="text-[var(--ink-muted)]">
             {completos.size} de {bundle.tournament.targets.length} blancos · arrancás en el{' '}
             {bundle.patrol.startTargetIndex}

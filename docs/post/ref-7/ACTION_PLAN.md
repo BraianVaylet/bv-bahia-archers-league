@@ -78,17 +78,17 @@ REF7-3 ─┘           │           └─→ REF7-8
 **DoD:** en el deploy, DevTools → Rendered Fonts muestra "Archivo Variable" en el cuerpo y en los títulos · `pnpm build` de app y landing sin warnings de fuentes · la CSP no cambia y el E2E `tema-sin-parpadeo` sigue sin violaciones · con la PWA instalada y en modo avión, los títulos siguen en Archivo.
 **Riesgo:** el peso. Son ~128 KB de woff2 (latin), y con `unicode-range` no se baja nada que no se use. Se verifica contra los presupuestos de `TECHNICAL.md`.
 
-### `[ ] REF7-2` · Tokens nuevos y contraste · **P0** · S
+### `[x] REF7-2` · Tokens nuevos y contraste · **P0** · S
 
 **Hallazgos:** `A-1`, `A-2`, `A-3`, `D-2`. **Spec:** `DISENO.md` §2.2, §2.3 y §3.2.
 **Archivos:** `packages/ui/styles/tokens.css`, `packages/ui/src/accion-primaria.test.ts` (o uno nuevo, `contraste.test.ts`).
 
-- [ ] Agregar en claro y oscuro: `--line-strong`, `--nock-text`, `--nock-soft`, `--focus-ring`, `--danger-ink`, `--monte`, `--monte-2`, `--monte-line`, `--monte-ink`, `--monte-muted`, `--monte-accent`, `--shadow-dock` y `--shadow-float` (valores en §2.2)
-- [ ] Agregar a `@theme`: `--radius-full`, `--text-hero`, `--text-h2`, `--text-h3`, `--text-sm`, `--text-mono`, `--text-eyebrow` (§3.2)
-- [ ] **Hallazgo de `REF7-1`:** `text-[var(--text-display)]` y `text-[var(--text-score)]` no aplican el tamaño (Tailwind 4 toma un `var()` arbitrario como color: los `h1` miden 16px). Reemplazarlos por `text-display` / `text-score`, y un test que prohíba `text-[var(--text-` en los `.tsx` (como el de `fuentes.test.ts`)
-- [ ] `:focus-visible { outline: 3px solid var(--focus-ring) }` (antes `--nock`)
-- [ ] Comentario en `tokens.css` que explique por qué el foco dejó de ser `--nock` (2.59:1)
-- [ ] **Primero el test, y se lo ve fallar:** cada par de la tabla §2.3 en los dos temas, leyendo `tokens.css`. Mínimo 4.5 para texto y 3 para bordes, foco y marcas
+- [x] Agregar en claro y oscuro: `--line-strong`, `--nock-text`, `--nock-soft`, `--focus-ring`, `--danger-ink`, `--monte`, `--monte-2`, `--monte-line`, `--monte-ink`, `--monte-muted`, `--monte-accent`, `--shadow-dock` y `--shadow-float` (valores en §2.2)
+- [x] Agregar a `@theme`: `--radius-full`, `--text-hero`, `--text-h2`, `--text-h3`, `--text-sm`, `--text-mono`, `--text-eyebrow` (§3.2)
+- [x] **Hallazgo de `REF7-1`:** `text-[var(--text-display)]` y `text-[var(--text-score)]` no aplican el tamaño (Tailwind 4 toma un `var()` arbitrario como color: los `h1` miden 16px). Reemplazarlos por `text-display` / `text-score`, y un test que prohíba `text-[var(--text-` en los `.tsx` (como el de `fuentes.test.ts`)
+- [x] `:focus-visible { outline: 3px solid var(--focus-ring) }` (antes `--nock`)
+- [x] Comentario en `tokens.css` que explique por qué el foco dejó de ser `--nock` (2.59:1)
+- [x] **Primero el test, y se lo ve fallar:** cada par de la tabla §2.3 en los dos temas, leyendo `tokens.css`. Mínimo 4.5 para texto y 3 para bordes, foco y marcas
 
 **DoD:** test de contraste verde con todos los pares de §2.3 · `paleta.test.ts` sigue verde · ningún valor existente cambió (verificar con `git diff` que solo hay líneas agregadas, salvo el `:focus-visible`).
 

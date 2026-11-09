@@ -186,9 +186,7 @@ export function SignaturePad({ nombre, total, onFirmar, onCancelar }: SignatureP
       {/* El puntaje va ARRIBA del canvas: se firma lo que se está viendo. */}
       <div className="text-center">
         <p className="font-semibold">{nombre}</p>
-        <p className="font-display text-[var(--text-score)] font-bold tabular-nums leading-none">
-          {total}
-        </p>
+        <p className="font-display text-score font-bold tabular-nums leading-none">{total}</p>
         <p className="text-sm text-[var(--ink-muted)]">Firmá para validar este puntaje</p>
       </div>
 

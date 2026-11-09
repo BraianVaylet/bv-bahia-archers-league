@@ -71,7 +71,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
         {torneo && (
           <>
             <div className="pt-2">
-              <h1 className="font-display text-[var(--text-display)] font-bold">{torneo.name}</h1>
+              <h1 className="font-display text-display font-bold">{torneo.name}</h1>
               <p className="text-[var(--ink-muted)]" data-testid="estado">
                 <BadgeEstado status={torneo.status} compacto /> · {formatearFecha(torneo.date)} ·{' '}
                 {torneo.participantCount} arqueros · máximo {torneo.maxPossibleScore}
