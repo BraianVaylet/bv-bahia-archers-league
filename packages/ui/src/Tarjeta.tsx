@@ -86,6 +86,7 @@ export function clasesDeTarjeta({
     'rounded-[var(--radius-lg)] border',
     RELLENO[densidad],
     FONDO[nivel],
-    enlace && 'hover:border-[var(--line-strong)] transition-[border-color] duration-[120ms] ease-out',
+    enlace &&
+      'hover:border-[var(--line-strong)] transition-[border-color] duration-[120ms] ease-out',
   );
 }
