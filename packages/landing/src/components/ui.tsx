@@ -8,7 +8,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { BotonTema, clasesDeTarjeta, cn, Logo, StakeChip } from '@bal/ui';
+import { BotonTema, clasesDeTarjeta, cn, Logo, type PropsDeEnlace, StakeChip } from '@bal/ui';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -21,6 +21,14 @@ import { Link } from 'react-router-dom';
  * estaca tenía dos tamaños distintos sin que nadie lo hubiera decidido.
  */
 export { BotonTema, clasesDeTarjeta, cn, StakeChip };
+
+/**
+ * El `<Link>` del router con la forma que esperan los componentes de `@bal/ui`
+ * (`ComponenteDeEnlace`): así navegan sin recargar la página.
+ */
+export function EnlaceInterno({ href, ...resto }: PropsDeEnlace) {
+  return <Link to={href} {...resto} />;
+}
 
 export function Screen({ children }: { readonly children: ReactNode }) {
   return <div className="mx-auto w-full max-w-3xl px-4 pb-12 flex flex-col gap-6">{children}</div>;

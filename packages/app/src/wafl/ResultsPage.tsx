@@ -115,11 +115,11 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
 
   return (
     <Pantalla>
-      <Encabezado onVolver={onVolver} textoVolver="← Blancos">
+      <Encabezado onVolver={onVolver} textoVolver="Blancos">
         <SyncBadge />
       </Encabezado>
 
-      <Screen conBarraFija>
+      <Screen>
         <h1 className="pt-2 font-display text-display font-bold">Resultados</h1>
 
         {aviso && (

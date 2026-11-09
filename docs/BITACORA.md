@@ -14,6 +14,40 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-4` — Componentes compartidos
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La piel nueva de botón, botón ícono, campo y tarjeta-enlace; `BadgeEstado` rediseñado (punto + texto, «En curso» late); cuatro componentes nuevos en `@bal/ui` —`BarraDeModalidades`, `RotuloDeSeccion`, `TarjetaDeTorneo` y `AnilloDeRecorrido`, que son el `ModalityBar`, `SectionHeader`, `TournamentCard` y `CircuitRing` de `DISENO.md`—; `SyncBadge` con ícono por estado; el encabezado de la PWA con `contexto` y vuelta atrás con ícono y texto; y el pie estático de la landing.
+
+**Decisiones:**
+- **`botonClases` se mudó a `@bal/ui`** (`boton.ts`), con `clasesDeBotonIcono`. La landing y la puerta necesitan las mismas variantes que WAFA (más `sobreMonte` y `lg`); la PWA lo reexporta y sus pantallas no cambian de import. Variantes nuevas `fantasma` y `sobreMonte`, tamaños `sm`/`lg`, deshabilitado sin opacidad (también con `aria-disabled` en enlaces) y `active:translate-y-px`.
+- **Nombres en castellano**, como el resto de `@bal/ui` (`BadgeEstado`, `ChipModalidad`, `GraficoDeTorta`): cada archivo dice en su comentario a qué nombre de `DISENO.md` corresponde.
+- **`@bal/ui` sigue sin depender del router.** Los componentes con enlaces reciben `enlace?: ComponenteDeEnlace` (`enlace.tsx`); por defecto, un `<a>`. Cada app tiene su `EnlaceInterno` (el `<Link>` con esa forma).
+- **Decisión 4, completa:** además de `label` y `publico`, `completado.plural` pasó a «Esperando publicación» y su `vacio` al texto de §5.4. Los colores van al punto: `en_proceso` → `--nock-text`, `completado` → `--warn`. El `label` de `en_proceso` para el admin sigue siendo «En proceso»: la tabla de §4.5 dice «En curso», pero la decisión 4 no lo incluía.
+- El pulso es `animate-pulso` (`@keyframes` dentro de `@theme`), en el color del estado (`--st`); lo apaga el bloque de `prefers-reduced-motion` que ya existía.
+- El error del campo es un borde de 2px hecho con el borde de 1px más un anillo interior de 1px: con `border-2` el campo saltaba un pixel.
+- `AnilloDeRecorrido` acepta, además de cuántos blancos (contados desde `inicio`), **cuáles** (sus índices): en WAFL los blancos no siempre se cargan en orden. Gira para que el blanco de inicio quede arriba, bajo el triángulo.
+- La leyenda de la barra de modalidades va `aria-hidden`: la barra ya se describe entera en su `aria-label`.
+- Los enlaces del pie miden 44px y no los 36 de la referencia: regla 9 de `CLAUDE.md`.
+- **El pie tiene un solo acceso, «Ingresar a la app», y no uno por rol** (consultado con el autor). `DISENO.md` §4.17 traía «Líderes de patrulla · Administración», que choca con la puerta única de `FUNCTIONAL.md` §5.1 y con la guarda de `e2e/ingreso.spec.ts` (el E2E falló por eso). Se corrigió la spec. La guarda dejó de contar **un** enlace a `/app` —con la decisión 2 van a ser dos, encabezado y pie— y ahora exige lo que importaba: que todos digan «Ingresar» y ninguno nombre un rol. El primer test busca «Ingresar» con `exact`.
+
+**Desvíos:**
+- **`Screen` de la PWA dejó de renderizar el pie en esta tanda**, y no en `REF7-9`/`REF7-10`: el pie perdió su variante compacta, y la alternativa era poner el pie grande arriba del teclado de scoring. Es la decisión 5 (sin pie en toda la PWA), ya confirmada. Se quitó la prop `conBarraFija`, que sólo elegía el pie compacto.
+- **El pie de la landing pasó adentro del `<main>` que scrollea**, como puente: con columnas, fijo abajo se comería media pantalla. `REF7-5` saca el alto fijo y lo deja al final del documento.
+- `TarjetaDeTorneo` ya reemplazó a las tarjetas del listado de la landing (`/torneos`) y del inicio de WAFA (en WAFA, «Armar patrullas» en los que no arrancaron). Los rótulos y la grilla de esas pantallas quedan para `REF7-8` y `REF7-9`.
+- El texto de volver perdió la flecha tipográfica («← Blancos» → `IconoVolver` + «Blancos»). Se actualizaron los dos tests que buscaban «← Inicio».
+
+**Deuda:**
+- **Los textos de `SyncBadge` no son los de `DISENO.md` §6** («Al día», «N por enviar»…): el plan pedía «solo la piel» y se respetó `syncLabel`, que además muestra el motivo de un error. Pero los textos actuales son largos para un encabezado de 360px con título. Decidirlo en `REF7-10`.
+- Los `<select>` y `<textarea>` sueltos de WAFA (fuera de `Field`) siguen con borde `--line` (`A-2` a medias) → `REF7-8`/`REF7-9`.
+- La landing todavía no usa `botonClases`: sus botones se rehacen en `REF7-5` y `REF7-6`.
+- El pie recibe `temporada`, pero nadie se la pasa todavía: la landing la pide en `REF7-5`.
+
+**Tests:** `ui/src/boton.test.tsx` (17: variantes, tamaños, deshabilitado sin opacidad, botón ícono, tarjeta-enlace y `BadgeEstado` nuevo) y `ui/src/componentes.test.tsx` (29: barra, rótulo, anillo y tarjeta), los dos vistos fallar antes. Los del pie en `marca.test.tsx` se reescribieron (columnas, enlaces de 44px, acceso a la PWA, temporada) y se vieron fallar; el de `wafa.test.tsx` ahora exige que la PWA no tenga pie. `ui.test.tsx` busca «Esperando publicación».
+
+---
+
 ## 2026-11-09 · `REF7-3` — Íconos nuevos
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

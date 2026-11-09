@@ -107,30 +107,52 @@ export interface BadgeEstadoProps extends ChipProps {
    * Son distintos a propósito: al admin le importa qué le falta hacer, al
    * visitante qué está mirando. Ver `ESTADO_DE_TORNEO`.
    */
-  readonly publico?: boolean;
+  readonly publico?: boolean | undefined;
+  /** Sobre la banda `monte` (la tarjeta flotante del hero de la landing). */
+  readonly sobreMonte?: boolean | undefined;
 }
 
 /**
- * Estado del torneo.
+ * Estado del torneo: **un punto de color y el texto**, en una píldora con borde
+ * (`REF7-4`, `DISENO.md` §4.5).
+ *
+ * Hasta `REF7-4` era una píldora rellena con el color del estado, que pesaba
+ * más que el nombre del torneo (`C-2`), y escribía en `--bg` encima: sobre el
+ * verde de «completado» daba 2.59:1 (`A-4`). Ahora el color va al punto y el
+ * texto a la tinta. «En curso» late, y el latido se apaga con
+ * `prefers-reduced-motion` (bloque global de `tokens.css`).
  *
  * Devuelve `null` cuando el estado **no se muestra en público** y se pidió la
  * versión pública: un torneo sin iniciar no es noticia para el visitante.
  */
-export function BadgeEstado({ status, publico, compacto }: BadgeEstadoProps) {
+export function BadgeEstado({ status, publico, compacto, sobreMonte }: BadgeEstadoProps) {
   const info = ESTADO_DE_TORNEO[status];
   const texto = publico ? info.publico : info.label;
   if (!texto) return null;
+
+  const enVivo = status === 'en_proceso';
+  // El color sigue saliendo del catálogo (`paleta.test.ts` lo exige); sólo sobre
+  // monte el punto vivo pasa al chartreuse pleno, que es el que se ve ahí.
+  const color = sobreMonte && enVivo ? 'var(--monte-accent)' : info.color;
 
   return (
     <span
       data-testid="estado-torneo"
       data-estado={status}
-      style={{ backgroundColor: info.color }}
       className={cn(
-        'inline-flex items-center rounded-full font-medium text-[var(--bg)]',
-        compacto ? 'h-6 px-2 text-xs' : 'h-7 px-2.5 text-sm',
+        'inline-flex items-center gap-2 rounded-full border font-semibold whitespace-nowrap',
+        compacto ? 'h-6 pl-2 pr-2.5 text-xs' : 'h-7 pl-2.5 pr-3 text-[13px]',
+        sobreMonte
+          ? 'bg-[var(--monte-2)] border-[var(--monte-line)] text-[var(--monte-ink)]'
+          : 'bg-[var(--surface)] text-[var(--ink)]',
       )}
     >
+      <span
+        data-punto
+        aria-hidden="true"
+        style={{ '--st': color } as CSSProperties}
+        className={cn('size-2 shrink-0 rounded-full bg-[var(--st)]', enVivo && 'animate-pulso')}
+      />
       {texto}
     </span>
   );

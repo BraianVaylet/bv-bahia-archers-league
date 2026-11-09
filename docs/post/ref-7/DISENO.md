@@ -266,7 +266,7 @@ Píldora de 44px de alto mínimo, padding de 0 12px, borde `--line`, texto de 13
 - Grilla de `2fr 1fr 1fr`, máximo de 1200px, padding de 48px 16px 32px y gap de 32px. Debajo de 720px pasa a `1fr 1fr` y el primer bloque ocupa las dos columnas.
   1. Escudos de 44px: el CBA **sobre placa blanca literal** (como hoy; ver el comentario de `Footer.tsx`) con `alt="Círculo Bahiense de Arquería"` + el `Logo` con `alt=""`. Debajo, la descripción de 14px en `--ink-muted`: "Liga Bahiense de Arquería. Un torneo por mes en Bahía Blanca: recorridos multitarget con sala, aire libre, campo y 3D."
   2. "LA LIGA" (eyebrow): Ranking · Torneos · Sumate al padrón.
-  3. "ACCESO" (eyebrow): Líderes de patrulla · Administración (los dos a `/app/`).
+  3. "ACCESO" (eyebrow): **un solo enlace, «Ingresar a la app»**, a `/app/`. *(Cambiado el 2026-11-09, en `REF7-4`: la versión anterior traía «Líderes de patrulla · Administración», un acceso por rol que contradice la puerta única de `FUNCTIONAL.md` §5.1. El autor eligió la puerta única; ver la bitácora.)*
 - Línea legal con borde superior y texto de 13px en `--ink-muted`: "Círculo Bahiense de Arquería · Bahía Blanca" a la izquierda y "Temporada 2026" en mono a la derecha (el nombre de la temporada activa, de `/api/public/seasons`).
 - La variante `compacto` desaparece (decisión 5: no hay pie en la PWA).
 
@@ -416,7 +416,7 @@ El resto de WAFA solo hereda los componentes: botones, campos, `BadgeEstado`, `S
 | Ranking | RANKING DE LA LIGA · Quién va adelante · Ranking completo |
 | Modalidades | MODALIDADES · Cuatro escenarios, un recorrido |
 | Sumate | Sumate al padrón · Dejá tus datos y el club revisa tu alta antes de habilitarla. Después ya podés competir en la próxima fecha. · Sumarme al padrón |
-| Footer | LA LIGA · ACCESO · Líderes de patrulla · Administración · Círculo Bahiense de Arquería · Bahía Blanca |
+| Footer | LA LIGA · ACCESO · Ingresar a la app · Círculo Bahiense de Arquería · Bahía Blanca |
 | Puerta | Anotá, sincronizá y publicá. · La app del día del torneo. Guarda todo en el celular y envía cuando hay señal. · INGRESAR · ¿Cómo entrás hoy? · Soy líder de patrulla · Anotá los puntajes del recorrido. · FUNCIONA SIN SEÑAL · Soy administrador · Torneos, patrullas, padrón y publicación. · Ver resultados y rankings · Instalá la app · Abre directo acá y funciona sin señal. · Instalar |
 | WAFA | Administración · Esperando publicación · Cuando una patrulla cierre su circuito, el torneo aparece acá para publicar. |
 | Estados | En curso · Esperando publicación (ver §4.5) |

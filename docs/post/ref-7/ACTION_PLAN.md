@@ -102,22 +102,22 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** el test de iconografía de §10 sigue verde · se ven a 16, 20 y 24px.
 
-### `[ ] REF7-4` · Componentes compartidos · **P0** · M
+### `[x] REF7-4` · Componentes compartidos · **P0** · M
 
 **Hallazgos:** `C-1`, `C-2`, `C-3`, `C-4`, `C-5`, `A-4`, `A-5`. **Decisiones:** 4 (textos de estado). **Spec:** `DISENO.md` §4.1 a §4.9, §4.11, §4.12 y §4.17.
 **Archivos:** `packages/app/src/components/ui.tsx`, `packages/landing/src/components/ui.tsx`, `packages/ui/src/{Chips,Footer,Tarjeta}.tsx`, nuevos `packages/ui/src/{BarraDeModalidades,RotuloDeSeccion,TarjetaDeTorneo,AnilloDeRecorrido}.tsx`, `packages/shared/src/estados.ts`, `packages/app/src/wafl/SyncBadge.tsx`, y los tests de cada uno.
 
-- [ ] **Botón** (§4.1): `secundario` sobre `surface` con borde `line-strong`. Variantes nuevas `fantasma` y `sobreMonte` y tamaños `sm`/`lg`. `peligro` con `danger-ink`. Deshabilitado sin `opacity`. `:active` con `translateY(1px)`
-- [ ] **Botón ícono** (§4.2): radio `md`
-- [ ] **Campo** (§4.3): borde `line-strong`, error de 2px con ícono
-- [ ] **`BadgeEstado`** (§4.5): punto + texto + pulso. `estados.ts`: `en_proceso.color → var(--nock-text)`, `completado.color → var(--warn)`, `en_proceso.publico → 'En curso'`, `completado.label → 'Esperando publicación'` (decisión 4). **Primero actualizar** `ui/src/ui.test.tsx`, `landing/src/landing.test.tsx` y cualquier test que busque "En curso ahora" o "Completado, sin publicar" (`grep -rn`), y verlos fallar
-- [ ] **`ModalityBar`** (§4.6), con test: suma de `flex` = 100, `aria-label` completo, un ícono y un texto por modalidad
-- [ ] **`SectionHeader`** (§4.7), con test: es un encabezado y muestra la cantidad
-- [ ] **`TournamentCard`** (§4.8), extraída de los listados de landing y WAFA
-- [ ] **`CircuitRing`** (§4.9), con test: N segmentos, `completados` con la clase de completo, rotación por `inicio` y `aria-label`
-- [ ] **`SyncBadge`** (§4.11): solo la piel
-- [ ] **`AppHeader`** (§4.12): prop `contexto` y volver con ícono + texto
-- [ ] **`Footer`** (§4.17): versión estática con columnas; se saca `compacto`
+- [x] **Botón** (§4.1): `secundario` sobre `surface` con borde `line-strong`. Variantes nuevas `fantasma` y `sobreMonte` y tamaños `sm`/`lg`. `peligro` con `danger-ink`. Deshabilitado sin `opacity`. `:active` con `translateY(1px)`
+- [x] **Botón ícono** (§4.2): radio `md`
+- [x] **Campo** (§4.3): borde `line-strong`, error de 2px con ícono
+- [x] **`BadgeEstado`** (§4.5): punto + texto + pulso. `estados.ts`: `en_proceso.color → var(--nock-text)`, `completado.color → var(--warn)`, `en_proceso.publico → 'En curso'`, `completado.label → 'Esperando publicación'` (decisión 4). **Primero actualizar** `ui/src/ui.test.tsx`, `landing/src/landing.test.tsx` y cualquier test que busque "En curso ahora" o "Completado, sin publicar" (`grep -rn`), y verlos fallar
+- [x] **`ModalityBar`** (§4.6), con test: suma de `flex` = 100, `aria-label` completo, un ícono y un texto por modalidad
+- [x] **`SectionHeader`** (§4.7), con test: es un encabezado y muestra la cantidad
+- [x] **`TournamentCard`** (§4.8), extraída de los listados de landing y WAFA
+- [x] **`CircuitRing`** (§4.9), con test: N segmentos, `completados` con la clase de completo, rotación por `inicio` y `aria-label`
+- [x] **`SyncBadge`** (§4.11): solo la piel
+- [x] **`AppHeader`** (§4.12): prop `contexto` y volver con ícono + texto
+- [x] **`Footer`** (§4.17): versión estática con columnas; se saca `compacto` — *y con él, el pie de la PWA (decisión 5), adelantado de `REF7-9`/`REF7-10`*
 
 **DoD:** todos los componentes nuevos con test · `pnpm test` verde · los snapshots o textos de E2E que cambian, actualizados **en este mismo commit** (`e2e/` · `grep -rn "En curso ahora\|Completado, sin publicar"`).
 
@@ -197,7 +197,7 @@ REF7-3 ─┘           │           └─→ REF7-8
 - [ ] `SectionHeader` con cantidad y estados vacíos que dicen qué va a aparecer
 - [ ] `TournamentCard` con `ModalityBar` y, en proceso, un `CircuitRing` por patrulla
 - [ ] `AppHeader` con `contexto="Administración"`
-- [ ] `Screen` deja de renderizar `Footer` (decisión 5)
+- [x] `Screen` deja de renderizar `Footer` (decisión 5) — *hecho en `REF7-4`*
 
 **DoD:** tests de WAFA verdes · el inicio muestra el primer torneo sin scroll a 390×844.
 
@@ -208,7 +208,7 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 > **Tarea sensible.** Toca la pantalla de `FE-6`. **Solo piel y layout.** No cambia nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo. Si algo de eso parece necesario, se frena y se pregunta.
 
-- [ ] Sin `Footer` en Target, Circuit y Results (`F-1`)
+- [x] Sin `Footer` en Target, Circuit y Results (`F-1`) — *hecho en `REF7-4`*
 - [ ] Encabezado del blanco: número de 56px + `ChipModalidad` + "N flechas · nombre · i de N" (`F-2`)
 - [ ] `UnitCard`: total de 36px con `aria-live`, casilleros de 48px y la siguiente marcada (`F-3`)
 - [ ] `ScoreKeypad`: teclas de 64px de alto (el mínimo `TAMAÑO_TECLA_PX` sigue en 56), cifras en display, "Continuar" dentro del panel, `--shadow-dock` como token

@@ -1,4 +1,4 @@
-import type { Icono } from '@bal/ui';
+import { clasesDeBotonIcono, type Icono } from '@bal/ui';
 
 /**
  * Botón de sólo ícono de una fila de arquero.
@@ -25,8 +25,7 @@ export function BotonDeFila({
       disabled={disabled}
       aria-label={etiqueta}
       title={etiqueta}
-      className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border print:hidden
-        flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+      className={clasesDeBotonIcono()}
     >
       <Icono />
     </button>

@@ -49,6 +49,11 @@ export type NivelDeTarjeta = 'base' | 'anidada' | 'transparente';
 export interface OpcionesDeTarjeta {
   readonly densidad?: DensidadDeTarjeta;
   readonly nivel?: NivelDeTarjeta;
+  /**
+   * La tarjeta entera es un enlace: al pasar por encima, el borde se marca con `--line-strong`
+   * (`REF7-4`, `DISENO.md` §4.4). Es la única señal de que se puede tocar, sin sombra.
+   */
+  readonly enlace?: boolean;
 }
 
 const RELLENO: Readonly<Record<DensidadDeTarjeta, string>> = {
@@ -72,6 +77,15 @@ const FONDO: Readonly<Record<NivelDeTarjeta, string>> = {
  * `as` resolvería eso a costa de tipos que nadie va a querer leer; devolver las
  * clases es más chico y no miente sobre lo que hace.
  */
-export function clasesDeTarjeta({ densidad = 'normal', nivel = 'base' }: OpcionesDeTarjeta = {}) {
-  return cn('rounded-[var(--radius-lg)] border', RELLENO[densidad], FONDO[nivel]);
+export function clasesDeTarjeta({
+  densidad = 'normal',
+  nivel = 'base',
+  enlace,
+}: OpcionesDeTarjeta = {}) {
+  return cn(
+    'rounded-[var(--radius-lg)] border',
+    RELLENO[densidad],
+    FONDO[nivel],
+    enlace && 'hover:border-[var(--line-strong)] transition-colors duration-[120ms] ease-out',
+  );
 }

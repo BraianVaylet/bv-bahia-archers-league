@@ -2,8 +2,10 @@
  * `@bal/ui` — piezas de interfaz compartidas por la PWA y la landing.
  *
  * **Qué entra acá:** lo que tiene que verse igual en las tres aplicaciones —el
- * logo, el pie, la iconografía, los chips de categoría, modalidad y estaca, y
- * los badges de estado—. Son builds separados; si cada uno tuviera su copia, se
+ * logo, el pie, la iconografía, los chips de categoría, modalidad y estaca, los
+ * badges de estado, la piel de los botones y, desde `REF7-4`, la barra de
+ * modalidades, el rótulo de sección, la tarjeta de torneo y el anillo de
+ * recorrido—. Son builds separados; si cada uno tuviera su copia, se
  * irían separando sin que nadie lo note hasta ver las dos pantallas juntas. Es
  * el mismo razonamiento que puso los tokens de color en `@bal/shared`.
  *
@@ -17,7 +19,24 @@
  * Sin I/O y sin estado global, igual que `@bal/shared`.
  */
 
+export {
+  AnilloDeRecorrido,
+  type AnilloDeRecorridoProps,
+  type TamañoDeAnillo,
+} from './AnilloDeRecorrido.js';
+export {
+  BarraDeModalidades,
+  type BarraDeModalidadesProps,
+  type ParteDeLaBarra,
+} from './BarraDeModalidades.js';
 export { BotonTema } from './BotonTema.js';
+export {
+  botonClases,
+  clasesDeBotonIcono,
+  type OpcionesDeBoton,
+  type TamañoDeBoton,
+  type VarianteDeBoton,
+} from './boton.js';
 export {
   BadgeEstado,
   type BadgeEstadoProps,
@@ -31,6 +50,7 @@ export {
   enlaceEntreApps,
   PUERTOS_DE_DESARROLLO,
 } from './despliegue.js';
+export { type ComponenteDeEnlace, EnlaceNativo, type PropsDeEnlace } from './enlace.js';
 export { Footer, type FooterProps } from './Footer.js';
 export {
   GraficoDeEvolucion,
@@ -59,6 +79,7 @@ export {
   type ParDeColor,
   TONOS_DE_ESTACA,
 } from './paleta.js';
+export { RotuloDeSeccion, type RotuloDeSeccionProps } from './RotuloDeSeccion.js';
 export { StakeChip, type StakeChipProps } from './StakeChip.js';
 export {
   clasesDeTarjeta,
@@ -66,4 +87,9 @@ export {
   type NivelDeTarjeta,
   type OpcionesDeTarjeta,
 } from './Tarjeta.js';
+export {
+  type ResumenDeTorneo,
+  TarjetaDeTorneo,
+  type TarjetaDeTorneoProps,
+} from './TarjetaDeTorneo.js';
 export { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from './tema.js';

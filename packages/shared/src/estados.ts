@@ -7,9 +7,12 @@
  * por separado habría fabricado una cuarta versión.
  *
  * El texto del admin y el del público **son distintos a propósito**: al
- * administrador le importa qué le falta hacer —«Completado, sin publicar»— y al
+ * administrador le importa qué le falta hacer —«Esperando publicación»— y al
  * visitante le importa qué está mirando —«Resultados oficiales»—. Lo que no
  * puede diferir es el color.
+ *
+ * `REF7-4` (decisión 4 de `docs/post/ref-7/INFORME.md`): «Completado, sin
+ * publicar» pasó a «Esperando publicación», y «En curso ahora» a «En curso».
  *
  * Ver `docs/DESIGN_SYSTEM.md` §2 y `docs/FUNCTIONAL.md` §8.
  */
@@ -34,8 +37,11 @@ export interface EstadoDeTorneoInfo {
    *
    * **No se inventa un color nuevo por estado.** Los cuatro estados son una
    * escala de avance y los tokens semánticos ya la expresan: neutro lo que no
-   * empezó, atención lo que está pasando, acento lo que espera una acción, y
-   * conforme lo que quedó cerrado.
+   * empezó, el verde vivo lo que está pasando, atención lo que espera una
+   * acción del admin, y conforme lo que quedó cerrado.
+   *
+   * Desde `REF7-4` pinta **el punto** de `BadgeEstado`, no el fondo: el texto va
+   * en `--ink`. Con el fondo en `--nock`, el texto de «completado» daba 2.59:1.
    */
   readonly color: string;
 }
@@ -54,16 +60,16 @@ export const ESTADO_DE_TORNEO: Readonly<Record<TournamentStatus, EstadoDeTorneoI
     label: 'En proceso',
     plural: 'En proceso',
     vacio: 'No hay ningún torneo corriendo.',
-    publico: 'En curso ahora',
-    color: 'var(--warn)',
+    publico: 'En curso',
+    color: 'var(--nock-text)',
   },
   completado: {
     key: 'completado',
-    label: 'Completado, sin publicar',
-    plural: 'Completados, sin publicar',
-    vacio: 'No hay torneos esperando publicación.',
+    label: 'Esperando publicación',
+    plural: 'Esperando publicación',
+    vacio: 'Cuando una patrulla cierre su circuito, el torneo aparece acá para publicar.',
     publico: null,
-    color: 'var(--nock)',
+    color: 'var(--warn)',
   },
   publicado: {
     key: 'publicado',

@@ -83,7 +83,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
     <Pantalla>
       <Encabezado titulo={publicado ? 'Resultados' : 'Publicar'} onVolver={onVolver} />
 
-      <Screen conBarraFija>
+      <Screen>
         {error && (
           <p role="alert" className="text-sm text-[var(--danger)]">
             {error}

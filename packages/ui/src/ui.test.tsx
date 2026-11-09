@@ -92,7 +92,7 @@ describe('BadgeEstado', () => {
 
   it('el texto del público no es el del admin', () => {
     render(<BadgeEstado status="completado" />);
-    expect(screen.getByText('Completado, sin publicar')).toBeInTheDocument();
+    expect(screen.getByText('Esperando publicación')).toBeInTheDocument();
 
     cleanup();
 

@@ -7,16 +7,19 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { Footer } from '@bal/ui';
+import { enlaceEntreApps, Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { NavegacionAccesible } from './components/NavegacionAccesible.js';
-import { Encabezado } from './components/ui.js';
+import { Encabezado, EnlaceInterno } from './components/ui.js';
 import { ArcherPage } from './pages/Archer.js';
 import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
 import { RankingPage } from './pages/Ranking.js';
 import { ScorecardPage } from './pages/Scorecard.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
+
+/** El acceso a la PWA desde el pie: en desarrollo vive en otro puerto. */
+const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
 
 export function App() {
   return (
@@ -45,11 +48,15 @@ export function App() {
             <Route path="/arqueros/:id" element={<ArcherPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </main>
 
-        {/* Uno solo para todo el sitio: es una app de lectura con una sola
-            columna, y el pie es el mismo en las seis páginas. */}
-        <Footer className="shrink-0" />
+          {/*
+            Uno solo para todo el sitio, y **al final del contenido**, no fijo
+            abajo (`REF7-4`): el pie nuevo tiene columnas y fijo se comería
+            media pantalla. `REF7-5` saca el alto fijo y la página pasa a ser
+            un documento; hasta entonces, el pie scrollea con el medio.
+          */}
+          <Footer enlace={EnlaceInterno} hrefApp={A_LA_APP} />
+        </main>
       </div>
     </BrowserRouter>
   );

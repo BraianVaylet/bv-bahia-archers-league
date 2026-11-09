@@ -94,7 +94,7 @@ export function CircuitPage({
         <SyncBadge />
       </Encabezado>
 
-      <Screen conBarraFija>
+      <Screen>
         <div className="pt-2">
           <h1 className="font-display text-display font-bold">{bundle.tournament.name}</h1>
           <p className="text-[var(--ink-muted)]">

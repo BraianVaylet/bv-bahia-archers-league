@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Footer } from './Footer.js';
 import { GraficoDeEvolucion } from './GraficoDeEvolucion.js';
@@ -68,51 +69,86 @@ describe('Logo', () => {
 });
 
 describe('Footer', () => {
-  it('los dos escudos van juntos a la izquierda y el nombre a la derecha', () => {
+  /**
+   * **El pie es de la landing, y es estático** (`REF7-4`, `DISENO.md` §4.17). Va al final del
+   * documento, con columnas: quién es la liga, sus páginas y el acceso a la PWA. La PWA ya no
+   * tiene pie (decisión 5), así que la versión compacta desapareció.
+   */
+  it('los dos escudos van juntos, arriba de la descripción', () => {
     const { container } = render(<Footer />);
+    const escudos = container.querySelector('[data-escudos]') as HTMLElement;
 
-    const fila = container.querySelector('footer > div') as HTMLElement;
-    const primero = fila.firstElementChild as HTMLElement;
+    // El PNG del club y el SVG de la liga.
+    expect(escudos.querySelector('img')).not.toBeNull();
+    expect(escudos.querySelector('svg')).not.toBeNull();
+    expect(screen.getByText(/Un torneo por mes en Bahía Blanca/)).toBeInTheDocument();
+  });
 
-    // A la izquierda, las dos imágenes: el PNG del club y el SVG de la liga.
-    expect(primero.querySelector('img')).not.toBeNull();
-    expect(primero.querySelector('svg')).not.toBeNull();
+  it('enlaza las páginas de la liga con el enlace de quien lo monta', () => {
+    function EnlaceDePrueba(p: { href: string; className?: string; children: ReactNode }) {
+      return (
+        <a data-propio href={p.href} className={p.className}>
+          {p.children}
+        </a>
+      );
+    }
+    render(<Footer enlace={EnlaceDePrueba} />);
 
-    // A la derecha, el nombre.
-    expect((fila.lastElementChild as HTMLElement).textContent).toBe('Liga Bahiense');
+    for (const [nombre, href] of [
+      ['Ranking', '/ranking'],
+      ['Torneos', '/torneos'],
+      ['Sumate al padrón', '/alta'],
+    ] as const) {
+      const enlace = screen.getByRole('link', { name: nombre });
+      expect(enlace).toHaveAttribute('href', href);
+      expect(enlace).toHaveAttribute('data-propio');
+    }
   });
 
   /**
-   * **El `alt` del escudo del club dejó de ser decorativo.**
+   * La PWA es otro build: se entra con un `<a>` común, que recarga, a donde diga quien lo monta.
    *
-   * Antes el nombre del CBA iba escrito al lado y el `alt` vacío evitaba que un
-   * lector de pantalla lo dijera dos veces. Ahora el texto visible es sólo el de
-   * la liga: con el `alt` vacío, para un lector de pantalla **el club no
-   * existiría**.
+   * **Una sola puerta, sin roles** (`FUNCTIONAL.md` §5.1): quién sos lo pregunta la app. La
+   * referencia de `DISENO.md` §4.17 traía un enlace por rol y el autor eligió no hacerlo.
    */
-  it('el escudo del club se anuncia, porque su nombre ya no está escrito', () => {
+  it('el acceso es uno solo, a la PWA, y no nombra roles', () => {
+    render(<Footer hrefApp="http://localhost:5173/app/" />);
+
+    const enlace = screen.getByRole('link', { name: 'Ingresar a la app' });
+    expect(enlace).toHaveAttribute('href', 'http://localhost:5173/app/');
+    expect(screen.queryByRole('link', { name: /líder|administr/i })).toBeNull();
+  });
+
+  it('cada enlace mide al menos 44px de alto', () => {
+    render(<Footer />);
+    for (const enlace of screen.getAllByRole('link')) {
+      expect(enlace.className).toContain('min-h-[44px]');
+    }
+  });
+
+  it('la temporada va en la línea legal, sólo si se sabe', () => {
+    render(<Footer temporada="Temporada 2026" />);
+    expect(screen.getByText('Temporada 2026')).toBeInTheDocument();
+    expect(screen.getByText('Círculo Bahiense de Arquería · Bahía Blanca')).toBeInTheDocument();
+
+    cleanup();
+    render(<Footer />);
+    expect(screen.queryByText(/Temporada/)).toBeNull();
+  });
+
+  /**
+   * **El `alt` del escudo del club no es decorativo.** El nombre del club no está escrito al lado
+   * de su escudo: con el `alt` vacío, para un lector de pantalla **el club no existiría**.
+   */
+  it('el escudo del club se anuncia', () => {
     render(<Footer />);
     expect(screen.getByAltText('Círculo Bahiense de Arquería')).toBeInTheDocument();
   });
 
-  /** El de la liga sí es decorativo: el nombre está al lado. */
-  it('el logo de la liga no repite el nombre que ya se lee', () => {
+  /** El de la liga sí es decorativo: el nombre de la liga está en la descripción. */
+  it('el logo de la liga no repite el nombre', () => {
     const { container } = render(<Footer />);
-    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden');
-  });
-
-  /**
-   * La versión compacta existe para que el pie entre en las pantallas que
-   * terminan en barra de acción, sin robarle alto al teclado de scoring.
-   */
-  it('la versión compacta ocupa menos alto', () => {
-    const { container: normal } = render(<Footer />);
-    const alto = (c: HTMLElement) => (c.querySelector('footer > div') as HTMLElement).className;
-    expect(alto(normal as unknown as HTMLElement)).toContain('py-6');
-
-    cleanup();
-    const { container: chico } = render(<Footer compacto />);
-    expect(alto(chico as unknown as HTMLElement)).toContain('py-1.5');
+    expect(container.querySelector('[data-escudos] svg')).toHaveAttribute('aria-hidden');
   });
 
   /**

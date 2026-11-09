@@ -74,6 +74,21 @@
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-full: 9999px;
+
+  /*
+    El latido del punto de «En curso» (`REF7-4`, `DISENO.md` §4.5 y §7): una onda que sale del
+    punto y se desvanece, en el color del estado (`--st`). Lo apaga `prefers-reduced-motion`.
+  */
+  --animate-pulso: pulso 1.6s ease-out infinite;
+
+  @keyframes pulso {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--st) 60%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 7px transparent;
+    }
+  }
 }
 
 /*
