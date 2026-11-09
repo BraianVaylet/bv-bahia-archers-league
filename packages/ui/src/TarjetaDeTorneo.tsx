@@ -94,7 +94,7 @@ export function TarjetaDeTorneo({
 
       {pie ??
         (textoDelPie ? (
-          <div className="flex items-center justify-between pt-3 border-t text-sm">
+          <div className="flex items-center justify-between pt-3 border-t text-sm text-[var(--ink-muted)]">
             {textoDelPie}
             <IconoFlecha size={18} className="text-[var(--nock-text)]" />
           </div>

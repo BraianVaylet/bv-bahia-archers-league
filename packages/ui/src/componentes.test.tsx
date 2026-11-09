@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AnilloDeRecorrido } from './AnilloDeRecorrido.js';
+import { AnillosDeFondo } from './AnillosDeFondo.js';
 import { BarraDeModalidades } from './BarraDeModalidades.js';
 import { RotuloDeSeccion } from './RotuloDeSeccion.js';
 import { TarjetaDeTorneo } from './TarjetaDeTorneo.js';
@@ -81,6 +82,17 @@ describe('RotuloDeSeccion', () => {
   it('el nivel se elige', () => {
     render(<RotuloDeSeccion titulo="Patrullas" nivel={3} />);
     expect(screen.getByRole('heading', { level: 3, name: 'Patrullas' })).toBeInTheDocument();
+  });
+
+  /**
+   * Cuando la sección ya tiene su título grande (la portada: «FECHAS DE LA TEMPORADA» arriba de
+   * «Torneos»), el rótulo es un antetítulo y no otro encabezado: dos `h2` seguidos dirían lo mismo.
+   */
+  it('puede ser un antetítulo, sin ser encabezado', () => {
+    render(<RotuloDeSeccion titulo="Fechas de la temporada" cantidad={2} nivel={false} />);
+
+    expect(screen.queryByRole('heading')).toBeNull();
+    expect(screen.getByText('Fechas de la temporada')).toBeInTheDocument();
   });
 
   it('sin cantidad no dibuja el contador', () => {
@@ -258,5 +270,19 @@ describe('TarjetaDeTorneo', () => {
       />,
     );
     expect(screen.getByTestId('torneo-t1')).toHaveTextContent('Armar patrullas');
+  });
+});
+
+// ── AnillosDeFondo (decoración del hero y de la puerta) ──────────────────────
+
+describe('AnillosDeFondo', () => {
+  /** §6.5 reserva el anillo con datos a sus tres lugares: este no dice nada, y no se anuncia. */
+  it('es decoración: no se anuncia ni se puede enfocar', () => {
+    const { container } = render(<AnillosDeFondo />);
+    const svg = container.querySelector('svg');
+
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(svg).toHaveAttribute('focusable', 'false');
+    expect(svg?.querySelectorAll('circle')).toHaveLength(5);
   });
 });

@@ -18,7 +18,11 @@ export interface RotuloDeSeccionProps {
   readonly accion?: { readonly texto: string; readonly href: string };
   /** Con qué se dibuja el enlace de la acción. Ver `enlace.tsx`. */
   readonly enlace?: ComponenteDeEnlace;
-  readonly nivel?: 2 | 3;
+  /**
+   * El nivel del encabezado. `false` cuando la sección ya tiene su título grande debajo (la
+   * portada): ahí el rótulo es un antetítulo, y dos `h2` seguidos dirían lo mismo.
+   */
+  readonly nivel?: 2 | 3 | false;
   readonly className?: string;
 }
 
@@ -30,7 +34,7 @@ export function RotuloDeSeccion({
   nivel = 2,
   className,
 }: RotuloDeSeccionProps) {
-  const Titulo = nivel === 2 ? 'h2' : 'h3';
+  const Titulo = nivel === false ? 'p' : nivel === 2 ? 'h2' : 'h3';
 
   return (
     <div className={cn('flex items-center gap-2 pb-2 border-b', className)}>

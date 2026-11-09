@@ -24,6 +24,7 @@ export {
   type AnilloDeRecorridoProps,
   type TamañoDeAnillo,
 } from './AnilloDeRecorrido.js';
+export { AnillosDeFondo } from './AnillosDeFondo.js';
 export {
   BarraDeModalidades,
   type BarraDeModalidadesProps,

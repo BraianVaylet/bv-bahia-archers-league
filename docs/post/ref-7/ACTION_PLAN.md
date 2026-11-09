@@ -138,20 +138,20 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** en 360, 390, 768 y 1280 px, el pie aparece solo al final del scroll y nunca tapa contenido · al navegar se entra arriba · la página activa se ve marcada · `e2e/ingreso.spec.ts` verde (el link sigue llamándose "Ingresar").
 
-### `[ ] REF7-6` · Landing: portada nueva · **P0** · L
+### `[x] REF7-6` · Landing: portada nueva · **P0** · L
 
 **Hallazgos:** `L-1`, `L-5`. **Decisiones:** 1 (foto). **Spec:** `DISENO.md` §5.1 completo y §6. **Objetivo visual:** `referencia/pantallas/Landing.html` y `LandingMovil.html`; `referencia/capturas/Landing-*.webp`.
 **Archivos:** `packages/landing/src/pages/Home.tsx` (reescritura), componentes de sección nuevos en `packages/landing/src/components/` si conviene partirla, `packages/landing/src/landing.test.tsx`.
 
-- [ ] **Hero** sobre `--monte`, con anillos, titular `--text-hero`, bajada, dos CTAs y la foto con `height:auto`
-- [ ] **Tarjeta flotante** "En curso" con `CircuitRing` agregado (`GET /api/public/tournaments` → el primero `en_proceso` → `GET /api/public/tournaments/:id` → `patrols[].targetsCompleted`). Si no hay: la última publicada. Si no hay ninguna: sin tarjeta
-- [ ] **Cómo se juega**: tres ítems con la copy de §5.1-2
-- [ ] **Torneos**: `SectionHeader` + hasta 3 `TournamentCard` + estado vacío
-- [ ] **Ranking**: pestañas por categoría + top 5 (`/seasons` → `/rankings?seasonId=`). Posiciones 1–3 sobre `--nock-soft`, sin oro/plata/bronce
-- [ ] **Modalidades**: cuatro tarjetas con los valores de `SCORING[m].scoringSet`, no escritos a mano
-- [ ] **Sumate al padrón**: banda `--nock-soft` con CTA a `/alta`
-- [ ] Estados de carga y error con los `Cargando`/`Fallo` que ya existen, **por sección**: si el ranking falla, el resto de la portada se ve igual
-- [ ] Sin foto (decisión 1): el hero en una columna sigue viéndose bien
+- [x] **Hero** sobre `--monte`, con anillos, titular `--text-hero`, bajada, dos CTAs y la foto con `height:auto`
+- [x] **Tarjeta flotante** "En curso" con `CircuitRing` agregado (`GET /api/public/tournaments` → el primero `en_proceso` → `GET /api/public/tournaments/:id` → `patrols[].targetsCompleted`). Si no hay: la última publicada. Si no hay ninguna: sin tarjeta
+- [x] **Cómo se juega**: tres ítems con la copy de §5.1-2
+- [x] **Torneos**: `SectionHeader` + hasta 3 `TournamentCard` + estado vacío
+- [x] **Ranking**: pestañas por categoría + top 5 (`/seasons` → `/rankings?seasonId=`). Posiciones 1–3 sobre `--nock-soft`, sin oro/plata/bronce
+- [x] **Modalidades**: cuatro tarjetas con los valores de `SCORING[m].scoringSet`, no escritos a mano
+- [x] **Sumate al padrón**: banda `--nock-soft` con CTA a `/alta`
+- [x] Estados de carga y error con los `Cargando`/`Fallo` que ya existen, **por sección**: si el ranking falla, el resto de la portada se ve igual
+- [x] Sin foto (decisión 1): el hero en una columna sigue viéndose bien
 
 **DoD:** a 1280 y 390 px, en claro y oscuro, coincide con `referencia/capturas/` · `landing.test.tsx` cubre: con torneo en curso, sin torneo en curso, sin torneos, ranking vacío y error de una sección · `web-design-guidelines` sin issues críticos · el bundle de la landing sigue dentro del presupuesto (120 KB gz, `TECHNICAL.md`).
 **Cuidado:** la portada hace hasta 4 pedidos. Que salgan **en paralelo**, y que ninguno bloquee el render del hero.

@@ -11,7 +11,7 @@ import { Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { A_LA_APP, Encabezado, EnlaceInterno } from './components/ui.js';
-import { useTemporadaActiva } from './lib/temporada.js';
+import { ProveedorDeTemporadas, useTemporadaActiva } from './lib/temporada.js';
 import { ArcherPage } from './pages/Archer.js';
 import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
@@ -19,14 +19,19 @@ import { RankingPage } from './pages/Ranking.js';
 import { ScorecardPage } from './pages/Scorecard.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 
-export function App() {
+/** El pie, con la temporada activa que comparte `ProveedorDeTemporadas`. */
+function PieDelSitio() {
   const temporada = useTemporadaActiva();
+  return <Footer enlace={EnlaceInterno} hrefApp={A_LA_APP} temporada={temporada?.name ?? null} />;
+}
 
+export function App() {
   return (
-    <BrowserRouter>
-      <NavegacionAccesible />
+    <ProveedorDeTemporadas>
+      <BrowserRouter>
+        <NavegacionAccesible />
 
-      {/*
+        {/*
         **Un documento, no una app** (`REF7-5` / `L-2`). Scrollea la página entera: el encabezado
         es sticky y el pie va al final, después del contenido.
 
@@ -37,25 +42,26 @@ export function App() {
 
         Al navegar, `useAlCambiarDeRuta` lleva la ventana arriba: no hay contenedor de scroll.
       */}
-      <div className="min-h-dvh flex flex-col">
-        <Encabezado />
+        <div className="min-h-dvh flex flex-col">
+          <Encabezado />
 
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/alta" element={<ArcherRegisterPage />} />
-            <Route path="/ranking" element={<RankingPage />} />
-            <Route path="/torneos" element={<TournamentsPage />} />
-            <Route path="/torneos/:id" element={<TournamentPage />} />
-            <Route path="/torneos/:id/participantes/:participantId" element={<ScorecardPage />} />
-            <Route path="/arqueros/:id" element={<ArcherPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+          <main className="flex-1">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/alta" element={<ArcherRegisterPage />} />
+              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/torneos" element={<TournamentsPage />} />
+              <Route path="/torneos/:id" element={<TournamentPage />} />
+              <Route path="/torneos/:id/participantes/:participantId" element={<ScorecardPage />} />
+              <Route path="/arqueros/:id" element={<ArcherPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
 
-        {/* Uno solo para todo el sitio, al final del documento. */}
-        <Footer enlace={EnlaceInterno} hrefApp={A_LA_APP} temporada={temporada?.name ?? null} />
-      </div>
-    </BrowserRouter>
+          {/* Uno solo para todo el sitio, al final del documento. */}
+          <PieDelSitio />
+        </div>
+      </BrowserRouter>
+    </ProveedorDeTemporadas>
   );
 }

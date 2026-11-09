@@ -14,6 +14,33 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-6` — Landing: portada nueva
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La portada de `DISENO.md` §5.1 (`L-1`): hero sobre `--monte` con anillos de fondo, titular de 64/40px, bajada y dos accesos; la foto con la tarjeta del torneo que importa ahora (en curso con su `AnilloDeRecorrido` agregado; si no, la última publicada; sin torneos, ninguna); «Cómo se juega»; hasta tres `TarjetaDeTorneo`; el top 5 del ranking por categoría; las cuatro modalidades con sus valores de flecha leídos de `SCORING`; y la banda «Sumate al padrón». Partida en `components/portada/` (`Hero`, `Secciones`, `RankingDeLaPortada`) y `lib/portada.ts` (decisiones puras, con test).
+
+**Decisiones:**
+- **Las temporadas se piden una vez.** El pie y la portada las necesitan y `useRecurso` no deduplica: `App` las comparte con `ProveedorDeTemporadas`; una pantalla montada sola (los tests) las pide por su cuenta.
+- **Pedidos:** torneos y temporadas salen juntos; el detalle del torneo en curso y el ranking esperan sólo al que necesitan y salen en paralelo. El hero no espera a nadie. Cada sección tiene su carga y su error (un test lo fija con el ranking caído).
+- Las pestañas de categoría del ranking son **botones con `aria-pressed`** dentro de un `<fieldset>`, no una `<nav>` con `aria-current` como dice §5.1-4: cambian la tabla de al lado, no navegan.
+- La columna «Fechas» muestra las fechas jugadas («3»). La spec dice «3/3», pero el denominador no está definido y el endpoint no lo trae: no se inventó.
+- Sin oro, plata ni bronce en el podio (regla 8): círculo `--nock-soft`.
+- La tarjeta publicada no lleva anillo (§6.5: el anillo, sólo con el avance real). Sin foto (decisión 1), la tarjeta va debajo de los accesos, sin flotar. La sombra flotante, sólo en escritorio.
+- El año del antetítulo sale del texto de `startsAt` (`slice(0, 4)`), no de `Date`: en UTC−3 el 1 de enero es 31 de diciembre. Sin temporada activa, el antetítulo dice sólo «Bahía Blanca».
+- `RotuloDeSeccion` acepta `nivel={false}`: arriba de un título grande es un antetítulo, no otro `h2`. `AnillosDeFondo` vive en `@bal/ui` (la puerta lo usa en `REF7-7`). El pie de `TarjetaDeTorneo` va en `--ink-muted`, como la referencia.
+- Copy nueva que la spec no traía: «Todavía no hay resultados publicados esta temporada.» (ranking vacío).
+- No se volvió a correr `frontend-design`: la dirección visual ya la fijaron `DISENO.md` y `referencia/`.
+
+**Desvíos:** ninguno respecto del alcance.
+
+**Hallazgo:** el E2E encontró que la portada **no montaba** contra la API real: el detalle público viene envuelto en `{ tournament }` y se leía directo. El test de componente pasaba porque su mock tenía la misma forma equivocada; se corrigió el mock primero (se lo vio fallar) y después el código. Además, `useCarga` conserva los datos de la ruta anterior cuando la ruta cambia: si el torneo destacado cambiara en caliente se vería un instante el avance del anterior. No pasa hoy (se elige una vez por carga); queda anotado.
+
+**Deuda:** la foto sigue siendo `portada.webp` (decisión 1). El JS inicial de la landing pasó de 109 a 115 KB gz (presupuesto 120).
+**Tests:** `landing/src/lib/portada.test.ts` (10) y 12 casos nuevos en `landing.test.tsx` (hero, tarjeta en curso / publicada / sin torneos, top 3 de torneos, top 5 del ranking sin medallas, ranking vacío, una sección caída, fichas de modalidad desde `SCORING`, alta, pedidos en paralelo y sin foto), todos vistos fallar. `componentes.test.tsx` suma `AnillosDeFondo` y el rótulo como antetítulo.
+
+---
+
 ## 2026-11-09 · `REF7-5` — Landing: layout de documento, encabezado y pie
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
