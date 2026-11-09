@@ -29,15 +29,15 @@
   },
   "devDependencies": {
     "@bal/shared": "workspace:^",
-    "@biomejs/biome": "2.5.7",
-    "@hono/node-server": "^2.1.5",
-    "@playwright/test": "^1.62.1",
+    "@biomejs/biome": "2.6.6",
+    "@hono/node-server": "^2.1.6",
+    "@playwright/test": "^1.65.0",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.6",
     "concurrently": "^10.0.6",
-    "mongodb-memory-server": "^11.2.0",
-    "tsx": "^4.23.12",
+    "mongodb-memory-server": "^11.3.0",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3"
   },
   "pnpm": {

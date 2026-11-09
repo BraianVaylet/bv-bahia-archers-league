@@ -28,7 +28,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "react": "^19.2.8"
+    "react": "^19.3.1"
   },
   "dependencies": {
     "@bal/shared": "workspace:*",
@@ -37,14 +37,14 @@
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
     "@vitest/coverage-v8": "^4.1.12",
     "jsdom": "^26.1.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "5.9.3",
     "vitest": "^4.1.12"
   }
