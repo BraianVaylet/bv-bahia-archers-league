@@ -1149,6 +1149,105 @@ describe('sexo: del arquero al standing', () => {
     expect(acumulados.find((a) => a.lastName === 'Arquera')?.sex).toBe('femenino');
     expect(acumulados.find((a) => a.lastName === 'Arquero')?.sex).toBeNull();
   });
+
+  /**
+   * El padrón viejo: arqueros que jugaron —y cuyos torneos ya se publicaron—
+   * antes de que existiera `sex`. El admin les completa el dato después, y
+   * tienen que pasar a contar en Femenino o Masculino sin republicar nada.
+   */
+  describe('cargado después de jugar', () => {
+    type Ranking = {
+      categories: {
+        category: string;
+        femenino: { notYetEligible: { lastName: string }[] };
+        masculino: { notYetEligible: { lastName: string }[] };
+      }[];
+    };
+
+    const vistasDeRazo = async (seasonId: string) => {
+      const body = (await (
+        await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
+      ).json()) as Ranking;
+      const razo = body.categories.find((cat) => cat.category === 'razo');
+      return {
+        femenino: razo?.femenino.notYetEligible.map((a) => a.lastName) ?? [],
+        masculino: razo?.masculino.notYetEligible.map((a) => a.lastName) ?? [],
+      };
+    };
+
+    /** Torneo de 2 razo sin sexo, jugado y publicado. */
+    const publicadoSinSexo = async (c: ReturnType<typeof cliente>) => {
+      const torneo = await torneoNuevo(c);
+      await c.post(`/api/admin/tournaments/${torneo.tournamentId}/start`);
+      await completarTorneo(torneo.tournamentId);
+      await c.post(`/api/admin/tournaments/${torneo.tournamentId}/publish`);
+      return torneo;
+    };
+
+    it('entra al ranking de su sexo apenas el admin lo carga', async () => {
+      const c = await admin();
+      const { seasonId, archerIds } = await publicadoSinSexo(c);
+      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: [] });
+
+      const res = await c.patch(`/api/admin/archers/${archerIds[0]}`, {
+        firstName: 'Nombre1',
+        lastName: 'Apellido001',
+        category: 'razo',
+        sex: 'femenino',
+      });
+      expect(res.status).toBe(200);
+
+      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: ['Apellido001'], masculino: [] });
+    });
+
+    it('sigue ahí después de recalcular la liga desde los torneos', async () => {
+      const c = await admin();
+      const { seasonId, archerIds } = await publicadoSinSexo(c);
+
+      await c.patch(`/api/admin/archers/${archerIds[0]}`, {
+        firstName: 'Nombre1',
+        lastName: 'Apellido001',
+        category: 'razo',
+        sex: 'masculino',
+      });
+      await publishService.reconcileStandings();
+
+      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
+    });
+
+    it('un sexo mal cargado se corrige: cambia de vista, no queda en las dos', async () => {
+      const c = await admin();
+      const { seasonId, archerIds } = await publicadoSinSexo(c);
+      const datos = { firstName: 'Nombre1', lastName: 'Apellido001', category: 'razo' };
+
+      await c.patch(`/api/admin/archers/${archerIds[0]}`, { ...datos, sex: 'femenino' });
+      await c.patch(`/api/admin/archers/${archerIds[0]}`, { ...datos, sex: 'masculino' });
+
+      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
+    });
+
+    /**
+     * Sólo `sex` viaja hacia atrás. El nombre del torneo es el de ese día:
+     * `docs/ARCHITECTURE.md` §5, decisión 2, sigue en pie para todo lo demás.
+     */
+    it('corregir el nombre no reescribe el histórico del torneo', async () => {
+      const c = await admin();
+      const { tournamentId, archerIds } = await publicadoSinSexo(c);
+
+      await c.patch(`/api/admin/archers/${archerIds[0]}`, {
+        firstName: 'Nombre1',
+        lastName: 'Corregido',
+        category: 'razo',
+        sex: 'femenino',
+      });
+
+      const miembro = await participants().findOne({
+        tournamentId: new ObjectId(tournamentId),
+        archerId: new ObjectId(archerIds[0]),
+      });
+      expect(miembro).toMatchObject({ lastName: 'Apellido001', sex: 'femenino' });
+    });
+  });
 });
 
 // ── BE-21 · Ranking público por sexo ─────────────────────────────────────────

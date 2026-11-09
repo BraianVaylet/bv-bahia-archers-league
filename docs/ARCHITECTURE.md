@@ -198,6 +198,8 @@ Al crear el torneo se congela nombre, apellido y categoría de cada arquero dent
 
 **Por qué:** si un arquero cambia de categoría el año que viene, o se archiva, o corrige la grafía de su apellido, el histórico no debe moverse. Un torneo publicado es un registro inmutable de lo que pasó ese día. `archerId` se conserva como referencia para agregar la ficha del arquero, pero el dato que se muestra en el torneo es el snapshot.
 
+**Excepción: `sex` (`BE-23`, 2026-11-09).** También viaja en el snapshot (`BE-19`), pero no es algo que «pasó ese día»: es la pool en la que el arquero se rankea (Femenino o Masculino). Cuando el admin lo edita en el padrón —completar el padrón viejo, o corregir uno mal cargado—, el valor nuevo se escribe en todos sus `participants` y `standings`, en la misma transacción que la edición. Sin esto, un arquero completado seguía afuera del ranking por sexo, y `db:reconcile` lo volvía a sacar porque recalcula desde `participants`. Nombre, apellido y categoría siguen congelados.
+
 ### Decisión 3 — Rollups denormalizados
 
 `participants` mantiene `total`, `xCount`, `tenCount`, `innerCount`, `mCount`, `targetsCompleted` y `normalizedPct` actualizados por delta en la misma transacción en que se escribe un puntaje.

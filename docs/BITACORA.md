@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · El padrón viejo vuelve a verse, se edita en el lugar y entra al ranking por sexo (BE-23)
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado.
+
+### Qué pasaba
+
+El pedido fue «agregar editar arqueros». Editar ya existía (`PATCH /admin/archers/:id`, el lápiz de cada fila), pero no servía para el caso que lo motivó:
+
+- **Los arqueros anteriores a `BE-19` no aparecían en ningún lado de WAFA.** `BE-19` agregó `registrationStatus`, `sex` y `dni` sin migrar los documentos existentes, y la lista filtraba `registrationStatus: 'aprobado'`, una igualdad que no matchea una clave ausente. Quedaban afuera del padrón, de la búsqueda y del wizard de torneo: no se podían editar porque no se podían encontrar. Los tests no lo veían porque todos los fixtures se crean por la API actual, que ya escribe las tres claves.
+- **Aunque se encontraran, el sexo cargado no movía el ranking.** El ranking por sexo lee `standings.sex`, que es un snapshot del torneo (`participants.sex`). Completar el padrón no tocaba ninguno de los dos, y `db:reconcile` recalcula desde `participants`.
+- **En el celular el lápiz parecía no hacer nada.** El formulario de edición se abría arriba de todo, encima del buscador; con el arquero abajo en la lista, quedaba fuera de pantalla.
+
+### Decisiones
+
+- **Consulta tolerante en vez de migración.** «Aprobado» se consulta como `registrationStatus: { $ne: 'pendiente' }` y `toView` lee las tres claves con `??`. Una migración resuelve los documentos de hoy pero no protege la consulta del próximo campo que se agregue sin migrar; ésta funciona sin correr nada en producción. Un arquero viejo lo cargó el admin, que es exactamente lo que vale como aprobado (`archerRepo.create`).
+- **`sex` se propaga hacia atrás; nombre y categoría no.** Cambio a la decisión 2 de `ARCHITECTURE.md` §5, anotado ahí como excepción: el sexo es la pool en la que se rankea, no algo que pasó ese día. La edición escribe el valor nuevo en `participants` y `standings` del arquero dentro de una transacción. Una corrección de sexo mal cargado lo mueve de vista, no lo deja en las dos.
+- **Editar se abre en el lugar de la fila**, con el foco en el primer campo (que la trae a la vista); arriba queda sólo el alta. El aviso dice qué falta («sexo», «DNI» o los dos) y un filtro «Sólo con datos incompletos», del cliente como el de categoría, deja a quienes hay que completar.
+
+### Verificado
+
+Tests nuevos vistos fallar por la razón correcta antes de cada cambio: lista vacía para el arquero viejo; ranking por sexo sin él después de cargarle el sexo. En el navegador, contra una base descartable con doce arqueros insertados con la forma de antes de `BE-19`: aparecen todos con «Falta completar sexo y DNI», el formulario se abre en el lugar del último de la lista a 375 px, guarda, y el filtro deja sólo a los incompletos. `pnpm -r typecheck`, `pnpm -r test` (1897 tests), Biome y `verificar-capas` verdes.
+
+### Deuda
+
+- El mensaje de lista vacía con un filtro de categoría sin resultados sigue diciendo «El padrón está vacío»; es anterior a este cambio.
+
+---
+
 ## 2026-11-04 · Tercer CI de la PR 80: una carrera del test al cerrar el circuito
 
 **Autor:** Claude Sonnet 5.5 · **Estado:** sigue la serie de correcciones de la PR 80; no es una tanda nueva.

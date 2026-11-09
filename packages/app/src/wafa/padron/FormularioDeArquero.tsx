@@ -3,7 +3,7 @@
  */
 
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO, SEXES } from '@bal/shared';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { type Borrador, ETIQUETA_DE_SEXO } from './tipos.js';
@@ -20,6 +20,17 @@ export function FormularioDeArquero({
   const [borrador, setBorrador] = useState(inicial);
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);
+
+  /**
+   * Al abrirse, el foco va al primer campo. Es lo que lo trae a la vista: `focus()`
+   * scrollea hasta el campo, y el formulario de edición se abre donde estaba el
+   * arquero, que puede estar muy abajo en el padrón. Con lector de pantalla, además,
+   * anuncia que se abrió algo en vez de dejar el foco en un botón que ya no existe.
+   */
+  const formulario = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    formulario.current?.querySelector('input')?.focus();
+  }, []);
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,7 +49,11 @@ export function FormularioDeArquero({
   const completo = borrador.firstName.trim() !== '' && borrador.lastName.trim() !== '';
 
   return (
-    <form onSubmit={(e) => void enviar(e)} className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}>
+    <form
+      ref={formulario}
+      onSubmit={(e) => void enviar(e)}
+      className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
+    >
       <h2 className="font-semibold">{inicial.id ? 'Editar arquero' : 'Nuevo arquero'}</h2>
 
       <Field

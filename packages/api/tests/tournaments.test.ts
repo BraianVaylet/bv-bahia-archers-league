@@ -415,6 +415,83 @@ describe('arqueros', () => {
     };
     expect(pendientes.archers.map((a) => a.lastName)).toEqual(['DeAprobar']);
   });
+
+  // ── Padrón viejo: anterior a `BE-19` ─────────────────────────────────────
+
+  /**
+   * Un arquero creado antes de `BE-19` no tiene `registrationStatus`, ni
+   * `sex`, ni `dni`: las claves no existen, no valen `null`. Lo que hacía el
+   * alta de entonces se reproduce insertando el documento tal cual.
+   */
+  const insertarArqueroViejo = async (lastName: string) => {
+    const _id = new ObjectId();
+    await archers().insertOne({
+      _id,
+      firstName: 'Viejo',
+      lastName,
+      category: 'compuesto',
+      searchKey: `${lastName.toLowerCase()} viejo`,
+      archivedAt: null,
+      createdAt: new Date('2026-03-01'),
+      updatedAt: new Date('2026-03-01'),
+    } as never);
+    return _id.toHexString();
+  };
+
+  it('un arquero del padrón viejo aparece en la lista, como aprobado y con el perfil incompleto', async () => {
+    const c = await adminListo();
+    const id = await insertarArqueroViejo('Antiguo');
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers')).json()) as {
+      archers: {
+        id: string;
+        sex: unknown;
+        dni: unknown;
+        registrationStatus: string;
+        profileIncomplete: boolean;
+      }[];
+    };
+
+    expect(lista).toEqual([
+      expect.objectContaining({
+        id,
+        sex: null,
+        dni: null,
+        registrationStatus: 'aprobado',
+        profileIncomplete: true,
+      }),
+    ]);
+  });
+
+  it('un arquero del padrón viejo se encuentra al buscarlo', async () => {
+    const c = await adminListo();
+    await insertarArqueroViejo('Antiguo');
+
+    const { archers: lista } = (await (await c.get('/api/admin/archers?q=antig')).json()) as {
+      archers: { lastName: string }[];
+    };
+
+    expect(lista.map((a) => a.lastName)).toEqual(['Antiguo']);
+  });
+
+  it('un arquero del padrón viejo se puede completar desde el admin', async () => {
+    const c = await adminListo();
+    const id = await insertarArqueroViejo('Antiguo');
+
+    const res = await c.patch(`/api/admin/archers/${id}`, {
+      firstName: 'Viejo',
+      lastName: 'Antiguo',
+      category: 'compuesto',
+      sex: 'femenino',
+      dni: '20111222',
+    });
+
+    expect(res.status).toBe(200);
+    const { archer } = (await res.json()) as {
+      archer: { sex: string; dni: string; profileIncomplete: boolean };
+    };
+    expect(archer).toMatchObject({ sex: 'femenino', dni: '20111222', profileIncomplete: false });
+  });
 });
 
 // ── BE-20 · Alta pública de arqueros ─────────────────────────────────────────

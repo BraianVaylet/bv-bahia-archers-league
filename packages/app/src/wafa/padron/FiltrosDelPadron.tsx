@@ -14,6 +14,8 @@ export function FiltrosDelPadron({
   onVerArchivados,
   verPendientes,
   onVerPendientes,
+  soloIncompletos,
+  onSoloIncompletos,
 }: {
   readonly busqueda: string;
   readonly onBusqueda: (v: string) => void;
@@ -23,6 +25,8 @@ export function FiltrosDelPadron({
   readonly onVerArchivados: (marcado: boolean) => void;
   readonly verPendientes: boolean;
   readonly onVerPendientes: (marcado: boolean) => void;
+  readonly soloIncompletos: boolean;
+  readonly onSoloIncompletos: (marcado: boolean) => void;
 }) {
   return (
     <>
@@ -54,6 +58,18 @@ export function FiltrosDelPadron({
           ))}
         </select>
       </div>
+
+      {/* Quien no tiene sexo cargado no entra al ranking Femenino ni al Masculino: esto
+          es lo que permite encontrarlos de una vez en vez de recorrer el padrón entero. */}
+      <label className="flex items-center gap-2 min-h-[44px]">
+        <input
+          type="checkbox"
+          checked={soloIncompletos}
+          onChange={(e) => onSoloIncompletos(e.target.checked)}
+          className="w-5 h-5"
+        />
+        <span>Sólo con datos incompletos</span>
+      </label>
 
       <label className="flex items-center gap-2 min-h-[44px]">
         <input

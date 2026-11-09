@@ -5,7 +5,7 @@
  */
 
 import type { ArcherInput } from '@bal/shared';
-import type { ObjectId } from 'mongodb';
+import type { ClientSession, ObjectId } from 'mongodb';
 import { archers, participants } from '../db/client.js';
 import type { ArcherDoc, ArcherRegistrationStatus } from '../db/types.js';
 import { searchKey } from '../lib/crypto.js';
@@ -26,7 +26,11 @@ export interface ListOptions {
 export function list(options: ListOptions = {}): Promise<ArcherDoc[]> {
   const filtro: Record<string, unknown> = {
     archivedAt: options.archived ? { $ne: null } : null,
-    registrationStatus: options.status ?? 'aprobado',
+    // «Aprobado» es «no pendiente», no `registrationStatus: 'aprobado'`: el padrón
+    // anterior a `BE-19` no tiene la clave, y una igualdad lo dejaba afuera de la
+    // lista, de la búsqueda y del wizard de torneo. Esos arqueros los cargó el admin,
+    // que es justo lo que vale como aprobado (`create`). `$ne` matchea la clave ausente.
+    registrationStatus: options.status === 'pendiente' ? 'pendiente' : { $ne: 'pendiente' },
   };
 
   if (options.query) {
@@ -102,7 +106,11 @@ export async function create(
   }
 }
 
-export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherDoc | null> {
+export async function update(
+  id: ObjectId,
+  input: ArcherInput,
+  session?: ClientSession,
+): Promise<ArcherDoc | null> {
   try {
     return await archers().findOneAndUpdate(
       { _id: id },
@@ -117,7 +125,7 @@ export async function update(id: ObjectId, input: ArcherInput): Promise<ArcherDo
           updatedAt: new Date(),
         },
       },
-      { returnDocument: 'after' },
+      { returnDocument: 'after', ...(session ? { session } : {}) },
     );
   } catch (error) {
     if (esClaveDuplicada(error)) {

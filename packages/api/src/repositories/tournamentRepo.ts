@@ -6,7 +6,7 @@
  * la alcanza. Es el error más fácil de cometer con el driver de Mongo.
  */
 
-import type { Position, TournamentStatus, Unit } from '@bal/shared';
+import type { Position, Sex, TournamentStatus, Unit } from '@bal/shared';
 import type { ClientSession, ObjectId } from 'mongodb';
 import { participants, patrols, scores, tournaments } from '../db/client.js';
 import type { ParticipantDoc, PatrolDoc, TournamentDoc } from '../db/types.js';
@@ -184,6 +184,24 @@ export async function reassignParticipant(
  */
 export function listParticipationsOfArcher(archerId: ObjectId): Promise<ParticipantDoc[]> {
   return participants().find({ archerId }).limit(200).toArray();
+}
+
+/**
+ * Lleva el `sex` del padrón a todas las participaciones del arquero.
+ *
+ * La única excepción al snapshot congelado (`docs/ARCHITECTURE.md` §5, decisión 2):
+ * el sexo no es algo que «pasó ese día» sino la pool en la que se rankea, y es de
+ * acá de donde `db:reconcile` lo vuelve a leer. Sin esto, completarlo en el padrón
+ * no movería el ranking, o lo movería hasta el próximo recálculo.
+ *
+ * El `$ne` deja afuera lo que ya coincide: editar el nombre no escribe nada acá.
+ */
+export async function setSexOfArcher(
+  archerId: ObjectId,
+  sex: Sex | null,
+  session: ClientSession,
+): Promise<void> {
+  await participants().updateMany({ archerId, sex: { $ne: sex } }, { $set: { sex } }, { session });
 }
 
 /** Varios torneos de una, para no consultar de a uno en un bucle. */
