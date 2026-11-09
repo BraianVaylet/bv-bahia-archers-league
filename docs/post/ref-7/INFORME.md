@@ -181,6 +181,8 @@ Captura 14: un botón grande al final del recorrido, cuando ya hay un ícono de 
 
 Se confirman con el autor **antes** de arrancar las tandas que dependen de cada una. Si nadie está para preguntar, se toma la opción marcada como *por defecto* y se anota en la bitácora.
 
+> **Estado (2026-11-09):** el autor confirmó la opción *por defecto* de la **1, 2, 4 y 5**. La **3** y la **6** se tomaron por defecto sin consultar. Detalle en [`BITACORA.md`](../../BITACORA.md), entrada de `REF7-3`. No hace falta volver a preguntarlas.
+
 1. **Foto de portada** (`L-5`) — ¿se reemplaza por una foto real del predio del CBA o se saca? *Por defecto:* se mantiene `portada.webp` hasta que haya una foto real, y el hero funciona sin foto (con solo los anillos) si el archivo no está. Afecta a `REF7-6`.
 2. **"Ingresar" se muda al encabezado** (`L-4`) — el único acceso a la PWA desde la landing pasa del cuerpo al encabezado (y al pie). *Por defecto:* sí. Afecta a `REF7-5` y `REF7-6` y a `e2e/ingreso.spec.ts`, que busca el link por nombre (sigue llamándose "Ingresar").
 3. **Recordar el último rol en `/app`** (`P-1`) — guardar en `localStorage` el último rol elegido y mostrarlo primero con "Seguís como …". *Por defecto:* no en esta ronda (queda como mejora P2).

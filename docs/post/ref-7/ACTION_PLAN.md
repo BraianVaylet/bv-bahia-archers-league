@@ -92,13 +92,13 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** test de contraste verde con todos los pares de §2.3 · `paleta.test.ts` sigue verde · ningún valor existente cambió (verificar con `git diff` que solo hay líneas agregadas, salvo el `:focus-visible`).
 
-### `[ ] REF7-3` · Íconos nuevos · **P0** · S
+### `[x] REF7-3` · Íconos nuevos · **P0** · S
 
 **Hallazgo:** `C-6`. **Spec:** `DISENO.md` §4.18.
 **Archivos:** `packages/ui/src/iconos/acciones.tsx` (o uno nuevo, `navegacion.tsx`), `packages/ui/src/index.ts`.
 
-- [ ] `IconoChevron`, `IconoFlecha`, `IconoVolver`, `IconoSincronizar`, `IconoSinSenal`, `IconoPanel`, `IconoPodio`, `IconoArqueros`, `IconoCalendario`, `IconoLugar` e `IconoInstalar`, con el `Svg` base
-- [ ] Exportados desde `@bal/ui`
+- [x] `IconoChevron`, `IconoFlecha`, `IconoVolver`, `IconoSincronizar`, `IconoSinSenal`, `IconoPanel`, `IconoPodio`, `IconoArqueros`, `IconoCalendario`, `IconoLugar` e `IconoInstalar`, con el `Svg` base
+- [x] Exportados desde `@bal/ui`
 
 **DoD:** el test de iconografía de §10 sigue verde · se ven a 16, 20 y 24px.
 

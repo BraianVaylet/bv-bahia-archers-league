@@ -50,6 +50,7 @@ export * from './iconos/categoria.js';
 export { ICONO_DE_CATEGORIA } from './iconos/categoria.js';
 export * from './iconos/modalidad.js';
 export { ICONO_DE_MODALIDAD } from './iconos/modalidad.js';
+export * from './iconos/navegacion.js';
 export { Logo, type LogoProps } from './Logo.js';
 export { NOMBRE_DEL_SITIO, useAlCambiarDeRuta, useTituloDePagina } from './navegacion.js';
 export {

@@ -14,6 +14,20 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-3` — Íconos nuevos
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Los 11 íconos de `DISENO.md` §4.18 (`IconoChevron`, `IconoFlecha`, `IconoVolver`, `IconoSincronizar`, `IconoSinSenal`, `IconoPanel`, `IconoPodio`, `IconoArqueros`, `IconoCalendario`, `IconoLugar`, `IconoInstalar`) en `ui/src/iconos/navegacion.tsx`, con el `Svg` base, exportados desde `@bal/ui`. Todavía no los usa ninguna pantalla: llegan con `REF7-4` en adelante. Revisados a ojo a 16, 20 y 24px y al lado de texto de 16px.
+
+**Decisiones:** archivo nuevo `navegacion.tsx` y no `acciones.tsx`: son de navegación y de estado, no acciones sobre un dato.
+
+**Decisiones de `INFORME.md` §5, confirmadas con el autor (2026-11-09):** 1 — se mantiene `portada.webp` hasta tener una foto real del predio, y el hero funciona sin foto · 2 — «Ingresar» se muda al encabezado y al pie · 4 — «En curso» y «Esperando publicación» · 5 — sin pie en toda la PWA. **Las otras dos se toman por defecto, sin consultar:** 3 — recordar el último rol queda fuera de esta ronda (`REF7-13`, P2) · 6 — teclas de 64px de alto, con `TAMAÑO_TECLA_PX` = 56 como mínimo.
+
+**Tests:** `ui/src/iconos.test.tsx` (26 casos, visto fallar los 26 antes): cada ícono sale del barril de `@bal/ui`, usa el trazo común (grilla de 24, 1.8, `currentColor`, sin relleno), es decorativo por defecto, dibuja algo y respeta `size` a 16, 20 y 24; suelto, acepta `role="img"` y `aria-label`.
+
+---
+
 ## 2026-11-09 · `REF7-2` — Tokens nuevos y contraste
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
