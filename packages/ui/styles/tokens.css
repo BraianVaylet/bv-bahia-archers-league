@@ -12,11 +12,28 @@
  * Se importa DESPUÉS de `tailwindcss`, porque `@theme` extiende su tema.
  */
 
+/*
+  Fuentes autohospedadas (`REF7-1` / `D-1`). La CSP permite `font-src 'self'` y nada más: los
+  `woff2` salen del mismo origen, y la PWA los precachea con el resto (`globPatterns` incluye
+  `woff2`), así que sin señal los títulos siguen en Archivo.
+
+  Hasta `REF7-1` las familias se declaraban pero ningún `@font-face` las cargaba: todo se veía en
+  la fuente del sistema. Con `unicode-range` el navegador baja sólo los subsets que usa (latin).
+
+  Van antes de cualquier regla: un `@import` después de `@theme` el navegador lo ignora.
+*/
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/martian-mono/wdth.css';
+
 @theme {
-  /* Tipografía. Autohospedada: la CSP prohíbe pedidos a hosts externos. */
-  --font-display: 'Archivo Expanded', 'Archivo', system-ui, sans-serif;
-  --font-sans: 'Archivo', system-ui, sans-serif;
-  --font-mono: 'Martian Mono', ui-monospace, monospace;
+  /*
+    Tipografía. El nombre tiene que coincidir letra por letra con el `font-family` del `@font-face`
+    de cada paquete: si no, el navegador vuelve a caer en `system-ui` sin avisar
+    (`src/fuentes.test.ts` lo comprueba).
+  */
+  --font-display: 'Archivo Variable', system-ui, sans-serif;
+  --font-sans: 'Archivo Variable', system-ui, sans-serif;
+  --font-mono: 'Martian Mono Variable', ui-monospace, monospace;
 
   /* Escala tipográfica. */
   --text-score: 56px;
@@ -28,6 +45,18 @@
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 20px;
+}
+
+/*
+  Lo "expandido" es un eje de la misma familia, no otra familia: `'Archivo Expanded'` no existe.
+  Archivo variable va de 62% a 125% de ancho; los titulares, las cifras de puntaje y los números de
+  blanco van al 125%. Se usa `font-display` y nunca `font-[var(--font-display)]`, que cambia la
+  familia pero no el ancho.
+*/
+@utility font-display {
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-variation-settings: 'wdth' 125;
 }
 
 :root {

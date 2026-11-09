@@ -38,7 +38,7 @@ export function PasoRecorrido({
         data-testid="maximo-posible"
       >
         <span className="text-sm text-[var(--ink-muted)]">Máximo posible</span>
-        <span className="font-[var(--font-display)] text-2xl font-bold tabular-nums">
+        <span className="font-display text-2xl font-bold tabular-nums">
           {maximoDelRecorrido(borrador.blancos)}
         </span>
       </div>

@@ -14,6 +14,26 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-1` — Fuentes autohospedadas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Archivo y Martian Mono variables (`@fontsource-variable` 5.3.0, dependencias de `@bal/ui`) se importan al principio de `tokens.css`; las tres familias apuntan a `'Archivo Variable'` y `'Martian Mono Variable'`, y la utilidad `font-display` agrega `font-stretch: 125%`. Los 31 usos de `font-[var(--font-display)]` pasaron a `font-display`. Verificado en el navegador: el `h1` de `/app` sale en Archivo al 125% de ancho y sólo se descarga el subset `latin`.
+
+**Decisiones:**
+- El `@import` del paquete funciona desde `tokens.css` en los dos builds (Tailwind 4 resuelve y rebasa las URL): no hizo falta importarlo en cada `styles/index.css`.
+- **El precache de la PWA lleva sólo el subset `latin`**, no `**/*.woff2`. Los paquetes traen también cirílico, vietnamita y latin-ext: con el patrón genérico el precache subía de ~600 a 888 KiB, ~200 KB que cada celular bajaría al instalar y que ninguna pantalla en castellano pide (`unicode-range`). `latin` cubre ñ, tildes, ¿, ¡ y la puntuación. Queda en 725 KiB. Con señal, un nombre con un carácter de latin-ext baja ese subset igual; sin señal, ese carácter sale en la fuente del sistema.
+- `scripts/presupuesto.mjs` (que ya corre en el CI) verifica sobre `sw.js` que se precacheen las dos fuentes latin y ninguna otra. Se lo vio fallar contra el build con el patrón genérico.
+
+**Desvíos:** el ítem del plan decía «el precache incluye `**/*.woff2`»; se acotó a `latin` por lo de arriba. El DoD («en modo avión los títulos siguen en Archivo») se cumple igual.
+
+**Hallazgo para `REF7-2`:** `text-[var(--text-display)]` (21 usos) **no aplica el tamaño**: con `var()` en un valor arbitrario, Tailwind 4 asume que es un **color**. Los `h1` de toda la app miden 16px, no 32 (medido en `/app`). Es la causa real de buena parte de `D-2`. Se arregla al agregar la escala a `@theme` usando `text-display` / `text-score` en lugar del valor arbitrario.
+
+**Deuda:** `pnpm lint` falla en local si hay worktrees de otras sesiones en `.claude/worktrees/` (cada uno trae su `biome.json`). En el CI no pasa: `.claude/` no se versiona.
+**Tests:** `ui/src/fuentes.test.ts` (12 casos, visto fallar 11 antes): los dos `@import` antes de cualquier regla, ninguna familia `'Archivo Expanded'`, los tres tokens con las familias cargadas, la utilidad con el eje de ancho, los paquetes como dependencias, el nombre de familia igual al del `@font-face` de cada paquete, y ningún `.tsx` con la clase vieja.
+
+---
+
 ## 2026-11-08 · `ref-7` — Informe y plan del rediseño visual
 
 **Autor:** Claude Opus 5.5 · **Estado:** solo documentación, en la rama `design/ref-7-rediseno`. Ningún cambio de código.

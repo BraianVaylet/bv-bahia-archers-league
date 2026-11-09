@@ -32,9 +32,7 @@ function TorneoFinalizado() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-16 text-center flex flex-col gap-4">
-      <p className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-        Torneo finalizado
-      </p>
+      <p className="font-display text-[var(--text-display)] font-bold">Torneo finalizado</p>
       <p className="text-[var(--ink-muted)]">
         Ya está. Los puntajes de tu patrulla quedaron firmados y enviados.
       </p>

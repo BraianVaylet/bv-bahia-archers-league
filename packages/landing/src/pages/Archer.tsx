@@ -74,7 +74,7 @@ export function ArcherPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
+        <h1 className="font-display text-[var(--text-display)] font-bold">
           {a.lastName}, {a.firstName}
         </h1>
       </div>

@@ -166,7 +166,7 @@ function Tecla({ token, inner, disabled, onPress }: TeclaProps) {
       style={{ minWidth: TAMAÑO_TECLA_PX, minHeight: TAMAÑO_TECLA_PX }}
       className={cn(
         'w-full h-[13vh] max-h-24',
-        'rounded-[var(--radius-md)] font-[var(--font-display)] text-2xl font-semibold',
+        'rounded-[var(--radius-md)] font-display text-2xl font-semibold',
         'border transition-opacity duration-[80ms] active:opacity-70',
         'disabled:opacity-30 disabled:cursor-not-allowed',
         esMiss

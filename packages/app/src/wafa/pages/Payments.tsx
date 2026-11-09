@@ -87,7 +87,7 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
         >
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-sm text-[var(--ink-muted)]">Recaudado</span>
-            <span className="font-[var(--font-display)] text-2xl font-bold tabular-nums">
+            <span className="font-display text-2xl font-bold tabular-nums">
               {formatearMonto(resumen.collected)}
             </span>
           </div>

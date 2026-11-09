@@ -31,7 +31,9 @@
     "react": "^19.2.8"
   },
   "dependencies": {
-    "@bal/shared": "workspace:*"
+    "@bal/shared": "workspace:*",
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/martian-mono": "5.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

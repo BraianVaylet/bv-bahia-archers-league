@@ -73,7 +73,7 @@ function ArrowRowBase({
           <span className="text-sm text-[var(--ink-muted)]">Unidad {unit}</span>
         </span>
 
-        <span className="font-[var(--font-display)] text-2xl font-bold tabular-nums">
+        <span className="font-display text-2xl font-bold tabular-nums">
           {arrows.length > 0 ? total : '—'}
         </span>
       </button>

@@ -49,7 +49,7 @@ function Elegir() {
   return (
     <Screen>
       <div className="pt-12 pb-4">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
+        <h1 className="font-display text-[var(--text-display)] font-bold">
           Liga Bahiense de Arquería
         </h1>
       </div>

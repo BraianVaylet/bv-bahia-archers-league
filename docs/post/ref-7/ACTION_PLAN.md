@@ -63,17 +63,17 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 # P0 — Base compartida
 
-### `[ ] REF7-1` · Fuentes autohospedadas · **P0** · S
+### `[x] REF7-1` · Fuentes autohospedadas · **P0** · S
 
 **Hallazgo:** `D-1`. **Spec:** `DISENO.md` §3.1.
 **Archivos:** `packages/ui/package.json`, `packages/ui/styles/tokens.css`, `packages/app/vite.config.ts` (`globPatterns` del PWA), los usos de `font-[var(--font-display)]` (`grep -rn "font-display" packages/*/src`).
 
-- [ ] `pnpm --filter @bal/ui add @fontsource-variable/archivo @fontsource-variable/martian-mono`
-- [ ] `@import '@fontsource-variable/archivo/wdth.css'` y `…/martian-mono/wdth.css` al principio de `tokens.css` (o en los dos `styles/index.css` si Tailwind no resuelve el import desde `@bal/ui`)
-- [ ] `--font-display` y `--font-sans` a `'Archivo Variable'`; `--font-mono` a `'Martian Mono Variable'`
-- [ ] `@utility font-display` con `font-stretch: 125%` y `font-variation-settings: 'wdth' 125`, y reemplazar cada `font-[var(--font-display)]` por `font-display`
-- [ ] El precache de la PWA incluye `**/*.woff2`
-- [ ] Test en `@bal/ui`: `tokens.css` importa las dos fuentes y ninguna familia declarada es `'Archivo Expanded'`
+- [x] `pnpm --filter @bal/ui add @fontsource-variable/archivo @fontsource-variable/martian-mono`
+- [x] `@import '@fontsource-variable/archivo/wdth.css'` y `…/martian-mono/wdth.css` al principio de `tokens.css` (o en los dos `styles/index.css` si Tailwind no resuelve el import desde `@bal/ui`) — *lo resuelve: quedó en `tokens.css`*
+- [x] `--font-display` y `--font-sans` a `'Archivo Variable'`; `--font-mono` a `'Martian Mono Variable'`
+- [x] `@utility font-display` con `font-stretch: 125%` y `font-variation-settings: 'wdth' 125`, y reemplazar cada `font-[var(--font-display)]` por `font-display`
+- [x] El precache de la PWA incluye `**/*.woff2` — *acotado al subset `latin` (ver la bitácora del 2026-11-09); lo verifica `scripts/presupuesto.mjs`*
+- [x] Test en `@bal/ui`: `tokens.css` importa las dos fuentes y ninguna familia declarada es `'Archivo Expanded'` — `ui/src/fuentes.test.ts`
 
 **DoD:** en el deploy, DevTools → Rendered Fonts muestra "Archivo Variable" en el cuerpo y en los títulos · `pnpm build` de app y landing sin warnings de fuentes · la CSP no cambia y el E2E `tema-sin-parpadeo` sigue sin violaciones · con la PWA instalada y en modo avión, los títulos siguen en Archivo.
 **Riesgo:** el peso. Son ~128 KB de woff2 (latin), y con `unicode-range` no se baja nada que no se use. Se verifica contra los presupuestos de `TECHNICAL.md`.
@@ -85,6 +85,7 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 - [ ] Agregar en claro y oscuro: `--line-strong`, `--nock-text`, `--nock-soft`, `--focus-ring`, `--danger-ink`, `--monte`, `--monte-2`, `--monte-line`, `--monte-ink`, `--monte-muted`, `--monte-accent`, `--shadow-dock` y `--shadow-float` (valores en §2.2)
 - [ ] Agregar a `@theme`: `--radius-full`, `--text-hero`, `--text-h2`, `--text-h3`, `--text-sm`, `--text-mono`, `--text-eyebrow` (§3.2)
+- [ ] **Hallazgo de `REF7-1`:** `text-[var(--text-display)]` y `text-[var(--text-score)]` no aplican el tamaño (Tailwind 4 toma un `var()` arbitrario como color: los `h1` miden 16px). Reemplazarlos por `text-display` / `text-score`, y un test que prohíba `text-[var(--text-` en los `.tsx` (como el de `fuentes.test.ts`)
 - [ ] `:focus-visible { outline: 3px solid var(--focus-ring) }` (antes `--nock`)
 - [ ] Comentario en `tokens.css` que explique por qué el foco dejó de ser `--nock` (2.59:1)
 - [ ] **Primero el test, y se lo ve fallar:** cada par de la tabla §2.3 en los dos temas, leyendo `tokens.css`. Mínimo 4.5 para texto y 3 para bordes, foco y marcas

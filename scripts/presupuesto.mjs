@@ -36,6 +36,7 @@ const FRONTENDS = [
     nombre: 'PWA',
     dist: 'packages/app/dist',
     exigeCss: true,
+    precacheaFuentes: true,
     cargas: [
       // 90 y no 105 (`REF6-15`): sin Zod, que esta pantalla no usa, mide 83. Un tope más alto dejaba
       // que volviera a colarse por un `import` que arrastre un barril, y nadie se enteraba.
@@ -156,6 +157,44 @@ function revisarCss({ nombre, exigeCss }, assets) {
   return false;
 }
 
+/**
+ * Las fuentes que el service worker precachea (`REF7-1`).
+ *
+ * Sin el subset `latin` en el precache, la PWA sin señal vuelve a la fuente del sistema: lo que
+ * `REF7-1` vino a arreglar. Y con los demás subsets, cada celular baja ~200 KB al instalar que
+ * ninguna pantalla en castellano pide.
+ *
+ * @returns `true` si falla.
+ */
+function revisarFuentes({ nombre, dist, precacheaFuentes }, assets) {
+  if (!precacheaFuentes) return false;
+
+  const sw = join(dist, 'sw.js');
+  if (!existsSync(sw)) {
+    console.error(`✗ ${nombre}: no hay service worker (falta ${sw}).`);
+    return true;
+  }
+
+  const codigo = readFileSync(sw, 'utf8');
+  const fuentes = readdirSync(assets).filter((f) => f.endsWith('.woff2'));
+  const latin = fuentes.filter((f) => /-latin-wdth-normal-/.test(f));
+  const resto = fuentes.filter((f) => !latin.includes(f));
+
+  const faltan = latin.length < 2 ? ['(no se emitieron Archivo y Martian Mono latin)'] : [];
+  faltan.push(...latin.filter((f) => !codigo.includes(f)));
+  const sobran = resto.filter((f) => codigo.includes(f));
+
+  if (faltan.length > 0 || sobran.length > 0) {
+    if (faltan.length > 0) console.error(`✗ ${nombre}: no precachea ${faltan.join(', ')}.`);
+    if (sobran.length > 0) console.error(`✗ ${nombre}: precachea de más ${sobran.join(', ')}.`);
+    return true;
+  }
+
+  const bytes = latin.reduce((total, f) => total + readFileSync(join(assets, f)).length, 0);
+  console.info(`✓ ${nombre}: precachea ${latin.length} fuentes latin (${kb(bytes)} KB).`);
+  return false;
+}
+
 /** Revisa un frontend entero. @returns `true` si hay alguna falla. */
 function revisarFrontend(frontend) {
   const { nombre, dist, cargas } = frontend;
@@ -176,6 +215,7 @@ function revisarFrontend(frontend) {
   // Se revisan todas, no se corta en la primera: quien lee la salida quiere ver cuáles fallan.
   const fallas = cargas.map((carga) => revisarCarga(contexto, carga));
   fallas.push(revisarCss(frontend, assets));
+  fallas.push(revisarFuentes(frontend, assets));
   return fallas.some(Boolean);
 }
 

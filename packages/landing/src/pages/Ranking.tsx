@@ -177,7 +177,7 @@ export function RankingPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">Ranking</h1>
+        <h1 className="font-display text-[var(--text-display)] font-bold">Ranking</h1>
       </div>
 
       {temporadas.estado === 'listo' && temporadas.datos.seasons.length > 0 && (

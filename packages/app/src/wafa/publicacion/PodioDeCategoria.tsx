@@ -19,9 +19,7 @@ export function PodioDeCategoria({ p }: { readonly p: ReturnType<typeof podios>[
             className="rounded-[var(--radius-md)] border px-3 py-2 bg-[var(--surface)] flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-[var(--font-display)] font-bold tabular-nums w-6 shrink-0">
-                {f.position}
-              </span>
+              <span className="font-display font-bold tabular-nums w-6 shrink-0">{f.position}</span>
               <span className="min-w-0 truncate">
                 {f.participante.lastName}, {f.participante.firstName}
                 {/* El empate se dice: dos primeros no es un error de carga. */}

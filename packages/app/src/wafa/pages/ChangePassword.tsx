@@ -65,9 +65,7 @@ export function ChangePasswordPage({
   return (
     <Screen>
       <div className="pt-10 pb-2">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          Cambiar password
-        </h1>
+        <h1 className="font-display text-[var(--text-display)] font-bold">Cambiar password</h1>
         {obligatorio && (
           <p className="text-[var(--ink-muted)]">
             Es tu primer ingreso. Antes de seguir, elegí un password propio.

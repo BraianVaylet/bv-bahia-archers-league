@@ -56,9 +56,7 @@ export function RecuperarPassword({ onVolver, onRecuperado }: RecuperarPasswordP
   return (
     <Screen>
       <div className="pt-10 pb-2">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          Recuperar el acceso
-        </h1>
+        <h1 className="font-display text-[var(--text-display)] font-bold">Recuperar el acceso</h1>
       </div>
 
       <p className="text-[var(--ink-muted)]">

@@ -108,7 +108,7 @@ export function TournamentsPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">Torneos</h1>
+        <h1 className="font-display text-[var(--text-display)] font-bold">Torneos</h1>
       </div>
 
       {torneos.estado === 'cargando' && <Cargando />}
@@ -272,9 +272,7 @@ export function TournamentPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          {t.name}
-        </h1>
+        <h1 className="font-display text-[var(--text-display)] font-bold">{t.name}</h1>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <EstadoChip status={t.status} />
 
@@ -457,9 +455,7 @@ function DiagramaDelRecorrido({
         {targets.map((b, i) => (
           <li key={b.index} className="flex items-stretch">
             <div className="w-24 rounded-[var(--radius-md)] border bg-[var(--surface)] p-2 text-center">
-              <p className="font-[var(--font-display)] text-xl font-bold tabular-nums leading-none">
-                {b.index}
-              </p>
+              <p className="font-display text-xl font-bold tabular-nums leading-none">{b.index}</p>
               <p className="pt-1 text-xs text-[var(--ink-muted)] leading-tight">
                 {SCORING[b.modality].label}
               </p>
