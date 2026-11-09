@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es-AR" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SyncBadge</title><link rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../componentes.css"><script>document.documentElement.dataset.theme=/oscuro/.test(location.search)?"dark":"light"</script>
+<style>
+.pv { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.pv-col { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+</style></head>
+<body class="">
+
+<div class="pv">
+ <button class="bal-sync bal-sync--ok"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12.5 5.5 5.5L20 7" /></svg>Al día</button>
+ <button class="bal-sync bal-sync--pendiente"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/></svg>3 por enviar</button>
+ <button class="bal-sync bal-sync--offline"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M8.5 6.3A6 6 0 0 1 17.7 10H18a4 4 0 0 1 2.3 7.3"/><path d="M16 19H7a5 5 0 0 1-2.2-9.5"/></svg>Sin señal · 12 guardados</button>
+ <button class="bal-sync bal-sync--error"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /> <path d="M12 11v5" /> <circle cx="12" cy="7.8" r="0.9" fill="currentColor" stroke="none" /></svg>No se pudo enviar</button>
+</div>
+</body>
+</html>

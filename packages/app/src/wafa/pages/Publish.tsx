@@ -83,7 +83,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
     <Pantalla>
       <Encabezado titulo={publicado ? 'Resultados' : 'Publicar'} onVolver={onVolver} />
 
-      <Screen conBarraFija>
+      <Screen>
         {error && (
           <p role="alert" className="text-sm text-[var(--danger)]">
             {error}
@@ -92,9 +92,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
 
         {torneo && (
           <div className="pt-2">
-            <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-              {torneo.name}
-            </h1>
+            <h1 className="font-display text-display font-bold">{torneo.name}</h1>
             {publicado && (
               <p className="text-[var(--ok)]">
                 Publicado. Los resultados ya están en la página pública y aplicados a la liga.

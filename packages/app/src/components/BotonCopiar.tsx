@@ -11,7 +11,7 @@
  * mano, que es lo único que queda.
  */
 
-import { IconoCopiar, IconoTilde } from '@bal/ui';
+import { clasesDeBotonIcono, IconoCopiar, IconoTilde } from '@bal/ui';
 import { useEffect, useState } from 'react';
 
 export interface BotonCopiarProps {
@@ -48,8 +48,7 @@ export function BotonCopiar({ valor, queEs }: BotonCopiarProps) {
         onClick={() => void copiar()}
         aria-label={estado === 'copiado' ? `${queEs} copiado` : `Copiar ${queEs}`}
         title={`Copiar ${queEs}`}
-        className="min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border
-          flex items-center justify-center shrink-0 print:hidden"
+        className={clasesDeBotonIcono()}
       >
         {estado === 'copiado' ? <IconoTilde /> : <IconoCopiar />}
       </button>

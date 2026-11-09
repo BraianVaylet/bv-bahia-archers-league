@@ -78,9 +78,7 @@ function Blanco({ fila }: { readonly fila: TarjetaDePuntajes['rows'][number] }) 
         </div>
 
         <span className="shrink-0 tabular-nums">
-          <span className="font-[var(--font-display)] text-xl font-bold">
-            {fila.arrows ? fila.total : '—'}
-          </span>
+          <span className="font-display text-xl font-bold">{fila.arrows ? fila.total : '—'}</span>
           <span className="text-sm text-[var(--ink-muted)]"> / {fila.maxTotal}</span>
         </span>
       </div>
@@ -144,7 +142,7 @@ export function ScorecardPage() {
           ← {t.tournament.name}
         </Link>
 
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
+        <h1 className="font-display text-display font-bold">
           {t.archer.lastName}, {t.archer.firstName}
         </h1>
 

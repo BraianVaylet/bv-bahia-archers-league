@@ -8,24 +8,12 @@
  */
 
 import { useCarga } from '@bal/cliente';
-import {
-  ESTADO_DE_TORNEO,
-  formatearFecha,
-  type ParteDeModalidad,
-  type TournamentStatus,
-} from '@bal/shared';
-import { ChipModalidad, useTituloDePagina } from '@bal/ui';
+import { ESTADO_DE_TORNEO, type ParteDeModalidad, type TournamentStatus } from '@bal/shared';
+import { TarjetaDeTorneo, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
-import {
-  botonClases,
-  clasesDeTarjeta,
-  cn,
-  Encabezado,
-  Pantalla,
-  Screen,
-} from '../../components/ui.js';
+import { botonClases, Encabezado, EnlaceInterno, Pantalla, Screen } from '../../components/ui.js';
 import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export interface TournamentRow {
@@ -50,35 +38,19 @@ export interface TournamentRow {
  */
 const ORDEN: readonly TournamentStatus[] = ['en_proceso', 'sin_iniciar', 'completado', 'publicado'];
 
+/** Qué hay que hacer con un torneo que todavía no arrancó. */
+const ACCION_DEL_ADMIN: Partial<Record<TournamentStatus, string>> = {
+  sin_iniciar: 'Armar patrullas',
+};
+
 function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
   return (
-    <Link
-      to={`/wafa/torneos/${torneo.id}`}
-      className={cn(clasesDeTarjeta(), 'block min-h-[44px]')}
-      data-testid={`torneo-${torneo.id}`}
-    >
-      {/* Tres renglones, uno por pregunta: cuál es, cuándo es, qué tan grande.
-          Apretados en dos, el nombre y la fecha competían por el ancho y en un
-          celular el nombre largo se cortaba. */}
-      <p className="font-semibold">{torneo.name}</p>
-
-      <p className="text-sm text-[var(--ink-muted)] tabular-nums">{formatearFecha(torneo.date)}</p>
-
-      <p className="text-sm text-[var(--ink-muted)]">
-        {torneo.targetCount} blancos · {torneo.participantCount} arqueros · {torneo.patrolCount}{' '}
-        patrullas
-      </p>
-
-      {/* Renglón nuevo: de qué está hecho el recorrido. Con el ícono y el
-          nombre al lado del porcentaje, no sólo el color. */}
-      {torneo.modalities && torneo.modalities.length > 0 && (
-        <p className="mt-1.5 flex flex-wrap gap-1.5" data-testid="modalidades">
-          {torneo.modalities.map((m) => (
-            <ChipModalidad key={m.modality} modality={m.modality} pct={m.pct} compacto />
-          ))}
-        </p>
-      )}
-    </Link>
+    <TarjetaDeTorneo
+      torneo={torneo}
+      href={`/wafa/torneos/${torneo.id}`}
+      enlace={EnlaceInterno}
+      accion={ACCION_DEL_ADMIN[torneo.status]}
+    />
   );
 }
 

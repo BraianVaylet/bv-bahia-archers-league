@@ -21,7 +21,10 @@ export const NOMBRE_DEL_SITIO = 'Liga Bahiense de Arquería';
 /** Cuánto se espera a que aparezca el título de una pantalla que carga datos o un chunk. */
 const PLAZO_DEL_TITULO_MS = 3_000;
 
-/** El contenedor que scrollea: lo marcan `Screen` (PWA) y el `main` de la landing. */
+/**
+ * El contenedor que scrollea en la PWA: lo marca `Screen`. La landing no tiene (`REF7-5`): es un
+ * documento y scrollea la ventana.
+ */
 const SCROLL_PRINCIPAL = '[data-scroll-principal]';
 
 /** El título de pantalla que no es un `h1`: el del `Encabezado` de la PWA. */
@@ -81,6 +84,7 @@ export function useAlCambiarDeRuta(pathname: string): void {
 
     const scroll = document.querySelector<HTMLElement>(SCROLL_PRINCIPAL);
     if (scroll) scroll.scrollTop = 0;
+    else window.scrollTo({ top: 0 });
 
     const ya = objetivoDelFoco();
     if (ya) {

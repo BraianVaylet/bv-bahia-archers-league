@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es-AR" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WaflBlanco</title><link rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../componentes.css"><script>document.documentElement.dataset.theme=/oscuro/.test(location.search)?"dark":"light"</script><style>body{max-width:390px;margin:0 auto;box-shadow:0 0 0 1px var(--line)}</style>
+<style>
+.pv { padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.pv-col { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+body { display: flex; flex-direction: column; min-height: 100vh; }
+.thead { padding: var(--space-4) var(--space-4) var(--space-2); display: flex; align-items: center; gap: var(--space-4); }
+.thead .num { font-family: var(--font-display); font-stretch: 125%; font-variation-settings: "wdth" 125; font-weight: 800; font-size: 56px; line-height: 1; }
+.thead .meta { display: flex; flex-direction: column; gap: 6px; }
+.thead .meta span { font-size: 14px; color: var(--ink-muted); }
+.list { flex: 1; padding: var(--space-2) var(--space-4) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.dock { position: sticky; bottom: 0; }
+
+</style></head>
+<body class="">
+<header class="bal-appbar"><button class="bal-appbar__back"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></svg>Blancos</button><div class="bal-appbar__title"><span>Patrulla 1</span><strong>3ª fecha</strong></div><div class="bal-appbar__end"><button class="bal-sync bal-sync--ok" aria-live="polite"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12.5 5.5 5.5L20 7" /></svg>Al día</button></div></header>
+<div class="thead"><span class="num" aria-label="Blanco 1">1</span><div class="meta"><span class="bal-chip bal-chip--mod" style="--chip:var(--mod-3d)"><svg class="bal-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l2 3M9 4L7 7" /> <path d="M7 7c-1.5 0-2.5 1.2-2.5 2.7 0 1.3 1 2.3 2.3 2.3" /> <path d="M7 12v4.5a1.5 1.5 0 0 0 1.5 1.5h.5" /> <path d="M7 9.5h7.5c2.2 0 3.5 1.4 3.5 3.4V18" /> <path d="M11 18v-3" /> <path d="M18 18v-3" /></svg>3D</span><span>2 flechas · Jabalí · 1 de 6</span></div></div>
+<main class="list">
+<div class="bal-unit bal-unit--activa"><div><p class="bal-unit__name">Esquivel, Julián</p><div class="bal-unit__sub"><span class="bal-mono">UNIDAD A · TIRA 1º</span><span class="bal-stake" style="--stake:var(--stake-azul);height:24px;font-size:12px">Estaca Azul</span></div></div><div class="bal-unit__total"><strong aria-live="polite">11</strong><span>total</span></div><div class="bal-arrows"><span class="bal-arrow bal-arrow--llena">11</span><span class="bal-arrow bal-arrow--siguiente" aria-label="Flecha 2, siguiente"></span></div></div>
+<div class="bal-unit"><div><p class="bal-unit__name">Ferreyra, Camila</p><div class="bal-unit__sub"><span class="bal-mono">UNIDAD A</span><span class="bal-stake" style="--stake:var(--stake-azul);height:24px;font-size:12px">Estaca Azul</span></div></div><div class="bal-unit__total"><strong>—</strong><span>total</span></div><div class="bal-arrows"><span class="bal-arrow"></span><span class="bal-arrow"></span></div></div>
+<div class="bal-unit"><div><p class="bal-unit__name">Gauna, Martín</p><div class="bal-unit__sub"><span class="bal-mono">UNIDAD B</span><span class="bal-stake" style="--stake:var(--stake-roja);height:24px;font-size:12px">Estaca Roja</span></div></div><div class="bal-unit__total"><strong>—</strong><span>total</span></div><div class="bal-arrows"><span class="bal-arrow"></span><span class="bal-arrow"></span></div></div>
+</main>
+<div class="dock"><div class="bal-keypad">
+ <div class="bal-keypad__grid"><button class="bal-key bal-key--centro">11</button><button class="bal-key">10</button><button class="bal-key">8</button><button class="bal-key">5</button><button class="bal-key bal-key--m" aria-label="Errada (M)">M</button></div>
+ <div class="bal-keypad__cta"><button class="bal-btn bal-btn--primario bal-btn--block" disabled>Continuar</button></div>
+ <p class="bal-keypad__hint">Falta cargar: Esquivel (1), Ferreyra, Gauna</p>
+</div></div>
+</body>
+</html>

@@ -9,6 +9,7 @@
  * recorrido no se interrumpe a nadie con esto.
  */
 
+import { IconoInstalar } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { clasesDeTarjeta, cn } from '../components/ui.js';
 import {
@@ -62,13 +63,22 @@ export function InstalarApp() {
   if (estado === 'instalada' || estado === 'nada') return null;
 
   return (
-    <div className="flex flex-col gap-2" data-testid="instalar-app">
-      <p className="text-sm text-[var(--ink-muted)]">
-        Instalada en el celular, la app <strong>abre sin señal</strong>.
+    // `REF7-7`: la piel de `DISENO.md` §5.3 —una tarjeta de borde punteado con su ícono—. La
+    // lógica (el `beforeinstallprompt` y la explicación de iOS) no cambió.
+    <div
+      className="flex items-center gap-3 px-4 py-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--line-strong)]"
+      data-testid="instalar-app"
+    >
+      <IconoInstalar size={24} className="shrink-0 text-[var(--nock-text)]" />
+      <p className="flex-1 text-sm">
+        <strong className="block text-[15px]">Instalá la app</strong>
+        <span className="text-[13px] text-[var(--ink-muted)]">
+          Abre directo acá y funciona sin señal.
+        </span>
       </p>
 
-      <Button variante="secundario" ancho onClick={() => setAbierto(true)}>
-        Instalar la app
+      <Button variante="secundario" tamaño="sm" onClick={() => setAbierto(true)}>
+        Instalar
       </Button>
 
       {abierto && (

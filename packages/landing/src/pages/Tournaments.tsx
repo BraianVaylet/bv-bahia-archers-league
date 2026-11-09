@@ -15,7 +15,6 @@ import {
   distribucionDeCategorias,
   distribucionDeModalidades,
   formatearFecha,
-  formatearFechaCorta,
   formatearMonto,
   type ParteDeModalidad,
   rankByCategory,
@@ -24,10 +23,10 @@ import {
 } from '@bal/shared';
 import {
   BadgeEstado,
-  ChipModalidad,
   COLOR_DE_CATEGORIA,
   COLOR_DE_MODALIDAD,
   GraficoDeTorta,
+  TarjetaDeTorneo,
   useTituloDePagina,
 } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
@@ -37,7 +36,7 @@ import {
   Celda,
   Cuerpo,
   clasesDeTarjeta,
-  cn,
+  EnlaceInterno,
   Fallo,
   Fila,
   Screen,
@@ -108,7 +107,7 @@ export function TournamentsPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">Torneos</h1>
+        <h1 className="font-display text-display font-bold">Torneos</h1>
       </div>
 
       {torneos.estado === 'cargando' && <Cargando />}
@@ -122,30 +121,12 @@ export function TournamentsPage() {
         {torneos.estado === 'listo' &&
           torneos.datos.tournaments.map((t) => (
             <li key={t.id}>
-              <Link
-                to={`/torneos/${t.id}`}
-                className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}
-                data-testid={`torneo-${t.id}`}
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-semibold">{t.name}</span>
-                  <span className="text-sm text-[var(--ink-muted)] tabular-nums">
-                    {formatearFechaCorta(t.date)}
-                  </span>
-                </div>
-                <p className="text-sm text-[var(--ink-muted)]">
-                  {t.targetCount} blancos · {t.participantCount} arqueros
-                </p>
-
-                {/* De qué está hecho el recorrido, y en qué estado está. Los
-                    dos con su palabra al lado del color. */}
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <EstadoChip status={t.status} />
-                  {t.modalities?.map((m) => (
-                    <ChipModalidad key={m.modality} modality={m.modality} pct={m.pct} compacto />
-                  ))}
-                </div>
-              </Link>
+              <TarjetaDeTorneo
+                torneo={t}
+                href={`/torneos/${t.id}`}
+                publico
+                enlace={EnlaceInterno}
+              />
             </li>
           ))}
       </ul>
@@ -272,9 +253,7 @@ export function TournamentPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          {t.name}
-        </h1>
+        <h1 className="font-display text-display font-bold">{t.name}</h1>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <EstadoChip status={t.status} />
 
@@ -457,9 +436,7 @@ function DiagramaDelRecorrido({
         {targets.map((b, i) => (
           <li key={b.index} className="flex items-stretch">
             <div className="w-24 rounded-[var(--radius-md)] border bg-[var(--surface)] p-2 text-center">
-              <p className="font-[var(--font-display)] text-xl font-bold tabular-nums leading-none">
-                {b.index}
-              </p>
+              <p className="font-display text-xl font-bold tabular-nums leading-none">{b.index}</p>
               <p className="pt-1 text-xs text-[var(--ink-muted)] leading-tight">
                 {SCORING[b.modality].label}
               </p>

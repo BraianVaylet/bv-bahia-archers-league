@@ -1037,37 +1037,19 @@ describe('Pantalla', () => {
   });
 
   /**
-   * **El pie está en todas las pantallas, y con barra de acción va compacto.**
+   * **La PWA no tiene pie** (`REF7-4`, decisión 5 de `docs/post/ref-7/INFORME.md`).
    *
-   * `REF3-2` lo había sacado de estas pantallas por alto útil, y el motivo
-   * sigue siendo cierto: un pie de 5 rem debajo de la barra se come el espacio
-   * del contenido, y el teclado de scoring gana. Por eso lo que cede es el
-   * tamaño del pie, no el del teclado.
+   * En WAFL el pie compacto quedaba entre la lista de arqueros y el teclado de
+   * scoring, que es justo donde no sobra alto (`F-1`); en WAFA repetía lo que
+   * ya dice el encabezado (`W-2`). Los escudos siguen en la landing.
    */
-  it('con barra fija el pie está, pero compacto', () => {
-    const { container } = render(
-      <Pantalla>
-        <Screen conBarraFija>contenido</Screen>
-      </Pantalla>,
-    );
-
-    const pie = container.querySelector('footer');
-    expect(pie).not.toBeNull();
-
-    // La versión completa es `py-6`; la compacta, una línea.
-    expect(pie?.querySelector('div')?.className).toContain('py-1.5');
-  });
-
-  it('sin barra fija el pie está, y no scrollea con el contenido', () => {
+  it('ninguna pantalla de la PWA trae pie', () => {
     const { container } = render(
       <Pantalla>
         <Screen>contenido</Screen>
       </Pantalla>,
     );
 
-    const pie = container.querySelector('footer');
-    expect(pie).not.toBeNull();
-    // Hermano del contenedor con scroll, no hijo: si estuviera adentro se iría.
-    expect(pie?.closest('.overflow-y-auto')).toBeNull();
+    expect(container.querySelector('footer')).toBeNull();
   });
 });

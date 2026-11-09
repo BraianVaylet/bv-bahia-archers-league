@@ -100,7 +100,7 @@ describe('volver', () => {
     const { onVolver } = renderWizard();
     await screen.findByLabelText('Nombre');
 
-    fireEvent.click(screen.getByRole('button', { name: '← Inicio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inicio' }));
 
     expect(onVolver).toHaveBeenCalledTimes(1);
   });
@@ -112,7 +112,7 @@ describe('volver', () => {
     await screen.findByLabelText('Nombre');
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: '3ª fecha' } });
 
-    fireEvent.click(screen.getByRole('button', { name: '← Inicio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inicio' }));
     expect(onVolver).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: /se pierde todo/i }));

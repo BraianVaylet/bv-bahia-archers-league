@@ -6,30 +6,42 @@
  *
  * **Nunca bloquea.** Sincronizar es de fondo, por definición.
  * Ver `docs/OFFLINE_SYNC.md` §9.
+ *
+ * `REF7-4` sólo le cambió la piel (`DISENO.md` §4.11): una píldora con borde y
+ * un ícono por estado, en lugar del punto de color. El ícono hace que el estado
+ * no dependa sólo del color. Los textos y la lógica siguen siendo los de
+ * `syncLabel`.
  */
 
+import { type Icono, IconoAviso, IconoSincronizar, IconoSinSenal, IconoTilde } from '@bal/ui';
 import { cn } from '../components/ui.js';
+import type { SyncStatus } from '../offline/syncWorker.js';
 import { syncLabel, useSyncStatus } from '../offline/useSyncStatus.js';
 
-const COLORES: Record<string, string> = {
-  synced: 'text-[var(--ok)]',
-  pending: 'text-[var(--warn)]',
-  offline: 'text-[var(--ink-muted)]',
-  error: 'text-[var(--danger)]',
+const ESTILO: Readonly<Record<SyncStatus, { readonly color: string; readonly icono: Icono }>> = {
+  synced: { color: 'text-[var(--ok)]', icono: IconoTilde },
+  pending: { color: 'text-[var(--warn)]', icono: IconoSincronizar },
+  offline: { color: 'text-[var(--ink-muted)]', icono: IconoSinSenal },
+  error: { color: 'text-[var(--danger)]', icono: IconoAviso },
 };
 
 export function SyncBadge() {
   const estado = useSyncStatus();
+  const { color, icono: IconoDelEstado } = ESTILO[estado.status];
 
   return (
     <p
       // El total de pendientes cambia solo: se anuncia sin robar el foco.
       aria-live="polite"
-      className={cn('flex items-center gap-1.5 text-sm', COLORES[estado.status])}
+      className={cn(
+        'inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-[var(--radius-full)] border',
+        'text-[13px] font-semibold leading-tight',
+        color,
+      )}
       data-testid="sync-badge"
       data-status={estado.status}
     >
-      <span aria-hidden="true" className="w-2 h-2 rounded-full bg-current shrink-0" />
+      <IconoDelEstado size={16} className="shrink-0" />
       {syncLabel(estado)}
     </p>
   );

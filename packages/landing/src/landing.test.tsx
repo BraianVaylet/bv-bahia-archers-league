@@ -93,13 +93,17 @@ describe('HomePage', () => {
   const destino = (a: Element | null | undefined) =>
     new URL(a?.getAttribute('href') ?? '', window.location.href).pathname;
 
-  it('el acceso a la app está primero y entra por la raíz de la PWA', () => {
+  /**
+   * **«Ingresar» no está en el cuerpo de la portada** (`REF7-5` / `L-4`, decisión 2 de `ref-7`).
+   * Vive en el encabezado, en todas las páginas: un botón verde gigante en el medio le hablaba a
+   * quien menos lo necesita, porque el líder ya tiene la PWA instalada. Lo cubre
+   * `navegacion.test.tsx`, que monta el sitio entero.
+   */
+  it('el cuerpo de la portada no tiene un acceso propio a la app', () => {
     renderEn(<HomePage />);
 
-    const accesos = screen.getAllByRole('link');
-    // Lo primero que hace falta el día del torneo es entrar.
-    expect(accesos[0]?.textContent).toMatch(/Ingresar/);
-    expect(destino(accesos[0])).toBe('/app/');
+    const aLaApp = screen.queryAllByRole('link').filter((a) => destino(a).startsWith('/app'));
+    expect(aLaApp).toEqual([]);
   });
 
   /**
@@ -112,9 +116,235 @@ describe('HomePage', () => {
 
     expect(screen.queryByText('Administración')).toBeNull();
     expect(screen.queryByText(/Anotar puntajes/)).toBeNull();
+    expect(screen.queryByText(/Para líderes de patrulla/)).toBeNull();
+  });
+});
 
-    const aLaApp = screen.getAllByRole('link').filter((a) => destino(a).startsWith('/app'));
-    expect(aLaApp).toHaveLength(1);
+// ── REF7-6 · Portada ─────────────────────────────────────────────────────────
+
+describe('HomePage · portada nueva', () => {
+  const temporadas = {
+    seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa', startsAt: '2026-01-01' }],
+  };
+  const listado = (tournaments: unknown[]) => ({ json: { tournaments } });
+  const torneo = (o: Record<string, unknown> = {}) => ({
+    id: 'p1',
+    name: '2ª fecha',
+    date: '2026-07-12',
+    status: 'publicado',
+    targetCount: 6,
+    participantCount: 8,
+    modalities: [{ modality: 'campo', count: 6, pct: 100 }],
+    ...o,
+  });
+  const detalle = {
+    id: 'c1',
+    name: '3ª fecha · Sierra de la Ventana',
+    status: 'en_proceso',
+    targets: Array.from({ length: 6 }, (_, i) => ({ index: i + 1, modality: 'campo', arrows: 3 })),
+    patrols: [
+      { number: 1, startTargetIndex: 0, status: 'en_curso', targetsCompleted: 6, members: [] },
+      { number: 2, startTargetIndex: 2, status: 'en_curso', targetsCompleted: 2, members: [] },
+      { number: 3, startTargetIndex: 4, status: 'en_curso', targetsCompleted: 0, members: [] },
+    ],
+  };
+  const ranking = (ranked: unknown[]) => ({
+    json: {
+      bestN: 2,
+      categories: [
+        {
+          category: 'recurvo',
+          general: { ranked, notYetEligible: [] },
+          femenino: { ranked: [], notYetEligible: [] },
+          masculino: { ranked: [], notYetEligible: [] },
+        },
+      ],
+    },
+  });
+
+  function conDatos(o: Record<string, Manejador> = {}) {
+    servidor({
+      '/api/public/seasons': () => ({ json: temporadas }),
+      '/api/public/tournaments': () => listado([torneo()]),
+      '/api/public/rankings?seasonId=s1': () => ranking([arquero()]),
+      ...o,
+    });
+  }
+
+  it('el hero dice qué es la liga y lleva al ranking y a los torneos', async () => {
+    conDatos();
+    renderEn(<HomePage />);
+
+    expect(
+      // `\s` y no un espacio: entre «Bahía» y «Blanca» va un `&nbsp;`, para que no se separen.
+      screen.getByRole('heading', { level: 1, name: /^La liga de arquería de Bahía\sBlanca\.$/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ver el ranking/ })).toHaveAttribute(
+      'href',
+      '/ranking',
+    );
+    expect(
+      within(screen.getByTestId('hero')).getByRole('link', { name: 'Torneos' }),
+    ).toHaveAttribute('href', '/torneos');
+    expect(await screen.findByText('Temporada 2026 · Bahía Blanca')).toBeInTheDocument();
+  });
+
+  it('con un torneo en curso, la tarjeta muestra su avance y lleva a seguirlo', async () => {
+    conDatos({
+      '/api/public/tournaments': () =>
+        listado([torneo(), torneo({ id: 'c1', name: detalle.name, status: 'en_proceso' })]),
+      // Como la API de verdad: el detalle viene envuelto en `tournament`.
+      '/api/public/tournaments/c1': () => ({ json: { tournament: detalle } }),
+    });
+    renderEn(<HomePage />);
+
+    const tarjeta = await screen.findByTestId('tarjeta-destacada');
+    expect(tarjeta).toHaveAttribute('href', '/torneos/c1');
+    expect(tarjeta).toHaveTextContent('En curso');
+    expect(tarjeta).toHaveTextContent(detalle.name);
+    expect(await within(tarjeta).findByText('3 patrullas en el recorrido')).toBeInTheDocument();
+    expect(
+      within(tarjeta).getByRole('img', { name: '8 de 18 blancos cargados' }),
+    ).toBeInTheDocument();
+  });
+
+  it('sin torneo en curso, la tarjeta es la última fecha publicada', async () => {
+    conDatos();
+    renderEn(<HomePage />);
+
+    const tarjeta = await screen.findByTestId('tarjeta-destacada');
+    expect(tarjeta).toHaveAttribute('href', '/torneos/p1');
+    expect(tarjeta).toHaveTextContent('Resultados oficiales');
+    expect(tarjeta).toHaveTextContent('Ver podios');
+  });
+
+  it('sin torneos no hay tarjeta, y la sección lo dice', async () => {
+    conDatos({ '/api/public/tournaments': () => listado([]) });
+    renderEn(<HomePage />);
+
+    expect(
+      await screen.findByText('Todavía no hay fechas publicadas esta temporada.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('tarjeta-destacada')).toBeNull();
+    expect(
+      within(screen.getByTestId('seccion-torneos')).getByRole('link', { name: /Sumate al padrón/ }),
+    ).toHaveAttribute('href', '/alta');
+  });
+
+  it('la sección de torneos muestra hasta tres y lleva al listado completo', async () => {
+    conDatos({
+      '/api/public/tournaments': () =>
+        listado([1, 2, 3, 4].map((n) => torneo({ id: `p${n}`, name: `Fecha ${n}` }))),
+    });
+    renderEn(<HomePage />);
+
+    const seccion = await screen.findByTestId('seccion-torneos');
+    await within(seccion).findByTestId('torneo-p1');
+    expect(within(seccion).getAllByTestId(/^torneo-/)).toHaveLength(3);
+    expect(within(seccion).getByRole('link', { name: /Ver todas/ })).toHaveAttribute(
+      'href',
+      '/torneos',
+    );
+  });
+
+  it('el ranking muestra el top 5 de la categoría, sin oro, plata ni bronce', async () => {
+    const seis = [1, 2, 3, 4, 5, 6].map((n) =>
+      arquero({ archerId: `a${n}`, lastName: `Apellido${n}`, position: n, bestNAvgPct: 90 - n }),
+    );
+    conDatos({ '/api/public/rankings?seasonId=s1': () => ranking(seis) });
+    renderEn(<HomePage />);
+
+    const seccion = await screen.findByTestId('seccion-ranking');
+    await within(seccion).findByText(/Apellido1/);
+    expect(within(seccion).getAllByRole('row').slice(1)).toHaveLength(5);
+    expect(within(seccion).queryByText(/Apellido6/)).toBeNull();
+    expect(within(seccion).getByText('89,00')).toBeInTheDocument();
+    expect(within(seccion).getByRole('link', { name: /Apellido1/ })).toHaveAttribute(
+      'href',
+      '/arqueros/a1',
+    );
+    // Las estacas son amarilla y naranja: el podio no usa medallas de color.
+    expect(seccion.textContent).not.toMatch(/🥇|🥈|🥉/);
+    // Las pestañas cambian la tabla sin navegar: botones con `aria-pressed`.
+    expect(
+      within(seccion).getByRole('button', {
+        name: new RegExp(CATEGORY_INFO.recurvo.label),
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('con el ranking vacío lo dice, sin tabla', async () => {
+    conDatos({ '/api/public/rankings?seasonId=s1': () => ranking([]) });
+    renderEn(<HomePage />);
+
+    const seccion = await screen.findByTestId('seccion-ranking');
+    expect(
+      await within(seccion).findByText('Todavía no hay resultados publicados esta temporada.'),
+    ).toBeInTheDocument();
+    expect(within(seccion).queryByRole('table')).toBeNull();
+  });
+
+  it('si una sección falla, el resto de la portada se ve igual', async () => {
+    conDatos({
+      '/api/public/rankings?seasonId=s1': () => ({
+        status: 500,
+        json: { error: { message: 'Algo salió mal.' } },
+      }),
+    });
+    renderEn(<HomePage />);
+
+    const seccion = await screen.findByTestId('seccion-ranking');
+    expect(await within(seccion).findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByTestId('torneo-p1')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+  });
+
+  it('las modalidades muestran los valores de flecha de su set', () => {
+    conDatos();
+    renderEn(<HomePage />);
+
+    const seccion = screen.getByTestId('seccion-modalidades');
+    for (const m of ['sala', 'aire_libre', 'campo', '3d'] as const) {
+      const tarjeta = within(seccion).getByTestId(`modalidad-${m}`);
+      const fichas = [...tarjeta.querySelectorAll('[data-ficha]')].map((f) => f.textContent);
+      expect(fichas[0]).toBe(SCORING[m].scoringSet[0]);
+      expect(fichas.at(-1)).toBe(SCORING[m].scoringSet.at(-1));
+    }
+  });
+
+  it('invita a sumarse al padrón', () => {
+    conDatos();
+    renderEn(<HomePage />);
+
+    expect(screen.getByRole('link', { name: /Sumarme al padrón/ })).toHaveAttribute(
+      'href',
+      '/alta',
+    );
+  });
+
+  /** Ningún pedido espera a otro que no necesita, y ninguno bloquea el hero. */
+  it('pide torneos y temporadas en paralelo, y el hero no espera a ninguno', () => {
+    servidor({
+      '/api/public/seasons': () => NUNCA,
+      '/api/public/tournaments': () => NUNCA,
+    });
+    renderEn(<HomePage />);
+
+    expect(llamadas).toEqual(
+      expect.arrayContaining(['/api/public/seasons', '/api/public/tournaments']),
+    );
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+  });
+
+  it('sin foto, el hero queda en una columna y no se rompe', () => {
+    conDatos();
+    renderEn(<HomePage foto={null} />);
+
+    expect(
+      within(screen.getByTestId('hero')).queryByRole('img', { hidden: true, name: '' }),
+    ).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 });
 

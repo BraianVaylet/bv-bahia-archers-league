@@ -82,10 +82,10 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
       <Encabezado
         titulo="Crear torneo"
         onVolver={volver}
-        textoVolver={confirmandoSalir ? '← Se pierde todo, ¿seguro?' : '← Inicio'}
+        textoVolver={confirmandoSalir ? 'Se pierde todo, ¿seguro?' : 'Inicio'}
       />
 
-      <Screen conBarraFija>
+      <Screen>
         <ol className="pt-4 flex gap-1.5" aria-label="Pasos">
           {PASOS.map((nombre, i) => (
             <li

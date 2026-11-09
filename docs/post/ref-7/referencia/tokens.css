@@ -1,0 +1,110 @@
+/* Bahía Archers League — generado desde tokens.json (referencia de diseño de ref-7).
+   NO es el tokens.css de producción: ese vive en packages/ui/styles/tokens.css y se actualiza en REF7-2. */
+@font-face { font-family: 'Archivo'; src: url('./fonts/archivo-latin-wdth-normal.woff2') format('woff2-variations'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+@font-face { font-family: 'Martian Mono'; src: url('./fonts/martian-mono-latin-wdth-normal.woff2') format('woff2-variations'); font-weight: 100 800; font-display: swap; }
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --bg: #fbfaf5;
+  --surface: #ffffff;
+  --surface-2: #f1f0e8;
+  --ink: #16170f;
+  --ink-muted: #5a5f4e;
+  --line: #deddd2;
+  --line-strong: #7f8372;
+  --nock: #8fa800;
+  --nock-ink: #0d0e05;
+  --nock-text: #556500;
+  --nock-soft: #eef4cc;
+  --focus-ring: #556500;
+  --monte: #16170f;
+  --monte-2: #1f211a;
+  --monte-line: #333629;
+  --monte-ink: #f4f3ec;
+  --monte-muted: #a8ad99;
+  --monte-accent: #c6f000;
+  --danger: #b3200e;
+  --danger-ink: #ffffff;
+  --warn: #8a5a00;
+  --ok: #2f6b2f;
+  --stake-roja: #d22b2b;
+  --stake-azul: #1d5fd6;
+  --stake-amarilla: #f5c518;
+  --stake-naranja: #e8650a;
+  --cat-recurvo: #0a6f6a;
+  --cat-compuesto: #5f39ad;
+  --cat-cazador: #8e2560;
+  --cat-razo: #47661a;
+  --cat-tradicional: #6b4526;
+  --cat-longbow: #0f6f4d;
+  --cat-escuela: #4d5260;
+  --cat-principiantes: #7a3f73;
+  --mod-sala: #5f39ad;
+  --mod-aire-libre: #0a6f6a;
+  --mod-campo: #41590f;
+  --mod-3d: #7d4a2e;
+  --shadow-dock: 0 -2px 12px rgba(0,0,0,0.08);
+  --shadow-float: 0 12px 32px rgba(22,23,15,0.18);
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16170f;
+  --surface: #1f211a;
+  --surface-2: #2a2d24;
+  --ink: #f4f3ec;
+  --ink-muted: #a8ad99;
+  --line: #333629;
+  --line-strong: #7a7f6c;
+  --nock: #c6f000;
+  --nock-ink: #16170f;
+  --nock-text: #c6f000;
+  --nock-soft: #2c3410;
+  --focus-ring: #c6f000;
+  --monte: #0d0e05;
+  --monte-2: #16170f;
+  --monte-line: #2a2d24;
+  --monte-ink: #f4f3ec;
+  --monte-muted: #a8ad99;
+  --monte-accent: #c6f000;
+  --danger: #f06449;
+  --danger-ink: #16170f;
+  --warn: #e8a33d;
+  --ok: #7cc47c;
+  --stake-roja: #d22b2b;
+  --stake-azul: #1d5fd6;
+  --stake-amarilla: #f5c518;
+  --stake-naranja: #e8650a;
+  --cat-recurvo: #5ecfc4;
+  --cat-compuesto: #b39cf5;
+  --cat-cazador: #f08fc0;
+  --cat-razo: #a8d15c;
+  --cat-tradicional: #c99a72;
+  --cat-longbow: #6fd6a8;
+  --cat-escuela: #b0b6c2;
+  --cat-principiantes: #d9a8d1;
+  --mod-sala: #b39cf5;
+  --mod-aire-libre: #5ecfc4;
+  --mod-campo: #a8c85a;
+  --mod-3d: #d19b74;
+  --shadow-dock: 0 -2px 12px rgba(0,0,0,0.4);
+  --shadow-float: 0 12px 32px rgba(0,0,0,0.5);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --touch-keypad: 56px;
+  --touch-primary: 52px;
+  --touch-min: 44px;
+  --font-display: "Archivo Expanded", "Archivo", system-ui, sans-serif;
+  --font-sans: "Archivo", system-ui, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, monospace;
+}

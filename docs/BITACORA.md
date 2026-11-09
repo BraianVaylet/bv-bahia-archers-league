@@ -14,6 +14,181 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La puerta de `DISENO.md` §5.3 (`P-1`): a la izquierda (arriba en el celular) la banda `monte` con la marca, los anillos de fondo y la promesa «Anotá, sincronizá y publicá.»; a la derecha «¿Cómo entrás hoy?» (`h1`) con dos `TarjetaDeRol` que dicen qué hace cada app —la de líder es la principal, con «Funciona sin señal»—, la salida a la landing en verde con su flecha, «Instalá la app» como tarjeta de borde punteado y el pie con el club.
+
+**Decisiones:**
+- `TarjetaDeRol` (el `RoleCard` de §4.15) vive en `app/src/components/`: sólo la usa la puerta. El título va primero en el DOM, así el nombre accesible empieza por «Soy líder de patrulla» y el E2E de `ingreso` lo sigue encontrando.
+- **Los anillos no pasan por detrás del texto**, medido con geometría (cada círculo contra la caja de cada texto del panel) a 360, 390, 768, 1024 y 1280. Los valores de la spec (760px a la derecha y arriba) cruzaban la marca con el panel angosto: se usan sólo desde 1280; entre 760 y 1280 van de 400px, y en el celular de 280px (con los 420px de la spec el anillo exterior cruzaba la promesa).
+- `InstalarApp` sólo cambió la piel y la copia («Instalá la app · Abre directo acá y funciona sin señal.» y el botón «Instalar»); `beforeinstallprompt`, la explicación de iOS y el diálogo no se tocaron. Los tests que buscaban «Instalar la app» buscan «Instalar».
+- `VolverALaLiga` es un enlace en `--nock-text` con `IconoVolver` también en los dos logins (centrado ahí; al principio de la línea en la puerta).
+- **La versión no se muestra en el pie**: no hay ninguna expuesta en el código (§5.3 dice «si está disponible»).
+- `transition-colors` animaba también el color del anillo de foco: al llegar con Tab, el anillo arrancaba en el color del texto y tardaba 120ms en volverse verde. La tarjeta de rol y la tarjeta-enlace (`clasesDeTarjeta`) transicionan sólo fondo y borde.
+
+**Desvíos:** ninguno respecto del alcance.
+**Tests:** 8 casos nuevos en `components/puerta.test.tsx` (h1, qué hace cada rol con el título primero, la principal con «Funciona sin señal», 96px de alto, la promesa en el panel, la salida verde con flecha, el pie y la tarjeta de instalar), vistos fallar.
+
+---
+
+## 2026-11-09 · `REF7-6` — Landing: portada nueva
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La portada de `DISENO.md` §5.1 (`L-1`): hero sobre `--monte` con anillos de fondo, titular de 64/40px, bajada y dos accesos; la foto con la tarjeta del torneo que importa ahora (en curso con su `AnilloDeRecorrido` agregado; si no, la última publicada; sin torneos, ninguna); «Cómo se juega»; hasta tres `TarjetaDeTorneo`; el top 5 del ranking por categoría; las cuatro modalidades con sus valores de flecha leídos de `SCORING`; y la banda «Sumate al padrón». Partida en `components/portada/` (`Hero`, `Secciones`, `RankingDeLaPortada`) y `lib/portada.ts` (decisiones puras, con test).
+
+**Decisiones:**
+- **Las temporadas se piden una vez.** El pie y la portada las necesitan y `useRecurso` no deduplica: `App` las comparte con `ProveedorDeTemporadas`; una pantalla montada sola (los tests) las pide por su cuenta.
+- **Pedidos:** torneos y temporadas salen juntos; el detalle del torneo en curso y el ranking esperan sólo al que necesitan y salen en paralelo. El hero no espera a nadie. Cada sección tiene su carga y su error (un test lo fija con el ranking caído).
+- Las pestañas de categoría del ranking son **botones con `aria-pressed`** dentro de un `<fieldset>`, no una `<nav>` con `aria-current` como dice §5.1-4: cambian la tabla de al lado, no navegan.
+- La columna «Fechas» muestra las fechas jugadas («3»). La spec dice «3/3», pero el denominador no está definido y el endpoint no lo trae: no se inventó.
+- Sin oro, plata ni bronce en el podio (regla 8): círculo `--nock-soft`.
+- La tarjeta publicada no lleva anillo (§6.5: el anillo, sólo con el avance real). Sin foto (decisión 1), la tarjeta va debajo de los accesos, sin flotar. La sombra flotante, sólo en escritorio.
+- El año del antetítulo sale del texto de `startsAt` (`slice(0, 4)`), no de `Date`: en UTC−3 el 1 de enero es 31 de diciembre. Sin temporada activa, el antetítulo dice sólo «Bahía Blanca».
+- `RotuloDeSeccion` acepta `nivel={false}`: arriba de un título grande es un antetítulo, no otro `h2`. `AnillosDeFondo` vive en `@bal/ui` (la puerta lo usa en `REF7-7`). El pie de `TarjetaDeTorneo` va en `--ink-muted`, como la referencia.
+- Copy nueva que la spec no traía: «Todavía no hay resultados publicados esta temporada.» (ranking vacío).
+- No se volvió a correr `frontend-design`: la dirección visual ya la fijaron `DISENO.md` y `referencia/`.
+
+**Desvíos:** ninguno respecto del alcance.
+
+**Hallazgo:** el E2E encontró que la portada **no montaba** contra la API real: el detalle público viene envuelto en `{ tournament }` y se leía directo. El test de componente pasaba porque su mock tenía la misma forma equivocada; se corrigió el mock primero (se lo vio fallar) y después el código. Además, `useCarga` conserva los datos de la ruta anterior cuando la ruta cambia: si el torneo destacado cambiara en caliente se vería un instante el avance del anterior. No pasa hoy (se elige una vez por carga); queda anotado.
+
+**Deuda:** la foto sigue siendo `portada.webp` (decisión 1). El JS inicial de la landing pasó de 109 a 115 KB gz (presupuesto 120).
+**Tests:** `landing/src/lib/portada.test.ts` (10) y 12 casos nuevos en `landing.test.tsx` (hero, tarjeta en curso / publicada / sin torneos, top 3 de torneos, top 5 del ranking sin medallas, ranking vacío, una sección caída, fichas de modalidad desde `SCORING`, alta, pedidos en paralelo y sin foto), todos vistos fallar. `componentes.test.tsx` suma `AnillosDeFondo` y el rótulo como antetítulo.
+
+---
+
+## 2026-11-09 · `REF7-5` — Landing: layout de documento, encabezado y pie
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La landing pasó a ser un documento: sin `h-dvh overflow-hidden` ni `data-scroll-principal`, con el encabezado sticky y el pie al final (`L-2`). Encabezado nuevo de una fila (`L-3`): marca, «Inicio · Ranking · Torneos · Sumate» con la sección activa marcada (`aria-current` + barra `--nock-text`), tema e «Ingresar» siempre visible (`L-4`, decisión 2). La portada perdió su botón «Ingresar». El pie nombra la temporada activa. `Screen` de la landing a 1200px.
+
+**Decisiones:**
+- `useAlCambiarDeRuta` lleva **la ventana** arriba si no encuentra `[data-scroll-principal]`. La PWA, que sigue teniendo su contenedor, no cambia (un test lo fija).
+- La temporada del pie es **la primera activa** de `/api/public/seasons` (`lib/temporada.ts`, con test); si no hay ninguna, el pie no la nombra. `REF7-6` la reusa para el hero.
+- `html { scroll-padding-top: 4.5rem }` en la landing: con el encabezado sticky, el elemento enfocado con Tab podía quedar debajo (WCAG 2.4.11).
+- Debajo de 760px el espacio entre marca y acciones baja de 24 a 12px: a 360px «Liga Bahiense» se truncaba. **Debajo de 360px el nombre queda `sr-only`** (el enlace sigue llamándose «Liga Bahiense»): a 320px marca, tema e «Ingresar» no entran juntos y la página scrolleaba de costado (lo encontró `flujo-completo.spec.ts`). Se sacó el `truncate`: si el nombre no entra, baja de renglón en vez de recortarse.
+- **Los títulos parten una palabra que no entra** (`:where(h1, h2, h3) { overflow-wrap: anywhere }` en `tokens.css`). Al pasar a documento salió a la luz un desborde que el `main` con `overflow-y-auto` tapaba (recortaba también en horizontal): en la tarjeta de puntajes, un apellido largo en el `h1` de 32px expandido pasaba los 328px útiles de un celular de 360. Lo encontró `tarjeta-de-puntajes.spec.ts`. Vale también para la PWA (nombres de arquero y de torneo largos).
+- El encabezado sigue llamándose `Encabezado` en el código (es el `SiteHeader` de `DISENO.md`), y `A_LA_APP` vive en `components/ui.tsx`, compartido por el encabezado y el pie.
+
+**Desvíos:** el plan pedía «Footer nuevo» acá; ya había llegado en `REF7-4` (dentro del `main` como puente). En esta tanda pasó al final del documento y recibió la temporada.
+
+**Deuda:** los demás textos de la portada (hero, tarjetas de acceso) siguen siendo los de antes: los reemplaza `REF7-6`.
+**Tests:** `ui/src/fuentes.test.ts` suma uno (los títulos parten palabras), visto fallar. `landing/src/navegacion.test.tsx` (7 casos nuevos, vistos fallar: scroll de la ventana, sin contenedor de scroll, pie después del `main`, sección activa, las cuatro secciones, «Ingresar» en el encabezado de todas las páginas, la portada sin «Ingresar» propio); `ui/src/navegacion.test.tsx` (2: la ventana sin contenedor, y la PWA intacta con contenedor); `landing/src/lib/temporada.test.ts` (3). Los dos de `HomePage` que exigían el «Ingresar» en el cuerpo ahora exigen lo contrario.
+
+---
+
+## 2026-11-09 · `REF7-4` — Componentes compartidos
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La piel nueva de botón, botón ícono, campo y tarjeta-enlace; `BadgeEstado` rediseñado (punto + texto, «En curso» late); cuatro componentes nuevos en `@bal/ui` —`BarraDeModalidades`, `RotuloDeSeccion`, `TarjetaDeTorneo` y `AnilloDeRecorrido`, que son el `ModalityBar`, `SectionHeader`, `TournamentCard` y `CircuitRing` de `DISENO.md`—; `SyncBadge` con ícono por estado; el encabezado de la PWA con `contexto` y vuelta atrás con ícono y texto; y el pie estático de la landing.
+
+**Decisiones:**
+- **`botonClases` se mudó a `@bal/ui`** (`boton.ts`), con `clasesDeBotonIcono`. La landing y la puerta necesitan las mismas variantes que WAFA (más `sobreMonte` y `lg`); la PWA lo reexporta y sus pantallas no cambian de import. Variantes nuevas `fantasma` y `sobreMonte`, tamaños `sm`/`lg`, deshabilitado sin opacidad (también con `aria-disabled` en enlaces) y `active:translate-y-px`.
+- **Nombres en castellano**, como el resto de `@bal/ui` (`BadgeEstado`, `ChipModalidad`, `GraficoDeTorta`): cada archivo dice en su comentario a qué nombre de `DISENO.md` corresponde.
+- **`@bal/ui` sigue sin depender del router.** Los componentes con enlaces reciben `enlace?: ComponenteDeEnlace` (`enlace.tsx`); por defecto, un `<a>`. Cada app tiene su `EnlaceInterno` (el `<Link>` con esa forma).
+- **Decisión 4, completa:** además de `label` y `publico`, `completado.plural` pasó a «Esperando publicación» y su `vacio` al texto de §5.4. Los colores van al punto: `en_proceso` → `--nock-text`, `completado` → `--warn`. El `label` de `en_proceso` para el admin sigue siendo «En proceso»: la tabla de §4.5 dice «En curso», pero la decisión 4 no lo incluía.
+- El pulso es `animate-pulso` (`@keyframes` dentro de `@theme`), en el color del estado (`--st`); lo apaga el bloque de `prefers-reduced-motion` que ya existía.
+- El error del campo es un borde de 2px hecho con el borde de 1px más un anillo interior de 1px: con `border-2` el campo saltaba un pixel.
+- `AnilloDeRecorrido` acepta, además de cuántos blancos (contados desde `inicio`), **cuáles** (sus índices): en WAFL los blancos no siempre se cargan en orden. Gira para que el blanco de inicio quede arriba, bajo el triángulo.
+- La leyenda de la barra de modalidades va `aria-hidden`: la barra ya se describe entera en su `aria-label`.
+- Los enlaces del pie miden 44px y no los 36 de la referencia: regla 9 de `CLAUDE.md`.
+- **El pie tiene un solo acceso, «Ingresar a la app», y no uno por rol** (consultado con el autor). `DISENO.md` §4.17 traía «Líderes de patrulla · Administración», que choca con la puerta única de `FUNCTIONAL.md` §5.1 y con la guarda de `e2e/ingreso.spec.ts` (el E2E falló por eso). Se corrigió la spec. La guarda dejó de contar **un** enlace a `/app` —con la decisión 2 van a ser dos, encabezado y pie— y ahora exige lo que importaba: que todos digan «Ingresar» y ninguno nombre un rol. El primer test busca «Ingresar» con `exact`.
+
+**Desvíos:**
+- **`Screen` de la PWA dejó de renderizar el pie en esta tanda**, y no en `REF7-9`/`REF7-10`: el pie perdió su variante compacta, y la alternativa era poner el pie grande arriba del teclado de scoring. Es la decisión 5 (sin pie en toda la PWA), ya confirmada. Se quitó la prop `conBarraFija`, que sólo elegía el pie compacto.
+- **El pie de la landing pasó adentro del `<main>` que scrollea**, como puente: con columnas, fijo abajo se comería media pantalla. `REF7-5` saca el alto fijo y lo deja al final del documento.
+- `TarjetaDeTorneo` ya reemplazó a las tarjetas del listado de la landing (`/torneos`) y del inicio de WAFA (en WAFA, «Armar patrullas» en los que no arrancaron). Los rótulos y la grilla de esas pantallas quedan para `REF7-8` y `REF7-9`.
+- El texto de volver perdió la flecha tipográfica («← Blancos» → `IconoVolver` + «Blancos»). Se actualizaron los dos tests que buscaban «← Inicio».
+
+**Deuda:**
+- **Los textos de `SyncBadge` no son los de `DISENO.md` §6** («Al día», «N por enviar»…): el plan pedía «solo la piel» y se respetó `syncLabel`, que además muestra el motivo de un error. Pero los textos actuales son largos para un encabezado de 360px con título. Decidirlo en `REF7-10`.
+- Los `<select>` y `<textarea>` sueltos de WAFA (fuera de `Field`) siguen con borde `--line` (`A-2` a medias) → `REF7-8`/`REF7-9`.
+- La landing todavía no usa `botonClases`: sus botones se rehacen en `REF7-5` y `REF7-6`.
+- El pie recibe `temporada`, pero nadie se la pasa todavía: la landing la pide en `REF7-5`.
+
+**Tests:** `ui/src/boton.test.tsx` (17: variantes, tamaños, deshabilitado sin opacidad, botón ícono, tarjeta-enlace y `BadgeEstado` nuevo) y `ui/src/componentes.test.tsx` (29: barra, rótulo, anillo y tarjeta), los dos vistos fallar antes. Los del pie en `marca.test.tsx` se reescribieron (columnas, enlaces de 44px, acceso a la PWA, temporada) y se vieron fallar; el de `wafa.test.tsx` ahora exige que la PWA no tenga pie. `ui.test.tsx` busca «Esperando publicación».
+
+---
+
+## 2026-11-09 · `REF7-3` — Íconos nuevos
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Los 11 íconos de `DISENO.md` §4.18 (`IconoChevron`, `IconoFlecha`, `IconoVolver`, `IconoSincronizar`, `IconoSinSenal`, `IconoPanel`, `IconoPodio`, `IconoArqueros`, `IconoCalendario`, `IconoLugar`, `IconoInstalar`) en `ui/src/iconos/navegacion.tsx`, con el `Svg` base, exportados desde `@bal/ui`. Todavía no los usa ninguna pantalla: llegan con `REF7-4` en adelante. Revisados a ojo a 16, 20 y 24px y al lado de texto de 16px.
+
+**Decisiones:** archivo nuevo `navegacion.tsx` y no `acciones.tsx`: son de navegación y de estado, no acciones sobre un dato.
+
+**Decisiones de `INFORME.md` §5, confirmadas con el autor (2026-11-09):** 1 — se mantiene `portada.webp` hasta tener una foto real del predio, y el hero funciona sin foto · 2 — «Ingresar» se muda al encabezado y al pie · 4 — «En curso» y «Esperando publicación» · 5 — sin pie en toda la PWA. **Las otras dos se toman por defecto, sin consultar:** 3 — recordar el último rol queda fuera de esta ronda (`REF7-13`, P2) · 6 — teclas de 64px de alto, con `TAMAÑO_TECLA_PX` = 56 como mínimo.
+
+**Tests:** `ui/src/iconos.test.tsx` (26 casos, visto fallar los 26 antes): cada ícono sale del barril de `@bal/ui`, usa el trazo común (grilla de 24, 1.8, `currentColor`, sin relleno), es decorativo por defecto, dibuja algo y respeta `size` a 16, 20 y 24; suelto, acepta `role="img"` y `aria-label`.
+
+---
+
+## 2026-11-09 · `REF7-2` — Tokens nuevos y contraste
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Los 13 tokens de `DISENO.md` §2.2 en los dos temas, la escala tipográfica completa en `@theme` (`text-hero`, `text-h2`, `text-h3`, `text-sm`, `text-mono`, `text-eyebrow`, con interlineado, peso y tracking) y `--radius-full`. El foco pasa de `--nock` a `--focus-ring` (`A-1`: 2.59:1 → 6.19:1 en claro). Ningún valor existente cambió: en `tokens.css` sólo se quitaron las dos líneas del `:focus-visible`.
+
+**Decisiones:**
+- **Los `h1` vuelven a medir 32px.** Los 21 `text-[var(--text-display)]` / `text-[var(--text-score)]` pasaron a `text-display` / `text-score` (hallazgo de `REF7-1`: Tailwind 4 tomaba el valor arbitrario como color). Es un cambio visible en todas las pantallas con título: es el tamaño que `DESIGN_SYSTEM.md` §3 siempre pidió, no uno nuevo.
+- Los tokens nuevos de la escala llevan el peso (`--text-h2--font-weight: 700`…); un `font-*` explícito al lado gana. A `--text-score` y `--text-display` **no** se les agregó peso, para no cambiar valores existentes: los usos ya llevan `font-bold`.
+- `--text-sm` pisa el `text-sm` de Tailwind: el interlineado pasa de 1.43 a 1.45 en todos los metadatos. Es el valor de §3.2.
+- El test de contraste cubre, además de la tabla de §2.3, los puntos de `BadgeEstado` (marca, 3:1) y el texto de estado de `SyncBadge` y de los errores (4.5:1) sobre `bg` y `surface`, que `REF7-4` va a usar.
+
+**Deuda:** `--danger` como **texto** sobre `--surface-2` en oscuro da **4.42:1** (pide 4.5). Hoy no hay texto de error sobre `surface-2`, así que no entró al test; si aparece uno, hay que oscurecer o usar `--surface`.
+**Tests:** `ui/src/contraste.test.ts` (87 casos, visto fallar 43 antes): todos los pares de §2.3 en los dos temas leyendo `tokens.css`, el foco con `--focus-ring` y las dos sombras en los dos temas. `fuentes.test.ts` suma un caso que prohíbe `text-[var(--text-…)]` en los `.tsx` (visto fallar con los 21 usos). `paleta.test.ts` y `accion-primaria.test.ts` siguen verdes.
+
+---
+
+## 2026-11-09 · `REF7-1` — Fuentes autohospedadas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Archivo y Martian Mono variables (`@fontsource-variable` 5.3.0, dependencias de `@bal/ui`) se importan al principio de `tokens.css`; las tres familias apuntan a `'Archivo Variable'` y `'Martian Mono Variable'`, y la utilidad `font-display` agrega `font-stretch: 125%`. Los 31 usos de `font-[var(--font-display)]` pasaron a `font-display`. Verificado en el navegador: el `h1` de `/app` sale en Archivo al 125% de ancho y sólo se descarga el subset `latin`.
+
+**Decisiones:**
+- El `@import` del paquete funciona desde `tokens.css` en los dos builds (Tailwind 4 resuelve y rebasa las URL): no hizo falta importarlo en cada `styles/index.css`.
+- **El precache de la PWA lleva sólo el subset `latin`**, no `**/*.woff2`. Los paquetes traen también cirílico, vietnamita y latin-ext: con el patrón genérico el precache subía de ~600 a 888 KiB, ~200 KB que cada celular bajaría al instalar y que ninguna pantalla en castellano pide (`unicode-range`). `latin` cubre ñ, tildes, ¿, ¡ y la puntuación. Queda en 725 KiB. Con señal, un nombre con un carácter de latin-ext baja ese subset igual; sin señal, ese carácter sale en la fuente del sistema.
+- `scripts/presupuesto.mjs` (que ya corre en el CI) verifica sobre `sw.js` que se precacheen las dos fuentes latin y ninguna otra. Se lo vio fallar contra el build con el patrón genérico.
+
+**Desvíos:** el ítem del plan decía «el precache incluye `**/*.woff2`»; se acotó a `latin` por lo de arriba. El DoD («en modo avión los títulos siguen en Archivo») se cumple igual.
+
+**Hallazgo para `REF7-2`:** `text-[var(--text-display)]` (21 usos) **no aplica el tamaño**: con `var()` en un valor arbitrario, Tailwind 4 asume que es un **color**. Los `h1` de toda la app miden 16px, no 32 (medido en `/app`). Es la causa real de buena parte de `D-2`. Se arregla al agregar la escala a `@theme` usando `text-display` / `text-score` en lugar del valor arbitrario.
+
+**Deuda:** `pnpm lint` falla en local si hay worktrees de otras sesiones en `.claude/worktrees/` (cada uno trae su `biome.json`). En el CI no pasa: `.claude/` no se versiona.
+**Tests:** `ui/src/fuentes.test.ts` (12 casos, visto fallar 11 antes): los dos `@import` antes de cualquier regla, ninguna familia `'Archivo Expanded'`, los tres tokens con las familias cargadas, la utilidad con el eje de ancho, los paquetes como dependencias, el nombre de familia igual al del `@font-face` de cada paquete, y ningún `.tsx` con la clase vieja.
+
+---
+
+## 2026-11-08 · `ref-7` — Informe y plan del rediseño visual
+
+**Autor:** Claude Opus 5.5 · **Estado:** solo documentación, en la rama `design/ref-7-rediseno`. Ningún cambio de código.
+
+### Qué se hizo
+
+Revisión visual de las tres apps, a pedido del autor: «mejorar el diseño para que sea más profesional; diseño completamente nuevo para la landing y `/app` (prioridad absoluta); cambios simples y de alto impacto en Líder y Admin; mejorar la UI/UX general». Quedó en [`post/ref-7/`](post/ref-7/README.md):
+
+- [`INFORME.md`](post/ref-7/INFORME.md): 26 hallazgos con ID y las 6 decisiones a confirmar.
+- [`ACTION_PLAN.md`](post/ref-7/ACTION_PLAN.md): 13 tandas `REF7-N`.
+- [`DISENO.md`](post/ref-7/DISENO.md): la especificación con valores exactos.
+- [`referencia/`](post/ref-7/referencia/index.html): las pantallas y los componentes propuestos en HTML, con capturas.
+
+### Hallazgos que conviene saber aunque no se implemente nada
+
+- **Las fuentes nunca cargaron.** No hay `@font-face` en el repo y `'Archivo Expanded'` no existe como familia (el ancho es un eje de Archivo variable). Todo se ve en la fuente del sistema. → `REF7-1`.
+- **El foco en el tema claro da 2.59:1** (`--nock` sobre `--bg`), por debajo del 3:1. El comentario de `tokens.css` asumía que el foco estaba bien. → `REF7-2`.
+- **El borde de los controles da 1.3:1**, el **botón de peligro en oscuro** ~3:1 y el **badge "Completado, sin publicar" en claro** 2.59:1. → `REF7-2` y `REF7-4`.
+- **En WAFL, el pie con los logos queda entre la lista y el teclado de scoring.** → `REF7-10`.
+
+### Decisiones
+
+Ninguna tomada todavía: las 6 de `INFORME.md` §5 se confirman antes de cada tanda. Los valores existentes de `DESIGN_SYSTEM.md` §2.1 **no cambian**: solo se agregan tokens. `DESIGN_SYSTEM.md` se actualiza en `REF7-11`, cuando lo implementado lo justifique.
 ## 2026-11-09 · El padrón viejo vuelve a verse, se edita en el lugar y entra al ranking por sexo (BE-23)
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado.

@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { cn } from './cn.js';
+import { clasesDeBotonIcono } from './boton.js';
 import { IconoLuna, IconoSol } from './iconos/acciones.js';
 import { alternarTema, COLOR_DE_BARRA, resolverTema, TEMA_KEY, type Tema } from './tema.js';
 
@@ -74,11 +74,7 @@ export function BotonTema({ className }: { readonly className?: string }) {
       type="button"
       onClick={() => setTema(siguiente)}
       aria-label={`Cambiar a tema ${NOMBRE[siguiente]}`}
-      className={cn(
-        'min-h-[44px] min-w-[44px] rounded-[var(--radius-sm)] border',
-        'flex items-center justify-center shrink-0 print:hidden',
-        className,
-      )}
+      className={clasesDeBotonIcono(className)}
     >
       <Icono />
     </button>

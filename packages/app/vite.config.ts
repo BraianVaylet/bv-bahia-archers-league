@@ -54,7 +54,14 @@ export default defineConfig({
         // `webp` y `png` tienen que estar: `cba.webp` pesa 18 KB, por encima del límite de
         // inline de Vite, y lo usan el login de WAFL y el pie, que está siempre visible.
         // Sin señal se veía roto.
-        globPatterns: ['**/*.{js,css,html,svg,woff2,webp,png}'],
+        //
+        // De las fuentes (`REF7-1`) se precachea sólo el subset `latin`, que cubre el castellano
+        // entero (ñ, tildes, ¿, ¡) y la puntuación. Los paquetes traen además cirílico, vietnamita y
+        // latin-ext: ~200 KB que cada celular bajaría al instalar la app y que el navegador nunca
+        // pide, porque `unicode-range` sólo descarga un subset si la página usa uno de sus
+        // caracteres. Con señal, si un nombre trae uno, se baja igual; sin señal, ese carácter sale
+        // en la fuente del sistema. `scripts/presupuesto.mjs` lo verifica sobre `sw.js`.
+        globPatterns: ['**/*.{js,css,html,svg,webp,png}', '**/*-latin-wdth-normal-*.woff2'],
         navigateFallback: '/app/index.html',
 
         // Sin `runtimeCaching`, a propósito. WAFL lee de IndexedDB (regla 6) y WAFA es

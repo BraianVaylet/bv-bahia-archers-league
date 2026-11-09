@@ -12,6 +12,15 @@
  */
 @source '../../../ui/src';
 
+/**
+ * El encabezado es sticky (`REF7-5`): sin esto, al navegar con Tab o al seguir un ancla, el
+ * elemento enfocado puede quedar debajo del encabezado (WCAG 2.4.11). 64px del encabezado más su
+ * borde y un poco de aire.
+ */
+html {
+  scroll-padding-top: 4.5rem;
+}
+
 /* El título al que el código le pasa el foco al navegar (`REF6-12` / `U-5`) no es un control: no
    lleva anillo. Sólo los que se enfocan por código, que son los que tienen `tabindex="-1"`. */
 :where(h1, [data-titulo-de-pagina])[tabindex='-1']:focus {

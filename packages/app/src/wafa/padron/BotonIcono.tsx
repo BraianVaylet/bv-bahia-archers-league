@@ -1,5 +1,4 @@
-import type { Icono } from '@bal/ui';
-import { cn } from '../../components/ui.js';
+import { clasesDeBotonIcono, type Icono } from '@bal/ui';
 
 /**
  * Botón de sólo ícono.
@@ -28,12 +27,7 @@ export function BotonIcono({
       title={etiqueta}
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        'min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border',
-        'flex items-center justify-center',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-        peligro ? 'text-[var(--danger)]' : 'bg-[var(--surface-2)]',
-      )}
+      className={clasesDeBotonIcono(peligro ? 'text-[var(--danger)]' : undefined)}
     >
       <Icono />
     </button>

@@ -126,9 +126,7 @@ export function ArcherRegisterPage() {
     return (
       <Screen>
         <div className="pt-6">
-          <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-            Alta recibida
-          </h1>
+          <h1 className="font-display text-display font-bold">Alta recibida</h1>
         </div>
 
         {/*
@@ -155,9 +153,7 @@ export function ArcherRegisterPage() {
   return (
     <Screen>
       <div className="pt-6">
-        <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          Sumarte al padrón
-        </h1>
+        <h1 className="font-display text-display font-bold">Sumarte al padrón</h1>
         <p className="pt-1 text-[var(--ink-muted)]">
           Completá tus datos. Un admin del club revisa cada alta antes de que quede disponible para
           anotarte a un torneo.

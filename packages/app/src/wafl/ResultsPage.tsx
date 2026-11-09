@@ -115,14 +115,12 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
 
   return (
     <Pantalla>
-      <Encabezado onVolver={onVolver} textoVolver="← Blancos">
+      <Encabezado onVolver={onVolver} textoVolver="Blancos">
         <SyncBadge />
       </Encabezado>
 
-      <Screen conBarraFija>
-        <h1 className="pt-2 font-[var(--font-display)] text-[var(--text-display)] font-bold">
-          Resultados
-        </h1>
+      <Screen>
+        <h1 className="pt-2 font-display text-display font-bold">Resultados</h1>
 
         {aviso && (
           <p role="alert" className="text-[var(--warn)] text-sm">
@@ -157,9 +155,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
                   <span className="font-semibold">
                     {r.lastName}, {r.firstName}
                   </span>
-                  <span className="font-[var(--font-display)] text-3xl font-bold tabular-nums">
-                    {r.total}
-                  </span>
+                  <span className="font-display text-3xl font-bold tabular-nums">{r.total}</span>
                 </div>
 
                 <dl className="flex gap-4 text-sm text-[var(--ink-muted)]">

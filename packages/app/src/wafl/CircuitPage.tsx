@@ -94,11 +94,9 @@ export function CircuitPage({
         <SyncBadge />
       </Encabezado>
 
-      <Screen conBarraFija>
+      <Screen>
         <div className="pt-2">
-          <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-            {bundle.tournament.name}
-          </h1>
+          <h1 className="font-display text-display font-bold">{bundle.tournament.name}</h1>
           <p className="text-[var(--ink-muted)]">
             {completos.size} de {bundle.tournament.targets.length} blancos · arrancás en el{' '}
             {bundle.patrol.startTargetIndex}
@@ -126,7 +124,7 @@ export function CircuitPage({
                 >
                   <span
                     data-testid="numero-blanco"
-                    className="font-[var(--font-display)] text-2xl font-bold tabular-nums w-10 shrink-0"
+                    className="font-display text-2xl font-bold tabular-nums w-10 shrink-0"
                   >
                     {target.index}
                   </span>

@@ -16,7 +16,8 @@ import { expect, test } from '@playwright/test';
 test('«Ingresar» lleva de la landing a la PWA', async ({ page }) => {
   await page.goto('/');
 
-  await page.getByRole('link', { name: 'Ingresar' }).click();
+  // `exact`: el pie también tiene «Ingresar a la app», y sin esto serían dos.
+  await page.getByRole('link', { name: 'Ingresar', exact: true }).click();
 
   await expect(page).toHaveURL(/\/app\/?$/);
 
@@ -33,10 +34,19 @@ test('«Ingresar» lleva de la landing a la PWA', async ({ page }) => {
  * «Administración» en la landing, vuelve el problema que se quiso sacar: dos
  * lugares donde mantener el nombre de cada rol, que ya se habían separado del
  * que usa la app.
+ *
+ * Hasta `REF7-4` esto contaba **un** enlace a `/app`. Con la decisión 2 de
+ * `ref-7` «Ingresar» está en el encabezado y en el pie, así que lo que se exige
+ * es lo que importaba: que todos sean «Ingresar» y ninguno nombre un rol.
  */
 test('la landing no ofrece un acceso por rol', async ({ page }) => {
   await page.goto('/');
 
   const aLaApp = page.locator('a[href*="/app"]');
-  await expect(aLaApp).toHaveCount(1);
+  await expect(aLaApp.first()).toBeVisible();
+
+  for (const nombre of await aLaApp.allInnerTexts()) {
+    expect(nombre.trim()).toMatch(/^Ingresar/);
+    expect(nombre).not.toMatch(/líder|patrulla|administr/i);
+  }
 });

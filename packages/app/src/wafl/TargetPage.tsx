@@ -161,15 +161,13 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
   return (
     <Pantalla>
-      <Encabezado onVolver={onVolver} textoVolver="← Blancos">
+      <Encabezado onVolver={onVolver} textoVolver="Blancos">
         <SyncBadge />
       </Encabezado>
 
-      <Screen conBarraFija>
+      <Screen>
         <div className="flex items-baseline gap-3 pt-2">
-          <h1 className="font-[var(--font-display)] text-[var(--text-display)] font-bold">
-            Blanco {target.index}
-          </h1>
+          <h1 className="font-display text-display font-bold">Blanco {target.index}</h1>
           <p className="text-[var(--ink-muted)]">
             {SCORING[target.modality].label} · {target.arrows}{' '}
             {target.arrows === 1 ? 'flecha' : 'flechas'}
