@@ -660,6 +660,15 @@ Dos hallazgos reales corriendo el primer intento contra Chromium de verdad, no c
 
 _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-10-29.)_
 
+### `[x]` `BE-23` · Padrón viejo: visible, editable desde WAFA y en el ranking por sexo · **TDD**
+> Pedido del 2026-11-09, fuera del plan original. Los arqueros cargados antes de `BE-19` no aparecían en el padrón de WAFA ni en la búsqueda, y no había forma de completarles el sexo para que entren al ranking Femenino o Masculino.
+
+**Archivos:** `packages/api/src/repositories/archerRepo.ts`, `standingRepo.ts`, `tournamentRepo.ts`, `services/archerService.ts`; `packages/app/src/wafa/pages/Archers.tsx` y `wafa/padron/*`.
+**Referencia:** [`ARCHITECTURE.md`](ARCHITECTURE.md) §5, decisión 2 (excepción de `sex`) · [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.4
+**DoD:** un arquero sin `registrationStatus`, `sex` ni `dni` (las claves ausentes, no `null`) aparece en el padrón, en la búsqueda y en el wizard, marcado como incompleto; el admin lo edita en el lugar de la fila y el sexo cargado lo pone en el ranking de su sexo sin republicar, y sigue ahí después de `db:reconcile`; corregir el nombre no reescribe el histórico.
+
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-09.)_
+
 ---
 
 ## Orden recomendado de ejecución

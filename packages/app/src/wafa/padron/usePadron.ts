@@ -17,6 +17,8 @@ export function usePadron() {
   const [verArchivados, setVerArchivados] = useState(false);
   const [verPendientes, setVerPendientes] = useState(false);
   const [categoria, setCategoria] = useState<BowCategory | ''>('');
+  /** Del cliente, como la categoría: `profileIncomplete` ya viene en cada fila. */
+  const [soloIncompletos, setSoloIncompletos] = useState(false);
 
   const carga = useCarga(
     async (signal) => {
@@ -56,7 +58,12 @@ export function usePadron() {
     },
     /** Todo lo que llegó, o `undefined` mientras no llegó nada. */
     arqueros: carga.datos,
-    visibles: carga.datos?.filter((a) => categoria === '' || a.category === categoria),
+    soloIncompletos,
+    setSoloIncompletos,
+    visibles: carga.datos?.filter(
+      (a) =>
+        (categoria === '' || a.category === categoria) && (!soloIncompletos || a.profileIncomplete),
+    ),
     error: carga.error,
     recargar: carga.recargar,
   };

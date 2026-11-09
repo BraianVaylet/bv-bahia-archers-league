@@ -22,6 +22,15 @@ import { FormularioDeArquero } from '../padron/FormularioDeArquero.js';
 import { BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
 import { usePadron } from '../padron/usePadron.js';
 
+/** Por qué la lista está vacía: un padrón vacío y un filtro sin resultados no son lo mismo. */
+function mensajeDeVacio(padron: ReturnType<typeof usePadron>): string {
+  if (padron.busqueda.trim()) return 'Ningún arquero coincide con la búsqueda.';
+  if (padron.soloIncompletos && padron.arqueros?.length) return 'Nadie tiene datos incompletos.';
+  if (padron.verPendientes) return 'No hay altas pendientes de aprobar.';
+  if (padron.verArchivados) return 'No hay arqueros archivados.';
+  return 'El padrón está vacío.';
+}
+
 export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   useTituloDePagina('Arqueros');
   const padron = usePadron();
@@ -60,21 +69,25 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
     await padron.recargar();
   };
 
-  const { arqueros, visibles, busqueda, verPendientes, verArchivados } = padron;
+  const { arqueros, visibles, busqueda, verPendientes, verArchivados, soloIncompletos } = padron;
+
+  const formulario = (borrador: Borrador) => (
+    <FormularioDeArquero
+      inicial={borrador}
+      onGuardar={guardar}
+      onCancelar={() => setEditando(undefined)}
+    />
+  );
 
   return (
     <Pantalla>
       <Encabezado titulo="Arqueros" onVolver={onVolver} />
 
       <Screen>
-        {editando ? (
-          <div className="pt-4">
-            <FormularioDeArquero
-              inicial={editando}
-              onGuardar={guardar}
-              onCancelar={() => setEditando(undefined)}
-            />
-          </div>
+        {/* Arriba sólo el alta. La edición se abre en el lugar del arquero (ver la lista):
+            arriba quedaba fuera de pantalla cuando el arquero estaba abajo en el padrón. */}
+        {editando && !editando.id ? (
+          <div className="pt-4">{formulario(editando)}</div>
         ) : (
           <div className="pt-4">
             <Button ancho onClick={() => setEditando(BORRADOR_VACIO)}>
@@ -92,6 +105,8 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           onVerArchivados={padron.elegirArchivados}
           verPendientes={verPendientes}
           onVerPendientes={padron.elegirPendientes}
+          soloIncompletos={soloIncompletos}
+          onSoloIncompletos={padron.setSoloIncompletos}
         />
 
         {error && (
@@ -103,15 +118,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
         {arqueros === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
 
         {visibles?.length === 0 && (
-          <p className="text-[var(--ink-muted)]">
-            {busqueda.trim()
-              ? 'Ningún arquero coincide con la búsqueda.'
-              : verPendientes
-                ? 'No hay altas pendientes de aprobar.'
-                : verArchivados
-                  ? 'No hay arqueros archivados.'
-                  : 'El padrón está vacío.'}
-          </p>
+          <p className="text-[var(--ink-muted)]">{mensajeDeVacio(padron)}</p>
         )}
 
         <ul className="flex flex-col gap-2">
@@ -127,6 +134,11 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
                   accion(() => rpc.admin.archers[':id'].reject.$post({ param: { id: a.id } }))
                 }
               />
+            ) : editando?.id === a.id ? (
+              // Mismo `data-testid` que la fila: es el mismo arquero, abierto.
+              <li key={a.id} data-testid={`arquero-${a.lastName}`}>
+                {formulario(editando)}
+              </li>
             ) : (
               <FilaDeArquero
                 key={a.id}

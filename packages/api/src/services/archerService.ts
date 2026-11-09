@@ -10,6 +10,9 @@ import type { ArcherDoc, ArcherRegistrationStatus, AuditAction } from '../db/typ
 import { AppError, notFound } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
 import * as auditRepo from '../repositories/auditRepo.js';
+import * as standingRepo from '../repositories/standingRepo.js';
+import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { conTransaccion } from './tournamentService.js';
 
 export interface ArcherView {
   readonly id: string;
@@ -34,17 +37,23 @@ export interface ArcherView {
   readonly tournamentCount: number;
 }
 
+/**
+ * El padrón anterior a `BE-19` no tiene `sex`, `dni` ni `registrationStatus`: las
+ * claves **no existen**, no valen `null`. El tipo dice otra cosa, así que se leen con
+ * `??`: sin esto, `sex` desaparecía del JSON y `profileIncomplete` daba `false` —
+ * `undefined === null` es falso— justo en los arqueros a los que más les falta.
+ */
 export const toView = (doc: ArcherDoc, tournamentCount = 0): ArcherView => ({
   id: doc._id.toHexString(),
   firstName: doc.firstName,
   lastName: doc.lastName,
   category: doc.category,
-  sex: doc.sex,
-  dni: doc.dni,
-  registrationStatus: doc.registrationStatus,
+  sex: doc.sex ?? null,
+  dni: doc.dni ?? null,
+  registrationStatus: doc.registrationStatus ?? 'aprobado',
   // Se deriva de los dos campos en vez de guardarse aparte: dos fuentes para
   // el mismo hecho son dos que pueden decir cosas distintas.
-  profileIncomplete: doc.sex === null || doc.dni === null,
+  profileIncomplete: doc.sex == null || doc.dni == null,
   archived: doc.archivedAt !== null,
   // Se deriva del conteo en vez de guardarse aparte: dos fuentes para el mismo
   // hecho son dos que pueden decir cosas distintas.
@@ -155,13 +164,29 @@ async function registrarAltaDuplicada(
   });
 }
 
+/**
+ * Edición hecha por el admin: completar el padrón viejo o corregir lo que se cargó mal.
+ *
+ * El `sex` nuevo viaja a las participaciones y a los acumulados de la liga **en la misma
+ * transacción**: es lo que decide si el arquero cuenta en Femenino o en Masculino, y un
+ * arquero que se completó en el padrón pero sigue afuera del ranking es justo el problema
+ * que esto resuelve. Todo lo demás del snapshot (nombre, categoría) no se toca: el
+ * torneo muestra lo de ese día (`docs/ARCHITECTURE.md` §5, decisión 2).
+ */
 export async function update(
   id: ObjectId,
   input: ArcherInput,
   actorId: ObjectId,
   ip: string | null,
 ): Promise<ArcherView> {
-  const doc = await archerRepo.update(id, input);
+  const doc = await conTransaccion(async (session) => {
+    const actualizado = await archerRepo.update(id, input, session);
+    if (!actualizado) return null;
+
+    await tournamentRepo.setSexOfArcher(id, actualizado.sex, session);
+    await standingRepo.setSexOfArcher(id, actualizado.sex, session);
+    return actualizado;
+  });
   if (!doc) throw notFound();
   await auditarArquero('archer.update', id, actorId, ip, { category: doc.category });
   return toView(doc);
