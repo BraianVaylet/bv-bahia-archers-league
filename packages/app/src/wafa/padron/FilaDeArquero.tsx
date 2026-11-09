@@ -15,6 +15,16 @@ import { clasesDeTarjeta, cn } from '../../components/ui.js';
 import { BotonIcono } from './BotonIcono.js';
 import type { ArcherRow } from './tipos.js';
 
+/**
+ * Qué le falta, con nombre: «sexo o DNI» obligaba a abrir el formulario para saberlo.
+ * El sexo es el que más pesa —sin él no entra al ranking Femenino ni al Masculino—, por
+ * eso va primero.
+ */
+function queFalta(arquero: Pick<ArcherRow, 'sex' | 'dni'>): string {
+  const faltan = [arquero.sex === null && 'sexo', arquero.dni === null && 'DNI'].filter(Boolean);
+  return `Falta completar ${faltan.join(' y ')}`;
+}
+
 export function FilaDeArquero({
   arquero,
   onEditar,
@@ -75,7 +85,7 @@ export function FilaDeArquero({
       {arquero.profileIncomplete && (
         <p className="text-sm text-[var(--ink-muted)] flex items-center gap-1.5">
           <IconoAviso size={16} />
-          Falta completar sexo o DNI
+          {queFalta(arquero)}
         </p>
       )}
 

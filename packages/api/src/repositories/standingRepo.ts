@@ -6,7 +6,7 @@
  * Ver `docs/ARCHITECTURE.md` §5, decisión 4.
  */
 
-import type { ArcherStanding } from '@bal/shared';
+import type { ArcherStanding, Sex } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
 import { standings } from '../db/client.js';
 import type { StandingDoc } from '../db/types.js';
@@ -18,6 +18,23 @@ export function listBySeason(seasonId: ObjectId): Promise<StandingDoc[]> {
 /** Todo el histórico de un arquero, en todas las temporadas. */
 export function listByArcher(archerId: ObjectId): Promise<StandingDoc[]> {
   return standings().find({ archerId }).sort({ updatedAt: -1 }).toArray();
+}
+
+/**
+ * Lleva el `sex` del padrón a todos los acumulados del arquero, en todas las
+ * temporadas: es lo que decide si entra a Femenino o a Masculino. Va junto con
+ * `tournamentRepo.setSexOfArcher`, que es la fuente de la que se recalcula.
+ */
+export async function setSexOfArcher(
+  archerId: ObjectId,
+  sex: Sex | null,
+  session: ClientSession,
+): Promise<void> {
+  await standings().updateMany(
+    { archerId, sex: { $ne: sex } },
+    { $set: { sex, updatedAt: new Date() } },
+    { session },
+  );
 }
 
 export const toDomain = (doc: StandingDoc): ArcherStanding => ({

@@ -635,6 +635,121 @@ describe('ArchersPage', () => {
     );
   });
 
+  // ── Completar el padrón viejo ───────────────────────────────────────────
+
+  describe('editar un arquero', () => {
+    const padronLargo = () =>
+      listar([
+        arquero({ lastName: 'Pérez' }),
+        arquero({ id: 'x2', lastName: 'Gómez', sex: 'femenino', dni: '30123456' }),
+        arquero({ id: 'x3', lastName: 'Díaz' }),
+      ]);
+
+    /**
+     * El formulario se abría arriba de todo, encima del buscador. Con el arquero
+     * en el puesto treinta de la lista, tocar el lápiz no mostraba nada: el
+     * formulario quedaba fuera de pantalla y parecía que editar no existía.
+     */
+    it('abre el formulario en el lugar del arquero, no arriba de la lista', async () => {
+      padronLargo();
+      renderArqueros();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar a Gómez' }));
+
+      const fila = screen.getByTestId('arquero-Gómez');
+      expect(fila).toHaveTextContent('Editar arquero');
+      expect(fila).toContainElement(screen.getByLabelText('Apellido'));
+      // Los demás siguen en su lugar, y el botón de alta no se reemplaza.
+      expect(screen.getByTestId('arquero-Pérez')).not.toHaveTextContent('Editar arquero');
+      expect(screen.getByRole('button', { name: 'Nuevo arquero' })).toBeDefined();
+    });
+
+    it('lleva el foco al formulario, para que quede a la vista', async () => {
+      padronLargo();
+      renderArqueros();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar a Díaz' }));
+
+      expect(document.activeElement).toBe(screen.getByLabelText('Apellido'));
+    });
+
+    it('trae cargado lo que ya tenía: sexo y DNI', async () => {
+      padronLargo();
+      renderArqueros();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar a Gómez' }));
+
+      expect(screen.getByLabelText('Femenino')).toBeChecked();
+      expect((screen.getByLabelText('DNI') as HTMLInputElement).value).toBe('30123456');
+    });
+
+    it('cancelar vuelve a mostrar la fila', async () => {
+      padronLargo();
+      renderArqueros();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar a Gómez' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      expect(screen.queryByText('Editar arquero')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Editar a Gómez' })).toBeDefined();
+    });
+  });
+
+  it('dice qué le falta a cada uno: sexo, DNI o los dos', async () => {
+    listar([
+      arquero({ lastName: 'Pérez' }),
+      arquero({ id: 'x2', lastName: 'Gómez', dni: '30123456' }),
+      arquero({ id: 'x3', lastName: 'Díaz', sex: 'masculino' }),
+    ]);
+    renderArqueros();
+
+    expect(await screen.findByTestId('arquero-Pérez')).toHaveTextContent(
+      'Falta completar sexo y DNI',
+    );
+    expect(screen.getByTestId('arquero-Gómez')).toHaveTextContent('Falta completar sexo');
+    expect(screen.getByTestId('arquero-Gómez')).not.toHaveTextContent('DNI');
+    expect(screen.getByTestId('arquero-Díaz')).toHaveTextContent('Falta completar DNI');
+  });
+
+  /**
+   * Los arqueros sin sexo no entran al ranking Femenino ni al Masculino. Encontrarlos
+   * en un padrón de cientos, uno por uno, es lo que hacía falta resolver.
+   */
+  describe('filtro de datos incompletos', () => {
+    const padronMixto = () =>
+      listar([
+        arquero({ lastName: 'Pérez', profileIncomplete: true }),
+        arquero({
+          id: 'x2',
+          lastName: 'Gómez',
+          sex: 'femenino',
+          dni: '30123456',
+          profileIncomplete: false,
+        }),
+      ]);
+
+    it('deja sólo a quienes les falta sexo o DNI', async () => {
+      padronMixto();
+      renderArqueros();
+      await screen.findByTestId('arquero-Gómez');
+
+      fireEvent.click(screen.getByLabelText('Sólo con datos incompletos'));
+
+      expect(screen.getByTestId('arquero-Pérez')).toBeDefined();
+      expect(screen.queryByTestId('arquero-Gómez')).toBeNull();
+    });
+
+    it('sin nadie incompleto, lo dice', async () => {
+      listar([arquero({ sex: 'femenino', dni: '30123456', profileIncomplete: false })]);
+      renderArqueros();
+      await screen.findByTestId('arquero-Pérez');
+
+      fireEvent.click(screen.getByLabelText('Sólo con datos incompletos'));
+
+      expect(screen.getByText('Nadie tiene datos incompletos.')).toBeDefined();
+    });
+  });
+
   // ── FE-30 · Cola de aprobación ──────────────────────────────────────────
 
   describe('cola de aprobación', () => {
