@@ -7,10 +7,11 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { enlaceEntreApps, Footer } from '@bal/ui';
+import { Footer } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { NavegacionAccesible } from './components/NavegacionAccesible.js';
-import { Encabezado, EnlaceInterno } from './components/ui.js';
+import { A_LA_APP, Encabezado, EnlaceInterno } from './components/ui.js';
+import { useTemporadaActiva } from './lib/temporada.js';
 import { ArcherPage } from './pages/Archer.js';
 import { ArcherRegisterPage } from './pages/ArcherRegister.js';
 import { HomePage } from './pages/Home.js';
@@ -18,26 +19,28 @@ import { RankingPage } from './pages/Ranking.js';
 import { ScorecardPage } from './pages/Scorecard.js';
 import { TournamentPage, TournamentsPage } from './pages/Tournaments.js';
 
-/** El acceso a la PWA desde el pie: en desarrollo vive en otro puerto. */
-const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
-
 export function App() {
+  const temporada = useTemporadaActiva();
+
   return (
     <BrowserRouter>
       <NavegacionAccesible />
 
       {/*
-        Header arriba, pie abajo, y **sólo el medio scrollea**.
+        **Un documento, no una app** (`REF7-5` / `L-2`). Scrollea la página entera: el encabezado
+        es sticky y el pie va al final, después del contenido.
 
-        `h-dvh` y no `min-h-dvh`: con el mínimo, la página crece y los dos se
-        van con el scroll. Y `dvh` y no `vh` porque en un celular `vh` mide la
-        ventana con la barra del navegador retraída, así que sobra alto justo
-        abajo, que es donde está el pie.
+        Hasta `REF7-5` era `h-dvh overflow-hidden` con el medio scrolleando entre un encabezado y
+        un pie fijos, como la PWA. En una landing eso no tiene sentido y el pie se comía ~80px de
+        alto útil. `min-h-dvh` + `flex-1` en el `main` sólo hace que, en una página corta, el pie
+        quede abajo de la ventana en vez de flotar en el medio.
+
+        Al navegar, `useAlCambiarDeRuta` lleva la ventana arriba: no hay contenedor de scroll.
       */}
-      <div className="flex flex-col h-dvh overflow-hidden">
+      <div className="min-h-dvh flex flex-col">
         <Encabezado />
 
-        <main data-scroll-principal className="flex-1 min-h-0 overflow-y-auto">
+        <main className="flex-1">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/alta" element={<ArcherRegisterPage />} />
@@ -48,15 +51,10 @@ export function App() {
             <Route path="/arqueros/:id" element={<ArcherPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-
-          {/*
-            Uno solo para todo el sitio, y **al final del contenido**, no fijo
-            abajo (`REF7-4`): el pie nuevo tiene columnas y fijo se comería
-            media pantalla. `REF7-5` saca el alto fijo y la página pasa a ser
-            un documento; hasta entonces, el pie scrollea con el medio.
-          */}
-          <Footer enlace={EnlaceInterno} hrefApp={A_LA_APP} />
         </main>
+
+        {/* Uno solo para todo el sitio, al final del documento. */}
+        <Footer enlace={EnlaceInterno} hrefApp={A_LA_APP} temporada={temporada?.name ?? null} />
       </div>
     </BrowserRouter>
   );

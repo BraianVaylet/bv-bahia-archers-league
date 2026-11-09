@@ -93,13 +93,17 @@ describe('HomePage', () => {
   const destino = (a: Element | null | undefined) =>
     new URL(a?.getAttribute('href') ?? '', window.location.href).pathname;
 
-  it('el acceso a la app está primero y entra por la raíz de la PWA', () => {
+  /**
+   * **«Ingresar» no está en el cuerpo de la portada** (`REF7-5` / `L-4`, decisión 2 de `ref-7`).
+   * Vive en el encabezado, en todas las páginas: un botón verde gigante en el medio le hablaba a
+   * quien menos lo necesita, porque el líder ya tiene la PWA instalada. Lo cubre
+   * `navegacion.test.tsx`, que monta el sitio entero.
+   */
+  it('el cuerpo de la portada no tiene un acceso propio a la app', () => {
     renderEn(<HomePage />);
 
-    const accesos = screen.getAllByRole('link');
-    // Lo primero que hace falta el día del torneo es entrar.
-    expect(accesos[0]?.textContent).toMatch(/Ingresar/);
-    expect(destino(accesos[0])).toBe('/app/');
+    const aLaApp = screen.queryAllByRole('link').filter((a) => destino(a).startsWith('/app'));
+    expect(aLaApp).toEqual([]);
   });
 
   /**
@@ -112,9 +116,7 @@ describe('HomePage', () => {
 
     expect(screen.queryByText('Administración')).toBeNull();
     expect(screen.queryByText(/Anotar puntajes/)).toBeNull();
-
-    const aLaApp = screen.getAllByRole('link').filter((a) => destino(a).startsWith('/app'));
-    expect(aLaApp).toHaveLength(1);
+    expect(screen.queryByText(/Para líderes de patrulla/)).toBeNull();
   });
 });
 

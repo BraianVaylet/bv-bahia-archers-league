@@ -14,6 +14,27 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-5` — Landing: layout de documento, encabezado y pie
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+La landing pasó a ser un documento: sin `h-dvh overflow-hidden` ni `data-scroll-principal`, con el encabezado sticky y el pie al final (`L-2`). Encabezado nuevo de una fila (`L-3`): marca, «Inicio · Ranking · Torneos · Sumate» con la sección activa marcada (`aria-current` + barra `--nock-text`), tema e «Ingresar» siempre visible (`L-4`, decisión 2). La portada perdió su botón «Ingresar». El pie nombra la temporada activa. `Screen` de la landing a 1200px.
+
+**Decisiones:**
+- `useAlCambiarDeRuta` lleva **la ventana** arriba si no encuentra `[data-scroll-principal]`. La PWA, que sigue teniendo su contenedor, no cambia (un test lo fija).
+- La temporada del pie es **la primera activa** de `/api/public/seasons` (`lib/temporada.ts`, con test); si no hay ninguna, el pie no la nombra. `REF7-6` la reusa para el hero.
+- `html { scroll-padding-top: 4.5rem }` en la landing: con el encabezado sticky, el elemento enfocado con Tab podía quedar debajo (WCAG 2.4.11).
+- Debajo de 760px el espacio entre marca y acciones baja de 24 a 12px: a 360px «Liga Bahiense» se truncaba. **Debajo de 360px el nombre queda `sr-only`** (el enlace sigue llamándose «Liga Bahiense»): a 320px marca, tema e «Ingresar» no entran juntos y la página scrolleaba de costado (lo encontró `flujo-completo.spec.ts`). Se sacó el `truncate`: si el nombre no entra, baja de renglón en vez de recortarse.
+- **Los títulos parten una palabra que no entra** (`:where(h1, h2, h3) { overflow-wrap: anywhere }` en `tokens.css`). Al pasar a documento salió a la luz un desborde que el `main` con `overflow-y-auto` tapaba (recortaba también en horizontal): en la tarjeta de puntajes, un apellido largo en el `h1` de 32px expandido pasaba los 328px útiles de un celular de 360. Lo encontró `tarjeta-de-puntajes.spec.ts`. Vale también para la PWA (nombres de arquero y de torneo largos).
+- El encabezado sigue llamándose `Encabezado` en el código (es el `SiteHeader` de `DISENO.md`), y `A_LA_APP` vive en `components/ui.tsx`, compartido por el encabezado y el pie.
+
+**Desvíos:** el plan pedía «Footer nuevo» acá; ya había llegado en `REF7-4` (dentro del `main` como puente). En esta tanda pasó al final del documento y recibió la temporada.
+
+**Deuda:** los demás textos de la portada (hero, tarjetas de acceso) siguen siendo los de antes: los reemplaza `REF7-6`.
+**Tests:** `ui/src/fuentes.test.ts` suma uno (los títulos parten palabras), visto fallar. `landing/src/navegacion.test.tsx` (7 casos nuevos, vistos fallar: scroll de la ventana, sin contenedor de scroll, pie después del `main`, sección activa, las cuatro secciones, «Ingresar» en el encabezado de todas las páginas, la portada sin «Ingresar» propio); `ui/src/navegacion.test.tsx` (2: la ventana sin contenedor, y la PWA intacta con contenedor); `landing/src/lib/temporada.test.ts` (3). Los dos de `HomePage` que exigían el «Ingresar» en el cuerpo ahora exigen lo contrario.
+
+---
+
 ## 2026-11-09 · `REF7-4` — Componentes compartidos
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

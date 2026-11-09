@@ -59,6 +59,15 @@ describe('tokens.css importa las fuentes', () => {
     expect(token('font-mono')).toMatch(/^'Martian Mono Variable',/);
   });
 
+  /**
+   * Un nombre largo en un título a 32px expandido no entra en un celular (`REF7-5`): un apellido
+   * de 18 letras ya pasa los 328px útiles de una pantalla de 360. Sin esto, la página scrollea de
+   * costado; antes lo tapaba el `main` con `overflow-y-auto`, que también recortaba en horizontal.
+   */
+  it('los títulos parten una palabra que no entra', () => {
+    expect(tokens).toMatch(/:where\(h1, h2, h3\)\s*\{\s*overflow-wrap:\s*anywhere;/);
+  });
+
   it('lo expandido es el eje de ancho de la misma familia', () => {
     const utilidad = tokens.match(/@utility font-display\s*\{([^}]+)\}/)?.[1] ?? '';
 

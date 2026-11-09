@@ -8,9 +8,18 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { BotonTema, clasesDeTarjeta, cn, Logo, type PropsDeEnlace, StakeChip } from '@bal/ui';
+import {
+  BotonTema,
+  botonClases,
+  clasesDeTarjeta,
+  cn,
+  enlaceEntreApps,
+  Logo,
+  type PropsDeEnlace,
+  StakeChip,
+} from '@bal/ui';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 
 /**
  * `cn`, `StakeChip` y `BotonTema` **se mudaron a `@bal/ui`**.
@@ -30,48 +39,89 @@ export function EnlaceInterno({ href, ...resto }: PropsDeEnlace) {
   return <Link to={href} {...resto} />;
 }
 
+/**
+ * A dónde lleva «Ingresar»: la PWA, que es otro build. En producción es `/app/`; con `pnpm dev`,
+ * el Vite de la PWA en su puerto.
+ */
+export const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
+
+/** El contenedor de cada página: hasta 1200px, que es el ancho del encabezado y del pie. */
 export function Screen({ children }: { readonly children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-3xl px-4 pb-12 flex flex-col gap-6">{children}</div>;
+  return (
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-12 flex flex-col gap-6">{children}</div>
+  );
 }
 
+const SECCIONES = [
+  { texto: 'Inicio', to: '/', end: true },
+  { texto: 'Ranking', to: '/ranking', end: false },
+  { texto: 'Torneos', to: '/torneos', end: false },
+  { texto: 'Sumate', to: '/alta', end: false },
+] as const;
+
+/** La sección activa: en tinta, a 600, con una barra verde pegada al borde del encabezado. */
+const SECCION_ACTIVA =
+  'text-[var(--ink)] font-semibold after:absolute after:inset-x-3 after:-bottom-2.5 after:h-[3px] after:rounded-t-[3px] after:bg-[var(--nock-text)]';
+const SECCION =
+  'text-[var(--ink-muted)] font-medium hover:text-[var(--ink)] hover:bg-[var(--surface-2)]';
+
+/**
+ * El encabezado del sitio (`REF7-5`, `DISENO.md` §4.16): **una fila**, fija arriba.
+ *
+ * Antes eran dos filas —la marca arriba y los enlaces de 14px abajo— sin decir en qué página
+ * estabas, y ocupaban ~108px (`L-3`). Ahora la sección activa lleva `aria-current="page"` (lo pone
+ * `NavLink`) y se marca con una barra.
+ *
+ * **«Ingresar» vive acá, siempre visible** (`L-4`, decisión 2). Es la única puerta a la PWA —quién
+ * sos lo pregunta la app, no la landing (`FUNCTIONAL.md` §5.1)— y un botón verde gigante en el
+ * medio de la portada le hablaba al que menos lo necesita: el líder ya tiene la PWA instalada.
+ *
+ * Debajo de 760px la navegación se esconde y quedan marca, tema e «Ingresar»: las secciones se
+ * recorren con el scroll de la portada y desde el pie.
+ */
 export function Encabezado() {
   return (
-    <header className="border-b">
-      <nav className="mx-auto w-full max-w-3xl px-4 py-2 flex flex-col gap-1">
-        {/*
-          **En el header va sólo el logo de la liga.**
+    <header className="sticky top-0 z-20 border-b bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] backdrop-blur-[8px] print:hidden">
+      <div className="mx-auto w-full max-w-[1200px] h-16 px-4 flex items-center gap-3 min-[760px]:gap-6">
+        {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice de qué liga se
+            trata, ni se lee en un lector de pantalla. Debajo de 360px el nombre no entra junto a
+            «Ingresar» (y la página scrolleaba de costado a 320): ahí queda sólo para el lector de
+            pantalla, y el título de cada página dice de qué sitio se trata. */}
+        <Link to="/" className="flex items-center gap-2.5 min-h-[44px] min-w-0 text-[var(--ink)]">
+          <Logo size={32} className="shrink-0" />
+          <span className="font-display text-[15px] font-bold leading-[1.05] tracking-[-0.01em] max-[359px]:sr-only">
+            Liga Bahiense
+            <small className="hidden min-[760px]:block font-sans [font-stretch:100%] [font-variation-settings:normal] text-xs font-medium tracking-normal text-[var(--ink-muted)]">
+              de Arquería
+            </small>
+          </span>
+        </Link>
 
-          El del CBA vive en el pie, junto al de la liga. Tenerlo también acá
-          arriba duplicaba la marca del club en la misma pantalla y comía el
-          ancho que la navegación necesita en un celular.
+        <nav aria-label="Secciones" className="hidden min-[760px]:flex gap-1">
+          {SECCIONES.map((s) => (
+            <NavLink
+              key={s.to}
+              to={s.to}
+              end={s.end}
+              className={({ isActive }) =>
+                cn(
+                  'relative inline-flex items-center min-h-[44px] px-3 rounded-[var(--radius-sm)]',
+                  isActive ? SECCION_ACTIVA : SECCION,
+                )
+              }
+            >
+              {s.texto}
+            </NavLink>
+          ))}
+        </nav>
 
-          Dos filas fijas: identidad arriba —que no envuelve nunca— y
-          navegación abajo. Antes era un solo `flex-wrap` con todo, y a 320 px
-          se partía en tres renglones dejando la marca abajo de los enlaces.
-        */}
-        <div className="flex items-center gap-2 min-h-[44px]">
-          <Link
-            to="/"
-            className="font-display font-bold flex items-center gap-2 min-w-0 min-h-[44px]"
-          >
-            {/* El logo acompaña al nombre, no lo reemplaza: un ícono solo no dice
-                de qué liga se trata, ni se lee en un lector de pantalla. */}
-            <Logo size={26} className="shrink-0" />
-            <span className="truncate">Liga Bahiense</span>
-          </Link>
-
-          <BotonTema className="ml-auto shrink-0" />
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <BotonTema />
+          <a href={A_LA_APP} className={botonClases({ variante: 'secundario', tamaño: 'sm' })}>
+            Ingresar
+          </a>
         </div>
-
-        <div className="flex gap-4 text-sm">
-          <Link to="/ranking" className="min-h-[44px] flex items-center">
-            Ranking
-          </Link>
-          <Link to="/torneos" className="min-h-[44px] flex items-center">
-            Torneos
-          </Link>
-        </div>
-      </nav>
+      </div>
     </header>
   );
 }

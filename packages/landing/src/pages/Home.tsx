@@ -1,19 +1,18 @@
 /**
  * Introducción del sitio público.
  *
- * Lo primero que hace falta el día del torneo es **entrar**, así que el acceso a
- * la PWA va arriba de todo y bien grande. Todo lo demás puede esperar.
+ * **El acceso a la PWA ya no está acá** (`REF7-5` / `L-4`): vive en el
+ * encabezado, en todas las páginas (`Encabezado`). Sigue siendo una sola puerta
+ * —quién sos lo pregunta la app—; lo que cambió es dónde está. La portada nueva
+ * llega con `REF7-6`.
  *
  * Ver `docs/FUNCTIONAL.md` §5.1.
  */
 
-import { enlaceEntreApps, useTituloDePagina } from '@bal/ui';
+import { useTituloDePagina } from '@bal/ui';
 import portada from '@bal/ui/assets/portada.webp';
 import { Link } from 'react-router-dom';
 import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
-
-/** En producción es `/app/`; con `pnpm dev`, el Vite de la PWA. */
-const A_LA_APP = enlaceEntreApps('app', import.meta.env.DEV, window.location.href);
 
 export function HomePage() {
   useTituloDePagina('Resultados y ranking');
@@ -46,31 +45,6 @@ export function HomePage() {
           temporada.
         </p>
       </div>
-
-      {/*
-        **Una sola puerta.** Antes había dos botones —«Anotar puntajes» y
-        «Administración»— y obligaban a la landing a explicar una división que
-        no es suya: quién sos lo pregunta la app, que ya tiene esa pantalla.
-
-        Dos botones acá significaban además dos lugares donde mantener el
-        nombre de cada rol, y ya se habían separado del que usa la app
-        («Anotar puntajes» contra «Soy líder de patrulla»).
-
-        El costo es un toque más para el líder de patrulla el día del torneo.
-        Se acepta porque entra una vez y después la PWA queda instalada, que
-        abre directo en `/app/`.
-      */}
-      <nav className="flex flex-col gap-3">
-        <a
-          href={A_LA_APP}
-          className="min-h-[56px] flex items-center justify-center rounded-[var(--radius-lg)] bg-[var(--nock)] text-[var(--nock-ink)] font-semibold text-lg"
-        >
-          Ingresar
-        </a>
-        <p className="text-sm text-[var(--ink-muted)] text-center">
-          Para líderes de patrulla y administración.
-        </p>
-      </nav>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link to="/ranking" className={cn(clasesDeTarjeta({ densidad: 'amplia' }), 'block')}>

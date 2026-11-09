@@ -257,6 +257,16 @@
   }
 
   /*
+    Un nombre largo en un título a 32px expandido no entra en un celular (`REF7-5`): un apellido de
+    18 letras ya pasa los 328px útiles de una pantalla de 360, y la página scrollea de costado.
+    `anywhere` sólo parte la palabra cuando no entra, y también vale dentro de un flex (achica el
+    ancho mínimo, cosa que `break-word` no hace).
+  */
+  :where(h1, h2, h3) {
+    overflow-wrap: anywhere;
+  }
+
+  /*
     Foco visible global. Ver docs/DESIGN_SYSTEM.md §10.
 
     Hasta `REF7-2` el anillo era `--nock`, y en el tema claro `#8fa800` sobre `#fbfaf5` da

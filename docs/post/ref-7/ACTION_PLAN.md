@@ -125,16 +125,16 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 # P0 — Landing y `/app` (prioridad absoluta del pedido)
 
-### `[ ] REF7-5` · Landing: layout de documento, encabezado y pie · **P0** · M
+### `[x] REF7-5` · Landing: layout de documento, encabezado y pie · **P0** · M
 
 **Hallazgos:** `L-2`, `L-3`, `L-4`. **Decisiones:** 2. **Spec:** `DISENO.md` §4.16, §4.17 y §5.1 (primer párrafo).
 **Archivos:** `packages/landing/src/App.tsx`, `packages/landing/src/components/ui.tsx` (`Encabezado`, `Screen`), `packages/ui/src/navegacion.ts` (`useTituloDePagina`), `packages/landing/src/navegacion.test.tsx`, `e2e/ingreso.spec.ts`.
 
-- [ ] Sacar `h-dvh overflow-hidden` y `data-scroll-principal` de la landing: flujo de documento con header sticky y pie al final
-- [ ] `useTituloDePagina`: si no hay `[data-scroll-principal]`, `window.scrollTo({ top: 0 })`. La PWA no cambia. **Primero el test** de la landing con el scroll del documento, y verlo fallar
-- [ ] `SiteHeader` (§4.16): una fila, nav con `aria-current`, "Ingresar" (secundario `sm`) siempre visible, nav oculta debajo de 760px
-- [ ] `Screen` de la landing a `max-w-[1200px]`
-- [ ] `Footer` nuevo
+- [x] Sacar `h-dvh overflow-hidden` y `data-scroll-principal` de la landing: flujo de documento con header sticky y pie al final
+- [x] `useTituloDePagina`: si no hay `[data-scroll-principal]`, `window.scrollTo({ top: 0 })`. La PWA no cambia. **Primero el test** de la landing con el scroll del documento, y verlo fallar
+- [x] `SiteHeader` (§4.16): una fila, nav con `aria-current`, "Ingresar" (secundario `sm`) siempre visible, nav oculta debajo de 760px
+- [x] `Screen` de la landing a `max-w-[1200px]`
+- [x] `Footer` nuevo
 
 **DoD:** en 360, 390, 768 y 1280 px, el pie aparece solo al final del scroll y nunca tapa contenido · al navegar se entra arriba · la página activa se ve marcada · `e2e/ingreso.spec.ts` verde (el link sigue llamándose "Ingresar").
 

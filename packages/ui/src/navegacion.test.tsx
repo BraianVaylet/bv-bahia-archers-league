@@ -99,6 +99,33 @@ describe('useAlCambiarDeRuta', () => {
     expect(s?.scrollTop).toBe(0);
   });
 
+  /**
+   * **Sin contenedor de scroll, scrollea la ventana** (`REF7-5`). La landing pasó a ser un
+   * documento —header sticky, pie al final— y ya no tiene un `[data-scroll-principal]`: lo que
+   * scrollea es la página entera.
+   */
+  it('sin contenedor de scroll, lleva la ventana arriba', () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('scrollTo', scrollTo);
+    const { rerender } = render(<Arnes pathname="/a" conScroll={false} />);
+
+    rerender(<Arnes pathname="/b" conScroll={false} />);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    vi.unstubAllGlobals();
+  });
+
+  it('con contenedor, la ventana no se toca: la PWA scrollea adentro', () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('scrollTo', scrollTo);
+    const { rerender } = render(<Arnes pathname="/a" />);
+
+    rerender(<Arnes pathname="/b" />);
+
+    expect(scrollTo).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('y pone el foco en el h1, que no es focusable de por sí', () => {
     const { rerender, getByRole } = render(<Arnes pathname="/a" />);
 
