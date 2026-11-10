@@ -43,9 +43,20 @@ export function App() {
         Al navegar, `useAlCambiarDeRuta` lleva la ventana arriba: no hay contenedor de scroll.
       */}
         <div className="min-h-dvh flex flex-col">
+          {/*
+            El primer enlace salta al contenido (`REF7-12`): con el encabezado nuevo hay siete
+            paradas de Tab antes (marca, cuatro secciones, tema, «Ingresar»). Visible sólo con foco.
+          */}
+          <a
+            href="#contenido"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-30 focus:rounded-[var(--radius-md)] focus:bg-[var(--surface)] focus:px-4 focus:py-3 focus:font-semibold focus:text-[var(--ink)] focus:border focus:border-[var(--line-strong)]"
+          >
+            Saltar al contenido
+          </a>
+
           <Encabezado />
 
-          <main className="flex-1">
+          <main id="contenido" tabIndex={-1} className="flex-1">
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/alta" element={<ArcherRegisterPage />} />

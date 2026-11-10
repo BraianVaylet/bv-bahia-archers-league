@@ -57,7 +57,7 @@ function CajaDeFlecha({ flecha }: { readonly flecha: Flecha }) {
   return (
     <li
       aria-label={`${flecha.token}, ${puntos(flecha.value)}`}
-      className="min-w-[44px] h-11 px-2 grid place-content-center rounded-[var(--radius-sm)] border bg-[var(--surface)] text-center tabular-nums leading-none"
+      className="min-w-[44px] h-11 px-2 grid place-content-center rounded-[var(--radius-md)] border bg-[var(--surface)] text-center font-mono font-semibold leading-none"
     >
       <span className="text-base font-semibold">{flecha.token}</span>
       {aclara && <span className="pt-0.5 text-xs text-[var(--ink-muted)]">{flecha.value}</span>}

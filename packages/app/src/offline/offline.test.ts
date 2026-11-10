@@ -804,16 +804,22 @@ describe('clearAll', () => {
  * motivo a la vista, el líder puede decidir: si dice «Sesión vencida», vuelve a
  * entrar; si dice que no hay conexión, camina.
  */
+/**
+ * **Textos cortos desde `ref-7`** (los de `docs/post/ref-7/DISENO.md` §6, consultado con el autor):
+ * la píldora vive en el encabezado de WAFL al lado de «← Blancos», y los largos truncaban la
+ * patrulla y el torneo a 390px. Lo que no se pierde: el motivo del error y cuántos quedaron
+ * guardados.
+ */
 describe('syncLabel', () => {
   const base = { pending: 0, lastSyncAt: null, lastError: null } as const;
 
-  it('sincronizado no dice nada más', () => {
-    expect(syncLabel({ ...base, status: 'synced' })).toBe('Sincronizado');
+  it('al día no dice nada más', () => {
+    expect(syncLabel({ ...base, status: 'synced' })).toBe('Al día');
   });
 
-  it('pendientes en singular y en plural', () => {
-    expect(syncLabel({ ...base, status: 'pending', pending: 1 })).toMatch(/1 cambio sin/);
-    expect(syncLabel({ ...base, status: 'pending', pending: 4 })).toMatch(/4 cambios sin/);
+  it('pendientes: cuántos faltan enviar', () => {
+    expect(syncLabel({ ...base, status: 'pending', pending: 1 })).toBe('1 por enviar');
+    expect(syncLabel({ ...base, status: 'pending', pending: 4 })).toBe('4 por enviar');
   });
 
   it('con error, DICE el motivo en vez de sólo avisar que lo hay', () => {
@@ -823,16 +829,17 @@ describe('syncLabel', () => {
       lastError: 'Sesión vencida. Entrá de nuevo.',
     });
 
-    expect(etiqueta).toContain('Sesión vencida. Entrá de nuevo.');
+    expect(etiqueta).toBe('No se pudo enviar · Sesión vencida. Entrá de nuevo.');
   });
 
   // Sin motivo registrado no se inventa uno.
   it('con error y sin motivo, avisa igual', () => {
-    expect(syncLabel({ ...base, status: 'error' })).toMatch(/problema/i);
+    expect(syncLabel({ ...base, status: 'error' })).toBe('No se pudo enviar');
   });
 
-  it('sin conexión aclara que lo cargado está en el celular', () => {
-    expect(syncLabel({ ...base, status: 'offline', pending: 3 })).toMatch(/en el celular/);
+  /** Sin señal no es un error: dice cuántos quedaron guardados, que es lo que tranquiliza. */
+  it('sin señal dice cuántos quedaron guardados', () => {
+    expect(syncLabel({ ...base, status: 'offline', pending: 3 })).toBe('Sin señal · 3 guardados');
   });
 });
 
@@ -896,13 +903,11 @@ describe('mensajes en singular', () => {
     expect(r.ok ? '' : r.message).toBe('Este blanco es de 1 flecha.');
   });
 
-  it('sin conexión, un solo cambio guardado, y ninguno', () => {
+  it('sin señal, un solo cambio guardado, y ninguno', () => {
     const base = { lastSyncAt: null, lastError: null, status: 'offline' } as const;
 
-    expect(syncLabel({ ...base, pending: 1 })).toBe(
-      'Sin conexión · 1 cambio guardado en el celular',
-    );
-    expect(syncLabel({ ...base, pending: 0 })).toBe('Sin conexión');
+    expect(syncLabel({ ...base, pending: 1 })).toBe('Sin señal · 1 guardado');
+    expect(syncLabel({ ...base, pending: 0 })).toBe('Sin señal');
   });
 });
 

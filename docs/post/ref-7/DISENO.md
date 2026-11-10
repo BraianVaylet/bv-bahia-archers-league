@@ -238,7 +238,7 @@ Píldora de 44px de alto mínimo, padding de 0 12px, borde `--line`, texto de 13
 
 - Panel: `--surface`, borde superior `--line`, radio `--radius-lg` arriba, `box-shadow: var(--shadow-dock)`, padding de 12px 12px 16px.
 - Grilla de 4 columnas con gap de 8px. Teclas de **64px de alto** (decisión 6; el mínimo sigue en `TAMAÑO_TECLA_PX = 56`) con `--radius-md`, borde `--line-strong`, fondo `--surface-2` y cifra en display expandido de 26px a 700.
-- Zona central (`innerToken`: X / 11 / X6): fondo `--nock`, texto `--nock-ink`, sin borde. `M`: fondo `--surface`, borde **punteado**, texto `--ink-muted`, siempre en la misma posición.
+- Zona central (`innerToken`: X / 11 / 6): fondo `--nock`, texto `--nock-ink`, sin borde. `M`: fondo `--surface`, borde **punteado**, texto `--ink-muted`, siempre en la misma posición.
 - `:active` → `scale(.96)` y fondo `--nock` en 80 ms.
 - "Continuar" (52px, a todo el ancho) va **dentro del panel**, 12px debajo de la grilla, y el texto "Falta cargar: …" de 14px centrado en `--ink-muted` debajo del botón.
 - No cambia nada de la lógica: ni `vibrate`, ni `disposicion`, ni el bloqueo.
@@ -306,7 +306,7 @@ Contenedor de secciones: `max-w-[1200px] mx-auto px-4`. Las secciones, en orden:
 - Columna izquierda:
   - Eyebrow en `--monte-muted`: "TEMPORADA 2026 · BAHÍA BLANCA" (el nombre de la temporada activa).
   - `h1` en `font-display`, `--text-hero` (64px; 40px en celular), `--monte-ink`: «La liga de **arquería** de Bahía Blanca.», con "arquería" en `--monte-accent`, sin itálica, y `&nbsp;` entre "Bahía" y "Blanca".
-  - Bajada de 18px / 1.55 (16px en celular) en `--monte-muted` y máximo de 480px: «Un torneo por mes, un recorrido por el monte. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.»
+  - Bajada de 18px / 1.55 (16px en celular) en `--monte-muted` y máximo de 480px: «Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.»
   - CTAs (`gap` de 12px, `margin-top` de 32px; en celular, en columna y a todo el ancho): "Ver el ranking →" (primario `lg`, a `/ranking`) y "Torneos" (`sobreMonte` `lg`, a `/torneos`).
 - Columna derecha: la foto `portada.webp` (`alt=""`, `width`/`height` y **`height:auto`**, `aspect-ratio` de 4/3.2, 4/3 en celular, `--radius-lg`, `loading="eager"`). Encima, la **tarjeta "En curso"**: `position:absolute; left:-32px; bottom:-28px; width:320px` (en celular `left:12px; right:12px; bottom:-40px`), fondo `--surface`, borde `--line`, `--radius-lg`, `box-shadow: var(--shadow-float)`, padding de 16px y grilla de `auto 1fr` con gap de 16px. Adentro: un `CircuitRing` de 76 (sin etiqueta) con el avance **agregado** de todas las patrullas, `BadgeEstado` "En curso", el nombre del torneo en 16px y "N patrullas en el recorrido" en 13px. Toda la tarjeta enlaza a `/torneos/:id`.
   - **Sin torneo en curso:** la tarjeta muestra la **última fecha publicada** ("Resultados oficiales", nombre y "Ver podios").
@@ -408,7 +408,7 @@ El resto de WAFA solo hereda los componentes: botones, campos, `BadgeEstado`, `S
 |---|---|
 | Hero eyebrow | TEMPORADA {año} · BAHÍA BLANCA |
 | Hero h1 | La liga de arquería de Bahía Blanca. |
-| Hero bajada | Un torneo por mes, un recorrido por el monte. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría. |
+| Hero bajada | Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría. |
 | Hero CTAs | Ver el ranking · Torneos |
 | Tarjeta en curso | En curso · {torneo} · {n} patrullas en el recorrido |
 | Cómo se juega | ver §5.1-2 |

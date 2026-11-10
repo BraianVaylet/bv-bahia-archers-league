@@ -482,36 +482,39 @@ describe('RankingPage', () => {
         bestN,
       );
 
-    it('marca los tres primeros con su medalla', async () => {
+    /**
+     * **Sin oro, plata ni bronce** (`REF7-8`, `DISENO.md` §5.1-4 y §5.2): el amarillo y el
+     * naranja son colores de estaca, semántica reservada (regla 8), y la dirección visual evita
+     * los emoji. Los tres primeros van en un círculo `--nock-soft`, con su número.
+     */
+    it('marca los tres primeros sin medallas de color', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
-      expect(await screen.findByTestId('fila-Oro')).toHaveTextContent('🥇');
-      expect(screen.getByTestId('fila-Plata')).toHaveTextContent('🥈');
-      expect(screen.getByTestId('fila-Bronce')).toHaveTextContent('🥉');
+      for (const apellido of ['Oro', 'Plata', 'Bronce']) {
+        const fila = await screen.findByTestId(`fila-${apellido}`);
+        expect(fila.querySelector('[data-podio]')).not.toBeNull();
+        expect(fila.textContent).not.toMatch(/🥇|🥈|🥉/);
+      }
     });
 
-    // Del cuarto en adelante no hay medalla: inventar una donde no la hay sería
-    // decir algo que no pasó.
-    it('del cuarto en adelante no hay medalla', async () => {
+    // Del cuarto en adelante no se marca: inventar un podio donde no lo hay sería decir algo
+    // que no pasó.
+    it('del cuarto en adelante no se marca', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       await screen.findByTestId('fila-Oro');
-      expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
+      expect(screen.getByTestId('fila-Cuarto').querySelector('[data-podio]')).toBeNull();
     });
 
-    /**
-     * El emoji **no va solo**: el puesto en número está al lado y la medalla
-     * lleva su nombre para el lector de pantalla. Ver DESIGN_SYSTEM §10.
-     */
-    it('la medalla no es el único portador: el puesto va escrito', async () => {
+    /** El círculo no es el único portador: el puesto va escrito. Ver DESIGN_SYSTEM §10. */
+    it('el puesto va escrito', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       const fila = await screen.findByTestId('fila-Oro');
-      expect(fila).toHaveTextContent('1');
-      expect(within(fila).getByLabelText(/primer puesto/i)).toBeDefined();
+      expect(fila.querySelector('[data-podio]')).toHaveTextContent('1');
     });
 
     /**
@@ -689,6 +692,43 @@ describe('TournamentPage', () => {
   });
 
   const renderDetalle = () => renderEn(<TournamentPage />, '/torneos/t1', '/torneos/:id');
+
+  /**
+   * `startTargetIndex` es el **número** del blanco de inicio (1-based, como `targets[].index`) y el
+   * anillo cuenta posiciones en la lista (0-based). Pasarlo directo corría el avance un blanco: una
+   * patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos.
+   */
+  it('el anillo de cada patrulla cuenta desde su blanco de inicio', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: {
+          tournament: detalle({
+            status: 'en_proceso',
+            targets: [1, 2, 3, 4, 5, 6].map((index) => ({ index, modality: 'campo', arrows: 3 })),
+            patrols: [
+              {
+                number: 1,
+                startTargetIndex: 3,
+                status: 'en_curso',
+                targetsCompleted: 2,
+                members: [
+                  { firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+                ],
+              },
+            ],
+          }),
+        },
+      }),
+    });
+    renderDetalle();
+
+    const patrulla = await screen.findByTestId('patrulla-1');
+    const completos = [...patrulla.querySelectorAll('[data-completo]')].map((s) =>
+      Number(s.getAttribute('data-segmento')),
+    );
+    // Blancos 3 y 4 → posiciones 2 y 3.
+    expect(completos).toEqual([2, 3]);
+  });
 
   it('muestra el podio de un torneo publicado', async () => {
     servidor({

@@ -75,7 +75,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Arqueros" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Arqueros" onVolver={onVolver} />
 
       <Screen>
         {/* Arriba sólo el alta. La edición se abre en el lugar del arquero (ver la lista):

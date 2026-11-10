@@ -60,6 +60,15 @@ async function demasiadoChicos(pagina: import('@playwright/test').Page): Promise
         return caja.width > 0 && caja.height > 0;
       })
       .filter((e) => {
+        // Recortado a la vista (`sr-only`, como el «Saltar al contenido» sin foco): existe
+        // para el lector de pantalla y el teclado, no para el dedo. Su tamaño con foco se
+        // mide aparte.
+        const estilo = getComputedStyle(e);
+        const recortado =
+          estilo.clip === 'rect(0px, 0px, 0px, 0px)' || estilo.clipPath === 'inset(50%)';
+        return !recortado;
+      })
+      .filter((e) => {
         const caja = e.getBoundingClientRect();
         return caja.height < minimo || caja.width < minimo;
       })
@@ -128,6 +137,25 @@ test('en la landing nada tocable baja de 44 px', async ({ page }) => {
     const chicos = await demasiadoChicos(page);
     expect(chicos, `${ruta} tiene objetivos táctiles por debajo de ${MINIMO} px`).toEqual([]);
   }
+});
+
+/**
+ * El «Saltar al contenido» de la landing (`REF7-12`) sólo se ve con foco, y ahí
+ * tiene que llegar al mínimo como cualquier otro control: sin foco el helper lo
+ * saltea porque está recortado.
+ */
+test('el salto al contenido, con foco, no baja de 44 px', async ({ page }) => {
+  await page.setViewportSize(CELULAR);
+  await page.goto('/');
+
+  // `focus()` y no Tab: WebKit no tabula a enlaces salvo que se active en las preferencias de
+  // Safari. Para medir alcanza, porque el enlace aparece con `:focus`, no `:focus-visible`.
+  const salto = page.getByRole('link', { name: 'Saltar al contenido' });
+  await salto.focus();
+  await expect(salto).toBeFocused();
+  const caja = await salto.boundingBox();
+  expect(caja?.height ?? 0).toBeGreaterThanOrEqual(MINIMO);
+  expect(caja?.width ?? 0).toBeGreaterThanOrEqual(MINIMO);
 });
 
 /**

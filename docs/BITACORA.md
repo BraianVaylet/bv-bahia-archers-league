@@ -46,6 +46,146 @@ Pedido del autor: editar torneos según su estado (incluida la corrección de pu
 
 ---
 
+## 2026-11-10 · Corrección — Juego de campo sin `X6`
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `fix/campo-sin-x6`. Se commiteó primero en `design/ref-7-rediseno` (`21bf926`), pero el código no llegó a `main` con los merges de `ref-7`; esta rama lo lleva.
+
+El usuario corrigió el reglamento: la cara de campo es `6` (centro interior) · `5` (centro exterior) · `4`-`1` (anillas negras) · `M`. **No existe el puntaje `X6`.** Se quitó el token de `@bal/shared` (`X6_TOKEN`, el set y los valores de `campo`), y con eso del teclado de WAFL y de la validación del servidor.
+
+**Decisiones:** el token inner de campo pasa a ser `6` y el desempate `['6', '5']`, igual que el 3D usa su centro (`11`) y el anillo siguiente (`10`). El criterio 2 del ranking (cantidad de inner) cuenta ahora los `6` de campo junto a las `X` y los `11`.
+**Deuda:** si en Mongo quedó algún puntaje de campo con `X6` cargado, `tokenValue` ahora lo rechaza y la tarjeta, las estadísticas y la publicación de ese torneo lanzan `INVALID_TOKEN`. No hay sistema de migraciones; si existe ese dato, hay que reescribir `X6` → `6` en esos puntajes antes de publicar.
+**Tests:** `domain.test.ts` y `scoring.test.ts` fijan el set nuevo, el inner, el desempate y el rechazo de `X6` en campo; se vieron fallar las 7 antes del cambio.
+
+---
+
+## 2026-11-10 · `REF7-12` — Verificación final, y cierre de `ref-7`
+
+**Autor:** Claude Opus 5.5 · **Estado:** parcial — quedan dos ítems que no puede hacer una sesión (ver abajo). En la rama `design/ref-7-p1`.
+
+**Qué se verificó:**
+- **`web-design-guidelines`** sobre landing, puerta, WAFA y WAFL. Sin `transition-all`, sin tres puntos, imágenes con dimensiones; los dos `outline: none` son sólo para el título que recibe foco por código. Se arreglaron cinco cosas: `touch-action: manipulation` en los controles (en iOS dos toques rápidos en la misma tecla del teclado se podían leer como zoom), un enlace para saltar al contenido en la landing, `text-wrap: balance` en los títulos, el escudo del pie con carga diferida y el `select` de temporada con color de texto propio. Se aceptan con nota: el latido de «En curso» anima `box-shadow` y el anillo transiciona el color del trazo (los dos están en la spec y se apagan con movimiento reducido). No se cuentan las reglas que chocan con decisiones documentadas: mayúsculas de título (el proyecto escribe en minúscula de oración, §6.8) y spinner al enviar (prohibido en scoring).
+- **360 px sin scroll horizontal** en 16 pantallas (portada, torneos, torneo en proceso, ranking, alta, puerta, ocho de WAFA y dos de WAFL), con nombres largos: el documento mide 360 en todas.
+- **`prefers-reduced-motion`**: el latido queda en una vuelta de 0,01 ms.
+- **Contraste**: `contraste.test.ts` en los dos temas. **Objetivos táctiles**: `objetivos-tactiles.spec.ts` en Chromium, Pixel 7 e iPhone 14. **Teclado**: los E2E de foco visible y del alta completa por teclado, más el salto al contenido.
+- **Antes y después**: seis pares en [`post/ref-7/antes-despues/`](post/ref-7/antes-despues/README.md).
+
+**Lo que falta, y por qué no lo hizo esta sesión:**
+- **`audit-website` contra el deploy**: hace falta la URL de un deploy con la rama (o producción, una vez desplegado `main`).
+- **Probar en un Android y un iPhone reales**, y mirar el contraste con el sol de frente.
+
+### Cierre de la serie `ref-7`
+
+Las trece tandas del plan: `REF7-1` a `REF7-11` completas, `REF7-12` parcial (lo de arriba) y `REF7-13` (recordar el último rol) fuera de esta ronda por la decisión 3. Además: el arreglo del anillo por patrulla (`REF7-8`), los textos cortos del indicador de sincronización y estos ajustes.
+
+**Lo que cambió de fondo**, más allá de la piel: las fuentes nunca habían cargado (`REF7-1`); los `h1` medían 16px porque `text-[var(--text-display)]` es un color para Tailwind 4 (`REF7-2`); el foco en claro y el borde de los controles estaban por debajo de WCAG (`REF7-2`); la landing ocultaba desbordes horizontales detrás de un `main` con scroll (`REF7-5`); y la portada no montaba contra la API real porque el detalle viene envuelto en `{ tournament }` (`REF7-6`). Todos con su test.
+
+**Queda abierto, fuera de `ref-7`:**
+- **La foto del hero pesa 2,2 MB** (commit «nueva portada»); la anterior estaba optimizada a 131 KB. Es lo primero que baja la landing. `scripts/imagenes.mjs` tiene un presupuesto para esto, pero la foto entró directo a `packages/ui/assets/` sin pasar por él.
+- La corrección de `X6` en juego de campo está en un commit local de otra sesión (`21bf926`, en `design/ref-7-rediseno`); hasta que entre, `DESIGN_SYSTEM.md` §6.1 sigue nombrando `X6`.
+- `medallaDe` (`@bal/shared`) ya no la usa ninguna pantalla.
+
+---
+
+## 2026-11-10 · `ref-7` — Textos cortos del indicador de sincronización
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`. **Consultado con el autor.**
+
+`syncLabel` pasa a los textos de `docs/post/ref-7/DISENO.md` §6: «Al día», «N por enviar», «Sin señal · N guardados» (y «Sin señal» sin pendientes) y «No se pudo enviar · <motivo>» (y «No se pudo enviar» sin motivo). Era la deuda de `REF7-10`: los largos —«Sin conexión · 3 cambios guardados en el celular»— truncaban la patrulla y el torneo del encabezado del blanco a 390px.
+
+**Decisiones:**
+- **El motivo del error se conserva.** Se agregó a propósito (la entrada que lo introdujo: «"Hay un problema con la sincronización" no le sirve a nadie») y el líder decide con él. Para que un motivo largo no desborde el encabezado, la píldora tiene un tope de `min(14rem, 45vw)` y el texto se trunca **a la vista**: completo queda en el DOM (lo lee el lector de pantalla, la píldora es `aria-live`) y en el `title`. El motivo también aparece entero al intentar cerrar el circuito.
+- Se pierde «en el celular» del estado sin señal; «guardados» dice lo mismo en menos lugar.
+- El indicador de conexión de WAFA (`IndicadorDeConexion`, «Con conexión / Sin conexión») es otro componente y no cambió.
+- Sólo cambian los textos: los estados y cuándo se pasa de uno a otro (`syncWorker`) no se tocaron.
+
+**Docs:** `OFFLINE_SYNC.md` §9 (tabla de estados, con la nota), `FUNCTIONAL.md` §7, `TESTING.md` (pasos del E2E offline) y `DESIGN_SYSTEM.md` §6.4 y §6.8.
+**Tests:** los seis de `syncLabel` en `offline.test.ts`, reescritos y vistos fallar (el del error sigue exigiendo el motivo). Los E2E que esperaban los textos viejos (`blanco-bloqueado`, `flujo-completo`, `offline-recarga`, `sesion-vencida`) esperan los nuevos.
+
+---
+
+## 2026-11-10 · `REF7-11` — Documentación
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+`docs/DESIGN_SYSTEM.md` al día con lo implementado en `ref-7`, con la nota de qué se corrigió y por qué en cada sección (como en `REF2-1` y `REF5-5`): §1 la banda `monte` y los anillos de fondo; §2.1 los once tokens nuevos y que el foco ya no es `--nock`; §2.4 `contraste.test.ts`; §3 la carga real de las fuentes (no existía) y la escala completa con los nombres de `tokens.css` (`--text-*`, no `--t-*`) y la trampa de `text-[var(--text-…)]`; §4 los radios con su nombre real (`--radius-*`) y las dos sombras (`--shadow-dock`, `--shadow-float`); §6 `UnitCard`, `SyncBadge`, `CircuitRing` y `TargetHeader` como quedaron, más una tabla §6.9 con los componentes nuevos; §7 la landing como documento, la PWA sin pie y la medida a 360×640; §8 el latido de «En curso»; §10 el foco con `--focus-ring`.
+
+**Decisiones:**
+- §6.1 dice todavía que campo usa `X6`: hay una corrección de dominio en curso en otra rama que lo saca (la entrada «Juego de campo sin `X6`»), y tocar esa línea acá le generaba un conflicto. Se actualiza con esa corrección.
+- La entrada que cierra la serie va con `REF7-12`, que es la que la cierra.
+
+**Tests:** el DoD se verificó con un script que compara cada token con valores en las tablas del documento contra `tokens.css` (los dos temas y `@theme`): 34 valores, ninguna contradicción.
+
+---
+
+## 2026-11-10 · `REF7-10` — WAFL: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+**Sólo piel y layout** de la pantalla de `FE-6` y del recorrido (`DISENO.md` §4.13, §4.14 y §5.5): no cambió nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo, y los tests que fijan eso siguen iguales y verdes.
+
+- **Encabezado del blanco** (`F-2`): el número a 56px en display, con la modalidad en su chip y «2 flechas · Jabalí · 1 de 6» al lado. El encabezado de la app dice «Patrulla N» y el nombre del torneo.
+- **`UnitCard`** (`F-3`): nombre a 20px, «UNIDAD A · TIRA 1º» con la estaca compacta en la misma línea, el total en display de 36px con `aria-live` y la etiqueta «TOTAL», casilleros de 48px en mono y el próximo a cargar marcado con 2px de `--nock-text`. La unidad activa también va en `--nock-text` (antes, el verde de botón).
+- **Teclado**: teclas de 64px de alto (decisión 6; `TAMAÑO_TECLA_PX` sigue en 56 como mínimo), cifra en display expandido de 26px, la `M` punteada, al tocar se achica y se enciende. El panel (superficie, `--shadow-dock` como token, «Continuar» y «Falta cargar» adentro) lo arma `TargetPage`.
+- **Recorrido** (`F-4`): el `AnilloDeRecorrido` de 120px con «N/M BLANCOS», girado al blanco de inicio, y sin el botón «Cerrar sesión» al final: queda el ícono del encabezado, que abre la misma confirmación (`CerrarSesion` con `soloAlConfirmar`).
+- Sin pie (`F-1`): ya estaba desde `REF7-4`.
+
+**Decisiones:**
+- **El `h1` del blanco es `sr-only` («Blanco 1») y el número grande va `aria-hidden`.** Los tests buscan «Blanco 1» como texto directo del elemento y un número solo no dice qué es; «Blanco» a 56px no entra al lado de la modalidad.
+- **Los casilleros miden 48 de alto y se angostan si no entran.** Medido a 360×640: con seis flechas de aire libre los casilleros de 48 bajaban de renglón y la unidad quedaba 63px debajo del teclado. No se tocan (son `span`), así que no tienen mínimo táctil.
+- Para que entre el teclado de 12 teclas (sala, aire libre) a 360×640, el panel tiene 8px de aire arriba y 12 abajo, y el encabezado del blanco 12 arriba. **Medido:** la primera unidad termina en 306px y el panel empieza en 323 (395 con el teclado de 3D); teclas de 64px; sin scroll horizontal.
+- `TargetPage` recibe `patrulla`, `torneo` y `totalDeBlancos` sólo para mostrar; `WaflApp` se los pasa del bundle.
+- «Unidad A · tira 1º»: A tira primero (`DOMAIN_WA.md`).
+- Los textos de `SyncBadge` no se tocaron (siguen siendo los de `syncLabel`).
+
+**Desvíos:** ninguno.
+**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`. *(Resuelto: ver «Textos cortos del indicador de sincronización».)*
+**Tests:** 7 casos nuevos de la pantalla del blanco y 2 del teclado en `keypad.test.tsx`, y 3 del recorrido en `wafl.test.tsx`, vistos fallar. El de «muestra la modalidad y las flechas» cambió de forma por diseño (la modalidad va en su chip). `rendimiento.test.tsx` ubica el total por `tabular-nums`, así que el total la lleva.
+
+---
+
+## 2026-11-10 · Corrección de `REF7-8` — el anillo por patrulla arrancaba un blanco corrido
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+En el detalle de un torneo en proceso, el `AnilloDeRecorrido` de cada patrulla recibía `startTargetIndex` directo como `inicio`. Pero `startTargetIndex` es el **número** del blanco de inicio (1-based, `min(1)` en el schema) y el anillo cuenta **posiciones** en la lista (0-based): una patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos. Ahora se pasa la posición del blanco de inicio en la lista. Lo encontré al leer el dominio para `REF7-10`; el test de componente no lo veía porque sus datos arrancaban en el 0.
+
+**Tests:** un caso nuevo en `landing.test.tsx` (patrulla que arranca en el 3 con dos blancos: completos los de las posiciones 2 y 3), visto fallar con el código anterior.
+
+---
+
+## 2026-11-10 · `REF7-9` — WAFA: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1` (PR #90).
+
+El inicio de WAFA de `DISENO.md` §5.4 (`W-1`): encabezado con `contexto="Administración"` y título «Inicio»; un solo primario («Crear torneo», con `IconoAgregar`) y tres accesos compactos en grilla —Arqueros, Temporadas, Ranking— con su ícono en `--nock-text`; los grupos por estado con `RotuloDeSeccion` y su cantidad, y el grupo vacío como tarjeta punteada que dice qué va a aparecer. Las otras ocho pantallas de WAFA también llevan `contexto="Administración"`. El ranking de WAFA perdió las medallas emoji, igual que la landing en `REF7-8`.
+
+**Decisiones:**
+- **Sin endpoints nuevos** (§5.4): el único dato de los accesos es «8 categorías» del Ranking, que sale de `BOW_CATEGORIES` y no pide nada. La cantidad de arqueros y la temporada activa piden una consulta, así que esos accesos van sólo con el nombre.
+- La `TarjetaDeTorneo` del inicio no lleva el anillo por patrulla: el listado de `/api/admin/tournaments` no trae el avance (§5.4: «si en el inicio no están, se muestra el pie normal»).
+- El ranking de WAFA (`CategoriaDelRanking`): puestos 1–3 en un círculo `--nock-soft`, cifras en mono, nombre de categoría a `text-h3`. Con esto `medallaDe` ya no la usa ninguna pantalla; queda en `@bal/shared` (y su test) hasta que se decida sacarla.
+- «Cerrar sesión» al final del inicio se mantiene: es la confirmación de dos toques, y `REF7-9` no la nombra.
+
+**Desvíos:** «`Screen` sin `Footer`» ya estaba hecho desde `REF7-4`.
+**Tests:** 5 casos nuevos en `wafa.test.tsx` (contexto, un primario y tres accesos con ícono, «8 categorías», el grupo como encabezado con su cantidad, el vacío punteado) y el de podio de `ranking-ui.test.tsx` reescrito, vistos fallar. El que fija el orden de los grupos ahora mira el comienzo del título, porque el rótulo lleva la cantidad adentro.
+
+---
+
+## 2026-11-09 · `REF7-8` — Landing: el resto de las páginas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Piel de `DISENO.md` §5.2 en las páginas que no son la portada, sin cambiar contenido ni datos. **Torneos:** un grupo por estado (en curso primero) con `RotuloDeSeccion` y su cantidad, y la grilla de `TarjetaDeTorneo` a dos columnas en tablet y tres en escritorio. **Torneo:** en proceso, un `AnilloDeRecorrido` de 44px por patrulla, con su blanco de inicio arriba; títulos de sección con la escala (`text-h2`, `text-h3`) y cifras de los podios en mono. **Ranking:** las pestañas General/Femenino/Masculino con la activa sobre `--nock-soft` (antes, el verde pleno del botón primario), los puestos 1–3 en un círculo `--nock-soft`, las cifras en mono y el selector de temporada con borde `--line-strong`. **Tablas** (`Cabecera`/`Fila`, toda la landing): filas de 56px en escritorio y cabecera como rótulo en mono. **Alta:** campos de 52px con borde `--line-strong`, etiquetas a 600, la opción de sexo elegida sobre `--nock-soft` (con foco visible en la opción), el error con su ícono, el botón con `botonClases` y el formulario a 560px. **Tarjeta de puntajes:** las cajas de flecha en mono, con radio `md`.
+
+**Decisiones:**
+- **Las medallas emoji del ranking (🥇🥈🥉) se reemplazaron por el círculo `--nock-soft`.** Era una función con tests propios, pero §5.2 pide «sin oro/plata/bronce» (el amarillo y el naranja son colores de estaca, regla 8) y §1 evita los emoji. Los tres tests se reescribieron primero (el podio se marca, el cuarto no, el número va escrito) y se vieron fallar. `medallaDe` sigue en `@bal/shared` porque la usa el ranking de WAFA; se revisa en `REF7-9`.
+- El detalle del torneo no tiene pestañas hoy (§5.2 las nombra como «existentes»): no se inventaron.
+
+**Desvíos:** ninguno respecto del alcance.
+**Deuda:** el ranking de WAFA (`CategoriaDelRanking`) todavía usa las medallas → `REF7-9`.
+**Tests:** los tres de podios del ranking, reescritos y vistos fallar. El resto de la landing, sin cambios: 95 verdes.
+
+---
+
 ## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

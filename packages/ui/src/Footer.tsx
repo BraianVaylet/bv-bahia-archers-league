@@ -73,7 +73,15 @@ export function Footer({
             */}
             <span className="shrink-0 rounded-[var(--radius-sm)] bg-white p-1 flex items-center">
               {/* El `alt` no es decorativo: el nombre del club no está escrito al lado. */}
-              <img src={cba} alt="Círculo Bahiense de Arquería" width={36} height={36} />
+              {/* Al final de la página: no compite con la carga de lo que se ve arriba. */}
+              <img
+                src={cba}
+                alt="Círculo Bahiense de Arquería"
+                width={36}
+                height={36}
+                loading="lazy"
+                decoding="async"
+              />
             </span>
             <Logo size={44} className="shrink-0" />
           </span>

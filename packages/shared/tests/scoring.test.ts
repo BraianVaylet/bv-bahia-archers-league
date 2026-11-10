@@ -43,8 +43,9 @@ describe('tokenValue', () => {
     expect(tokenValue('aire_libre', 'X')).toBe(10);
   });
 
-  it('X6 vale 6 en campo', () => {
-    expect(tokenValue('campo', 'X6')).toBe(6);
+  it('6 es el máximo de campo y X6 no existe', () => {
+    expect(tokenValue('campo', '6')).toBe(6);
+    expect(() => tokenValue('campo', 'X6')).toThrow(/X6/);
   });
 
   it('11 vale 11 en 3D', () => {
@@ -83,6 +84,7 @@ describe('isValidToken', () => {
     ['campo', 'X'],
     ['campo', '10'],
     ['sala', 'X6'],
+    ['campo', 'X6'],
   ] as const)('rechaza el token %s en %s', (modality, token) => {
     expect(isValidToken(modality, token)).toBe(false);
   });
@@ -150,8 +152,8 @@ describe('validateTargetScore', () => {
       expect(r.total).toBe(29);
     });
 
-    it('X6 suma a innerCount pero no a xCount', () => {
-      const r = computar('campo', ['X6', '5', '4']);
+    it('el 6 de campo suma a innerCount pero no a xCount', () => {
+      const r = computar('campo', ['6', '5', '4']);
       expect(r.innerCount).toBe(1);
       expect(r.xCount).toBe(0);
       expect(r.total).toBe(15);
@@ -187,9 +189,9 @@ describe('validateTargetScore', () => {
     });
 
     it('expone los contadores de desempate de la modalidad', () => {
-      // campo: tiebreakTokens = ['X6', '6']
-      const r = computar('campo', ['X6', '6', '4']);
-      expect(r.tiebreakCounts).toEqual([1, 1]);
+      // campo: tiebreakTokens = ['6', '5']
+      const r = computar('campo', ['6', '6', '5']);
+      expect(r.tiebreakCounts).toEqual([2, 1]);
     });
 
     it('un blanco todo M da total 0', () => {
@@ -201,6 +203,7 @@ describe('validateTargetScore', () => {
 
     it('un blanco perfecto da el máximo del blanco', () => {
       expect(computar('3d', ['11', '11']).total).toBe(maxTargetScore('3d', 2));
+      expect(computar('campo', ['6', '6', '6']).total).toBe(maxTargetScore('campo', 3));
       expect(computar('sala', ['X', 'X', 'X']).total).toBe(maxTargetScore('sala', 3));
     });
   });
@@ -281,7 +284,7 @@ describe('sortArrowsDescending', () => {
 
   it('pone el token inner primero a igual valor', () => {
     expect(sortArrowsDescending('sala', ['10', 'X', '10'])).toEqual(['X', '10', '10']);
-    expect(sortArrowsDescending('campo', ['6', 'X6'])).toEqual(['X6', '6']);
+    expect(sortArrowsDescending('3d', ['10', '11'])).toEqual(['11', '10']);
   });
 
   it('ordena un blanco 3D', () => {

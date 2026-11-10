@@ -76,7 +76,7 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Ranking" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Ranking" onVolver={onVolver} />
 
       <Screen>
         {temporadas?.length === 0 && (

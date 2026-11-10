@@ -57,7 +57,7 @@ Por cada modalidad (`sala`, `aire_libre`, `campo`, `3d`):
 
 - Valor canónico de cada token del set.
 - `X` vale 10 y suma a `xCount` e `innerCount`.
-- `X6` vale 6 y suma a `innerCount` (campo).
+- En campo, `6` suma a `innerCount`; `X6` no existe y se rechaza.
 - `11` vale 11 y suma a `innerCount` (3D).
 - `M` vale 0 y suma a `mCount`.
 - `maxTargetScore` correcto para la cantidad de flechas default y para las personalizadas.
@@ -281,10 +281,10 @@ tests/e2e/flujo-completo.spec.ts
  9. En un contexto nuevo, el líder de la patrulla 1 entra con usuario y PIN
 10. ▶ context.setOffline(true)
 11. Carga los 14 blancos completos de sus arqueros, sin conexión
-12. Verifica que el indicador muestra "Sin conexión" con el contador de pendientes
+12. Verifica que el indicador muestra "Sin señal" (o "N por enviar") con el contador
 13. Recarga la página estando offline → los datos siguen ahí
 14. ▶ context.setOffline(false)
-15. Espera a que el indicador muestre "Sincronizado"
+15. Espera a que el indicador muestre "Al día"
 16. Verifica en la API que todos los scores llegaron y los totales coinciden
 17. Firma cada arquero de la patrulla
 18. Cierra el circuito

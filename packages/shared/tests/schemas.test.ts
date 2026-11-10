@@ -401,7 +401,7 @@ describe('SyncOpSchema', () => {
   // modalidad DEL BLANCO, que el servidor lee del torneo. Ver DOMAIN_WA.md §7.
   it('acepta cualquier token corto: la validación real es por modalidad, en el servidor', () => {
     expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['11', '8'] }).success).toBe(true);
-    expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['X6', '6'] }).success).toBe(true);
+    expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['ZZ', '6'] }).success).toBe(true);
   });
 
   it('acota el largo de cada token, para que no sirva de vector', () => {

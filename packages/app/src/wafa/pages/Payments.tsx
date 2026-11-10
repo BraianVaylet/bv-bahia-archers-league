@@ -176,7 +176,7 @@ export function PaymentsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Arqueros y pagos" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Arqueros y pagos" onVolver={onVolver} />
       <PaymentsPanel tournamentId={id} />
     </Pantalla>
   );

@@ -88,7 +88,7 @@ def landing():
   <div>
    <span class="bal-eyebrow">Temporada 2026 · Bahía Blanca</span>
    <h1 class="bal-display">La liga de <em>arquería</em> de Bahía&nbsp;Blanca.</h1>
-   <p class="lead">Un torneo por mes, un recorrido por el monte. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.</p>
+   <p class="lead">Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.</p>
    <div class="ctas"><a class="bal-btn bal-btn--primario bal-btn--lg" href="#">Ver el ranking{{i:flecha}}</a><a class="bal-btn bal-btn--sobre-monte bal-btn--lg" href="#">Torneos</a></div>
   </div>
   <div class="hero__media">
