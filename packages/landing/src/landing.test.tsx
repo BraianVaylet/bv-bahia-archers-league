@@ -711,7 +711,9 @@ describe('TournamentPage', () => {
                 startTargetIndex: 3,
                 status: 'en_curso',
                 targetsCompleted: 2,
-                members: [{ firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' }],
+                members: [
+                  { firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+                ],
               },
             ],
           }),
