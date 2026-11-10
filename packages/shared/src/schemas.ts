@@ -258,10 +258,24 @@ export const UpdateTournamentSchema = z
      * lista **rearma las patrullas**, porque las patrullas se derivan de ella.
      */
     archerIds: z.array(ObjectIdSchema).min(MIN_PATROL_SIZE).max(MAX_PARTICIPANTS).optional(),
+    /**
+     * Qué estaca le toca a cada categoría, y a qué distancia está cada estaca (`BE-24`).
+     *
+     * Igual que `archerIds`, **qué estado lo permite lo decide el servicio** (`camposEditables`).
+     * Cambiar el mapa re-snapshotea la estaca de cada participante y, si alguno cambia, rearma
+     * las patrullas.
+     */
+    stakeMap: StakeMapSchema.optional(),
+    distances: DistancesSchema.optional(),
   })
   .refine((v) => v.archerIds === undefined || new Set(v.archerIds).size === v.archerIds.length, {
     message: 'Hay arqueros repetidos.',
     path: ['archerIds'],
+  })
+  // La misma regla que al crear: editando se podía dejar un recorrido con huecos (`BE-24`).
+  .refine((v) => v.targets === undefined || indicesContiguos(v.targets), {
+    message: 'Los blancos tienen que estar numerados de 1 a N, sin huecos ni repetidos.',
+    path: ['targets'],
   });
 
 // ── Patrullas ────────────────────────────────────────────────────────────────
