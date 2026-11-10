@@ -188,20 +188,20 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** sin cambios de contenido ni de datos · los tests existentes de cada página verdes.
 
-### `[ ] REF7-9` · WAFA: cambios simples · P1 · M
+### `[x] REF7-9` · WAFA: cambios simples · P1 · M
 
 **Hallazgos:** `W-1`, `W-2`, `W-3`. **Decisiones:** 5 (pie). **Spec:** `DISENO.md` §5.4. **Objetivo visual:** `referencia/pantallas/WafaInicio.html`.
 **Archivos:** `packages/app/src/wafa/pages/Home.tsx`, `packages/app/src/components/ui.tsx` (`Screen` sin `Footer`), las páginas de WAFA que usan `Encabezado` (para el `contexto`).
 
-- [ ] Un primario ("Crear torneo") y tres accesos con ícono y dato. **Sin endpoints nuevos**: si un dato no está, va solo el nombre
-- [ ] `SectionHeader` con cantidad y estados vacíos que dicen qué va a aparecer
-- [ ] `TournamentCard` con `ModalityBar` y, en proceso, un `CircuitRing` por patrulla
-- [ ] `AppHeader` con `contexto="Administración"`
+- [x] Un primario ("Crear torneo") y tres accesos con ícono y dato. **Sin endpoints nuevos**: si un dato no está, va solo el nombre
+- [x] `SectionHeader` con cantidad y estados vacíos que dicen qué va a aparecer
+- [x] `TournamentCard` con `ModalityBar` y, en proceso, un `CircuitRing` por patrulla
+- [x] `AppHeader` con `contexto="Administración"`
 - [x] `Screen` deja de renderizar `Footer` (decisión 5) — *hecho en `REF7-4`*
 
 **DoD:** tests de WAFA verdes · el inicio muestra el primer torneo sin scroll a 390×844.
 
-### `[ ] REF7-10` · WAFL: cambios simples · P1 · M
+### `[x] REF7-10` · WAFL: cambios simples · P1 · M
 
 **Hallazgos:** `F-1`, `F-2`, `F-3`, `F-4`. **Decisiones:** 5 (pie) y 6 (teclas de 64px). **Spec:** `DISENO.md` §4.13, §4.14 y §5.5. **Objetivo visual:** `referencia/pantallas/WaflBlanco.html`.
 **Archivos:** `packages/app/src/wafl/{TargetPage,CircuitPage,ResultsPage,ScoreKeypad,ArrowRow,SyncBadge}.tsx`, `packages/app/src/components/ui.tsx`.
@@ -209,19 +209,19 @@ REF7-3 ─┘           │           └─→ REF7-8
 > **Tarea sensible.** Toca la pantalla de `FE-6`. **Solo piel y layout.** No cambia nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo. Si algo de eso parece necesario, se frena y se pregunta.
 
 - [x] Sin `Footer` en Target, Circuit y Results (`F-1`) — *hecho en `REF7-4`*
-- [ ] Encabezado del blanco: número de 56px + `ChipModalidad` + "N flechas · nombre · i de N" (`F-2`)
-- [ ] `UnitCard`: total de 36px con `aria-live`, casilleros de 48px y la siguiente marcada (`F-3`)
-- [ ] `ScoreKeypad`: teclas de 64px de alto (el mínimo `TAMAÑO_TECLA_PX` sigue en 56), cifras en display, "Continuar" dentro del panel, `--shadow-dock` como token
-- [ ] `CircuitPage`: `CircuitRing` de 120 arriba y sin "Cerrar sesión" al final (`F-4`)
+- [x] Encabezado del blanco: número de 56px + `ChipModalidad` + "N flechas · nombre · i de N" (`F-2`)
+- [x] `UnitCard`: total de 36px con `aria-live`, casilleros de 48px y la siguiente marcada (`F-3`)
+- [x] `ScoreKeypad`: teclas de 64px de alto (el mínimo `TAMAÑO_TECLA_PX` sigue en 56), cifras en display, "Continuar" dentro del panel, `--shadow-dock` como token
+- [x] `CircuitPage`: `CircuitRing` de 120 arriba y sin "Cerrar sesión" al final (`F-4`)
 
 **DoD:** el E2E offline (`TEST-1`) y `flujo-completo.spec.ts` verdes en Chromium y en los perfiles de celular de `REF6-9` · los tests de objetivos táctiles miden ≥ 56px en las teclas y ≥ 44px en el resto · a 360×640 se ven el encabezado del blanco, la primera unidad completa y el teclado entero sin scroll.
 
-### `[ ] REF7-11` · Documentación · P1 · S
+### `[x] REF7-11` · Documentación · P1 · S
 
 **Archivos:** `docs/DESIGN_SYSTEM.md`, `docs/BITACORA.md`, `docs/post/ref-7/ACTION_PLAN.md`.
 
-- [ ] `DESIGN_SYSTEM.md` §1 (la banda `monte` y los anillos de fondo), §2.1 (tokens nuevos), §3 (la carga real de las fuentes y la escala completa), §4 (`--radius-full` y `--shadow-float`), §6 (los componentes nuevos: `ModalityBar`, `SectionHeader`, `TournamentCard`, `RoleCard`, `SiteHeader`; `BadgeEstado` rediseñado; `CircuitRing` implementado), §7 (pie estático, sin pie en la PWA) y §10 (foco con `--focus-ring`). Cada sección cambiada con la nota de qué se revirtió y por qué, como se hizo en `REF5-5` y `REF2-1`
-- [ ] Entrada en `BITACORA.md` por cada tanda, más una que cierre la serie
+- [x] `DESIGN_SYSTEM.md` §1 (la banda `monte` y los anillos de fondo), §2.1 (tokens nuevos), §3 (la carga real de las fuentes y la escala completa), §4 (`--radius-full` y `--shadow-float`), §6 (los componentes nuevos: `ModalityBar`, `SectionHeader`, `TournamentCard`, `RoleCard`, `SiteHeader`; `BadgeEstado` rediseñado; `CircuitRing` implementado), §7 (pie estático, sin pie en la PWA) y §10 (foco con `--focus-ring`). Cada sección cambiada con la nota de qué se revirtió y por qué, como se hizo en `REF5-5` y `REF2-1`
+- [x] Entrada en `BITACORA.md` por cada tanda, más una que cierre la serie — *la de cierre va con `REF7-12`*
 
 **DoD:** ningún valor de `DESIGN_SYSTEM.md` contradice a `tokens.css`.
 

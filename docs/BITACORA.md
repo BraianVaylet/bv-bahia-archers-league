@@ -14,6 +14,73 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `REF7-11` — Documentación
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+`docs/DESIGN_SYSTEM.md` al día con lo implementado en `ref-7`, con la nota de qué se corrigió y por qué en cada sección (como en `REF2-1` y `REF5-5`): §1 la banda `monte` y los anillos de fondo; §2.1 los once tokens nuevos y que el foco ya no es `--nock`; §2.4 `contraste.test.ts`; §3 la carga real de las fuentes (no existía) y la escala completa con los nombres de `tokens.css` (`--text-*`, no `--t-*`) y la trampa de `text-[var(--text-…)]`; §4 los radios con su nombre real (`--radius-*`) y las dos sombras (`--shadow-dock`, `--shadow-float`); §6 `UnitCard`, `SyncBadge`, `CircuitRing` y `TargetHeader` como quedaron, más una tabla §6.9 con los componentes nuevos; §7 la landing como documento, la PWA sin pie y la medida a 360×640; §8 el latido de «En curso»; §10 el foco con `--focus-ring`.
+
+**Decisiones:**
+- §6.1 dice todavía que campo usa `X6`: hay una corrección de dominio en curso en otra rama que lo saca (la entrada «Juego de campo sin `X6`»), y tocar esa línea acá le generaba un conflicto. Se actualiza con esa corrección.
+- La entrada que cierra la serie va con `REF7-12`, que es la que la cierra.
+
+**Tests:** el DoD se verificó con un script que compara cada token con valores en las tablas del documento contra `tokens.css` (los dos temas y `@theme`): 34 valores, ninguna contradicción.
+
+---
+
+## 2026-11-10 · `REF7-10` — WAFL: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+**Sólo piel y layout** de la pantalla de `FE-6` y del recorrido (`DISENO.md` §4.13, §4.14 y §5.5): no cambió nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo, y los tests que fijan eso siguen iguales y verdes.
+
+- **Encabezado del blanco** (`F-2`): el número a 56px en display, con la modalidad en su chip y «2 flechas · Jabalí · 1 de 6» al lado. El encabezado de la app dice «Patrulla N» y el nombre del torneo.
+- **`UnitCard`** (`F-3`): nombre a 20px, «UNIDAD A · TIRA 1º» con la estaca compacta en la misma línea, el total en display de 36px con `aria-live` y la etiqueta «TOTAL», casilleros de 48px en mono y el próximo a cargar marcado con 2px de `--nock-text`. La unidad activa también va en `--nock-text` (antes, el verde de botón).
+- **Teclado**: teclas de 64px de alto (decisión 6; `TAMAÑO_TECLA_PX` sigue en 56 como mínimo), cifra en display expandido de 26px, la `M` punteada, al tocar se achica y se enciende. El panel (superficie, `--shadow-dock` como token, «Continuar» y «Falta cargar» adentro) lo arma `TargetPage`.
+- **Recorrido** (`F-4`): el `AnilloDeRecorrido` de 120px con «N/M BLANCOS», girado al blanco de inicio, y sin el botón «Cerrar sesión» al final: queda el ícono del encabezado, que abre la misma confirmación (`CerrarSesion` con `soloAlConfirmar`).
+- Sin pie (`F-1`): ya estaba desde `REF7-4`.
+
+**Decisiones:**
+- **El `h1` del blanco es `sr-only` («Blanco 1») y el número grande va `aria-hidden`.** Los tests buscan «Blanco 1» como texto directo del elemento y un número solo no dice qué es; «Blanco» a 56px no entra al lado de la modalidad.
+- **Los casilleros miden 48 de alto y se angostan si no entran.** Medido a 360×640: con seis flechas de aire libre los casilleros de 48 bajaban de renglón y la unidad quedaba 63px debajo del teclado. No se tocan (son `span`), así que no tienen mínimo táctil.
+- Para que entre el teclado de 12 teclas (sala, aire libre) a 360×640, el panel tiene 8px de aire arriba y 12 abajo, y el encabezado del blanco 12 arriba. **Medido:** la primera unidad termina en 306px y el panel empieza en 323 (395 con el teclado de 3D); teclas de 64px; sin scroll horizontal.
+- `TargetPage` recibe `patrulla`, `torneo` y `totalDeBlancos` sólo para mostrar; `WaflApp` se los pasa del bundle.
+- «Unidad A · tira 1º»: A tira primero (`DOMAIN_WA.md`).
+- Los textos de `SyncBadge` no se tocaron (siguen siendo los de `syncLabel`).
+
+**Desvíos:** ninguno.
+**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`.
+**Tests:** 7 casos nuevos de la pantalla del blanco y 2 del teclado en `keypad.test.tsx`, y 3 del recorrido en `wafl.test.tsx`, vistos fallar. El de «muestra la modalidad y las flechas» cambió de forma por diseño (la modalidad va en su chip). `rendimiento.test.tsx` ubica el total por `tabular-nums`, así que el total la lleva.
+
+---
+
+## 2026-11-10 · Corrección de `REF7-8` — el anillo por patrulla arrancaba un blanco corrido
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+En el detalle de un torneo en proceso, el `AnilloDeRecorrido` de cada patrulla recibía `startTargetIndex` directo como `inicio`. Pero `startTargetIndex` es el **número** del blanco de inicio (1-based, `min(1)` en el schema) y el anillo cuenta **posiciones** en la lista (0-based): una patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos. Ahora se pasa la posición del blanco de inicio en la lista. Lo encontré al leer el dominio para `REF7-10`; el test de componente no lo veía porque sus datos arrancaban en el 0.
+
+**Tests:** un caso nuevo en `landing.test.tsx` (patrulla que arranca en el 3 con dos blancos: completos los de las posiciones 2 y 3), visto fallar con el código anterior.
+
+---
+
+## 2026-11-10 · `REF7-9` — WAFA: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1` (PR #90).
+
+El inicio de WAFA de `DISENO.md` §5.4 (`W-1`): encabezado con `contexto="Administración"` y título «Inicio»; un solo primario («Crear torneo», con `IconoAgregar`) y tres accesos compactos en grilla —Arqueros, Temporadas, Ranking— con su ícono en `--nock-text`; los grupos por estado con `RotuloDeSeccion` y su cantidad, y el grupo vacío como tarjeta punteada que dice qué va a aparecer. Las otras ocho pantallas de WAFA también llevan `contexto="Administración"`. El ranking de WAFA perdió las medallas emoji, igual que la landing en `REF7-8`.
+
+**Decisiones:**
+- **Sin endpoints nuevos** (§5.4): el único dato de los accesos es «8 categorías» del Ranking, que sale de `BOW_CATEGORIES` y no pide nada. La cantidad de arqueros y la temporada activa piden una consulta, así que esos accesos van sólo con el nombre.
+- La `TarjetaDeTorneo` del inicio no lleva el anillo por patrulla: el listado de `/api/admin/tournaments` no trae el avance (§5.4: «si en el inicio no están, se muestra el pie normal»).
+- El ranking de WAFA (`CategoriaDelRanking`): puestos 1–3 en un círculo `--nock-soft`, cifras en mono, nombre de categoría a `text-h3`. Con esto `medallaDe` ya no la usa ninguna pantalla; queda en `@bal/shared` (y su test) hasta que se decida sacarla.
+- «Cerrar sesión» al final del inicio se mantiene: es la confirmación de dos toques, y `REF7-9` no la nombra.
+
+**Desvíos:** «`Screen` sin `Footer`» ya estaba hecho desde `REF7-4`.
+**Tests:** 5 casos nuevos en `wafa.test.tsx` (contexto, un primario y tres accesos con ícono, «8 categorías», el grupo como encabezado con su cantidad, el vacío punteado) y el de podio de `ranking-ui.test.tsx` reescrito, vistos fallar. El que fija el orden de los grupos ahora mira el comienzo del título, porque el rótulo lleva la cantidad adentro.
+
+---
+
 ## 2026-11-09 · `REF7-8` — Landing: el resto de las páginas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

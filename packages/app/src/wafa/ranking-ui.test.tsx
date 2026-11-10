@@ -148,7 +148,12 @@ describe('RankingPage de WAFA', () => {
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('Pérez, Juan');
   });
 
-  it('marca el podio con medalla, y con el puesto escrito al lado', async () => {
+  /**
+   * **Sin oro, plata ni bronce** (`REF7-9`, como la landing en `REF7-8`): el amarillo y el naranja
+   * son colores de estaca (regla 8) y la dirección visual evita los emoji. El podio va en un
+   * círculo `--nock-soft`, con el número.
+   */
+  it('marca el podio sin medallas de color, con el puesto escrito', async () => {
     conRanking([
       {
         category: 'razo',
@@ -162,12 +167,12 @@ describe('RankingPage de WAFA', () => {
     renderRanking();
 
     const oro = await screen.findByTestId('fila-Oro');
-    expect(oro).toHaveTextContent('🥇');
-    expect(oro).toHaveTextContent('1');
+    expect(oro.querySelector('[data-podio]')).toHaveTextContent('1');
+    expect(oro.textContent).not.toMatch(/🥇|🥈|🥉/);
     expect(oro).toHaveTextContent('81.2%');
 
-    // Del cuarto en adelante no hay medalla que inventar.
-    expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
+    // Del cuarto en adelante no hay podio que inventar.
+    expect(screen.getByTestId('fila-Cuarto').querySelector('[data-podio]')).toBeNull();
   });
 
   /**

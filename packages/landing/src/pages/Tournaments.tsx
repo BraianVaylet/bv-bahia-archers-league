@@ -324,7 +324,12 @@ export function TournamentPage() {
                     <AnilloDeRecorrido
                       total={t.targets.length}
                       completados={p.targetsCompleted}
-                      inicio={p.startTargetIndex}
+                      // `startTargetIndex` es el número del blanco (1-based); el anillo
+                      // cuenta posiciones en la lista.
+                      inicio={Math.max(
+                        t.targets.findIndex((b) => b.index === p.startTargetIndex),
+                        0,
+                      )}
                       tamaño={44}
                     />
                   ) : null}

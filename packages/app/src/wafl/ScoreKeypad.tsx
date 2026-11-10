@@ -79,9 +79,9 @@ function ScoreKeypadBase({
 
   return (
     <div
-      // Menos aire alrededor: cada píxel que no es tecla es un píxel que la
-      // tecla no tiene. Los 56px del §5 son piso, no techo.
-      className="flex flex-col items-center gap-1.5 px-2 pt-2 pb-3 rounded-t-[var(--radius-lg)] bg-[var(--surface)] shadow-[0_-2px_12px_rgba(0,0,0,0.08)]"
+      // El panel (superficie, sombra `--shadow-dock`, «Continuar» adentro) lo arma `TargetPage`
+      // (`REF7-10`, `DISENO.md` §4.14): acá van sólo el aviso y la grilla.
+      className="flex flex-col items-center gap-2"
       data-disposicion={modo}
       data-testid="score-keypad"
     >
@@ -94,7 +94,7 @@ function ScoreKeypadBase({
       <div
         className={cn(
           'w-full',
-          modo === 'grilla' ? 'grid grid-cols-4 gap-1.5' : 'flex flex-col items-center gap-2',
+          modo === 'grilla' ? 'grid grid-cols-4 gap-2' : 'flex flex-col items-center gap-2',
         )}
       >
         {modo === 'arcos'
@@ -161,19 +161,20 @@ function Tecla({ token, inner, disabled, onPress }: TeclaProps) {
       disabled={disabled}
       onClick={() => onPress(token)}
       aria-label={esMiss ? 'Miss, flecha sin puntaje' : `Puntaje ${token}`}
-      // 56px es el PISO, no el techo: la tecla se estira a lo que le deje la
-      // grilla. Cuanto más grande, menos se erra con guantes.
+      // 56px es el PISO (`TAMAÑO_TECLA_PX`): la tecla mide 64 de alto (decisión 6 de `ref-7`) y se
+      // estira a lo ancho de la grilla. Cuanto más grande, menos se erra con guantes.
       style={{ minWidth: TAMAÑO_TECLA_PX, minHeight: TAMAÑO_TECLA_PX }}
       className={cn(
-        'w-full h-[13vh] max-h-24',
-        'rounded-[var(--radius-md)] font-display text-2xl font-semibold',
-        'border transition-opacity duration-[80ms] active:opacity-70',
-        'disabled:opacity-30 disabled:cursor-not-allowed',
+        'w-full h-16 rounded-[var(--radius-md)] border',
+        'font-display text-[26px] font-bold',
+        // Al tocar se achica y se enciende: con el sol de frente, un cambio de opacidad no se ve.
+        'transition-[transform,background-color] duration-[80ms] ease-out active:scale-[.96]',
+        'disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100',
         esMiss
-          ? 'bg-[var(--surface-2)] text-[var(--ink-muted)]'
+          ? 'bg-[var(--surface)] border-dashed border-[var(--line-strong)] text-[var(--ink-muted)]'
           : inner
-            ? 'bg-[var(--nock)] text-[var(--nock-ink)]'
-            : 'bg-[var(--surface-2)] text-[var(--ink)]',
+            ? 'bg-[var(--nock)] text-[var(--nock-ink)] border-transparent'
+            : 'bg-[var(--surface-2)] text-[var(--ink)] border-[var(--line-strong)] active:bg-[var(--nock)] active:text-[var(--nock-ink)]',
       )}
     >
       {token}

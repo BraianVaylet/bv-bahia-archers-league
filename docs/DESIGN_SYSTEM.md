@@ -12,6 +12,9 @@ La dirección sale de los objetos reales del deporte, no de una paleta de moda:
 - **Las estacas roja, azul y amarilla** son objetos físicos clavados en el piso que determinan dónde se para cada arquero. En esta app esos tres colores son **semántica reservada**: significan estaca y nada más.
 - **El verde fluorescente del nock** es el color que los arqueros eligen para poder encontrar sus flechas en el pasto. Es el color más encontrable que existe en la cancha. Es el color de la acción primaria.
 - **Los anillos concéntricos** del blanco son la estructura del deporte. Son el elemento de firma de la interfaz (§7).
+- **La banda `monte`** (`ref-7`): la cara negra del blanco de campo como superficie de identidad. Es oscura en los dos temas y lleva encima el chartreuse pleno. Va en el hero de la landing y en el panel de la puerta `/app`, **nunca dentro de WAFA ni de WAFL**, donde manda el fondo claro que gana bajo el sol.
+
+> **Agregado en `ref-7`.** Sobre la banda `monte` van **anillos concéntricos de fondo** (`AnillosDeFondo`, en `--monte-line`, el interior en `--monte-accent` al 50%). Son decoración, van `aria-hidden` y **no portan datos**: no rompen §6.5, que reserva el anillo con datos (`AnilloDeRecorrido`) a sus lugares. Nunca pasan por detrás del texto (en la puerta se miden con geometría a 360, 390, 768, 1024 y 1280 px).
 
 Lo que se evita deliberadamente: fondo crema con serif de alto contraste, negro con un único acento ácido, y retículas tipo diario con filetes finos. Son defaults, no decisiones.
 
@@ -35,6 +38,22 @@ Lo que se evita deliberadamente: fondo crema con serif de alto contraste, negro 
 | `--warn` | `#8A5A00` | `#E8A33D` | Pendiente de sincronizar, advertencias |
 | `--ok` | `#2F6B2F` | `#7CC47C` | Sincronizado, completo |
 
+**Tokens agregados en `REF7-2`** (ningún valor de arriba cambió):
+
+| Token | Claro | Oscuro | Uso |
+|---|---|---|---|
+| `--line-strong` | `#7F8372` | `#7A7F6C` | Borde de **todo lo que se toca**: inputs, botón secundario, teclas, tarjeta de rol. `--line` daba 1.3:1 |
+| `--nock-text` | `#556500` | `#C6F000` | El verde cuando tiene que **leerse**: enlaces, sección activa, segmentos del anillo, unidad activa |
+| `--nock-soft` | `#EEF4CC` | `#2C3410` | Tinte de selección: pestaña activa, podio, banda «Sumate al padrón» |
+| `--focus-ring` | `#556500` | `#C6F000` | Anillo de foco (§10) |
+| `--danger-ink` | `#FFFFFF` | `#16170F` | Texto sobre `--danger`. Blanco sobre el rojo oscuro daba ≈3:1 |
+| `--monte` | `#16170F` | `#0D0E05` | Banda de identidad (§1) |
+| `--monte-2` | `#1F211A` | `#16170F` | Superficie elevada sobre `monte` |
+| `--monte-line` | `#333629` | `#2A2D24` | Anillos de fondo |
+| `--monte-ink` | `#F4F3EC` | `#F4F3EC` | Texto sobre `monte` |
+| `--monte-muted` | `#A8AD99` | `#A8AD99` | Texto secundario sobre `monte` |
+| `--monte-accent` | `#C6F000` | `#C6F000` | Palabra destacada, anillo interior, punto vivo |
+
 El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de la cara de campo y la sombra del monte. El papel no es crema: `#FBFAF5` es claro y casi neutro, para exprimir la luminancia máxima de la pantalla bajo el sol.
 
 `--nock` cambia de tono entre temas a propósito. El chartreuse fluorescente `#C6F000` es glorioso sobre fondo oscuro e ilegible sobre blanco; en tema claro se oscurece a `#8FA800`.
@@ -42,6 +61,8 @@ El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de 
 > **La tinta encima es oscura en los dos temas, y esto estuvo mal escrito hasta `REF5-5`.** Este párrafo afirmaba que `#8FA800` «llega a contraste AA», pero la tinta que tenía al lado era blanca y el par daba **2.70:1** — ni AA ni cerca. Afectaba a todo botón primario de las tres apps, en el tema claro, que es el default de WAFL. Con `#0D0E05` el par llega a **7.18:1**, que es el AAA que §2.4 exige en scoring.
 >
 > Se cambió la tinta y **no** el verde: `--nock` también dibuja el anillo de foco sobre el fondo claro, y aclararlo lo habría empeorado. Lo verifica `packages/ui/src/accion-primaria.test.ts`, que lee `tokens.css`.
+>
+> **Corregido en `REF7-2`:** el foco **ya estaba** por debajo: `#8FA800` sobre `#FBFAF5` da **2.59:1** y WCAG 2.4.11 pide 3:1. Desde `REF7-2` el foco usa `--focus-ring` (§10) y `--nock` queda sólo para la acción primaria.
 
 ### 2.2 Colores de estaca — reservados
 
@@ -107,6 +128,8 @@ Mínimo **AA (4.5:1)** en todo texto. **AAA (7:1)** en la pantalla de scoring y 
 
 Verificado en ambos temas para cada par de tokens. Ningún par de tokens del §2.1 puede combinarse fuera de la tabla sin volver a verificar.
 
+Desde `REF7-2`, **`packages/ui/src/contraste.test.ts`** mide cada par que la interfaz usa junto, en los dos temas, leyendo `tokens.css`: texto 4.5:1 (7:1 en scoring), bordes, foco y marcas 3:1. Un par nuevo se agrega ahí antes de usarse. Conocido y fuera del test: `--danger` como **texto** sobre `--surface-2` en oscuro da 4.42:1 (hoy no hay texto de error sobre `surface-2`).
+
 ---
 
 ## 3. Tipografía
@@ -115,25 +138,31 @@ Tres roles, dos familias.
 
 | Rol | Familia | Por qué |
 |---|---|---|
-| **Display** | **Archivo Expanded** (600, 700) | Grotesca ancha y robusta. Lee como cartelería de cancha. Sus cifras son inconfundibles a distancia y con glare: el `6` y el `8` no se parecen, el `1` tiene base. |
+| **Display** | **Archivo** al 125% de ancho (600, 700, 800) | Grotesca ancha y robusta. Lee como cartelería de cancha. Sus cifras son inconfundibles a distancia y con glare: el `6` y el `8` no se parecen, el `1` tiene base. |
 | **Cuerpo** | **Archivo** (400, 500, 600) | Misma superfamilia, ancho normal. Cohesión sin monotonía. Excelente en tamaños chicos. |
 | **Datos** | **Martian Mono** (400, 600) | Etiquetas técnicas: usuario de patrulla, PIN, número de blanco, contadores. Ancho fijo, lectura de "equipamiento marcado". |
 
 Ambas son de Google Fonts, **autohospedadas** en `woff2` con `font-display: swap`. La CSP prohíbe pedidos a hosts externos (ver [`SECURITY.md`](SECURITY.md) §10) y además no queremos depender de la red para renderizar texto.
 
+> **Corregido en `REF7-1`: hasta ahí las fuentes nunca cargaron.** No había un solo `@font-face` en el repo y todo se veía en la fuente del sistema. Y **«Archivo Expanded» no es una familia**: Archivo es una fuente variable con eje de ancho (`wdth`, 62–125), y lo expandido es ese eje al 125%. Ahora `@fontsource-variable/archivo` y `@fontsource-variable/martian-mono` se importan al principio de `packages/ui/styles/tokens.css`; las familias son `'Archivo Variable'` y `'Martian Mono Variable'`, y la utilidad **`font-display`** pone la familia y `font-stretch: 125%` (nunca `font-[var(--font-display)]`, que cambia la familia pero no el ancho). La PWA precachea sólo el subset `latin`, que cubre el castellano; lo verifica `scripts/presupuesto.mjs`.
+
 ### Escala
 
 Base `16px`. Ratio 1.25 para cuerpo, saltos mayores para display.
 
-| Token | Tamaño | Line-height | Uso |
+| Token (utilidad) | Tamaño | Line-height | Uso |
 |---|---|---|---|
-| `--t-score` | `56px` | 1.0 | Puntaje total en la pantalla de blanco |
-| `--t-display` | `32px` | 1.1 | Títulos de página |
-| `--t-h2` | `24px` | 1.2 | Encabezados de sección |
-| `--t-h3` | `20px` | 1.3 | Nombres de arquero en la lista de scoring |
-| `--t-body` | `16px` | 1.5 | Texto general. **Nunca menos de 16px en un input** (iOS hace zoom debajo de eso) |
-| `--t-sm` | `14px` | 1.45 | Metadatos |
-| `--t-mono` | `13px` | 1.4 | Etiquetas de datos, `letter-spacing: 0.02em` |
+| `--text-hero` (`text-hero`) | `64px` | 0.95, 800, tracking −0.02em | Titular del hero de la landing (40px en celular). **Nuevo en `ref-7`** |
+| `--text-score` (`text-score`) | `56px` | 1.0 | Número del blanco y puntajes grandes |
+| `--text-display` (`text-display`) | `32px` | 1.1 | Títulos de página (26px en las secciones de la portada en celular) |
+| `--text-h2` (`text-h2`) | `24px` | 1.2, 700 | Encabezados de sección |
+| `--text-h3` (`text-h3`) | `20px` | 1.3, 600 | Nombres de arquero, títulos de tarjeta |
+| (base) | `16px` | 1.5 | Texto general. **Nunca menos de 16px en un input** (iOS hace zoom debajo de eso) |
+| `--text-sm` (`text-sm`) | `14px` | 1.45 | Metadatos |
+| `--text-mono` (`text-mono`) | `13px` | 1.4, `letter-spacing: 0.02em` | Etiquetas de datos |
+| `--text-eyebrow` (`text-eyebrow`) | `12px` | 1.3, 600, `letter-spacing: 0.08em` | Rótulos de sección y de contexto, en mono y mayúsculas. **Nuevo en `ref-7`** |
+
+> **Corregido en `REF7-2`.** El documento nombraba `--t-*`, pero en `tokens.css` sólo existían `--text-score` y `--text-display`, y se usaban como `text-[var(--text-display)]`: con un `var()` en un valor arbitrario Tailwind 4 asume que es un **color** y el tamaño no se aplicaba (los `h1` medían 16px). Ahora la escala completa está en `@theme` y se usa por utilidad. Un test en `ui/src/fuentes.test.ts` prohíbe `text-[var(--text-…)]` en los `.tsx`.
 
 **`font-variant-numeric: tabular-nums` en todo número que pueda cambiar.** Un total que salta de ancho al pasar de 99 a 100 hace que la pantalla parezca temblar.
 
@@ -145,12 +174,17 @@ Escala de 4px: `4 · 8 · 12 · 16 · 24 · 32 · 48 · 64`.
 
 | Token | Valor | Uso |
 |---|---|---|
-| `--r-sm` | `6px` | Chips, badges |
-| `--r-md` | `12px` | Botones, inputs |
-| `--r-lg` | `20px` | Tarjetas |
-| `--r-full` | `9999px` | Píldoras, teclas circulares |
+| `--radius-sm` | `6px` | Chips, enlaces de navegación |
+| `--radius-md` | `12px` | Botones, inputs, teclas, botones de ícono |
+| `--radius-lg` | `20px` | Tarjetas, panel del teclado |
+| `--radius-full` | `9999px` | Píldoras (estado, sincronización, contador) |
 
-Elevación por **borde y fondo**, no por sombra. Las sombras se disuelven bajo el sol; un borde de 1px en `--line` se ve siempre. Se reserva una sola sombra real para el teclado de scoring anclado abajo, para separarlo del contenido que scrollea.
+> **Corregido en `REF7-2`:** el documento los llamaba `--r-*` y `--r-full` no existía en `@theme`. Los nombres de arriba son los de `tokens.css`.
+
+Elevación por **borde y fondo**, no por sombra. Las sombras se disuelven bajo el sol; un borde de 1px en `--line` se ve siempre. Hay **dos** sombras reales, las dos como token:
+
+- `--shadow-dock` — el panel del teclado de scoring anclado abajo, para separarlo del contenido que scrollea (antes era un literal en `ScoreKeypad.tsx`).
+- `--shadow-float` — **sólo** la tarjeta «En curso» que flota sobre la foto del hero de la landing, y sólo en escritorio. Agregada en `ref-7`.
 
 ---
 
@@ -174,7 +208,8 @@ El componente más importante del sistema. Se adapta a la modalidad **del blanco
 
 - **3D** (`11 10 8 5 M`) y **campo** (`X6 6 5 4 3 2 1 M`): disposición en **arcos concéntricos** que espejan la cara de blanco real. El 11 y el X6 están al centro; los valores menores, hacia afuera. La memoria espacial de lo que el arquero acaba de mirar en el blanco se traslada a la pantalla.
 - **Sala** y **aire libre** (12 tokens): grilla de 4 columnas. Doce zonas no caben en anillos legibles; acá gana la grilla.
-- `M` siempre en la misma posición, siempre visualmente distinto del resto.
+- `M` siempre en la misma posición, siempre visualmente distinto del resto (desde `REF7-10`, con borde punteado sobre `--surface`).
+- **Teclas de 64px de alto** (`REF7-10`, decisión 6 de `ref-7`): `TAMAÑO_TECLA_PX` sigue en 56 como **mínimo**. Cifra en display expandido de 26px; al tocarla se achica (`scale(.96)`) y se enciende en `--nock`. El panel (`--surface`, `--shadow-dock`, «Continuar» y «Falta cargar» adentro) lo arma `TargetPage`.
 - Feedback háptico (`navigator.vibrate(10)`) en cada toque, si el dispositivo lo soporta.
 - Sin estado de carga. Nunca. Ver [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §12.
 
@@ -186,8 +221,12 @@ Color de estaca + nombre escrito, siempre juntos. Alto 28px, radio `--r-full`.
 ### 6.3 `UnitCard`
 La unidad de tiro (par `A` o `B`): los dos arqueros, quién a la izquierda y quién a la derecha, la estaca, y cuál unidad tira primero. `A` lleva un indicador de orden.
 
+> **Implementada en `REF7-10`** (`app/src/wafl/ArrowRow.tsx`), como una tarjeta por arquero: nombre a 20px; «UNIDAD A · TIRA 1º» en mono con la estaca compacta en la misma línea; el **total** en display de 36px con `aria-live`; casilleros de flecha de 48px de alto en mono (se angostan si no entran: seis flechas de aire libre a 360px) y el **próximo a cargar** marcado con 2px de `--nock-text`. La activa lleva borde de 2px en `--nock-text` con un pixel menos de relleno, para que no salte.
+
 ### 6.4 `SyncBadge`
 Fijo en el encabezado de WAFL. Cuatro estados (`--ok` · `--warn` · `--ink-muted` · `--danger`), cada uno con **icono, color y texto**. Se toca para abrir el panel de detalle. Nunca bloquea.
+
+> **Desde `REF7-4`** es una píldora de 44px con borde `--line` y un ícono por estado (tilde, sincronizar, sin señal, aviso). Los textos siguen siendo los de `syncLabel`. **Pendiente de decidir:** a 390px, junto a «← Blancos», trunca el contexto y el título del encabezado del blanco; los textos cortos de `docs/post/ref-7/DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados») lo resolverían.
 
 ### 6.5 `CircuitRing` — el elemento de firma
 Anillo que representa el circuito completo: un segmento por blanco, el de inicio marcado arriba, los completados rellenos. **Es literalmente el mapa de la vuelta que la patrulla está caminando.**
@@ -199,11 +238,37 @@ Aparece en tres lugares, y en los tres codifica datos reales:
 
 No aparece decorativamente en ningún otro lado. Es lo único memorable de la interfaz y se gasta esa carta una sola vez.
 
+> **Implementado en `REF7-4`** como `AnilloDeRecorrido` (`@bal/ui`): un arco por blanco con 4° de hueco, completos en `--nock-text` y pendientes en `--line`, un triángulo en `--ink` arriba, `role="img"` con «N de M blancos cargados», y el relleno en 400 ms. **Gira para que el blanco de inicio quede arriba**; recibe cuántos blancos (contados desde el inicio) o cuáles. Ojo: `startTargetIndex` es el **número** del blanco (1-based) y el anillo cuenta **posiciones** en la lista.
+>
+> Dónde está hoy, siempre con datos reales: el recorrido de WAFL (120px, con «N/M BLANCOS»); la tarjeta «En curso» del hero de la landing (76px, el avance de todas las patrullas juntas) y el detalle público de un torneo en proceso (44px por patrulla). En el inicio de WAFA **no**: el listado de administración no trae el avance, y no se agregó un endpoint para esto. El arco de estadísticas no se implementó.
+
 ### 6.6 `SignaturePad`
 Canvas a pantalla completa, orientación libre, trazo grueso. Botones **Borrar** y **Confirmar firma**. Muestra el puntaje que se está firmando arriba del canvas: nadie firma algo que no está viendo.
 
 ### 6.7 `TargetHeader`
 Número de blanco grande, glifo de modalidad, cantidad de flechas. Es lo primero que se ve al llegar a un puesto.
+
+> **Desde `REF7-10`:** el número a 56px en display (`aria-hidden`; el `h1` real dice «Blanco 1» para el lector de pantalla), y al lado el `ChipModalidad` y «2 flechas · Jabalí · 1 de 6». El encabezado de la app dice «Patrulla N» y el nombre del torneo.
+
+### 6.9 Componentes de `ref-7`
+
+Agregados o rediseñados en `ref-7` (especificación completa en [`post/ref-7/DISENO.md`](post/ref-7/DISENO.md) §4). Los de `@bal/ui` tienen nombre en castellano, como el resto del paquete:
+
+| Componente | Dónde | Qué es |
+|---|---|---|
+| `botonClases` | `@bal/ui` | La piel de todo botón: `primario`, `secundario` (sobre `--surface` con borde `--line-strong`; el gris relleno se leía como deshabilitado), `fantasma`, `peligro` (con `--danger-ink`) y `sobreMonte`; tamaños `sm` (44), base (52) y `lg` (56). Deshabilitado **sin opacidad**: `--surface-2` con `--ink-muted`. Al tocar baja un pixel |
+| `clasesDeBotonIcono` | `@bal/ui` | 44×44, radio `md`, siempre con `aria-label` |
+| `BadgeEstado` | `@bal/ui` | **Rediseñado:** un punto de color y el texto en `--ink`, en una píldora con borde. «En curso» late (lo apaga `prefers-reduced-motion`). El color sigue saliendo de `ESTADO_DE_TORNEO` y va al punto: con el fondo relleno, «completado» daba 2.59:1 |
+| `BarraDeModalidades` (`ModalityBar`) | `@bal/ui` | Barra apilada de 8px y leyenda con ícono, nombre y %. Reemplaza la fila de chips con porcentaje en las tarjetas de torneo |
+| `RotuloDeSeccion` (`SectionHeader`) | `@bal/ui` | Eyebrow en mono, contador y filete; acción opcional. Es un encabezado (o un antetítulo con `nivel={false}`) |
+| `TarjetaDeTorneo` (`TournamentCard`) | `@bal/ui` | Estado y fecha, nombre, tamaño, barra de modalidades y un pie que dice qué vas a encontrar. Se usa en la landing y en WAFA |
+| `AnilloDeRecorrido` (`CircuitRing`) | `@bal/ui` | Ver §6.5 |
+| `AnillosDeFondo` | `@bal/ui` | Los anillos decorativos de la banda `monte` (§1) |
+| `TarjetaDeRol` (`RoleCard`) | `app/src/components` | Las dos entradas de la puerta `/app`: título, qué hace la app, ícono sobre `monte`; la de líder es la principal y avisa que funciona sin señal. Mínimo 96px |
+| `Encabezado` de la landing (`SiteHeader`) | `landing/src/components/ui.tsx` | Una fila, sticky: marca, Inicio · Ranking · Torneos · Sumate con la activa marcada, tema e «Ingresar». Debajo de 760px la navegación se esconde |
+| `Encabezado` de la PWA (`AppHeader`) | `app/src/components/ui.tsx` | 60px; a la izquierda, vuelta atrás (flecha y texto) **o** el logo; título en dos líneas (`contexto` en mono arriba) |
+
+Los componentes que tienen enlaces reciben `enlace?: ComponenteDeEnlace` (`@bal/ui` no depende del router): cada app les pasa su `EnlaceInterno`.
 
 ---
 
@@ -254,6 +319,12 @@ El texto es material de diseño, no relleno.
 - **Sin modales durante el scoring.** Un modal que aparece mientras se anota es una interrupción en el peor momento posible.
 - La landing usa un layout más ancho y respirado; es la única superficie que se ve también en escritorio.
 
+> **Desde `ref-7`:**
+> - **La landing es un documento** (`REF7-5`): el encabezado es sticky, el contenido scrollea con la página y **el pie va al final**, estático, con columnas (la liga, sus páginas y un solo acceso «Ingresar a la app»: puerta única, `FUNCTIONAL.md` §5.1). El contenedor es de 1200px. Antes el medio scrolleaba entre un encabezado y un pie fijos, y el pie se comía ~80px de alto útil.
+> - **La PWA no tiene pie** (`REF7-4`, decisión 5): en WAFL el pie compacto quedaba entre la lista de arqueros y el teclado, justo donde no sobra alto; en WAFA repetía lo que ya dice el encabezado.
+> - A 360×640, en la pantalla del blanco entran el encabezado del blanco, la primera unidad entera y el teclado de 12 teclas sin scroll (medido en `REF7-10`).
+> - Los títulos parten una palabra que no entra (`overflow-wrap: anywhere` en `h1`–`h3`): un apellido largo a 32px expandido pasaba los 328px útiles de un celular de 360.
+
 ---
 
 ## 8. Movimiento
@@ -266,6 +337,7 @@ Contenido y con propósito. La app se usa con prisa; una animación de más es u
 | Transición entre blancos | 180 ms | `cubic-bezier(0.2, 0, 0, 1)` |
 | Cambio de estado del `SyncBadge` | 240 ms | `ease-in-out` |
 | Relleno del `CircuitRing` al completar un blanco | 400 ms | `ease-out` |
+| Latido del punto de «En curso» (`BadgeEstado`, `ref-7`) | 1.6 s, `infinite` | `ease-out` |
 
 El relleno del anillo es la única animación con algo de gracia, y se la ganó: marca el momento en que el blanco quedó cargado. Es la recompensa del recorrido.
 
@@ -311,7 +383,7 @@ Una fecha que no se puede interpretar se devuelve **tal cual**. Es un bug, pero 
 ## 10. Accesibilidad
 
 - Contraste AA mínimo, AAA en scoring.
-- Foco visible global: `:focus-visible` con anillo de 3px en `--nock`, con desplazamiento.
+- Foco visible global: `:focus-visible` con anillo de 3px en **`--focus-ring`**, con desplazamiento. Hasta `REF7-2` era `--nock`, que en el tema claro da 2.59:1 sobre el fondo (WCAG 2.4.11 pide 3:1); `--focus-ring` da 6.19:1 en claro y 13.6:1 en oscuro. Ninguna transición anima `outline-color`: el anillo arrancaba en el color del texto.
 - Todos los inputs con `<label>` asociado. Grupos de radio y checkbox en `<fieldset>` con `<legend>`.
 - El color **nunca** es el único portador de información: estaca, estado de sincronización y modalidad llevan siempre texto o forma.
 - `aria-live="polite"` en el `SyncBadge` y en los totales que cambian.

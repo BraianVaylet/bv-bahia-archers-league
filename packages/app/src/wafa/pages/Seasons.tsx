@@ -48,7 +48,7 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Temporadas" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Temporadas" onVolver={onVolver} />
 
       <Screen>
         <FormularioDeTemporada

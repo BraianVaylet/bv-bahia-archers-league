@@ -81,7 +81,11 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo={publicado ? 'Resultados' : 'Publicar'} onVolver={onVolver} />
+      <Encabezado
+        contexto="Administración"
+        titulo={publicado ? 'Resultados' : 'Publicar'}
+        onVolver={onVolver}
+      />
 
       <Screen>
         {error && (

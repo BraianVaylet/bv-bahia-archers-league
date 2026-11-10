@@ -224,8 +224,8 @@ describe('TargetPage', () => {
     renderPagina();
 
     expect(await screen.findByText('Blanco 1')).toBeDefined();
-    expect(screen.getByText(/3D · 2 flechas/)).toBeDefined();
-    expect(screen.getByText('Jabalí')).toBeDefined();
+    expect(document.querySelector('[data-chip="modalidad"]')).toHaveTextContent('3D');
+    expect(screen.getByText(/2 flechas · Jabalí/)).toBeDefined();
   });
 
   it('guarda cada flecha al instante, sin botón de guardar', async () => {
@@ -365,6 +365,114 @@ describe('TargetPage', () => {
  * que aparece al final del recorrido, lejos de su causa, cuando la patrulla ya
  * quiere irse. Es mejor no dejar tocarlo.
  */
+/**
+ * La piel de la pantalla del blanco (`REF7-10`, `DISENO.md` §4.13, §4.14 y §5.5). **Sólo piel y
+ * layout**: lo que guarda, en qué orden y cuándo se bloquea lo fijan los tests de arriba, que no
+ * cambiaron.
+ */
+describe('TargetPage · piel de REF7-10', () => {
+  const blanco = () => {
+    const target = bundle.tournament.targets[0];
+    if (!target) throw new Error('falta el blanco');
+    return target;
+  };
+  const renderPagina = (extra: Partial<Parameters<typeof TargetPage>[0]> = {}) =>
+    render(
+      <TargetPage
+        target={blanco()}
+        participants={participantes}
+        onContinuar={vi.fn()}
+        onVolver={() => {}}
+        {...extra}
+      />,
+    );
+
+  /** `F-2`: es lo primero que hay que leer al llegar al puesto. */
+  it('el número del blanco va grande, y se anuncia como «Blanco 1»', async () => {
+    renderPagina();
+    const titulo = await screen.findByRole('heading', { level: 1 });
+    const numero = document.querySelector('[data-numero-del-blanco]') as HTMLElement;
+
+    expect(titulo).toHaveTextContent('Blanco 1');
+    expect(numero).toHaveTextContent('1');
+    expect(numero.className).toContain('text-score');
+    // A la vista; el lector de pantalla ya oyó «Blanco 1» en el título.
+    expect(numero).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('la línea del blanco dice cuál de cuántos es', async () => {
+    renderPagina({ totalDeBlancos: 6 });
+    expect(await screen.findByText(/2 flechas · Jabalí · 1 de 6/)).toBeDefined();
+  });
+
+  it('el encabezado dice la patrulla y el torneo', async () => {
+    renderPagina({ patrulla: 3, torneo: 'Fecha de prueba' });
+    await screen.findByText('Blanco 1');
+
+    expect(screen.getByRole('banner')).toHaveTextContent(/Patrulla 3/);
+    expect(screen.getByRole('banner')).toHaveTextContent(/Fecha de prueba/);
+  });
+
+  /** §4.14: «Continuar» va dentro del panel, debajo de la grilla, no flotando aparte. */
+  it('«Continuar» va dentro del panel del teclado', async () => {
+    renderPagina();
+    const continuar = await screen.findByRole('button', { name: 'Continuar' });
+    const panel = continuar.closest('[data-panel-teclado]') as HTMLElement;
+
+    expect(panel).not.toBeNull();
+    expect(within(panel).getByTestId('score-keypad')).toBeDefined();
+    expect(panel.className).toContain('shadow-[var(--shadow-dock)]');
+  });
+
+  /** `F-3`: el total a la vista, y se anuncia solo. */
+  it('cada unidad muestra su total, y se anuncia al cambiar', async () => {
+    renderPagina();
+    const fila = await screen.findByTestId(`fila-${participantes[0]?.lastName}`);
+    const total = fila.querySelector('[aria-live="polite"]');
+
+    expect(total).not.toBeNull();
+    expect(total?.textContent).toBe('—');
+  });
+
+  /** 48px de alto; de ancho, 48 si entran (se angostan con seis flechas a 360px). */
+  it('los casilleros miden 48px y el siguiente se marca', async () => {
+    renderPagina();
+    const fila = await screen.findByTestId(`fila-${participantes[0]?.lastName}`);
+    const casilleros = [...fila.querySelectorAll('[data-casillero]')] as HTMLElement[];
+
+    expect(casilleros.length).toBeGreaterThan(0);
+    for (const c of casilleros) {
+      expect(c.className).toContain('h-12');
+      expect(c.className).toContain('max-w-12');
+    }
+    expect(casilleros[0]).toHaveAttribute('data-siguiente');
+    expect(casilleros[1]).not.toHaveAttribute('data-siguiente');
+  });
+
+  it('la unidad activa se marca con el verde que se lee', async () => {
+    renderPagina();
+    const fila = await screen.findByTestId(`fila-${participantes[0]?.lastName}`);
+    expect(fila.className).toContain('border-[var(--nock-text)]');
+  });
+});
+
+describe('ScoreKeypad · piel de REF7-10', () => {
+  /** Decisión 6: 64px de alto; el mínimo de §5 sigue siendo `TAMAÑO_TECLA_PX` (56). */
+  it('las teclas miden 64px de alto', () => {
+    render(<ScoreKeypad modality="sala" cargadas={0} total={3} onToken={vi.fn()} />);
+    for (const tecla of within(screen.getByTestId('score-keypad')).getAllByRole('button')) {
+      expect(tecla.className).toContain('h-16');
+      expect(tecla.style.minHeight).toBe(`${TAMAÑO_TECLA_PX}px`);
+    }
+  });
+
+  it('la M va punteada, siempre en el mismo lugar', () => {
+    render(<ScoreKeypad modality="sala" cargadas={0} total={3} onToken={vi.fn()} />);
+    const miss = screen.getByRole('button', { name: /Miss/ });
+    expect(miss.className).toContain('border-dashed');
+  });
+});
+
 describe('editar hasta la firma', () => {
   const PNG = 'data:image/png;base64,AAA';
 
