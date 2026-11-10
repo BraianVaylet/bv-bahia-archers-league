@@ -188,15 +188,15 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** sin cambios de contenido ni de datos · los tests existentes de cada página verdes.
 
-### `[ ] REF7-9` · WAFA: cambios simples · P1 · M
+### `[x] REF7-9` · WAFA: cambios simples · P1 · M
 
 **Hallazgos:** `W-1`, `W-2`, `W-3`. **Decisiones:** 5 (pie). **Spec:** `DISENO.md` §5.4. **Objetivo visual:** `referencia/pantallas/WafaInicio.html`.
 **Archivos:** `packages/app/src/wafa/pages/Home.tsx`, `packages/app/src/components/ui.tsx` (`Screen` sin `Footer`), las páginas de WAFA que usan `Encabezado` (para el `contexto`).
 
-- [ ] Un primario ("Crear torneo") y tres accesos con ícono y dato. **Sin endpoints nuevos**: si un dato no está, va solo el nombre
-- [ ] `SectionHeader` con cantidad y estados vacíos que dicen qué va a aparecer
-- [ ] `TournamentCard` con `ModalityBar` y, en proceso, un `CircuitRing` por patrulla
-- [ ] `AppHeader` con `contexto="Administración"`
+- [x] Un primario ("Crear torneo") y tres accesos con ícono y dato. **Sin endpoints nuevos**: si un dato no está, va solo el nombre
+- [x] `SectionHeader` con cantidad y estados vacíos que dicen qué va a aparecer
+- [x] `TournamentCard` con `ModalityBar` y, en proceso, un `CircuitRing` por patrulla
+- [x] `AppHeader` con `contexto="Administración"`
 - [x] `Screen` deja de renderizar `Footer` (decisión 5) — *hecho en `REF7-4`*
 
 **DoD:** tests de WAFA verdes · el inicio muestra el primer torneo sin scroll a 390×844.

@@ -3,18 +3,36 @@
  * todavía no.
  */
 
-import { CATEGORY_INFO, medallaDe } from '@bal/shared';
+import { CATEGORY_INFO } from '@bal/shared';
 import { clasesDeTarjeta, cn } from '../../components/ui.js';
 import type { CategoriaRankeada, Vista } from './tipos.js';
 
 /** El emoji nunca va solo: lleva su nombre. Ver `docs/DESIGN_SYSTEM.md` §10. */
-function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
-  const medalla = medallaDe(puesto);
-  if (!medalla) return null;
-
+/**
+ * El puesto en un círculo `--nock-soft` del 1 al 3 (`REF7-9`, como la landing en `REF7-8`). Antes
+ * llevaba una medalla emoji: el oro y el bronce son el amarillo y el naranja de las estacas
+ * (regla 8) y la dirección visual evita los emoji.
+ */
+function Puesto({
+  puesto,
+  empate,
+}: {
+  readonly puesto?: number | undefined;
+  readonly empate?: boolean;
+}) {
+  const podio = puesto !== undefined && puesto <= 3;
   return (
-    <span role="img" aria-label={medalla.nombre}>
-      {medalla.emoji}
+    <span className="inline-flex items-center gap-1 shrink-0">
+      <span
+        {...(podio ? { 'data-podio': '' } : {})}
+        className={cn(
+          'inline-flex size-8 items-center justify-center rounded-full font-display font-bold',
+          podio ? 'bg-[var(--nock-soft)]' : null,
+        )}
+      >
+        {puesto}
+      </span>
+      {empate ? <span className="text-[var(--ink-muted)]">=</span> : null}
     </span>
   );
 }
@@ -31,7 +49,7 @@ export function CategoriaDelRanking({
 }) {
   return (
     <section key={c.category} className="flex flex-col gap-2" data-testid={`cat-${c.category}`}>
-      <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
+      <h2 className="text-h3">{CATEGORY_INFO[c.category].label}</h2>
 
       {c[vista].ranked.length === 0 ? (
         <p className="text-sm text-[var(--ink-muted)]">
@@ -46,17 +64,13 @@ export function CategoriaDelRanking({
               data-testid={`fila-${e.lastName}`}
             >
               <span className="flex items-center gap-2 min-w-0">
-                <span className="tabular-nums font-semibold w-8 shrink-0">
-                  {e.position}
-                  {e.tied && <span className="text-[var(--ink-muted)]">=</span>}
-                </span>
-                <Medalla puesto={e.position} />
+                <Puesto puesto={e.position} empate={e.tied === true} />
                 <span className="truncate">
                   {e.lastName}, {e.firstName}
                 </span>
               </span>
 
-              <span className="text-sm tabular-nums shrink-0 text-right font-semibold">
+              <span className="text-sm font-mono shrink-0 text-right font-semibold">
                 {e.bestNAvgPct}%
               </span>
             </li>

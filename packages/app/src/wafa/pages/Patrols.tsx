@@ -30,7 +30,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Patrullas" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Patrullas" onVolver={onVolver} />
 
       <Screen>
         <h1 className="pt-2 font-display text-display font-bold">

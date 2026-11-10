@@ -57,7 +57,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
 
   return (
     <Pantalla>
-      <Encabezado titulo="Torneo" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Torneo" onVolver={onVolver} />
 
       <Screen>
         {error && (

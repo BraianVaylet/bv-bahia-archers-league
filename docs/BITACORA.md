@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `REF7-9` — WAFA: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1` (PR #90).
+
+El inicio de WAFA de `DISENO.md` §5.4 (`W-1`): encabezado con `contexto="Administración"` y título «Inicio»; un solo primario («Crear torneo», con `IconoAgregar`) y tres accesos compactos en grilla —Arqueros, Temporadas, Ranking— con su ícono en `--nock-text`; los grupos por estado con `RotuloDeSeccion` y su cantidad, y el grupo vacío como tarjeta punteada que dice qué va a aparecer. Las otras ocho pantallas de WAFA también llevan `contexto="Administración"`. El ranking de WAFA perdió las medallas emoji, igual que la landing en `REF7-8`.
+
+**Decisiones:**
+- **Sin endpoints nuevos** (§5.4): el único dato de los accesos es «8 categorías» del Ranking, que sale de `BOW_CATEGORIES` y no pide nada. La cantidad de arqueros y la temporada activa piden una consulta, así que esos accesos van sólo con el nombre.
+- La `TarjetaDeTorneo` del inicio no lleva el anillo por patrulla: el listado de `/api/admin/tournaments` no trae el avance (§5.4: «si en el inicio no están, se muestra el pie normal»).
+- El ranking de WAFA (`CategoriaDelRanking`): puestos 1–3 en un círculo `--nock-soft`, cifras en mono, nombre de categoría a `text-h3`. Con esto `medallaDe` ya no la usa ninguna pantalla; queda en `@bal/shared` (y su test) hasta que se decida sacarla.
+- «Cerrar sesión» al final del inicio se mantiene: es la confirmación de dos toques, y `REF7-9` no la nombra.
+
+**Desvíos:** «`Screen` sin `Footer`» ya estaba hecho desde `REF7-4`.
+**Tests:** 5 casos nuevos en `wafa.test.tsx` (contexto, un primario y tres accesos con ícono, «8 categorías», el grupo como encabezado con su cantidad, el vacío punteado) y el de podio de `ranking-ui.test.tsx` reescrito, vistos fallar. El que fija el orden de los grupos ahora mira el comienzo del título, porque el rótulo lleva la cantidad adentro.
+
+---
+
 ## 2026-11-09 · `REF7-8` — Landing: el resto de las páginas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

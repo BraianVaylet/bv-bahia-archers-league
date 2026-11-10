@@ -80,6 +80,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
   return (
     <Pantalla>
       <Encabezado
+        contexto="Administración"
         titulo="Crear torneo"
         onVolver={volver}
         textoVolver={confirmandoSalir ? 'Se pierde todo, ¿seguro?' : 'Inicio'}
