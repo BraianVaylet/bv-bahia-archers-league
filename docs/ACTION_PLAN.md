@@ -790,7 +790,8 @@ _(Hecho. `RegistrationUrlSchema` exportado de `@bal/shared` para que el formular
 **Contenido:** `registrationUrl: z.url({ protocol: /^https$/ }).max(500).nullable().optional()` — **sólo `https:`**: un `javascript:` o `data:` en un `href` es XSS almacenado. Torneos viejos sin el campo → `null` al leer (claves ausentes, mismo cuidado que `BE-23`). Editable en `sin_iniciar` y `en_proceso` (`SH-11`).
 **DoD:** test que rechaza `javascript:alert(1)`, `http://…`, `data:…` y un string que no es URL · test que un torneo sin el campo se lee como `null` · `/security-review`.
 
-### `[ ] FE-36` · Link de pre-inscripción: carga en WAFA y botón en la landing
+### `[x] FE-36` · Link de pre-inscripción: carga en WAFA y botón en la landing
+_(Hecho. El botón es un componente propio, `BotonPreinscripcion` en `landing/src/components/`, para que «Próximas fechas» (`FE-38`) lo reuse. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Archivos:** `packages/app/src/wafa/crear/PasoDatos.tsx`, `EdicionDelTorneo.tsx`, `packages/landing/src/pages/Tournaments.tsx` (detalle), sección de `FE-38`
 **Contenido:** campo «Link de pre-inscripción (opcional)» debajo de la descripción, con el error de Zod en español. En la landing, si existe: botón «Pre-inscribirme» con `target="_blank" rel="noopener noreferrer"` y el dominio visible al lado (que se vea a dónde lleva). Si no existe, no se renderiza nada — ni botón deshabilitado ni texto «sin link».
 **DoD:** test de UI con y sin link · 44px · el `href` que llega al DOM es el que validó el servidor (sin reconstruirlo en el cliente).

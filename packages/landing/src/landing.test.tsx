@@ -886,6 +886,60 @@ describe('TournamentPage', () => {
     expect(miembro.className).toContain('flex-col');
   });
 
+  /**
+   * `FE-36`: el botón al formulario de pre-inscripción, si el admin lo cargó.
+   *
+   * Sale del sitio: otra pestaña, sin `window.opener` ni referer, y el dominio a la vista para que
+   * se sepa adónde lleva antes de tocarlo.
+   */
+  describe('botón de pre-inscripción', () => {
+    it('con link, ofrece pre-inscribirse en otra pestaña y dice a qué sitio lleva', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: 'https://forms.gle/AbCdEf123' }) },
+        }),
+      });
+      renderDetalle();
+
+      const boton = await screen.findByRole('link', { name: /pre-inscribirme/i });
+      expect(boton).toHaveAttribute('href', 'https://forms.gle/AbCdEf123');
+      expect(boton).toHaveAttribute('target', '_blank');
+      expect(boton.getAttribute('rel')?.split(' ')).toEqual(
+        expect.arrayContaining(['noopener', 'noreferrer']),
+      );
+      expect(boton).toHaveAccessibleName(/otra pestaña/);
+      expect(screen.getByText('forms.gle')).toBeDefined();
+    });
+
+    it('sin link no muestra nada: ni botón apagado ni aviso', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: null }) },
+        }),
+      });
+      renderDetalle();
+      await screen.findByText('Estaca Azul');
+
+      expect(screen.queryByRole('link', { name: /pre-inscribirme/i })).toBeNull();
+    });
+
+    /**
+     * El servidor sólo guarda `https:` (`BE-27`). Si igual llegara otra cosa —una respuesta vieja en
+     * caché, un proxy—, la landing no la convierte en enlace: un `javascript:` en un `href` corre.
+     */
+    it('un link que no es https no se dibuja', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: 'javascript:alert(1)' }) },
+        }),
+      });
+      renderDetalle();
+      await screen.findByText('Estaca Azul');
+
+      expect(screen.queryByRole('link', { name: /pre-inscribirme/i })).toBeNull();
+    });
+  });
+
   it('muestra la estaca con el nombre, no sólo el color', async () => {
     servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: detalle() } }) });
     renderDetalle();

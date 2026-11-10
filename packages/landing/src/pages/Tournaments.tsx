@@ -33,6 +33,7 @@ import {
   useTituloDePagina,
 } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
+import { BotonPreinscripcion } from '../components/BotonPreinscripcion.js';
 import {
   Cabecera,
   Cargando,
@@ -82,6 +83,8 @@ interface TorneoDetalle {
   readonly name: string;
   readonly date: string;
   readonly description: string;
+  /** Link de pre-inscripción (`BE-27`). Opcional: una respuesta vieja en caché no lo trae. */
+  readonly registrationUrl?: string | null;
   readonly status: TournamentStatus;
   readonly payment: { readonly required: boolean; readonly amount: number };
   readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
@@ -295,6 +298,7 @@ export function TournamentPage() {
           {formatearFecha(t.date)} · {t.targets.length} blancos · máximo {t.maxPossibleScore}
         </p>
         {t.description && <p className="pt-2">{t.description}</p>}
+        <BotonPreinscripcion href={t.registrationUrl} className="pt-3" />
       </div>
 
       {enProceso && (

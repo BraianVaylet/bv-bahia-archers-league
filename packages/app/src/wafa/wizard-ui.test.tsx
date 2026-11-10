@@ -139,6 +139,28 @@ describe('paso 1 · datos', () => {
 
     expect(await screen.findByText(/Creá una antes de armar el torneo/)).toBeDefined();
   });
+
+  /** `FE-36`: el link de pre-inscripción, opcional. Si se escribe, tiene que ser `https:`. */
+  it('un link de pre-inscripción sin https no deja continuar, y lo dice en el campo', async () => {
+    renderWizard();
+    await screen.findByRole('option', { name: 'Liga 2026' });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: '3ª fecha' } });
+    fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-08-08' } });
+    fireEvent.change(screen.getByLabelText('Temporada'), { target: { value: 's1' } });
+
+    const link = screen.getByLabelText('Link de pre-inscripción');
+    fireEvent.change(link, { target: { value: 'http://forms.gle/x' } });
+
+    expect((screen.getByRole('button', { name: 'Continuar' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(link).toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.change(link, { target: { value: 'https://forms.gle/x' } });
+    expect((screen.getByRole('button', { name: 'Continuar' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
 });
 
 // ── Paso 2 ───────────────────────────────────────────────────────────────────
@@ -504,6 +526,8 @@ describe('paso 4 · revisión', () => {
       date: '2026-08-08',
       targets: [{ index: 1, modality: 'sala', arrows: 3, description: null }],
       archerIds: ['a1', 'a2', 'a3', 'a4'],
+      // Sin escribir nada en el campo, viaja como «sin link».
+      registrationUrl: null,
     });
   });
 

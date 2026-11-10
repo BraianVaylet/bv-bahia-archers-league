@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `FE-36` — Link de pre-inscripción en WAFA y botón en la landing
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-36-link-preinscripcion`.
+
+WAFA: «Link de pre-inscripción» en el paso 1 del wizard y en el formulario de edición de la ficha (sin iniciar). Landing: botón «Pre-inscribirme» en el detalle del torneo, si hay link.
+
+**Decisiones:**
+- **WAFA valida con `RegistrationUrlSchema`**, el mismo esquema del servidor (`problemaDelLink` en `wizard.ts`): el error aparece en el campo y frena «Continuar» / «Guardar cambios». Vacío es válido y viaja como `null`.
+- **Al editar, el link sólo viaja si cambió.** Así el audit log (`tournament.update`, `BE-24`) no anota un cambio que no hubo cada vez que se corrige el nombre.
+- **El botón es `BotonPreinscripcion`**, propio, para que lo reuse «Próximas fechas» (`FE-38`). Abre otra pestaña con `rel="noopener noreferrer"`, anuncia «se abre en otra pestaña» en texto oculto y muestra el dominio al lado. Sin link no dibuja nada.
+- **La landing vuelve a mirar que sea `https:` antes de dibujarlo**, aunque el servidor ya lo exige: React no bloquea un `javascript:` en un `href`, y una respuesta vieja en caché o un intermediario podrían traer otra cosa. El valor se usa tal cual llegó; no se reconstruye.
+
+**Alcance:** el detalle público sólo existe para torneos en proceso o publicados, así que el botón ahí se ve poco; donde importa es en «Próximas fechas» (`FE-38`), que ya tiene el componente listo.
+
+**Tests:** 2 de lógica en `wizard.test.ts`, 1 de pantalla del wizard, 5 de la ficha en `torneo-ui.test.tsx` (muestra el actual, lo manda, vaciar lo borra, sin tocarlo no viaja, sin https no deja guardar) y 3 de la landing (botón con dominio y otra pestaña, sin link nada, un no-https no se dibuja), vistos fallar. Los que pasaban de entrada se verificaron con mutación: mandar siempre el link rompe «sin tocarlo no viaja», y sacar el chequeo de `https:` en la landing rompe «un no-https no se dibuja». `@bal/app` 674, `@bal/landing` 100, typecheck y Biome verdes. En el navegador, con backend simulado: el botón de la landing a 1280 y a 360 px, 52 px de alto, sin scroll horizontal. El campo de WAFA no se abrió en el navegador: es el `Field` estándar, cubierto por los tests de pantalla.
+
+---
+
 ## 2026-11-10 · `BE-28` — Endpoint público de próximas fechas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-28-proximas-fechas` (apilada sobre `BE-27`).
