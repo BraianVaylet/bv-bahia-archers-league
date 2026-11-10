@@ -204,7 +204,9 @@ export function Tabla({ children }: { readonly children: ReactNode }) {
 export function Cabecera({ children }: { readonly children: ReactNode }) {
   return (
     <thead className="max-sm:hidden">
-      <tr className="border-b text-left text-[var(--ink-muted)]">{children}</tr>
+      <tr className="border-b text-left font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--ink-muted)]">
+        {children}
+      </tr>
     </thead>
   );
 }
@@ -226,7 +228,7 @@ export function Fila({ children, className, ...resto }: FilaProps) {
       // biome-ignore lint/a11y/noRedundantRoles: en `max-sm` la tabla pasa a `display: block` y el navegador le saca la semántica de tabla al árbol de accesibilidad. El rol deja de ser redundante justo ahí.
       role="row"
       className={cn(
-        'border-b',
+        'border-b sm:h-14',
         'max-sm:block max-sm:rounded-[var(--radius-lg)] max-sm:border',
         'max-sm:bg-[var(--surface)] max-sm:p-3 max-sm:mb-2',
         className,

@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-09 · `REF7-8` — Landing: el resto de las páginas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Piel de `DISENO.md` §5.2 en las páginas que no son la portada, sin cambiar contenido ni datos. **Torneos:** un grupo por estado (en curso primero) con `RotuloDeSeccion` y su cantidad, y la grilla de `TarjetaDeTorneo` a dos columnas en tablet y tres en escritorio. **Torneo:** en proceso, un `AnilloDeRecorrido` de 44px por patrulla, con su blanco de inicio arriba; títulos de sección con la escala (`text-h2`, `text-h3`) y cifras de los podios en mono. **Ranking:** las pestañas General/Femenino/Masculino con la activa sobre `--nock-soft` (antes, el verde pleno del botón primario), los puestos 1–3 en un círculo `--nock-soft`, las cifras en mono y el selector de temporada con borde `--line-strong`. **Tablas** (`Cabecera`/`Fila`, toda la landing): filas de 56px en escritorio y cabecera como rótulo en mono. **Alta:** campos de 52px con borde `--line-strong`, etiquetas a 600, la opción de sexo elegida sobre `--nock-soft` (con foco visible en la opción), el error con su ícono, el botón con `botonClases` y el formulario a 560px. **Tarjeta de puntajes:** las cajas de flecha en mono, con radio `md`.
+
+**Decisiones:**
+- **Las medallas emoji del ranking (🥇🥈🥉) se reemplazaron por el círculo `--nock-soft`.** Era una función con tests propios, pero §5.2 pide «sin oro/plata/bronce» (el amarillo y el naranja son colores de estaca, regla 8) y §1 evita los emoji. Los tres tests se reescribieron primero (el podio se marca, el cuarto no, el número va escrito) y se vieron fallar. `medallaDe` sigue en `@bal/shared` porque la usa el ranking de WAFA; se revisa en `REF7-9`.
+- El detalle del torneo no tiene pestañas hoy (§5.2 las nombra como «existentes»): no se inventaron.
+
+**Desvíos:** ninguno respecto del alcance.
+**Deuda:** el ranking de WAFA (`CategoriaDelRanking`) todavía usa las medallas → `REF7-9`.
+**Tests:** los tres de podios del ranking, reescritos y vistos fallar. El resto de la landing, sin cambios: 95 verdes.
+
+---
+
 ## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

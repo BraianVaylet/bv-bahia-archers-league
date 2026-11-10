@@ -19,10 +19,15 @@ import {
   SEXES,
   type Sex,
 } from '@bal/shared';
-import { useTituloDePagina } from '@bal/ui';
+import { botonClases, IconoAviso, useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { clasesDeTarjeta, cn, Screen } from '../components/ui.js';
+
+/** Un campo del alta (`REF7-8`, `DISENO.md` §4.3): 52px, 16px y el borde que se ve. */
+const CAMPO =
+  'min-h-[52px] px-4 text-base rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--ink)]';
+
 import { ApiError, post } from '../lib/api.js';
 
 interface Borrador {
@@ -160,9 +165,9 @@ export function ArcherRegisterPage() {
         </p>
       </div>
 
-      <form onSubmit={(e) => void enviar(e)} className="flex flex-col gap-3">
+      <form onSubmit={(e) => void enviar(e)} className="w-full max-w-[560px] flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="apellido" className="text-sm font-medium">
+          <label htmlFor="apellido" className="text-sm font-semibold">
             Apellido
           </label>
           <input
@@ -172,12 +177,12 @@ export function ArcherRegisterPage() {
             autoComplete="family-name"
             value={borrador.lastName}
             onChange={(e) => setBorrador({ ...borrador, lastName: e.target.value })}
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
+            className={CAMPO}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="nombre" className="text-sm font-medium">
+          <label htmlFor="nombre" className="text-sm font-semibold">
             Nombre
           </label>
           <input
@@ -187,12 +192,12 @@ export function ArcherRegisterPage() {
             autoComplete="given-name"
             value={borrador.firstName}
             onChange={(e) => setBorrador({ ...borrador, firstName: e.target.value })}
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
+            className={CAMPO}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="dni" className="text-sm font-medium">
+          <label htmlFor="dni" className="text-sm font-semibold">
             DNI
           </label>
           {/*
@@ -216,19 +221,21 @@ export function ArcherRegisterPage() {
             onChange={(e) =>
               setBorrador({ ...borrador, dni: e.target.value.replace(/\D/g, '').slice(0, 8) })
             }
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
+            className={CAMPO}
           />
         </div>
 
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">Sexo</legend>
+          <legend className="text-sm font-semibold">Sexo</legend>
           <div className="flex gap-2">
             {SEXES.map((sexo) => (
               <label
                 key={sexo}
                 className={cn(
-                  'flex-1 min-h-[44px] flex items-center justify-center rounded-[var(--radius-md)] border cursor-pointer',
-                  borrador.sex === sexo && 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold',
+                  'flex-1 min-h-[52px] flex items-center justify-center rounded-[var(--radius-md)] border cursor-pointer has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-[var(--focus-ring)] has-[:focus-visible]:outline-offset-2',
+                  borrador.sex === sexo
+                    ? 'bg-[var(--nock-soft)] border-[var(--nock-text)] font-semibold'
+                    : 'bg-[var(--surface)] border-[var(--line-strong)]',
                 )}
               >
                 <input
@@ -246,14 +253,14 @@ export function ArcherRegisterPage() {
         </fieldset>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="categoria" className="text-sm font-medium">
+          <label htmlFor="categoria" className="text-sm font-semibold">
             Categoría
           </label>
           <select
             id="categoria"
             value={borrador.category}
             onChange={(e) => setBorrador({ ...borrador, category: e.target.value as BowCategory })}
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
+            className={CAMPO}
           >
             {BOW_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -289,7 +296,8 @@ export function ArcherRegisterPage() {
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-[var(--danger)]">
+          <p role="alert" className="flex items-center gap-1.5 text-sm text-[var(--danger)]">
+            <IconoAviso size={16} className="shrink-0" />
             {error}
           </p>
         )}
@@ -297,7 +305,7 @@ export function ArcherRegisterPage() {
         <button
           type="submit"
           disabled={enviando}
-          className="min-h-[56px] rounded-[var(--radius-lg)] bg-[var(--nock)] text-[var(--nock-ink)] font-semibold text-lg disabled:opacity-60"
+          className={botonClases({ tamaño: 'lg', ancho: true })}
         >
           {enviando ? 'Enviando…' : 'Enviar'}
         </button>

@@ -11,7 +11,7 @@
  * Ver `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
  */
 
-import { type BowCategory, CATEGORY_INFO, medallaDe } from '@bal/shared';
+import { type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -93,8 +93,8 @@ function Pestañas({
           className={cn(
             'flex-1 min-h-[44px] rounded-[var(--radius-md)] border',
             vista === v.key
-              ? 'bg-[var(--nock)] text-[var(--nock-ink)] font-semibold'
-              : 'bg-[var(--surface)]',
+              ? 'bg-[var(--nock-soft)] border-[var(--nock-soft)] text-[var(--ink)] font-semibold'
+              : 'bg-[var(--surface)] border-[var(--line-strong)] hover:bg-[var(--surface-2)]',
           )}
         >
           {v.label}
@@ -111,13 +111,31 @@ function Pestañas({
  * un lector de pantalla, y el número del puesto va al lado igual.
  * Ver `docs/DESIGN_SYSTEM.md` §10.
  */
-function Medalla({ puesto }: { readonly puesto?: number | undefined }) {
-  const medalla = medallaDe(puesto);
-  if (!medalla) return null;
-
+/**
+ * El puesto, en un círculo `--nock-soft` del 1 al 3 (`REF7-8`). Antes llevaba una medalla emoji:
+ * el oro y el bronce son el amarillo y el naranja de las estacas (regla 8) y la dirección visual
+ * evita los emoji. El número siempre va.
+ */
+function Puesto({
+  puesto,
+  empate,
+}: {
+  readonly puesto?: number | undefined;
+  readonly empate?: boolean;
+}) {
+  const podio = puesto !== undefined && puesto <= 3;
   return (
-    <span role="img" aria-label={medalla.nombre}>
-      {medalla.emoji}
+    <span className="inline-flex items-center gap-1">
+      <span
+        {...(podio ? { 'data-podio': '' } : {})}
+        className={cn(
+          'inline-flex size-8 items-center justify-center rounded-full font-display text-lg font-bold',
+          podio ? 'bg-[var(--nock-soft)]' : null,
+        )}
+      >
+        {puesto}
+      </span>
+      {empate ? <span className="text-[var(--ink-muted)]">=</span> : null}
     </span>
   );
 }
@@ -130,29 +148,24 @@ function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
         identifica la fila, no un dato más.
       */}
       <Celda className="tabular-nums w-16 max-sm:w-auto max-sm:justify-start">
-        <span className="inline-flex items-center gap-1">
-          {/* El número SIEMPRE va: la medalla lo acompaña, no lo reemplaza. */}
-          {entrada.position}
-          {entrada.tied && <span className="text-[var(--ink-muted)]">=</span>}
-          <Medalla puesto={entrada.position} />
-        </span>
+        <Puesto puesto={entrada.position} empate={entrada.tied === true} />
       </Celda>
       <Celda className="max-sm:justify-start max-sm:pb-1">
         <Link
           to={`/arqueros/${entrada.archerId}`}
-          className="underline min-h-[44px] inline-flex items-center"
+          className="min-h-[44px] inline-flex items-center font-semibold hover:underline"
         >
           {entrada.lastName}, {entrada.firstName}
         </Link>
       </Celda>
-      <Celda etiqueta="Mejor de N" enLinea className="text-right tabular-nums font-semibold">
+      <Celda etiqueta="Mejor de N" enLinea className="text-right font-mono font-semibold">
         {entrada.bestNAvgPct}%
       </Celda>
       {/*
         El mejor suelto es el récord personal de la temporada, aunque ya no
         ordene el ranking.
       */}
-      <Celda etiqueta="Mejor" enLinea className="text-right tabular-nums text-[var(--ink-muted)]">
+      <Celda etiqueta="Mejor" enLinea className="text-right font-mono text-[var(--ink-muted)]">
         {entrada.bestNormalizedPct}%
       </Celda>
     </Fila>
@@ -187,7 +200,7 @@ export function RankingPage() {
             aria-label="Temporada"
             value={elegida ?? ''}
             onChange={(e) => setParams({ temporada: e.target.value })}
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border bg-[var(--surface)]"
+            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)]"
           >
             {temporadas.datos.seasons.map((s) => (
               <option key={s.id} value={s.id}>
@@ -251,7 +264,7 @@ export function RankingPage() {
             className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
             data-testid={`cat-${c.category}`}
           >
-            <h2 className="font-semibold">{CATEGORY_INFO[c.category].label}</h2>
+            <h2 className="text-h3">{CATEGORY_INFO[c.category].label}</h2>
 
             {c[vista].ranked.length === 0 ? (
               <p className="text-sm text-[var(--ink-muted)]">

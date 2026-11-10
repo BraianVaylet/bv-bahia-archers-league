@@ -482,36 +482,39 @@ describe('RankingPage', () => {
         bestN,
       );
 
-    it('marca los tres primeros con su medalla', async () => {
+    /**
+     * **Sin oro, plata ni bronce** (`REF7-8`, `DISENO.md` §5.1-4 y §5.2): el amarillo y el
+     * naranja son colores de estaca, semántica reservada (regla 8), y la dirección visual evita
+     * los emoji. Los tres primeros van en un círculo `--nock-soft`, con su número.
+     */
+    it('marca los tres primeros sin medallas de color', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
-      expect(await screen.findByTestId('fila-Oro')).toHaveTextContent('🥇');
-      expect(screen.getByTestId('fila-Plata')).toHaveTextContent('🥈');
-      expect(screen.getByTestId('fila-Bronce')).toHaveTextContent('🥉');
+      for (const apellido of ['Oro', 'Plata', 'Bronce']) {
+        const fila = await screen.findByTestId(`fila-${apellido}`);
+        expect(fila.querySelector('[data-podio]')).not.toBeNull();
+        expect(fila.textContent).not.toMatch(/🥇|🥈|🥉/);
+      }
     });
 
-    // Del cuarto en adelante no hay medalla: inventar una donde no la hay sería
-    // decir algo que no pasó.
-    it('del cuarto en adelante no hay medalla', async () => {
+    // Del cuarto en adelante no se marca: inventar un podio donde no lo hay sería decir algo
+    // que no pasó.
+    it('del cuarto en adelante no se marca', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       await screen.findByTestId('fila-Oro');
-      expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
+      expect(screen.getByTestId('fila-Cuarto').querySelector('[data-podio]')).toBeNull();
     });
 
-    /**
-     * El emoji **no va solo**: el puesto en número está al lado y la medalla
-     * lleva su nombre para el lector de pantalla. Ver DESIGN_SYSTEM §10.
-     */
-    it('la medalla no es el único portador: el puesto va escrito', async () => {
+    /** El círculo no es el único portador: el puesto va escrito. Ver DESIGN_SYSTEM §10. */
+    it('el puesto va escrito', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       const fila = await screen.findByTestId('fila-Oro');
-      expect(fila).toHaveTextContent('1');
-      expect(within(fila).getByLabelText(/primer puesto/i)).toBeDefined();
+      expect(fila.querySelector('[data-podio]')).toHaveTextContent('1');
     });
 
     /**
