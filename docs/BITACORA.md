@@ -14,6 +14,18 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · Corrección — Juego de campo sin `X6`
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `fix/campo-sin-x6`. Se commiteó primero en `design/ref-7-rediseno` (`21bf926`), pero el código no llegó a `main` con los merges de `ref-7`; esta rama lo lleva.
+
+El usuario corrigió el reglamento: la cara de campo es `6` (centro interior) · `5` (centro exterior) · `4`-`1` (anillas negras) · `M`. **No existe el puntaje `X6`.** Se quitó el token de `@bal/shared` (`X6_TOKEN`, el set y los valores de `campo`), y con eso del teclado de WAFL y de la validación del servidor.
+
+**Decisiones:** el token inner de campo pasa a ser `6` y el desempate `['6', '5']`, igual que el 3D usa su centro (`11`) y el anillo siguiente (`10`). El criterio 2 del ranking (cantidad de inner) cuenta ahora los `6` de campo junto a las `X` y los `11`.
+**Deuda:** si en Mongo quedó algún puntaje de campo con `X6` cargado, `tokenValue` ahora lo rechaza y la tarjeta, las estadísticas y la publicación de ese torneo lanzan `INVALID_TOKEN`. No hay sistema de migraciones; si existe ese dato, hay que reescribir `X6` → `6` en esos puntajes antes de publicar.
+**Tests:** `domain.test.ts` y `scoring.test.ts` fijan el set nuevo, el inner, el desempate y el rechazo de `X6` en campo; se vieron fallar las 7 antes del cambio.
+
+---
+
 ## 2026-11-10 · `REF7-12` — Verificación final, y cierre de `ref-7`
 
 **Autor:** Claude Opus 5.5 · **Estado:** parcial — quedan dos ítems que no puede hacer una sesión (ver abajo). En la rama `design/ref-7-p1`.

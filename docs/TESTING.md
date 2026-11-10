@@ -57,7 +57,7 @@ Por cada modalidad (`sala`, `aire_libre`, `campo`, `3d`):
 
 - Valor canónico de cada token del set.
 - `X` vale 10 y suma a `xCount` e `innerCount`.
-- `X6` vale 6 y suma a `innerCount` (campo).
+- En campo, `6` suma a `innerCount`; `X6` no existe y se rechaza.
 - `11` vale 11 y suma a `innerCount` (3D).
 - `M` vale 0 y suma a `mCount`.
 - `maxTargetScore` correcto para la cantidad de flechas default y para las personalizadas.

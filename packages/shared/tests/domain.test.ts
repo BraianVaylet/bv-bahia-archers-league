@@ -51,9 +51,11 @@ describe('modalidades', () => {
       key: 'campo',
       defaultArrows: 3,
       maxPerArrow: 6,
-      scoringSet: ['X6', '6', '5', '4', '3', '2', '1', 'M'],
-      innerToken: 'X6',
-      tiebreakTokens: ['X6', '6'],
+      // Cara de campo: 6 (inner gold) · 5 (outer gold) · 4-1 anillas negras · M.
+      // No existe un «X6»: el centro es el 6.
+      scoringSet: ['6', '5', '4', '3', '2', '1', 'M'],
+      innerToken: '6',
+      tiebreakTokens: ['6', '5'],
       hasX: false,
     },
     {
@@ -117,11 +119,16 @@ describe('modalidades', () => {
     });
   }
 
-  it('X y X6 valen lo mismo que el token exterior de su anillo', () => {
-    // X es un 10 que además cuenta para desempate; X6 es un 6.
+  it('X vale lo mismo que el 10 de su anillo', () => {
+    // X es un 10 que además cuenta para desempate.
     expect(SCORING.sala.values.X).toBe(10);
     expect(SCORING.aire_libre.values.X).toBe(10);
-    expect(SCORING.campo.values.X6).toBe(6);
+  });
+
+  it('campo no tiene token X6: el centro de la cara es el 6', () => {
+    expect(SCORING.campo.scoringSet).not.toContain('X6');
+    expect(Object.hasOwn(SCORING.campo.values, 'X6')).toBe(false);
+    expect(SCORING.campo.values['6']).toBe(6);
   });
 
   it('el 11 del 3D vale 11', () => {

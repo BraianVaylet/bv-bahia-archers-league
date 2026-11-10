@@ -21,16 +21,28 @@ Cada blanco del recorrido tiene **su propia modalidad**. Esto es la diferencia c
 |---|---|---|---|---|---|---|
 | Sala 18 m | `sala` | **3** | `X 10 9 8 7 6 5 4 3 2 1 M` | 10 | `X` | `10` |
 | Aire libre | `aire_libre` | **6** | `X 10 9 8 7 6 5 4 3 2 1 M` | 10 | `X` | `10` |
-| Juego de campo | `campo` | **3** | `X6 6 5 4 3 2 1 M` | 6 | `X6` | `6` |
+| Juego de campo | `campo` | **3** | `6 5 4 3 2 1 M` | 6 | `6` | `5` |
 | 3D | `3d` | **2** | `11 10 8 5 M` | 11 | `11` | `10` |
 
-`X6` es el inner-6 del campo. Es **opcional**: si el club no lo distingue, simplemente nunca se carga ese token y el desempate cae en el conteo de `6`.
+La cara de campo no tiene un anillo extra dentro del 6: **no existe el token `X6`**. Las zonas son:
+
+| Zona | Color | Puntaje |
+|---|---|---|
+| Centro interior (inner gold) | Amarillo | `6` |
+| Centro exterior (outer gold) | Amarillo | `5` |
+| Primera anilla negra | Negro | `4` |
+| Segunda anilla negra | Negro | `3` |
+| Tercera anilla negra | Negro | `2` |
+| Anilla exterior | Negro | `1` |
+| Fuera de la diana | — | `M` (0) |
+
+El `6` es la zona central: es el token inner del campo y el que desempata primero.
 
 ### Valor canónico por token
 
 ```
 X   -> 10   (suma a xCount e innerCount)
-X6  -> 6    (suma a innerCount)
+6   -> 6    (en campo: suma a innerCount)
 11  -> 11   (suma a innerCount)
 M   -> 0    (suma a mCount)
 n   -> n    (entero del token)
@@ -278,7 +290,7 @@ Se calculan tres vistas: **general**, **por categoría** y **por estaca**.
 Orden de clasificación (mayor a menor):
 
 1. **Puntaje total** (desc).
-2. **Cantidad de inner** (desc): suma de `X` + `X6` + `11` según los blancos tirados.
+2. **Cantidad de inner** (desc): suma de `X` + `6` (campo) + `11` según los blancos tirados.
 3. **Cantidad de 10** (desc).
 4. **Menor cantidad de `M`** (asc).
 
@@ -286,7 +298,7 @@ Orden de clasificación (mayor a menor):
 >
 > Esto sigue la convención de World Archery, donde los 10 incluyen las X. Como el criterio 2 ya separó por inner, contar la X de nuevo en el criterio 3 no altera el orden entre dos arqueros con distinto conteo de X: solo desempata a los que empataron en inner.
 >
-> El criterio 2 usa el token inner **de cada modalidad**, así que en un recorrido multitarget se suman `X` (sala y aire libre), `X6` (campo) y `11` (3D). Los tres representan lo mismo: la zona central del blanco.
+> El criterio 2 usa el token inner **de cada modalidad**, así que en un recorrido multitarget se suman `X` (sala y aire libre), `6` (campo) y `11` (3D). Los tres representan lo mismo: la zona central del blanco.
 
 Si persiste el empate → **puesto compartido**: ambos figuran en la misma posición y la siguiente posición se saltea (1, 2, 2, 4).
 
@@ -327,7 +339,7 @@ Con menos torneos que `N` publicados, el arquero aparece en el podio de cada tor
 
 ### 9.3 Desempate en la liga
 
-Mejor promedio de «mejor de N» → más inner totales (`X`+`X6`+`11`) → menos `M`.
+Mejor promedio de «mejor de N» → más inner totales (`X` + `6` de campo + `11`) → menos `M`.
 
 Si persiste, puesto compartido.
 

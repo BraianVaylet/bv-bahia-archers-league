@@ -238,7 +238,7 @@ Píldora de 44px de alto mínimo, padding de 0 12px, borde `--line`, texto de 13
 
 - Panel: `--surface`, borde superior `--line`, radio `--radius-lg` arriba, `box-shadow: var(--shadow-dock)`, padding de 12px 12px 16px.
 - Grilla de 4 columnas con gap de 8px. Teclas de **64px de alto** (decisión 6; el mínimo sigue en `TAMAÑO_TECLA_PX = 56`) con `--radius-md`, borde `--line-strong`, fondo `--surface-2` y cifra en display expandido de 26px a 700.
-- Zona central (`innerToken`: X / 11 / X6): fondo `--nock`, texto `--nock-ink`, sin borde. `M`: fondo `--surface`, borde **punteado**, texto `--ink-muted`, siempre en la misma posición.
+- Zona central (`innerToken`: X / 11 / 6): fondo `--nock`, texto `--nock-ink`, sin borde. `M`: fondo `--surface`, borde **punteado**, texto `--ink-muted`, siempre en la misma posición.
 - `:active` → `scale(.96)` y fondo `--nock` en 80 ms.
 - "Continuar" (52px, a todo el ancho) va **dentro del panel**, 12px debajo de la grilla, y el texto "Falta cargar: …" de 14px centrado en `--ink-muted` debajo del botón.
 - No cambia nada de la lógica: ni `vibrate`, ni `disposicion`, ni el bloqueo.
