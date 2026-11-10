@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `BE-27` — Link de pre-inscripción del torneo
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-27-link-preinscripcion` (apilada sobre `BE-24`).
+
+`registrationUrl` en el torneo: se carga al crear, se edita sin iniciar y en proceso (`camposEditables`, decisión 1), `null` lo borra, y sale en el detalle de WAFA y en el detalle público. Los torneos viejos, sin la clave, se leen como `null`.
+
+**Decisiones:**
+- **Sólo `https:`**, con `z.url({ protocol: /^https$/ })` y tope de 500 caracteres. Es el primer dato del admin que la landing va a usar como `href`, y React no bloquea un `javascript:` en un atributo. `SECURITY.md` §16 nuevo.
+- **`RegistrationUrlSchema` se exporta** de `@bal/shared`, para que el formulario de WAFA (`FE-36`) valide con el mismo esquema que el servidor.
+- **El tipo es opcional (`registrationUrl?: string | null`)** en `TournamentDoc`, no `string | null`: los documentos viejos no tienen la clave y el tipo no debe prometer lo contrario. Quien lo lee usa `?? null`. Mismo criterio que `BE-23`.
+- El campo ya estaba en la tabla de `SH-11`, así que la edición por estado no necesitó nada nuevo: `BE-24` lo toma de `CAMPOS_DE_TORNEO`.
+
+**Tests:** 10 casos de esquema en `schemas.test.ts` (acepta https; rechaza `javascript:`, `data:`, `http:`, texto, vacío y más de 500; opcional al crear; `null` al editar). Los de rechazo pasaban antes de agregar el campo —`.strict()` rechazaba la clave entera— y se verificaron con mutación: permitiendo `http|javascript|data` en el protocolo, fallan tres. 9 casos de API en `preinscripcion.test.ts` (crear, sin cargar, detalle público, torneo viejo sin la clave, editar sin iniciar y en proceso, borrar con `null`, 409 esperando publicación, `javascript:` rechazado sin tocar la base), vistos fallar. `@bal/shared` 455, `@bal/api` 560, typecheck, Biome y `capas` verdes.
+
+---
+
 ## 2026-11-10 · `BE-24` — El backend edita según el estado del torneo
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-24-edicion-por-estado` (apilada sobre `SH-11`).

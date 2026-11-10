@@ -782,7 +782,8 @@ _(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos 
 **Contenido:** «Archivar» / «Desarchivar» con motivo y dos toques, igual que despublicar; el texto de confirmar dice que el torneo **deja de verse en la landing y sale del ranking**. En el listado de WAFA los archivados quedan fuera por defecto y se ven con el filtro, marcados «Archivado» — chip con texto y token neutro, **sin color de estaca** (regla 8). La landing no cambia: el archivado ya no le llega (`BE-26`).
 **DoD:** test de UI · el chip tiene texto, no sólo color.
 
-### `[ ] BE-27` · Link de pre-inscripción en el torneo
+### `[x] BE-27` · Link de pre-inscripción en el torneo
+_(Hecho. `RegistrationUrlSchema` exportado de `@bal/shared` para que el formulario de WAFA (`FE-36`) valide con el mismo esquema. `SECURITY.md` §16. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** un campo opcional para el link a un formulario o planilla externa donde los arqueros se pre-anotan.
 **Archivos:** `packages/shared/src/schemas.ts` (`CreateTournamentSchema`, `UpdateTournamentSchema`), `db/types.ts` (`TournamentDoc.registrationUrl: string | null`), `tournamentService.ts`, `tournamentQueryService.ts` (detalle admin y público)
 **Referencia:** [`SECURITY.md`](SECURITY.md) (agregar entrada: primer dato del admin que la landing renderiza como `href`)

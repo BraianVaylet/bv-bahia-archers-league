@@ -97,6 +97,7 @@ export async function createTournament(
         name: input.name,
         date: input.date,
         description: input.description,
+        registrationUrl: input.registrationUrl ?? null,
         status: 'sin_iniciar',
         payment: { ...input.payment },
         targets,

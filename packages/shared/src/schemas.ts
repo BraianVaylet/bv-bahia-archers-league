@@ -221,12 +221,27 @@ export const MarkPaymentSchema = z.strictObject({ paid: z.boolean() });
 
 const SIN_PAGO = { required: false, amount: 0 } as const;
 
+/**
+ * El link donde los arqueros se pre-anotan: un formulario o una planilla externa (`BE-27`).
+ *
+ * La landing lo dibuja como `href` de un botón, así que **sólo `https:`**: un `javascript:` o un
+ * `data:` en un `href` es XSS almacenado, y un `http:` manda al arquero a un formulario sin
+ * cifrar. Ver `docs/SECURITY.md` §16.
+ */
+export const RegistrationUrlSchema = z
+  .url({
+    protocol: /^https$/,
+    error: 'El link de pre-inscripción tiene que empezar con https://.',
+  })
+  .max(500, 'El link de pre-inscripción es demasiado largo.');
+
 export const CreateTournamentSchema = z
   .strictObject({
     seasonId: ObjectIdSchema,
     name: texto(3, 120),
     date: z.coerce.date(),
     description: z.string().max(1000).default(''),
+    registrationUrl: RegistrationUrlSchema.nullable().optional(),
     payment: PaymentConfigSchema.default(SIN_PAGO),
     targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS),
     // Mínimo 2: con menos no se puede armar ni una patrulla (H1).
@@ -248,6 +263,8 @@ export const UpdateTournamentSchema = z
     name: texto(3, 120).optional(),
     date: z.coerce.date().optional(),
     description: z.string().max(1000).optional(),
+    /** `null` lo borra: el formulario de pre-inscripción cerró. */
+    registrationUrl: RegistrationUrlSchema.nullable().optional(),
     payment: PaymentConfigSchema.optional(),
     targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS).optional(),
     /**
