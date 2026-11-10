@@ -87,6 +87,8 @@ function cambiosSimples(input: UpdateTournamentInput): Partial<TournamentDoc> {
   if (input.name !== undefined) cambios.name = input.name;
   if (input.date !== undefined) cambios.date = input.date;
   if (input.description !== undefined) cambios.description = input.description;
+  // `null` también se guarda: es «sacar el link».
+  if (input.registrationUrl !== undefined) cambios.registrationUrl = input.registrationUrl;
   if (input.payment) cambios.payment = { ...input.payment };
   if (input.stakeMap) cambios.stakeMap = copiaDelMapa(input.stakeMap);
   if (input.distances) cambios.distances = { ...input.distances };

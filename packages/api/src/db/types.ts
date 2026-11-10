@@ -112,6 +112,11 @@ export interface TournamentDoc {
   name: string;
   date: Date;
   description: string;
+  /**
+   * Link a un formulario o planilla externa de pre-inscripción (`BE-27`), sólo `https:`.
+   * **Opcional en el tipo**: los torneos creados antes no tienen la clave. Se lee con `?? null`.
+   */
+  registrationUrl?: string | null;
   status: TournamentStatus;
 
   /**

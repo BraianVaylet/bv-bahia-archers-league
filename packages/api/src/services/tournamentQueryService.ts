@@ -63,6 +63,8 @@ export async function detallePublico(id: ObjectId) {
     name: torneo.name,
     date: torneo.date,
     description: torneo.description,
+    // Ya validado `https:` al cargarlo (`RegistrationUrlSchema`): la landing lo usa como `href`.
+    registrationUrl: torneo.registrationUrl ?? null,
     status: torneo.status,
     // Cuánto sale entrar: lo que cualquiera quiere saber antes de anotarse, y que el club
     // publica igual en el grupo y en la puerta. Quién pagó NO sale de acá: eso es del club.
@@ -161,6 +163,7 @@ export async function detalleAdmin(id: ObjectId) {
       name: doc.name,
       date: doc.date,
       description: doc.description,
+      registrationUrl: doc.registrationUrl ?? null,
       status: doc.status,
       payment: doc.payment,
       targets: doc.targets,
