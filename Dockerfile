@@ -12,7 +12,7 @@
 # el digest nuevo en un PR, así que fijar no congela los parches de seguridad.
 
 # ── 1) Dependencias ──────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS deps
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS deps
 WORKDIR /repo
 
 RUN corepack enable
@@ -48,7 +48,7 @@ RUN mkdir -p packages/api/public \
 RUN pnpm install --frozen-lockfile --prod
 
 # ── 3) Runner ────────────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS runner
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS runner
 WORKDIR /repo
 
 ENV NODE_ENV=production
