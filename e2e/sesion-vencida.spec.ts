@@ -43,7 +43,7 @@ test('un 401 en la sincronización conserva lo cargado', async ({ browser, reque
   await expect(page.getByText(/^1 de 2 blancos/)).toBeVisible();
 
   // Y el indicador dice cuántos cambios faltan mandar, no que se perdió algo.
-  await expect(page.getByTestId('sync-badge')).toContainText(/sin sincronizar/i, {
+  await expect(page.getByTestId('sync-badge')).toContainText(/por enviar/i, {
     timeout: 30_000,
   });
 
@@ -71,7 +71,7 @@ test('un 401 en la sincronización conserva lo cargado', async ({ browser, reque
 
   // ▶ Vuelve a andar: lo pendiente se envía solo, sin que el líder recargue.
   await contexto.unroute('**/api/wafl/sync');
-  await expect(page.getByTestId('sync-badge')).toContainText(/Sincronizado/i, { timeout: 60_000 });
+  await expect(page.getByTestId('sync-badge')).toContainText(/Al día/i, { timeout: 60_000 });
 
   const { participants } = await api.get<{
     participants: { patrolNumber: number; targetsCompleted: number }[];

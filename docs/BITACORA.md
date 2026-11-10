@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `ref-7` — Textos cortos del indicador de sincronización
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`. **Consultado con el autor.**
+
+`syncLabel` pasa a los textos de `docs/post/ref-7/DISENO.md` §6: «Al día», «N por enviar», «Sin señal · N guardados» (y «Sin señal» sin pendientes) y «No se pudo enviar · <motivo>» (y «No se pudo enviar» sin motivo). Era la deuda de `REF7-10`: los largos —«Sin conexión · 3 cambios guardados en el celular»— truncaban la patrulla y el torneo del encabezado del blanco a 390px.
+
+**Decisiones:**
+- **El motivo del error se conserva.** Se agregó a propósito (la entrada que lo introdujo: «"Hay un problema con la sincronización" no le sirve a nadie») y el líder decide con él. Para que un motivo largo no desborde el encabezado, la píldora tiene un tope de `min(14rem, 45vw)` y el texto se trunca **a la vista**: completo queda en el DOM (lo lee el lector de pantalla, la píldora es `aria-live`) y en el `title`. El motivo también aparece entero al intentar cerrar el circuito.
+- Se pierde «en el celular» del estado sin señal; «guardados» dice lo mismo en menos lugar.
+- El indicador de conexión de WAFA (`IndicadorDeConexion`, «Con conexión / Sin conexión») es otro componente y no cambió.
+- Sólo cambian los textos: los estados y cuándo se pasa de uno a otro (`syncWorker`) no se tocaron.
+
+**Docs:** `OFFLINE_SYNC.md` §9 (tabla de estados, con la nota), `FUNCTIONAL.md` §7, `TESTING.md` (pasos del E2E offline) y `DESIGN_SYSTEM.md` §6.4 y §6.8.
+**Tests:** los seis de `syncLabel` en `offline.test.ts`, reescritos y vistos fallar (el del error sigue exigiendo el motivo). Los E2E que esperaban los textos viejos (`blanco-bloqueado`, `flujo-completo`, `offline-recarga`, `sesion-vencida`) esperan los nuevos.
+
+---
+
 ## 2026-11-10 · `REF7-11` — Documentación
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
@@ -49,7 +66,7 @@ Formato: entradas nuevas **arriba**.
 - Los textos de `SyncBadge` no se tocaron (siguen siendo los de `syncLabel`).
 
 **Desvíos:** ninguno.
-**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`.
+**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`. *(Resuelto: ver «Textos cortos del indicador de sincronización».)*
 **Tests:** 7 casos nuevos de la pantalla del blanco y 2 del teclado en `keypad.test.tsx`, y 3 del recorrido en `wafl.test.tsx`, vistos fallar. El de «muestra la modalidad y las flechas» cambió de forma por diseño (la modalidad va en su chip). `rendimiento.test.tsx` ubica el total por `tabular-nums`, así que el total la lleva.
 
 ---
