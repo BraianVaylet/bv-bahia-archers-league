@@ -1,9 +1,13 @@
 /**
  * Alta y edición de un arquero del padrón.
+ *
+ * **Es el único formulario de arquero de WAFA** (`FE-39`): lo usan el padrón y el alta rápida del
+ * wizard de torneo. Antes el wizard tenía su propia copia, anterior a `FE-29`, que no pedía ni sexo
+ * ni DNI.
  */
 
 import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO, SEXES } from '@bal/shared';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { type Borrador, ETIQUETA_DE_SEXO } from './tipos.js';
@@ -12,11 +16,23 @@ export function FormularioDeArquero({
   inicial,
   onGuardar,
   onCancelar,
+  nivelDeTitulo: Titulo = 'h2',
+  textoDeGuardar = 'Guardar',
 }: {
   readonly inicial: Borrador;
   readonly onGuardar: (b: Borrador) => Promise<void>;
   readonly onCancelar: () => void;
+  /** En el padrón es una sección de la página; dentro de un paso del wizard, una subsección. */
+  readonly nivelDeTitulo?: 'h2' | 'h3';
+  /** Qué dice el botón: en el wizard, guardar también suma al arquero a los elegidos. */
+  readonly textoDeGuardar?: string;
 }) {
+  /*
+    Ids propios por instancia: con un `id` fijo, dos formularios en la misma página (o uno al lado
+    de otro control con el mismo id) asociarían la etiqueta al control equivocado.
+  */
+  const idCategoria = useId();
+  const nombreSexo = useId();
   const [borrador, setBorrador] = useState(inicial);
   const [error, setError] = useState<string>();
   const [enviando, setEnviando] = useState(false);
@@ -54,7 +70,7 @@ export function FormularioDeArquero({
       onSubmit={(e) => void enviar(e)}
       className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}
     >
-      <h2 className="font-semibold">{inicial.id ? 'Editar arquero' : 'Nuevo arquero'}</h2>
+      <Titulo className="font-semibold">{inicial.id ? 'Editar arquero' : 'Nuevo arquero'}</Titulo>
 
       <Field
         label="Apellido"
@@ -74,11 +90,11 @@ export function FormularioDeArquero({
       />
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="categoria" className="text-sm font-medium">
+        <label htmlFor={idCategoria} className="text-sm font-medium">
           Categoría
         </label>
         <select
-          id="categoria"
+          id={idCategoria}
           value={borrador.category}
           onChange={(e) => setBorrador({ ...borrador, category: e.target.value as BowCategory })}
           className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
@@ -110,7 +126,7 @@ export function FormularioDeArquero({
             >
               <input
                 type="radio"
-                name="sexo"
+                name={nombreSexo}
                 value={sexo}
                 checked={borrador.sex === sexo}
                 onChange={() => setBorrador({ ...borrador, sex: sexo })}
@@ -151,7 +167,7 @@ export function FormularioDeArquero({
           Cancelar
         </Button>
         <Button type="submit" ancho disabled={enviando || !completo}>
-          Guardar
+          {textoDeGuardar}
         </Button>
       </div>
     </form>

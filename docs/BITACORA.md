@@ -14,6 +14,38 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `FE-39` — El alta rápida del wizard pide sexo y DNI
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, sin commitear (en la rama `copy/hero-predio`, junto a cambios de otra sesión que no son de esta tarea).
+
+El «Arquero nuevo» del paso de participantes (crear torneo y editar participantes de un `sin_iniciar`) era una copia del formulario anterior a `FE-29`: mandaba nombre, apellido y categoría, y el arquero nacía sin sexo ni DNI. Ahora usa `FormularioDeArquero`, el mismo del padrón.
+
+**Decisiones:**
+- **Una función para el cuerpo del alta** (`aCuerpoDeArquero`, en `wafa/padron/tipos.ts`): el padrón y el wizard la usan, así no pueden volver a divergir. Sexo y DNI en blanco viajan como `null`: siguen opcionales (decisión 6 de la Fase 8).
+- `FormularioDeArquero` recibe `nivelDeTitulo` (`h2` en el padrón, `h3` dentro del paso del wizard) y `textoDeGuardar` («Crear y sumar» en el wizard, porque guardar también lo suma a los elegidos).
+- **`useId()` para el `select` de categoría y el `name` de los radios de sexo.** El formulario usaba `id="categoria"` y `name="sexo"` fijos; la copia del wizard había esquivado el choque con `id="categoria-nueva"`. Con el formulario en dos lugares, el id por instancia es lo que garantiza que cada etiqueta apunte a su control.
+- El error del servidor (DNI repetido) lo muestra el formulario, que queda abierto con lo tipeado; los elegidos no se tocan hasta que el alta sale bien.
+
+**Tests:** 3 casos nuevos en `wizard-ui.test.tsx`, vistos fallar antes del fix (no existían los campos, el body no traía `sex`/`dni`): el alta manda sexo y DNI, sin ellos igual crea con `null`, y un DNI repetido muestra el mensaje sin perder elegidos. En ese último, el `alert` del error se busca por texto: con un solo elegido, el aviso de composición también es `role="alert"` y `findByRole` encontraba ese primero. `pnpm -r typecheck` y los 649 tests de `@bal/app` verdes; Biome limpio en `packages/app`. Probado en el navegador contra un backend simulado (sin tocar la base local): DNI tipeado con letras y puntos llega filtrado, el 409 se muestra en el formulario, y al corregir el DNI el arquero se crea y queda elegido.
+
+**Fuera de alcance, encontrado al correr el lint completo:** `npx biome check packages scripts e2e` falla en `landing/.../portada/{Hero,Secciones}.tsx` (formato; son cambios sin commitear de otra sesión) y en `api/tests/docs.test.ts:69` (`useTemplate`, ya commiteado en `REF6-15`). Ninguno es de esta tarea.
+
+---
+
+## 2026-11-10 · Fase 9 — Plan de edición por estado, archivo, pre-inscripción y próximas fechas
+
+**Autor:** Claude Opus 5.5 · **Estado:** plan escrito, sin código. Pendiente de que el autor confirme las decisiones.
+
+Pedido del autor: editar torneos según su estado (incluida la corrección de puntajes contra la planilla de papel antes de publicar), eliminar los sin iniciar, archivar los publicados, link de pre-inscripción con botón en la landing, link al repositorio en el pie y «Próximas fechas» en la landing. Quedó como Fase 9 de `ACTION_PLAN.md`: `SH-11`, `BE-24`..`BE-28`, `FE-32`..`FE-39`, `TEST-4`. **Planillas impresas: fuera de alcance** — el autor decidió (2026-11-10) usar las planillas oficiales de FATARCO; la app no las genera.
+
+**Fix agregado (`FE-39`):** el alta rápida de arquero en el wizard (`AltaRapida`, en `SelectorDeArqueros.tsx`) es una copia anterior a `FE-29` y no pide ni DNI ni sexo. Se reemplaza por `FormularioDeArquero` del padrón, con el armado del cuerpo extraído a una sola función.
+
+**Relevado antes de planificar:** eliminar un `sin_iniciar` ya está hecho de punta a punta; el `PATCH` del torneo ya acepta en el backend más de lo que la UI expone (descripción, pago, blancos); `completado` hoy no acepta ninguna edición, y no existe ningún camino para que el admin escriba un puntaje.
+
+**Decisiones abiertas** (tabla en `ACTION_PLAN.md`, Fase 9): las 7 se escribieron como propuestas. Las que cambian documentación de diseño cuando se confirmen: la columna «Quién escribe» y «Visible en landing» de `FUNCTIONAL.md` §8 (corrección en `completado`, `sin_iniciar` visible en próximas fechas, flag de archivo), y una entrada nueva en `SECURITY.md` por el `href` que carga el admin.
+
+---
+
 ## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
