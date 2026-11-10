@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Footer } from './Footer.js';
+import { Footer, REPOSITORIO } from './Footer.js';
 import { GraficoDeEvolucion } from './GraficoDeEvolucion.js';
 import { Logo } from './Logo.js';
 
@@ -178,6 +178,28 @@ describe('Footer', () => {
   it('no se imprime', () => {
     const { container } = render(<Footer />);
     expect(container.querySelector('footer')?.className).toContain('print:hidden');
+  });
+
+  /**
+   * `FE-37`: el código del proyecto es público, y el pie lo dice.
+   *
+   * Sale del sitio, así que abre otra pestaña sin darle a GitHub acceso a `window.opener`, y lo
+   * anuncia: quien navega con lector de pantalla no ve la pestaña nueva abrirse. El nombre es
+   * texto, no sólo un logo: un logo suelto no dice adónde lleva.
+   */
+  it('enlaza el código fuente en otra pestaña, y lo dice', () => {
+    render(<Footer />);
+
+    const enlace = screen.getByRole('link', { name: /código fuente/i });
+    expect(enlace).toHaveAttribute('href', REPOSITORIO);
+    expect(REPOSITORIO).toBe('https://github.com/BraianVaylet/bv-bahia-archers-league');
+    expect(enlace).toHaveAttribute('target', '_blank');
+    expect(enlace.getAttribute('rel')?.split(' ')).toEqual(
+      expect.arrayContaining(['noopener', 'noreferrer']),
+    );
+    expect(enlace).toHaveAccessibleName(/GitHub/);
+    expect(enlace).toHaveAccessibleName(/otra pestaña/);
+    expect(enlace.querySelector('svg')).toHaveAttribute('aria-hidden');
   });
 });
 

@@ -790,7 +790,8 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-09.)_
 **Contenido:** campo «Link de pre-inscripción (opcional)» debajo de la descripción, con el error de Zod en español. En la landing, si existe: botón «Pre-inscribirme» con `target="_blank" rel="noopener noreferrer"` y el dominio visible al lado (que se vea a dónde lleva). Si no existe, no se renderiza nada — ni botón deshabilitado ni texto «sin link».
 **DoD:** test de UI con y sin link · 44px · el `href` que llega al DOM es el que validó el servidor (sin reconstruirlo en el cliente).
 
-### `[ ] FE-37` · Pie de la landing: link al repositorio
+### `[x] FE-37` · Pie de la landing: link al repositorio
+_(Hecho. «Código fuente en GitHub» va en la línea legal, a la derecha (abajo en el celular), con `IconoEnlaceExterno` (nuevo, en `iconos/navegacion.tsx`) y «(se abre en otra pestaña)» en texto oculto. `REPOSITORIO` se exporta de `Footer.tsx`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Archivos:** `packages/ui/src/Footer.tsx`, test en `packages/ui/src`
 **Contenido:** «Código fuente» en la línea legal (o en la columna de páginas), apuntando a `https://github.com/BraianVaylet/bv-bahia-archers-league`, `target="_blank" rel="noopener noreferrer"`, con un ícono de enlace externo de `iconos/` y texto (no sólo el logo de GitHub). La URL como constante exportada, no repetida en el JSX.
 **DoD:** test que el enlace existe con su nombre accesible · 44px · el pie sigue sin imprimirse.
