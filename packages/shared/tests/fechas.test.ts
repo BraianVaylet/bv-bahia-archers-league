@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatearFecha, formatearFechaCorta, formatearRango } from '../src/index.js';
+import {
+  formatearFecha,
+  formatearFechaCorta,
+  formatearRango,
+  hoyEnArgentina,
+} from '../src/index.js';
 
 /**
  * Formateo de fechas (REF-4).
@@ -75,6 +80,35 @@ describe('formatearRango', () => {
   it('sí lo repite cuando cambian de año', () => {
     expect(formatearRango('2026-11-01T00:00:00.000Z', '2027-02-28T00:00:00.000Z')).toBe(
       '1 de noviembre de 2026 — 28 de febrero de 2027',
+    );
+  });
+});
+
+/**
+ * «Hoy» en Bahía Blanca, como día del calendario (`BE-28`).
+ *
+ * Las fechas de los torneos se guardan como medianoche UTC del día. Para saber si un torneo es de
+ * hoy en adelante hay que comparar contra el día **de acá**: a las 22 h de Bahía Blanca ya es el
+ * día siguiente en UTC, y un torneo de hoy dejaría de figurar en «Próximas fechas» tres horas
+ * antes de terminar el día.
+ */
+describe('hoyEnArgentina', () => {
+  it('a las 23 h de Bahía Blanca todavía es hoy, aunque en UTC ya sea mañana', () => {
+    // 11/11 02:00 UTC = 10/11 23:00 en Argentina (UTC-3).
+    expect(hoyEnArgentina(new Date('2026-11-11T02:00:00.000Z')).toISOString()).toBe(
+      '2026-11-10T00:00:00.000Z',
+    );
+  });
+
+  it('a medianoche de Bahía Blanca ya es el día siguiente', () => {
+    expect(hoyEnArgentina(new Date('2026-11-11T03:00:00.000Z')).toISOString()).toBe(
+      '2026-11-11T00:00:00.000Z',
+    );
+  });
+
+  it('cruza de año como cualquier día', () => {
+    expect(hoyEnArgentina(new Date('2027-01-01T01:00:00.000Z')).toISOString()).toBe(
+      '2026-12-31T00:00:00.000Z',
     );
   });
 });

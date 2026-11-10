@@ -311,6 +311,8 @@ PII mínima **por diseño**:
 
 > **Ampliado el 2026-10-24.** `sexo` y `dni` se agregaron para el ranking por sexo (`SH-10`) y para poder deduplicar altas del autoregistro público (§15) sin depender de nombre y apellido, que no son únicos. Son **opcionales** —el padrón anterior no los tiene— y nunca se inventan. El `dni` **nunca sale de una ruta sin sesión**: sólo lo devuelven los endpoints de `/api/admin/*`. Los endpoints de `/api/public/*` (landing) exponen `sexo` —es lo que alimenta el ranking por sexo, que es público por diseño— pero no `dni` ni `registrationStatus`.
 
+> **Próximas fechas, 2026-11-10 (`BE-28`).** Es la primera vez que un torneo `sin_iniciar` sale por `/api/public/*`. Sale **sólo la convocatoria** —nombre, fecha, descripción, link de pre-inscripción (§16), inscripción, cantidad de blancos y modalidades— y la lista blanca está en la **proyección del repositorio** (`listProximos`), no en un filtro del servicio: participantes, patrullas, estacas, usuarios y PIN de patrulla no salen de la base. Un test compara la respuesta clave por clave.
+
 Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en producción se responden sin stack trace; se loguean con un `requestId` correlacionable.
 
 ---

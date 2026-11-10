@@ -76,3 +76,24 @@ export function formatearRango(desde: string | Date, hasta: string | Date): stri
   const mismoAño = a.getUTCFullYear() === b.getUTCFullYear();
   return `${mismoAño ? LARGA_SIN_AÑO.format(a) : LARGA.format(a)} — ${LARGA.format(b)}`;
 }
+
+/** El día del calendario en Bahía Blanca, como `AAAA-MM-DD` (`en-CA` escribe en ese orden). */
+const DIA_EN_ARGENTINA = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: 'America/Argentina/Buenos_Aires',
+});
+
+/**
+ * Hoy en Bahía Blanca, como la API guarda un día: medianoche UTC de ese día (`BE-28`).
+ *
+ * Es contra lo que se compara la fecha de un torneo para saber si viene. Usar el día UTC dejaría
+ * de mostrar los torneos de hoy a las 21 h de acá, cuando en UTC ya es mañana.
+ *
+ * `ahora` es parámetro, no `new Date()` adentro: el dominio no lee el reloj (lo mismo que `bestN`
+ * con la configuración), y así se prueba sin trucos.
+ */
+export function hoyEnArgentina(ahora: Date): Date {
+  return new Date(`${DIA_EN_ARGENTINA.format(ahora)}T00:00:00.000Z`);
+}

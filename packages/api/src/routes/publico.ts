@@ -50,6 +50,13 @@ export const publico = new Hono()
 
   .get('/tournaments', async (c) => c.json(await tournamentQueryService.listadoPublico()))
 
+  /**
+   * Próximas fechas: los torneos sin iniciar de hoy en adelante, sólo la convocatoria (`BE-28`).
+   *
+   * **Va antes de `/tournaments/:id`**: si no, `upcoming` se tomaría como un id.
+   */
+  .get('/tournaments/upcoming', async (c) => c.json(await tournamentQueryService.proximasFechas()))
+
   .get('/tournaments/:id', async (c) =>
     c.json(await tournamentQueryService.detallePublico(toObjectId(c.req.param('id')))),
   )
