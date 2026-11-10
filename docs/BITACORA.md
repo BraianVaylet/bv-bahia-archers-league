@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `SH-11` — Qué se edita de un torneo en cada estado
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/sh-11-edicion-por-estado`.
+
+`packages/shared/src/edicion.ts`: la tabla de qué campo se edita en qué estado (`camposEditables`), el rechazo de un pedido con campos de más (`exigirEditables` → `CampoNoEditableError`, código `FIELD_NOT_EDITABLE`), y `puedeEliminar` / `puedeArchivar` / `puedeDesarchivar`. Todavía no la usa nadie: el servicio la adopta en `BE-24` y WAFA en `FE-32`/`FE-33`.
+
+**Decisiones de la Fase 9, confirmadas por el autor:** las siete como estaban propuestas, salvo la 5 — **un torneo archivado se oculta de la landing** (listado, detalle, tarjetas de puntaje e historial de la ficha de arquero), en vez de mostrarse con «No suma al ranking». Se reescribieron `BE-26`, `FE-35` y `TEST-4` en `ACTION_PLAN.md`. `FUNCTIONAL.md` §6.7 y §8 dicen ahora quién escribe en cada estado.
+
+**Desvíos respecto del plan:**
+- `camposEditables(status)` **no recibe `{ archivado }`**, como decía el plan: un archivado es un publicado y no se edita nada en ninguno de los dos, así que el parámetro no cambiaba ningún resultado. Archivado sólo importa para archivar y desarchivar, que sí lo reciben.
+- **Los campos rechazados van en `CampoNoEditableError.campos`, no en `details`**: `DomainError` no tiene `details` (eso es del `AppError` del backend). `BE-24` hace la traducción. Lleva **todos** los que sobran, no el primero.
+- `camposEditables` devuelve un `Set` nuevo en cada llamada: con uno compartido, un llamador que lo casteara y le agregara un campo le cambiaba la regla a todos. El test lo cubre (se vio fallar).
+- De paso, `FUNCTIONAL.md` §6.7 todavía decía «puntos de liga que sumaría cada arquero», retirado en `SH-9`.
+
+**Tests:** 24 en `tests/edicion.test.ts`, en ciclos de uno (rojo → verde). Los dos que pasaron sin haberse visto fallar (`publicado` no edita nada) se verificaron con mutaciones: `publicado` aceptando el nombre, `sin_iniciar` aceptando puntajes, archivar dos veces y reportar sólo el primer campo rechazado — las cuatro detectadas. Cobertura del módulo 100% (líneas, ramas, funciones); `@bal/shared` 445 tests, `pnpm -r typecheck` y Biome limpios.
+
+---
+
 ## 2026-11-10 · `FE-37` — El pie enlaza el código fuente
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-37-pie-repositorio`.
