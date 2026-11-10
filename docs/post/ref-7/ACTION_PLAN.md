@@ -201,7 +201,7 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** tests de WAFA verdes · el inicio muestra el primer torneo sin scroll a 390×844.
 
-### `[ ] REF7-10` · WAFL: cambios simples · P1 · M
+### `[x] REF7-10` · WAFL: cambios simples · P1 · M
 
 **Hallazgos:** `F-1`, `F-2`, `F-3`, `F-4`. **Decisiones:** 5 (pie) y 6 (teclas de 64px). **Spec:** `DISENO.md` §4.13, §4.14 y §5.5. **Objetivo visual:** `referencia/pantallas/WaflBlanco.html`.
 **Archivos:** `packages/app/src/wafl/{TargetPage,CircuitPage,ResultsPage,ScoreKeypad,ArrowRow,SyncBadge}.tsx`, `packages/app/src/components/ui.tsx`.
@@ -209,10 +209,10 @@ REF7-3 ─┘           │           └─→ REF7-8
 > **Tarea sensible.** Toca la pantalla de `FE-6`. **Solo piel y layout.** No cambia nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo. Si algo de eso parece necesario, se frena y se pregunta.
 
 - [x] Sin `Footer` en Target, Circuit y Results (`F-1`) — *hecho en `REF7-4`*
-- [ ] Encabezado del blanco: número de 56px + `ChipModalidad` + "N flechas · nombre · i de N" (`F-2`)
-- [ ] `UnitCard`: total de 36px con `aria-live`, casilleros de 48px y la siguiente marcada (`F-3`)
-- [ ] `ScoreKeypad`: teclas de 64px de alto (el mínimo `TAMAÑO_TECLA_PX` sigue en 56), cifras en display, "Continuar" dentro del panel, `--shadow-dock` como token
-- [ ] `CircuitPage`: `CircuitRing` de 120 arriba y sin "Cerrar sesión" al final (`F-4`)
+- [x] Encabezado del blanco: número de 56px + `ChipModalidad` + "N flechas · nombre · i de N" (`F-2`)
+- [x] `UnitCard`: total de 36px con `aria-live`, casilleros de 48px y la siguiente marcada (`F-3`)
+- [x] `ScoreKeypad`: teclas de 64px de alto (el mínimo `TAMAÑO_TECLA_PX` sigue en 56), cifras en display, "Continuar" dentro del panel, `--shadow-dock` como token
+- [x] `CircuitPage`: `CircuitRing` de 120 arriba y sin "Cerrar sesión" al final (`F-4`)
 
 **DoD:** el E2E offline (`TEST-1`) y `flujo-completo.spec.ts` verdes en Chromium y en los perfiles de celular de `REF6-9` · los tests de objetivos táctiles miden ≥ 56px en las teclas y ≥ 44px en el resto · a 360×640 se ven el encabezado del blanco, la primera unidad completa y el teclado entero sin scroll.
 
