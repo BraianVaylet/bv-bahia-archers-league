@@ -189,11 +189,13 @@ Vista de todas las patrullas: composición, unidades `A`/`B`, posición izquierd
 
 **En proceso:**
 - Seguimiento en vivo: blancos completados por patrulla, puntajes cargados, patrullas pendientes de firma. La pantalla **se refresca sola cada 30 s** mientras la pestaña está visible (en pausa con la pestaña oculta; al volver refresca de inmediato). Un refresco que falla no muestra nada: lo que ya se ve sigue siendo lo mejor que hay.
+- Se pueden editar nombre, fecha, descripción, link de pre-inscripción y pago (`2026-11-10`, decisión 1 de la Fase 9).
 - Solo se pueden editar los blancos **en los que ninguna patrulla cargó puntajes**. Un blanco con al menos un puntaje queda bloqueado.
 - Acción de **desbloquear firma** si un arquero se fue sin firmar (queda en el audit log con motivo).
 
 **Completado** (todas las patrullas cerraron su circuito):
-- Vista de resultados completa: podios por categoría, puntos de liga que sumaría cada arquero.
+- Vista de resultados completa: podios por categoría.
+- Se pueden editar nombre y fecha, y **corregir las flechas** de un arquero cuando la app no coincide con la planilla de papel, que es la fuente de verdad (`2026-11-10`, decisiones 2 y 3 de la Fase 9; ver `BE-25`).
 - Botón **Publicar**.
 
 **Publicado:**
@@ -262,11 +264,13 @@ Con **todas** las firmas presentes, se habilita **Finalizar**. Al confirmarse:
 | Estado | Quién escribe | Visible en landing |
 |---|---|---|
 | `sin_iniciar` | Admin (todo, **incluidos los participantes**) | No |
-| `en_proceso` | Líderes (puntajes) · Admin (blancos vírgenes) | Solo patrullas y avance, sin puntajes |
-| `completado` | Nadie | Solo patrullas y avance |
-| `publicado` | Nadie | Todo: resultados, podios, rankings |
+| `en_proceso` | Líderes (puntajes) · Admin (nombre, fecha, descripción, link de pre-inscripción, pago y blancos vírgenes) | Solo patrullas y avance, sin puntajes |
+| `completado` | Admin (nombre, fecha y **corrección de puntajes** contra la planilla de papel) | Solo patrullas y avance |
+| `publicado` | Nadie (para corregir: despublicar, corregir, publicar) | Todo: resultados, podios, rankings |
 
 Transiciones inválidas rechazadas por el servidor con `409 INVALID_STATE_TRANSITION`.
+
+**Qué campo se edita en qué estado** vive en un solo lugar, `camposEditables` de `@bal/shared` (`SH-11`, `2026-11-10`): lo leen el servicio que guarda y la pantalla que muestra el formulario, así no pueden decir cosas distintas. Un campo fuera de la tabla se rechaza con `FIELD_NOT_EDITABLE`. La regla de «un blanco con puntajes no se toca» es aparte, en el servicio: necesita mirar la base.
 
 ### 8.1 Volver a `sin_iniciar` (`REF2-3`)
 

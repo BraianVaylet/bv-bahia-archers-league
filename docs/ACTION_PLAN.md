@@ -686,21 +686,24 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-09.)_
 | Corregir puntajes desde WAFA | **No existe.** Hoy sólo escribe puntajes `/wafl/sync`. |
 | Archivar torneos | **No existe.** Lo más parecido es despublicar, que no es lo mismo (ver decisión 4). |
 
-### Decisiones — **propuestas, a confirmar por el autor antes de arrancar**
+### Decisiones — confirmadas el 2026-11-10
 
-| # | Pregunta | Propuesta |
+Las siete, como estaban propuestas, **salvo la 5**: el autor eligió ocultar el torneo archivado de la landing en vez de mostrarlo con una marca.
+
+| # | Pregunta | Decisión |
 |---|---|---|
 | 1 | En `en_proceso`, ¿sólo nombre y fecha, o se conserva lo que el backend ya permite (descripción, pago, link, blancos vírgenes)? | **Se conserva.** El pedido marca el mínimo; restringir rompería `REF2`/`FE-14` (editar blancos vírgenes con el torneo en marcha) sin que nadie lo haya pedido. |
 | 2 | «Sin publicar» = `completado`. ¿Se pueden corregir puntajes también en `en_proceso` o en `publicado`? | **Sólo en `completado`.** En `en_proceso` el líder todavía está anotando y una corrección del admin competiría con el outbox (last-write-wins) — el líder no la vería o la pisaría. En `publicado`, primero se **despublica** (ya existe, auditado), se corrige y se vuelve a publicar: el ranking se recalcula entero, sin delta. |
 | 3 | Una corrección del admin sobre una tarjeta ya firmada, ¿invalida la firma? | **No la borra, la marca.** La planilla de papel es la fuente de verdad y la firma del arquero está ahí. El puntaje guarda `correctedBy`/`correctedAt`, la firma queda con un aviso «corregida por el admin después de firmar» en WAFA, y el audit log guarda los tokens de antes y de después. |
 | 4 | Archivar vs. despublicar | **Archivar no cambia el estado**: el torneo sigue `publicado`, con sus resultados, pero `archivedAt != null` lo saca de `recalcularTemporada` (ranking de temporada y ficha del arquero). Desarchivar lo devuelve y recalcula. Despublicar, en cambio, lo vuelve a `completado` y oculta los resultados. |
-| 5 | ¿Un torneo archivado se sigue viendo en la landing? | **Sí, en el listado de torneos, con la marca «No suma al ranking».** Sus resultados son reales; lo que cambia es que no cuentan para la temporada. |
+| 5 | ¿Un torneo archivado se sigue viendo en la landing? | **No, se oculta** (elección del autor; la propuesta era mostrarlo con «No suma al ranking»). Sale del listado público; su detalle, sus tarjetas de puntaje (`FE-31`) y su fila en el historial de la ficha de arquero responden como si no existiera (404 / ausente). En WAFA sigue visible, marcado como archivado, para poder desarchivarlo. |
 | 6 | «Completados y publicados» para archivar: ¿también `completado`? | **Sólo `publicado`.** Un `completado` todavía no está en el ranking, no hay nada que sacar. |
 | 7 | ¿Próximas fechas expone torneos `sin_iniciar`? Hoy `ESTADO_DE_TORNEO.sin_iniciar.publico` es `null` («un torneo que no arrancó no es noticia»). | **Sí, con lista blanca estricta**: nombre, fecha, descripción, link de pre-inscripción, monto de inscripción, cantidad de blancos y modalidades. **Nunca** participantes, patrullas, PIN ni usuarios. Filtro: `sin_iniciar` **y** fecha ≥ hoy en `America/Argentina/Buenos_Aires`. Cambia `FUNCTIONAL.md` §5.3 y §8 (columna «Visible en landing»). |
 
 ---
 
-### `[ ] SH-11` · Dominio: qué se puede editar en cada estado · **TDD**
+### `[x] SH-11` · Dominio: qué se puede editar en cada estado · **TDD**
+_(Hecho. `camposEditables(status)` sin el parámetro `{ archivado }` —no cambiaba ningún resultado—; los campos rechazados viajan en `CampoNoEditableError.campos` porque `DomainError` no tiene `details`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** una sola tabla de permisos por estado, que leen el servicio y la UI — hoy está repartida entre `tournamentEditService` (backend) y condiciones `status === 'sin_iniciar'` sueltas en tres componentes de WAFA.
 **Archivos:** `packages/shared/src/edicion.ts` (nuevo) + `tests/edicion.test.ts`, export en `index.ts`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.7 y §8 (actualizar primero la tabla de §8: columna «Quién escribe») · decisiones 1, 2 y 6
@@ -769,14 +772,14 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-09.)_
 - `POST /admin/tournaments/:id/archive` y `/unarchive`, ambas con `{ reason }`. Sólo `publicado` (`puedeArchivar`).
 - La consulta de «publicados de la temporada» que alimenta `recalcularTemporada` (publicar, despublicar, `reconcileStandings`, `db:reconcile`) excluye `archivedAt != null` **en el repositorio**, en un solo lugar — si cada llamador filtrara por su cuenta, `db:reconcile` volvería a meter el torneo archivado.
 - Archivar/desarchivar recalcula la temporada entera en transacción (mismo patrón que publicar).
-- Endpoints públicos: el listado y el detalle traen `archived: boolean`; la ficha de arquero y el ranking ya no lo cuentan (sale solo del recálculo).
+- Endpoints públicos (decisión 5, **se oculta**): `listPublicos` excluye `archivedAt != null` en el repositorio; `detallePublico` y la tarjeta de puntajes (`tarjetaService`, `FE-31`) dan 404 como con un torneo sin publicar; el historial de torneos de la ficha de arquero (`rankingService.fichaDeArquero`) no lo lista. El ranking no lo cuenta (sale solo del recálculo). Los endpoints de admin sí lo devuelven, con `archived: true`.
 - Despublicar un torneo archivado: lo desarchiva en la misma operación (un `completado` archivado no tiene sentido).
-**DoD:** test que archivar baja `tournamentsPlayed` y cambia el `bestNAvgPct` del arquero afectado · desarchivar deja los standings idénticos a los de antes de archivar · `db:reconcile` respeta el archivo · `409` sobre `sin_iniciar`/`en_proceso`/`completado` · `/security-review`.
+**DoD:** test que archivar baja `tournamentsPlayed` y cambia el `bestNAvgPct` del arquero afectado · desarchivar deja los standings idénticos a los de antes de archivar · `db:reconcile` respeta el archivo · `409` sobre `sin_iniciar`/`en_proceso`/`completado` · test que un archivado no sale en `/public/tournaments`, que su detalle y su tarjeta dan 404 y que no aparece en el historial de la ficha de arquero · `/security-review`.
 
-### `[ ] FE-35` · WAFA y landing: archivar y la marca «No suma al ranking»
-**Archivos:** `packages/app/src/wafa/detalle/ControlesDeEstado.tsx`, `packages/app/src/wafa/pages/Home.tsx` (listado: filtro «Ver archivados», como el de arqueros), `packages/landing/src/pages/Tournaments.tsx`, `packages/ui/src/TarjetaDeTorneo.tsx`
-**Contenido:** «Archivar» / «Desarchivar» con motivo y dos toques, igual que despublicar. En la landing, el torneo archivado sigue listado con un chip «No suma al ranking» — **sin color de estaca** (regla 8), con un token neutro.
-**DoD:** test de UI en las dos apps · el chip tiene texto, no sólo color.
+### `[ ] FE-35` · WAFA: archivar y desarchivar
+**Archivos:** `packages/app/src/wafa/detalle/ControlesDeEstado.tsx`, `packages/app/src/wafa/pages/Home.tsx` (listado: filtro «Ver archivados», como el de arqueros)
+**Contenido:** «Archivar» / «Desarchivar» con motivo y dos toques, igual que despublicar; el texto de confirmar dice que el torneo **deja de verse en la landing y sale del ranking**. En el listado de WAFA los archivados quedan fuera por defecto y se ven con el filtro, marcados «Archivado» — chip con texto y token neutro, **sin color de estaca** (regla 8). La landing no cambia: el archivado ya no le llega (`BE-26`).
+**DoD:** test de UI · el chip tiene texto, no sólo color.
 
 ### `[ ] BE-27` · Link de pre-inscripción en el torneo
 **Objetivo:** un campo opcional para el link a un formulario o planilla externa donde los arqueros se pre-anotan.
@@ -835,7 +838,7 @@ _(Hecho. `AltaRapida` quedó como un botón que abre `FormularioDeArquero` (tít
 **Referencia:** [`TESTING.md`](TESTING.md) (agregar la subsección)
 **DoD:** contra el stack real, como `TEST-1`:
 1. Crear torneo con link → aparece en «Próximas fechas» con el botón → editar blancos y estacas → eliminar → desaparece de la landing.
-2. Torneo completo → corregir una flecha desde WAFA → el total y el podio cambian → publicar → el ranking refleja el valor corregido → archivar → sale del ranking y la landing muestra «No suma al ranking» → desarchivar → vuelve idéntico.
+2. Torneo completo → corregir una flecha desde WAFA → el total y el podio cambian → publicar → el ranking refleja el valor corregido → archivar → sale del ranking y desaparece de la landing (listado, detalle y tarjetas) → desarchivar → vuelve idéntico.
 3. Intentar corregir un puntaje con el torneo `publicado` → 409.
 
 ---
@@ -856,7 +859,7 @@ INF-1 → INF-2 → SH-1 → SH-2 → SH-3 → BE-1 → BE-2 → BE-5 → BE-8 �
 - `BE-12`, `BE-13`, `FE-17`..`FE-20` (landing) — después de `BE-11`.
 - `INF-3`, `INF-5` — en cualquier momento después de `INF-2`.
 - Fase 8 (`SH-8`..`TEST-3`) — independiente del resto, sobre un sistema ya en producción. Orden interno: `SH-8` → `SH-9` → `SH-10` → `BE-18` → `BE-19` → `BE-20` → `BE-22` → `BE-21` → `FE-27`/`FE-29`/`FE-30` → `FE-28` → `TEST-3`.
-- Fase 9 (`SH-11`..`TEST-4`) — **primero confirmar las 7 decisiones de la fase.** Tres hilos independientes entre sí:
+- Fase 9 (`SH-11`..`TEST-4`) — decisiones confirmadas el 2026-11-10. Tres hilos independientes entre sí:
   - Edición y corrección: `SH-11` → `BE-24` → `FE-32`/`FE-33` → `BE-25` → `FE-34`. `BE-25` es la tarea delicada de la fase (escribe puntajes por fuera del sync): se le da el tiempo de un ⭐.
   - Archivo: `BE-26` → `FE-35` (necesita `SH-11` para `puedeArchivar`).
   - Pre-inscripción y próximas fechas: `BE-27` → `BE-28` → `FE-36`/`FE-38`.

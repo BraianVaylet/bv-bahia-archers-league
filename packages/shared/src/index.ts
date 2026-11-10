@@ -13,6 +13,7 @@ export * from './compartir.js';
 export * from './constants.js';
 export * from './distribucion.js';
 export * from './domain.js';
+export * from './edicion.js';
 export * from './estados.js';
 export * from './fechas.js';
 export * from './league.js';
