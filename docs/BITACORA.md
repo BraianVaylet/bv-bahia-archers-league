@@ -14,6 +14,20 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `REF7-11` — Documentación
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+`docs/DESIGN_SYSTEM.md` al día con lo implementado en `ref-7`, con la nota de qué se corrigió y por qué en cada sección (como en `REF2-1` y `REF5-5`): §1 la banda `monte` y los anillos de fondo; §2.1 los once tokens nuevos y que el foco ya no es `--nock`; §2.4 `contraste.test.ts`; §3 la carga real de las fuentes (no existía) y la escala completa con los nombres de `tokens.css` (`--text-*`, no `--t-*`) y la trampa de `text-[var(--text-…)]`; §4 los radios con su nombre real (`--radius-*`) y las dos sombras (`--shadow-dock`, `--shadow-float`); §6 `UnitCard`, `SyncBadge`, `CircuitRing` y `TargetHeader` como quedaron, más una tabla §6.9 con los componentes nuevos; §7 la landing como documento, la PWA sin pie y la medida a 360×640; §8 el latido de «En curso»; §10 el foco con `--focus-ring`.
+
+**Decisiones:**
+- §6.1 dice todavía que campo usa `X6`: hay una corrección de dominio en curso en otra rama que lo saca (la entrada «Juego de campo sin `X6`»), y tocar esa línea acá le generaba un conflicto. Se actualiza con esa corrección.
+- La entrada que cierra la serie va con `REF7-12`, que es la que la cierra.
+
+**Tests:** el DoD se verificó con un script que compara cada token con valores en las tablas del documento contra `tokens.css` (los dos temas y `@theme`): 34 valores, ninguna contradicción.
+
+---
+
 ## 2026-11-10 · `REF7-10` — WAFL: cambios simples
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.

@@ -216,12 +216,12 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** el E2E offline (`TEST-1`) y `flujo-completo.spec.ts` verdes en Chromium y en los perfiles de celular de `REF6-9` · los tests de objetivos táctiles miden ≥ 56px en las teclas y ≥ 44px en el resto · a 360×640 se ven el encabezado del blanco, la primera unidad completa y el teclado entero sin scroll.
 
-### `[ ] REF7-11` · Documentación · P1 · S
+### `[x] REF7-11` · Documentación · P1 · S
 
 **Archivos:** `docs/DESIGN_SYSTEM.md`, `docs/BITACORA.md`, `docs/post/ref-7/ACTION_PLAN.md`.
 
-- [ ] `DESIGN_SYSTEM.md` §1 (la banda `monte` y los anillos de fondo), §2.1 (tokens nuevos), §3 (la carga real de las fuentes y la escala completa), §4 (`--radius-full` y `--shadow-float`), §6 (los componentes nuevos: `ModalityBar`, `SectionHeader`, `TournamentCard`, `RoleCard`, `SiteHeader`; `BadgeEstado` rediseñado; `CircuitRing` implementado), §7 (pie estático, sin pie en la PWA) y §10 (foco con `--focus-ring`). Cada sección cambiada con la nota de qué se revirtió y por qué, como se hizo en `REF5-5` y `REF2-1`
-- [ ] Entrada en `BITACORA.md` por cada tanda, más una que cierre la serie
+- [x] `DESIGN_SYSTEM.md` §1 (la banda `monte` y los anillos de fondo), §2.1 (tokens nuevos), §3 (la carga real de las fuentes y la escala completa), §4 (`--radius-full` y `--shadow-float`), §6 (los componentes nuevos: `ModalityBar`, `SectionHeader`, `TournamentCard`, `RoleCard`, `SiteHeader`; `BadgeEstado` rediseñado; `CircuitRing` implementado), §7 (pie estático, sin pie en la PWA) y §10 (foco con `--focus-ring`). Cada sección cambiada con la nota de qué se revirtió y por qué, como se hizo en `REF5-5` y `REF2-1`
+- [x] Entrada en `BITACORA.md` por cada tanda, más una que cierre la serie — *la de cierre va con `REF7-12`*
 
 **DoD:** ningún valor de `DESIGN_SYSTEM.md` contradice a `tokens.css`.
 
