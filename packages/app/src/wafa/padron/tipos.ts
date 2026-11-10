@@ -34,6 +34,25 @@ export const BORRADOR_VACIO: Borrador = {
   dni: '',
 };
 
+/**
+ * Lo que se le manda al servidor al crear o editar un arquero.
+ *
+ * **Un solo lugar para las dos altas** (`FE-39`): el padrón y el wizard de torneo armaban el cuerpo
+ * cada uno a su manera, y el del wizard se quedó sin `sex` ni `dni` cuando `FE-29` los agregó.
+ *
+ * Sexo y DNI en blanco viajan como `null`, no como `''`: son opcionales (decisión 6 de la Fase 8)
+ * y el servidor distingue «no cargado» de un valor.
+ */
+export function aCuerpoDeArquero(b: Borrador) {
+  return {
+    firstName: b.firstName,
+    lastName: b.lastName,
+    category: b.category,
+    sex: b.sex || null,
+    dni: b.dni.trim() || null,
+  };
+}
+
 export const ETIQUETA_DE_SEXO: Record<Sex, string> = {
   femenino: 'Femenino',
   masculino: 'Masculino',

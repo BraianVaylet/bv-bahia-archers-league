@@ -60,14 +60,32 @@ export function LoginPage({ onEntro }: LoginPageProps) {
   const [patrullas, setPatrullas] = useState<PatrullaDelTorneo[]>([]);
 
   useEffect(() => {
+    /*
+      Las dos lecturas pueden resolver después de que la pantalla se desmontó: el líder entra con
+      el bundle guardado antes de que conteste la red. Sin la guarda, el `setState` tardío caía en
+      un componente que ya no existe; en los tests, además, llegaba con jsdom ya desarmado y
+      reventaba como `window is not defined` (CI de #94). Mismo patrón que el efecto de abajo.
+    */
+    let vigente = true;
+
     // El bundle guardado se lee primero: es lo que permite entrar sin señal, y
     // la pantalla tiene que ofrecerlo antes de pedir credenciales.
-    void readBundle().then(setGuardado);
+    void readBundle().then((b) => {
+      if (vigente) setGuardado(b);
+    });
 
     api
       .get<{ tournaments: (TorneoAbierto & { status: string })[] }>('/public/tournaments')
-      .then((r) => setTorneos(r.tournaments.filter((t) => t.status === 'en_proceso')))
-      .catch(() => setTorneos([]));
+      .then((r) => {
+        if (vigente) setTorneos(r.tournaments.filter((t) => t.status === 'en_proceso'));
+      })
+      .catch(() => {
+        if (vigente) setTorneos([]);
+      });
+
+    return () => {
+      vigente = false;
+    };
   }, []);
 
   /**
