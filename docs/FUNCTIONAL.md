@@ -216,7 +216,7 @@ El torneo en curso y la lista de blancos **ordenados desde el blanco de inicio d
 
 Cada blanco muestra número, modalidad, cantidad de flechas y estado (pendiente / completo). Se toca para cargar.
 
-Arriba, siempre visible, el **indicador de sincronización**: `Sincronizado` / `N cambios pendientes` / `Sin conexión`.
+Arriba, siempre visible, el **indicador de sincronización**: `Al día` / `N por enviar` / `Sin señal · N guardados` / `No se pudo enviar · <motivo>` (textos cortos desde `ref-7`; ver [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §9).
 
 ### 7.3 Página de blanco
 Muestra modalidad, cantidad de flechas, descripción, y los arqueros de la patrulla con **qué unidad tira primero, quién a la izquierda, quién a la derecha, y en qué estaca**.
@@ -299,8 +299,8 @@ Con el torneo en marcha se rechaza con `409`: las patrullas ya están en el mont
 
 - **Dado** que ingresé con conexión y la app descargó el recorrido, **cuando** pierdo la señal por completo, **entonces** puedo cargar el puntaje de los 14 blancos, ver los resultados parciales y navegar entre blancos, sin ningún error.
 - **Y** cada toque de flecha se refleja en pantalla en menos de 50 ms.
-- **Y** el indicador muestra `Sin conexión` y la cantidad de cambios pendientes.
-- **Cuando** vuelve la señal, **entonces** todo se sincroniza solo y el indicador pasa a `Sincronizado`, sin que yo haga nada.
+- **Y** el indicador muestra `Sin señal` y la cantidad de cambios guardados.
+- **Cuando** vuelve la señal, **entonces** todo se sincroniza solo y el indicador pasa a `Al día`, sin que yo haga nada.
 
 ### US-03 · No se pierde nada
 > Como líder de patrulla, quiero que nada se pierda si se cierra la app, para no tener que recargar puntajes.

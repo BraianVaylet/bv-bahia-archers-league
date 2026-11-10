@@ -225,19 +225,19 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 **DoD:** ningún valor de `DESIGN_SYSTEM.md` contradice a `tokens.css`.
 
-### `[ ] REF7-12` · Verificación final · P1 · S
+### `[~] REF7-12` · Verificación final · P1 · S
 
 Checklist de `DESIGN_SYSTEM.md` §11, sobre el deploy de la rama:
 
-- [ ] `web-design-guidelines` sobre landing, puerta, WAFA y WAFL, sin issues críticos
-- [ ] `audit-website` contra el deploy
-- [ ] Contraste verificado en los dos temas (el test de `REF7-2` + una mirada con el sol de frente)
-- [ ] Objetivos táctiles medidos sobre estilos computados
-- [ ] 360 px sin scroll horizontal en todas las pantallas
-- [ ] `prefers-reduced-motion`: el pulso y las transiciones apagados
-- [ ] Navegación completa por teclado en landing, puerta y WAFA
-- [ ] Capturas nuevas en `capturas/` con los mismos nombres que las de 2026-11, para comparar
-- [ ] Probado en un Android y un iPhone reales
+- [x] `web-design-guidelines` sobre landing, puerta, WAFA y WAFL, sin issues críticos — *cinco ajustes; ver la bitácora*
+- [ ] `audit-website` contra el deploy — *falta la URL de un deploy*
+- [~] Contraste verificado en los dos temas (el test de `REF7-2` + una mirada con el sol de frente) — *el test sí; la mirada al sol, en el campo*
+- [x] Objetivos táctiles medidos sobre estilos computados — *`objetivos-tactiles.spec.ts` en los tres perfiles*
+- [x] 360 px sin scroll horizontal en todas las pantallas — *16 pantallas medidas*
+- [x] `prefers-reduced-motion`: el pulso y las transiciones apagados
+- [x] Navegación completa por teclado en landing, puerta y WAFA — *E2E de foco y del alta por teclado, más el salto al contenido*
+- [x] Capturas nuevas en `capturas/` con los mismos nombres que las de 2026-11, para comparar — *los pares en `antes-despues/`*
+- [ ] Probado en un Android y un iPhone reales — *a cargo del autor*
 
 **DoD:** checklist completo · PR de `design/ref-7-rediseno` a `main` con antes/después en la descripción.
 

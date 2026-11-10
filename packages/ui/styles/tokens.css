@@ -264,6 +264,17 @@
   */
   :where(h1, h2, h3) {
     overflow-wrap: anywhere;
+    /* Sin viudas: el titular del hero y los de sección reparten las palabras (`REF7-12`). */
+    text-wrap: balance;
+  }
+
+  /*
+    En iOS, dos toques rápidos sobre el mismo control se pueden leer como zoom (`REF7-12`). En el
+    teclado de scoring eso es cargar «10, 10» y que la pantalla se agrande en vez de anotar la
+    segunda flecha. `manipulation` deja el scroll y el pellizco, y saca el doble toque.
+  */
+  :where(a, button, input, select, textarea, label, summary, [role='button']) {
+    touch-action: manipulation;
   }
 
   /*

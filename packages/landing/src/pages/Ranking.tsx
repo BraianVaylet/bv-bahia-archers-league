@@ -200,7 +200,9 @@ export function RankingPage() {
             aria-label="Temporada"
             value={elegida ?? ''}
             onChange={(e) => setParams({ temporada: e.target.value })}
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)]"
+            // Fondo y texto explícitos: un `select` nativo sin color propio sale ilegible en el
+            // modo oscuro de Windows.
+            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--ink)]"
           >
             {temporadas.datos.seasons.map((s) => (
               <option key={s.id} value={s.id}>

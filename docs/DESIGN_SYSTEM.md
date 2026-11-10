@@ -226,7 +226,7 @@ La unidad de tiro (par `A` o `B`): los dos arqueros, quién a la izquierda y qui
 ### 6.4 `SyncBadge`
 Fijo en el encabezado de WAFL. Cuatro estados (`--ok` · `--warn` · `--ink-muted` · `--danger`), cada uno con **icono, color y texto**. Se toca para abrir el panel de detalle. Nunca bloquea.
 
-> **Desde `REF7-4`** es una píldora de 44px con borde `--line` y un ícono por estado (tilde, sincronizar, sin señal, aviso). Los textos siguen siendo los de `syncLabel`. **Pendiente de decidir:** a 390px, junto a «← Blancos», trunca el contexto y el título del encabezado del blanco; los textos cortos de `docs/post/ref-7/DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados») lo resolverían.
+> **Desde `REF7-4`** es una píldora de 44px con borde `--line` y un ícono por estado (tilde, sincronizar, sin señal, aviso). **Textos cortos desde `ref-7`** (consultado con el autor): «Al día», «N por enviar», «Sin señal · N guardados» y «No se pudo enviar · <motivo>». Los largos truncaban la patrulla y el torneo del encabezado del blanco a 390px. El motivo del error se conserva: si no entra, la píldora (tope de `min(14rem, 45vw)`) lo trunca a la vista y queda completo para el lector de pantalla y en el `title`.
 
 ### 6.5 `CircuitRing` — el elemento de firma
 Anillo que representa el circuito completo: un segmento por blanco, el de inicio marcado arriba, los completados rellenos. **Es literalmente el mapa de la vuelta que la patrulla está caminando.**
@@ -280,7 +280,7 @@ El texto es material de diseño, no relleno.
 - **Vocabulario del deporte, no del sistema.** Blanco, patrulla, estaca, recorrido, flecha. Nunca "registro", "entidad", "sincronización de payload".
 - **Los errores no piden disculpas y no son vagos.** Dicen qué pasó y qué hacer: `Faltan las firmas de Pérez y Gómez para cerrar el circuito.`
 - **Los estados vacíos invitan a actuar.** `Todavía no cargaste ningún blanco. Empezá por el 10.`
-- **Sin conexión no es un error.** `Sin conexión · 12 cambios guardados en el celular` — es información tranquilizadora, no una alarma.
+- **Sin conexión no es un error.** `Sin señal · 12 guardados` — es información tranquilizadora, no una alarma.
 - Español rioplatense, voseo, minúscula de oración.
 
 ---

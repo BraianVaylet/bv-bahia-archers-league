@@ -23,6 +23,6 @@ html {
 
 /* El título al que el código le pasa el foco al navegar (`REF6-12` / `U-5`) no es un control: no
    lleva anillo. Sólo los que se enfocan por código, que son los que tienen `tabindex="-1"`. */
-:where(h1, [data-titulo-de-pagina])[tabindex='-1']:focus {
+:where(h1, [data-titulo-de-pagina], main)[tabindex='-1']:focus {
   outline: none;
 }

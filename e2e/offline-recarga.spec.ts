@@ -68,7 +68,7 @@ test('recargar sin conexión a mitad del recorrido no pierde nada', async ({
   // ▶ Vuelve la conexión: todo lo que se cargó sin red llega al servidor.
   await contexto.unroute('**/api/**');
   if (sinRedDelNavegador) await contexto.setOffline(false);
-  await expect(segunda.getByTestId('sync-badge')).toContainText(/Sincronizado/i, {
+  await expect(segunda.getByTestId('sync-badge')).toContainText(/Al día/i, {
     timeout: 60_000,
   });
 

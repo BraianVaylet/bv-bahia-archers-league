@@ -14,6 +14,51 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `REF7-12` — Verificación final, y cierre de `ref-7`
+
+**Autor:** Claude Opus 5.5 · **Estado:** parcial — quedan dos ítems que no puede hacer una sesión (ver abajo). En la rama `design/ref-7-p1`.
+
+**Qué se verificó:**
+- **`web-design-guidelines`** sobre landing, puerta, WAFA y WAFL. Sin `transition-all`, sin tres puntos, imágenes con dimensiones; los dos `outline: none` son sólo para el título que recibe foco por código. Se arreglaron cinco cosas: `touch-action: manipulation` en los controles (en iOS dos toques rápidos en la misma tecla del teclado se podían leer como zoom), un enlace para saltar al contenido en la landing, `text-wrap: balance` en los títulos, el escudo del pie con carga diferida y el `select` de temporada con color de texto propio. Se aceptan con nota: el latido de «En curso» anima `box-shadow` y el anillo transiciona el color del trazo (los dos están en la spec y se apagan con movimiento reducido). No se cuentan las reglas que chocan con decisiones documentadas: mayúsculas de título (el proyecto escribe en minúscula de oración, §6.8) y spinner al enviar (prohibido en scoring).
+- **360 px sin scroll horizontal** en 16 pantallas (portada, torneos, torneo en proceso, ranking, alta, puerta, ocho de WAFA y dos de WAFL), con nombres largos: el documento mide 360 en todas.
+- **`prefers-reduced-motion`**: el latido queda en una vuelta de 0,01 ms.
+- **Contraste**: `contraste.test.ts` en los dos temas. **Objetivos táctiles**: `objetivos-tactiles.spec.ts` en Chromium, Pixel 7 e iPhone 14. **Teclado**: los E2E de foco visible y del alta completa por teclado, más el salto al contenido.
+- **Antes y después**: seis pares en [`post/ref-7/antes-despues/`](post/ref-7/antes-despues/README.md).
+
+**Lo que falta, y por qué no lo hizo esta sesión:**
+- **`audit-website` contra el deploy**: hace falta la URL de un deploy con la rama (o producción, una vez desplegado `main`).
+- **Probar en un Android y un iPhone reales**, y mirar el contraste con el sol de frente.
+
+### Cierre de la serie `ref-7`
+
+Las trece tandas del plan: `REF7-1` a `REF7-11` completas, `REF7-12` parcial (lo de arriba) y `REF7-13` (recordar el último rol) fuera de esta ronda por la decisión 3. Además: el arreglo del anillo por patrulla (`REF7-8`), los textos cortos del indicador de sincronización y estos ajustes.
+
+**Lo que cambió de fondo**, más allá de la piel: las fuentes nunca habían cargado (`REF7-1`); los `h1` medían 16px porque `text-[var(--text-display)]` es un color para Tailwind 4 (`REF7-2`); el foco en claro y el borde de los controles estaban por debajo de WCAG (`REF7-2`); la landing ocultaba desbordes horizontales detrás de un `main` con scroll (`REF7-5`); y la portada no montaba contra la API real porque el detalle viene envuelto en `{ tournament }` (`REF7-6`). Todos con su test.
+
+**Queda abierto, fuera de `ref-7`:**
+- **La foto del hero pesa 2,2 MB** (commit «nueva portada»); la anterior estaba optimizada a 131 KB. Es lo primero que baja la landing. `scripts/imagenes.mjs` tiene un presupuesto para esto, pero la foto entró directo a `packages/ui/assets/` sin pasar por él.
+- La corrección de `X6` en juego de campo está en un commit local de otra sesión (`21bf926`, en `design/ref-7-rediseno`); hasta que entre, `DESIGN_SYSTEM.md` §6.1 sigue nombrando `X6`.
+- `medallaDe` (`@bal/shared`) ya no la usa ninguna pantalla.
+
+---
+
+## 2026-11-10 · `ref-7` — Textos cortos del indicador de sincronización
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`. **Consultado con el autor.**
+
+`syncLabel` pasa a los textos de `docs/post/ref-7/DISENO.md` §6: «Al día», «N por enviar», «Sin señal · N guardados» (y «Sin señal» sin pendientes) y «No se pudo enviar · <motivo>» (y «No se pudo enviar» sin motivo). Era la deuda de `REF7-10`: los largos —«Sin conexión · 3 cambios guardados en el celular»— truncaban la patrulla y el torneo del encabezado del blanco a 390px.
+
+**Decisiones:**
+- **El motivo del error se conserva.** Se agregó a propósito (la entrada que lo introdujo: «"Hay un problema con la sincronización" no le sirve a nadie») y el líder decide con él. Para que un motivo largo no desborde el encabezado, la píldora tiene un tope de `min(14rem, 45vw)` y el texto se trunca **a la vista**: completo queda en el DOM (lo lee el lector de pantalla, la píldora es `aria-live`) y en el `title`. El motivo también aparece entero al intentar cerrar el circuito.
+- Se pierde «en el celular» del estado sin señal; «guardados» dice lo mismo en menos lugar.
+- El indicador de conexión de WAFA (`IndicadorDeConexion`, «Con conexión / Sin conexión») es otro componente y no cambió.
+- Sólo cambian los textos: los estados y cuándo se pasa de uno a otro (`syncWorker`) no se tocaron.
+
+**Docs:** `OFFLINE_SYNC.md` §9 (tabla de estados, con la nota), `FUNCTIONAL.md` §7, `TESTING.md` (pasos del E2E offline) y `DESIGN_SYSTEM.md` §6.4 y §6.8.
+**Tests:** los seis de `syncLabel` en `offline.test.ts`, reescritos y vistos fallar (el del error sigue exigiendo el motivo). Los E2E que esperaban los textos viejos (`blanco-bloqueado`, `flujo-completo`, `offline-recarga`, `sesion-vencida`) esperan los nuevos.
+
+---
+
 ## 2026-11-10 · `REF7-11` — Documentación
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
@@ -49,7 +94,7 @@ Formato: entradas nuevas **arriba**.
 - Los textos de `SyncBadge` no se tocaron (siguen siendo los de `syncLabel`).
 
 **Desvíos:** ninguno.
-**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`.
+**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`. *(Resuelto: ver «Textos cortos del indicador de sincronización».)*
 **Tests:** 7 casos nuevos de la pantalla del blanco y 2 del teclado en `keypad.test.tsx`, y 3 del recorrido en `wafl.test.tsx`, vistos fallar. El de «muestra la modalidad y las flechas» cambió de forma por diseño (la modalidad va en su chip). `rendimiento.test.tsx` ubica el total por `tabular-nums`, así que el total la lleva.
 
 ---

@@ -12,17 +12,24 @@ export function useSyncStatus(): SyncState {
   return useSyncExternalStore(subscribe, getSyncState, getSyncState);
 }
 
-/** Texto que ve el líder. Nunca alarmante: sin conexión no es un error. */
+/**
+ * Texto que ve el líder. Nunca alarmante: sin conexión no es un error.
+ *
+ * **Cortos desde `ref-7`** (los de `docs/post/ref-7/DISENO.md` §6, consultado con el autor): la
+ * píldora vive en el encabezado de WAFL al lado de «← Blancos», y los largos —«Sin conexión · 3
+ * cambios guardados en el celular»— truncaban la patrulla y el torneo a 390px. Lo que no se
+ * pierde: cuántos quedaron guardados y el motivo del error.
+ */
 export function syncLabel(estado: SyncState): string {
   switch (estado.status) {
     case 'synced':
-      return 'Sincronizado';
+      return 'Al día';
     case 'pending':
-      return `${estado.pending} ${estado.pending === 1 ? 'cambio' : 'cambios'} sin sincronizar`;
+      return `${estado.pending} por enviar`;
     case 'offline':
       return estado.pending > 0
-        ? `Sin conexión · ${estado.pending} ${estado.pending === 1 ? 'cambio guardado' : 'cambios guardados'} en el celular`
-        : 'Sin conexión';
+        ? `Sin señal · ${estado.pending} ${estado.pending === 1 ? 'guardado' : 'guardados'}`
+        : 'Sin señal';
     case 'error':
       /**
        * El motivo, si el servidor dio uno.
@@ -32,8 +39,6 @@ export function syncLabel(estado: SyncState): string {
        * que la sesión venció, vuelve a entrar; si dice que no hay conexión,
        * camina hasta donde haya. El dato ya venía en el estado y se descartaba.
        */
-      return estado.lastError
-        ? `Problema al sincronizar: ${estado.lastError}`
-        : 'Hay un problema con la sincronización';
+      return estado.lastError ? `No se pudo enviar · ${estado.lastError}` : 'No se pudo enviar';
   }
 }

@@ -267,7 +267,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   await cargarRecorrido(page);
 
   // 12. El indicador dice que hay pendientes o que no hay conexión.
-  await expect(page.getByTestId('sync-badge')).toContainText(/Sin conexión|pendiente/i);
+  await expect(page.getByTestId('sync-badge')).toContainText(/Sin señal|por enviar/i);
 
   // Y de verdad no llegó nada: sin esto, todo lo anterior sería decorado.
   expect(intentosBloqueados).toBeGreaterThan(0);
@@ -293,7 +293,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   await contexto.setOffline(false);
 
   // 15. Se espera a que el outbox se vacíe.
-  await expect(page.getByTestId('sync-badge')).toContainText(/Sincronizado/i, { timeout: 60_000 });
+  await expect(page.getByTestId('sync-badge')).toContainText(/Al día/i, { timeout: 60_000 });
 
   // 16. Los puntajes llegaron al servidor, y los totales los calculó él.
   const { participants } = await api.get<{
