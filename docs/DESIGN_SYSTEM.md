@@ -32,7 +32,7 @@ Lo que se evita deliberadamente: fondo crema con serif de alto contraste, negro 
 | `--ink` | `#16170F` | `#F4F3EC` | Texto principal |
 | `--ink-muted` | `#5A5F4E` | `#A8AD99` | Texto secundario, etiquetas |
 | `--line` | `#DEDDD2` | `#333629` | Bordes, divisores |
-| `--nock` | `#8FA800` | `#C6F000` | **Acción primaria** |
+| `--nock` | `#8FA800` | `#c6f000` | **Acción primaria** |
 | `--nock-ink` | `#0D0E05` | `#16170F` | Texto sobre `--nock`. **Oscuro en los dos temas** |
 | `--danger` | `#B3200E` | `#F06449` | Errores, acciones destructivas |
 | `--warn` | `#8A5A00` | `#E8A33D` | Pendiente de sincronizar, advertencias |
@@ -56,7 +56,7 @@ Lo que se evita deliberadamente: fondo crema con serif de alto contraste, negro 
 
 El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de la cara de campo y la sombra del monte. El papel no es crema: `#FBFAF5` es claro y casi neutro, para exprimir la luminancia máxima de la pantalla bajo el sol.
 
-`--nock` cambia de tono entre temas a propósito. El chartreuse fluorescente `#C6F000` es glorioso sobre fondo oscuro e ilegible sobre blanco; en tema claro se oscurece a `#8FA800`.
+`--nock` cambia de tono entre temas a propósito. El chartreuse fluorescente `#c6f000` es glorioso sobre fondo oscuro e ilegible sobre blanco; en tema claro se oscurece a `#8FA800`.
 
 > **La tinta encima es oscura en los dos temas, y esto estuvo mal escrito hasta `REF5-5`.** Este párrafo afirmaba que `#8FA800` «llega a contraste AA», pero la tinta que tenía al lado era blanca y el par daba **2.70:1** — ni AA ni cerca. Afectaba a todo botón primario de las tres apps, en el tema claro, que es el default de WAFL. Con `#0D0E05` el par llega a **7.18:1**, que es el AAA que §2.4 exige en scoring.
 >
@@ -206,7 +206,7 @@ Elevación por **borde y fondo**, no por sombra. Las sombras se disuelven bajo e
 ### 6.1 `ScoreKeypad`
 El componente más importante del sistema. Se adapta a la modalidad **del blanco**, no del torneo.
 
-- **3D** (`11 10 8 5 M`) y **campo** (`X6 6 5 4 3 2 1 M`): disposición en **arcos concéntricos** que espejan la cara de blanco real. El 11 y el X6 están al centro; los valores menores, hacia afuera. La memoria espacial de lo que el arquero acaba de mirar en el blanco se traslada a la pantalla.
+- **3D** (`11 10 8 5 M`) y **campo** (`6 5 4 3 2 1 M`): disposición en **arcos concéntricos** que espejan la cara de blanco real. El 11 y el 6 están al centro; los valores menores, hacia afuera. La memoria espacial de lo que el arquero acaba de mirar en el blanco se traslada a la pantalla.
 - **Sala** y **aire libre** (12 tokens): grilla de 4 columnas. Doce zonas no caben en anillos legibles; acá gana la grilla.
 - `M` siempre en la misma posición, siempre visualmente distinto del resto (desde `REF7-10`, con borde punteado sobre `--surface`).
 - **Teclas de 64px de alto** (`REF7-10`, decisión 6 de `ref-7`): `TAMAÑO_TECLA_PX` sigue en 56 como **mínimo**. Cifra en display expandido de 26px; al tocarla se achica (`scale(.96)`) y se enciende en `--nock`. El panel (`--surface`, `--shadow-dock`, «Continuar» y «Falta cargar» adentro) lo arma `TargetPage`.

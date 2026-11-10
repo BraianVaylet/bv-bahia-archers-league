@@ -199,7 +199,7 @@ Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoreg
 
   // rollups denormalizados — actualizados por delta en la transacción del score
   total: 0,
-  innerCount: 0,                        // X + X6 + 11
+  innerCount: 0,                        // X + 6 (campo) + 11
   xCount: 0,
   tenCount: 0,
   mCount: 0,

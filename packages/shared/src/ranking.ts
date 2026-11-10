@@ -23,7 +23,7 @@ export interface Rankable {
   /** Ausente en el padrón viejo. No se usa para ordenar: sólo viaja hasta `league.ts`. */
   readonly sex?: Sex;
   readonly total: number;
-  /** `X` + `X6` + `11`, según los blancos tirados. */
+  /** `X` + `6` (campo) + `11`, según los blancos tirados. */
   readonly innerCount: number;
   /** Flechas que valen 10. La `X` entra. Ver `docs/DOMAIN_WA.md` §8. */
   readonly tenCount: number;
