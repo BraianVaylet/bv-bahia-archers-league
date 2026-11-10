@@ -9,7 +9,7 @@
  * **Las respuestas son las mismas, byte por byte**: esto movió código, no lo cambió.
  */
 
-import { distribucionDeModalidades, type TournamentStatus } from '@bal/shared';
+import { distribucionDeModalidades, hoyEnArgentina, type TournamentStatus } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
@@ -35,6 +35,37 @@ export async function listadoPublico() {
       status: t.status,
       targetCount: t.targets.length,
       participantCount: t.participantCount,
+      modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
+    })),
+  };
+}
+
+/** Cuántas próximas fechas muestra la landing como mucho: la portada usa tres, `/torneos` todas. */
+const MAX_PROXIMAS = 6;
+
+/**
+ * «Próximas fechas»: los torneos sin iniciar de hoy en adelante (`BE-28`, decisión 7 de la Fase 9).
+ *
+ * Es lo único de un torneo sin iniciar que se ve desde afuera, y es **la convocatoria**: cuándo,
+ * dónde anotarse, cuánto sale y qué se tira. Quién está anotado y cómo se arman las patrullas no:
+ * pueden cambiar hasta minutos antes de largar.
+ *
+ * «Hoy» es el día de Bahía Blanca, no el de UTC (`hoyEnArgentina`): a las 21 h de acá ya es mañana
+ * en UTC, y el torneo del día dejaría de figurar.
+ */
+export async function proximasFechas(ahora: Date = new Date()) {
+  const docs = await tournamentRepo.listProximos(hoyEnArgentina(ahora), MAX_PROXIMAS);
+
+  return {
+    tournaments: docs.map((t) => ({
+      id: t._id.toHexString(),
+      name: t.name,
+      date: t.date,
+      description: t.description,
+      // Validado `https:` al cargarlo (`RegistrationUrlSchema`). Torneos viejos: sin la clave.
+      registrationUrl: t.registrationUrl ?? null,
+      payment: t.payment,
+      targetCount: t.targets.length,
       modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
     })),
   };

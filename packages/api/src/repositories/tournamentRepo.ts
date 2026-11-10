@@ -82,6 +82,38 @@ export function listPublicos(): Promise<TorneoParaListar[]> {
     .toArray() as Promise<TorneoParaListar[]>;
 }
 
+/** Lo que «Próximas fechas» lee de cada torneo: la convocatoria, nada de la organización interna. */
+export type TorneoProximo = Pick<
+  TournamentDoc,
+  '_id' | 'name' | 'date' | 'description' | 'registrationUrl' | 'payment' | 'targets'
+>;
+
+/**
+ * Los torneos sin iniciar con fecha desde `desde`, el más cercano primero (`BE-28`).
+ *
+ * **La proyección es la lista blanca**: participantes, patrullas, estacas y PIN no salen de la base,
+ * así que ningún cambio en el servicio puede filtrarlos a la landing. Usa `ix_status_date`.
+ */
+export function listProximos(desde: Date, limite: number): Promise<TorneoProximo[]> {
+  return tournaments()
+    .find(
+      { status: 'sin_iniciar', date: { $gte: desde } },
+      {
+        projection: {
+          name: 1,
+          date: 1,
+          description: 1,
+          registrationUrl: 1,
+          payment: 1,
+          targets: 1,
+        },
+      },
+    )
+    .sort({ date: 1 })
+    .limit(limite)
+    .toArray() as Promise<TorneoProximo[]>;
+}
+
 export async function remove(id: ObjectId, session?: ClientSession): Promise<void> {
   const opts = session ? { session } : {};
   await tournaments().deleteOne({ _id: id }, opts);

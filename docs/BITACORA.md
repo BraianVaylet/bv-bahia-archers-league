@@ -14,6 +14,26 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `BE-28` — Endpoint público de próximas fechas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-28-proximas-fechas` (apilada sobre `BE-27`).
+
+`GET /api/public/tournaments/upcoming`: los torneos `sin_iniciar` con fecha de hoy en adelante, el más cercano primero, hasta 6, con sólo la convocatoria (nombre, fecha, descripción, `registrationUrl`, `payment`, cantidad de blancos y modalidades). Es la primera vez que un torneo sin iniciar sale por la API pública (decisión 7).
+
+**Decisiones:**
+- **«Hoy» es el día de Bahía Blanca**, con `hoyEnArgentina(ahora)` nuevo en `@bal/shared/fechas.ts`: las fechas se guardan como medianoche UTC del día, y comparar contra el día UTC sacaba el torneo del día del listado a las 21 h de acá. Recibe `ahora` por parámetro: el dominio no lee el reloj.
+- **La lista blanca está en la proyección del repositorio** (`listProximos`), además del mapeo explícito del servicio: participantes, patrullas, estacas y PIN no salen de la base. Un test compara la respuesta entera, clave por clave.
+- **`payment` sale entero** (`{ required, amount }`), igual que en el detalle público, y no sólo el monto como decía el plan: la landing tiene que poder distinguir «sin costo» de «no se sabe».
+- **`modalities` con el mismo formato que el listado público** (`distribucionDeModalidades`), para que la landing reuse `BarraDeModalidades` sin adaptar nada.
+- La ruta va **antes** de `/tournaments/:id`, o `upcoming` se tomaría como un id.
+- `detallePublico` sigue dando 404 para un `sin_iniciar`: sólo existe en este listado.
+
+**Docs:** `FUNCTIONAL.md` §5.3 (próximas fechas) y §8 (la columna «Visible en landing» de `sin_iniciar`), `TECHNICAL.md` (tabla de endpoints públicos), `SECURITY.md` §11.
+
+**Tests:** 3 de `hoyEnArgentina` en `fechas.test.ts` (23 h de acá todavía es hoy, medianoche ya es mañana, cruce de año) y 7 del endpoint en `proximas-fechas.test.ts` (hoy en adelante y en orden, excluye los que arrancaron, lista blanca exacta, torneo viejo sin link, tope de 6, lista vacía, el detalle sigue en 404), todos vistos fallar. `@bal/shared` 458, `@bal/api` 567, typecheck, Biome y `capas` verdes.
+
+---
+
 ## 2026-11-10 · `BE-27` — Link de pre-inscripción del torneo
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-27-link-preinscripcion` (apilada sobre `BE-24`).

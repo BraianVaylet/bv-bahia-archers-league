@@ -801,7 +801,8 @@ _(Hecho. «Código fuente en GitHub» va en la línea legal, a la derecha (abajo
 **Contenido:** «Código fuente» en la línea legal (o en la columna de páginas), apuntando a `https://github.com/BraianVaylet/bv-bahia-archers-league`, `target="_blank" rel="noopener noreferrer"`, con un ícono de enlace externo de `iconos/` y texto (no sólo el logo de GitHub). La URL como constante exportada, no repetida en el JSX.
 **DoD:** test que el enlace existe con su nombre accesible · 44px · el pie sigue sin imprimirse.
 
-### `[ ] BE-28` · Endpoint público de próximas fechas
+### `[x] BE-28` · Endpoint público de próximas fechas
+_(Hecho. `payment` sale entero (`{ required, amount }`), igual que en el detalle público, no sólo el monto: la landing tiene que poder decir «sin costo». «Hoy» lo calcula `hoyEnArgentina` de `@bal/shared`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** que la landing sepa qué torneos vienen, sin exponer nada de la organización interna.
 **Archivos:** `repositories/tournamentRepo.ts` (`listProximos`), `services/tournamentQueryService.ts`, `routes/publico.ts`, `db/indexes.ts` (reusa `ix_status_date` si alcanza)
 **Referencia:** decisión 7 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3 y §8 (actualizar primero) · [`SECURITY.md`](SECURITY.md) §11 (lista blanca pública)

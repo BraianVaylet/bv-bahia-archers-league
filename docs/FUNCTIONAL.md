@@ -99,6 +99,8 @@ Al tocar un arquero se navega a su ficha (§5.4).
 ### 5.3 Sección Listado de torneos
 Torneos **publicados** y **en proceso**, ordenados por fecha descendente.
 
+**Próximas fechas** (`2026-11-10`, decisión 7 de la Fase 9): arriba del listado, y en la portada, los torneos **sin iniciar** con fecha de hoy en adelante —hoy en Bahía Blanca—, el más cercano primero. De cada uno se muestra **sólo la convocatoria**: nombre, fecha, descripción, costo de inscripción, cantidad de blancos, modalidades y, si el admin lo cargó, el botón al formulario de pre-inscripción. Quién está anotado y cómo se arman las patrullas no se publican: pueden cambiar hasta minutos antes de largar. Un torneo sin iniciar sigue sin tener ficha propia.
+
 Al entrar a un torneo:
 - **Si está publicado:** configuración del recorrido (cantidad de blancos, modalidad y flechas de cada uno), podios por categoría y general, mejores puntajes por categoría, puntaje de cada arquero por blanco, totales de `X`, `10` y `M`, estadísticas agregadas.
 - **Si está publicado, además:** cada arquero de los podios es un enlace a su **tarjeta de puntajes** (§5.3.1).
@@ -263,7 +265,7 @@ Con **todas** las firmas presentes, se habilita **Finalizar**. Al confirmarse:
 
 | Estado | Quién escribe | Visible en landing |
 |---|---|---|
-| `sin_iniciar` | Admin (todo, **incluidos los participantes**) | No |
+| `sin_iniciar` | Admin (todo, **incluidos los participantes**) | Sólo en «Próximas fechas» si su fecha es de hoy en adelante, y sólo la convocatoria (§5.3) |
 | `en_proceso` | Líderes (puntajes) · Admin (nombre, fecha, descripción, link de pre-inscripción, pago y blancos vírgenes) | Solo patrullas y avance, sin puntajes |
 | `completado` | Admin (nombre, fecha y **corrección de puntajes** contra la planilla de papel) | Solo patrullas y avance |
 | `publicado` | Nadie (para corregir: despublicar, corregir, publicar) | Todo: resultados, podios, rankings |
