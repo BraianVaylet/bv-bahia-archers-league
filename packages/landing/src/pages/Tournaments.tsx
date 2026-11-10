@@ -14,6 +14,7 @@ import {
   CATEGORY_INFO,
   distribucionDeCategorias,
   distribucionDeModalidades,
+  ESTADO_DE_TORNEO,
   formatearFecha,
   formatearMonto,
   type ParteDeModalidad,
@@ -22,10 +23,12 @@ import {
   type TournamentStatus,
 } from '@bal/shared';
 import {
+  AnilloDeRecorrido,
   BadgeEstado,
   COLOR_DE_CATEGORIA,
   COLOR_DE_MODALIDAD,
   GraficoDeTorta,
+  RotuloDeSeccion,
   TarjetaDeTorneo,
   useTituloDePagina,
 } from '@bal/ui';
@@ -98,6 +101,9 @@ interface TorneoDetalle {
   readonly results?: readonly Resultado[];
 }
 
+/** Los estados que el listado público muestra, en este orden: lo que está pasando, primero. */
+const ESTADOS_PUBLICOS: readonly TournamentStatus[] = ['en_proceso', 'publicado'];
+
 // ── Listado ──────────────────────────────────────────────────────────────────
 
 export function TournamentsPage() {
@@ -117,19 +123,35 @@ export function TournamentsPage() {
         <p className="text-[var(--ink-muted)]">Todavía no hay torneos publicados.</p>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {torneos.estado === 'listo' &&
-          torneos.datos.tournaments.map((t) => (
-            <li key={t.id}>
-              <TarjetaDeTorneo
-                torneo={t}
-                href={`/torneos/${t.id}`}
-                publico
-                enlace={EnlaceInterno}
+      {/*
+        Un grupo por estado, en curso primero (`REF7-8`, `DISENO.md` §5.2), con su rótulo y su
+        cantidad. La grilla pasa a dos columnas en tablet y a tres en escritorio.
+      */}
+      {torneos.estado === 'listo' &&
+        ESTADOS_PUBLICOS.map((status) => {
+          const delGrupo = torneos.datos.tournaments.filter((t) => t.status === status);
+          if (delGrupo.length === 0) return null;
+          return (
+            <section key={status} className="flex flex-col gap-4">
+              <RotuloDeSeccion
+                titulo={ESTADO_DE_TORNEO[status].publico ?? ESTADO_DE_TORNEO[status].plural}
+                cantidad={delGrupo.length}
               />
-            </li>
-          ))}
-      </ul>
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {delGrupo.map((t) => (
+                  <li key={t.id} className="grid">
+                    <TarjetaDeTorneo
+                      torneo={t}
+                      href={`/torneos/${t.id}`}
+                      publico
+                      enlace={EnlaceInterno}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
     </Screen>
   );
 }
@@ -157,7 +179,7 @@ function Podios({
     <>
       {Object.entries(porCategoria).map(([category, entradas]) => (
         <section key={category} className="flex flex-col gap-2" data-testid={`podio-${category}`}>
-          <h2 className="font-semibold">{CATEGORY_INFO[category as BowCategory].label}</h2>
+          <h2 className="text-h3">{CATEGORY_INFO[category as BowCategory].label}</h2>
 
           <Tabla>
             <Cabecera>
@@ -198,19 +220,19 @@ function Podios({
                   </Celda>
 
                   {/* Las seis cifras, cada una con su nombre al lado. */}
-                  <Celda etiqueta="Puntaje" className="text-right tabular-nums font-semibold">
+                  <Celda etiqueta="Puntaje" className="text-right font-mono font-semibold">
                     {e.entry.total}
                   </Celda>
-                  <Celda etiqueta="X" enLinea className="text-right tabular-nums">
+                  <Celda etiqueta="X" enLinea className="text-right font-mono">
                     {e.entry.xCount}
                   </Celda>
-                  <Celda etiqueta="10" enLinea className="text-right tabular-nums">
+                  <Celda etiqueta="10" enLinea className="text-right font-mono">
                     {e.entry.tenCount}
                   </Celda>
-                  <Celda etiqueta="M" enLinea className="text-right tabular-nums">
+                  <Celda etiqueta="M" enLinea className="text-right font-mono">
                     {e.entry.mCount}
                   </Celda>
-                  <Celda etiqueta="%" enLinea className="text-right tabular-nums">
+                  <Celda etiqueta="%" enLinea className="text-right font-mono">
                     {e.entry.normalizedPct}%
                   </Celda>
                 </Fila>
@@ -288,15 +310,24 @@ export function TournamentPage() {
       {t.results && <Podios torneoId={t.id} resultados={t.results} />}
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Patrullas</h2>
+        <h2 className="font-display text-h2">Patrullas</h2>
 
         <ul className="flex flex-col gap-2">
           {t.patrols.map((p) => (
             <li key={p.number} className={clasesDeTarjeta()} data-testid={`patrulla-${p.number}`}>
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold">Patrulla {p.number}</span>
-                <span className="text-sm text-[var(--ink-muted)] tabular-nums">
+                <span className="flex items-center gap-2 text-sm text-[var(--ink-muted)] tabular-nums">
                   {p.targetsCompleted} de {t.targets.length} blancos
+                  {/* El avance de un vistazo, con el dato real (§6.5): sólo en curso. */}
+                  {t.status === 'en_proceso' ? (
+                    <AnilloDeRecorrido
+                      total={t.targets.length}
+                      completados={p.targetsCompleted}
+                      inicio={p.startTargetIndex}
+                      tamaño={44}
+                    />
+                  ) : null}
                 </span>
               </div>
 
@@ -364,7 +395,7 @@ function DeQueEstuvoHecho({ torneo }: { readonly torneo: TorneoDetalle }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-semibold">De qué estuvo hecho</h2>
+      <h2 className="font-display text-h2">De qué estuvo hecho</h2>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <GraficoDeTorta
@@ -430,7 +461,7 @@ function DiagramaDelRecorrido({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="font-semibold">Recorrido</h2>
+      <h2 className="font-display text-h2">Recorrido</h2>
 
       <ol className="flex flex-wrap items-stretch gap-y-3" data-testid="diagrama-recorrido">
         {targets.map((b, i) => (

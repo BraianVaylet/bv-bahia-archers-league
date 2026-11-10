@@ -174,17 +174,17 @@ REF7-3 ─┘           │           └─→ REF7-8
 
 # P1 — El resto del producto
 
-### `[ ] REF7-8` · Landing: el resto de las páginas · P1 · M
+### `[x] REF7-8` · Landing: el resto de las páginas · P1 · M
 
 **Hallazgo:** `D-2`. **Spec:** `DISENO.md` §5.2.
 **Archivos:** `packages/landing/src/pages/{Tournaments,Ranking,Archer,ArcherRegister,Scorecard}.tsx`.
 
-- [ ] `h1` en `font-display` 32px en cada página
-- [ ] Torneos: `SectionHeader` por estado + grilla de `TournamentCard`
-- [ ] Torneo en proceso: `CircuitRing` de 44 por patrulla
-- [ ] Pestañas (torneo, ranking por categoría y sexo) con la activa sobre `--nock-soft`
-- [ ] Tablas con el estilo `.bal-rank` (filas de 56px, cifras en mono, sin oro/plata/bronce)
-- [ ] Alta con el `Field` nuevo
+- [x] `h1` en `font-display` 32px en cada página
+- [x] Torneos: `SectionHeader` por estado + grilla de `TournamentCard`
+- [x] Torneo en proceso: `CircuitRing` de 44 por patrulla
+- [x] Pestañas (torneo, ranking por categoría y sexo) con la activa sobre `--nock-soft`
+- [x] Tablas con el estilo `.bal-rank` (filas de 56px, cifras en mono, sin oro/plata/bronce)
+- [x] Alta con el `Field` nuevo
 
 **DoD:** sin cambios de contenido ni de datos · los tests existentes de cada página verdes.
 
