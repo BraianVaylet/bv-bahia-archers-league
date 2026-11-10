@@ -19,6 +19,8 @@ export interface Torneo {
   readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
   readonly maxPossibleScore: number;
   readonly participantCount: number;
+  /** Link de pre-inscripción (`BE-27`). El servidor siempre lo manda; `null` = sin link. */
+  readonly registrationUrl?: string | null;
 }
 
 interface DatosDelTorneo {

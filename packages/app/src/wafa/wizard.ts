@@ -15,6 +15,7 @@ import {
   type Modality,
   maxPossibleScore,
   type ParticipantInput,
+  RegistrationUrlSchema,
   SCORING,
 } from '@bal/shared';
 
@@ -175,6 +176,8 @@ export interface BorradorTorneo {
   name: string;
   date: string;
   description: string;
+  /** Link de pre-inscripción (`FE-36`). Vacío = sin link. Ver docs/SECURITY.md §16. */
+  registrationUrl: string;
   /** Inscripción: un monto único para todos. Ver docs/SECURITY.md §2. */
   payment: { required: boolean; amount: number };
   blancos: BlancoBorrador[];
@@ -187,11 +190,28 @@ export function borradorVacio(): BorradorTorneo {
     name: '',
     date: '',
     description: '',
+    registrationUrl: '',
     payment: { required: false, amount: 0 },
     blancos: [blancoNuevo(1)],
     elegidos: [],
   };
 }
+
+/**
+ * Qué tiene de malo el link de pre-inscripción escrito, o `undefined` si sirve o está vacío.
+ *
+ * Valida con el **mismo esquema que el servidor** (`RegistrationUrlSchema`, `BE-27`): si cada lado
+ * tuviera su regla, el formulario podría aceptar un link que el servidor después rechaza.
+ */
+export function problemaDelLink(valor: string): string | undefined {
+  const link = valor.trim();
+  if (!link) return undefined;
+  const r = RegistrationUrlSchema.safeParse(link);
+  return r.success ? undefined : (r.error.issues[0]?.message ?? 'El link no es válido.');
+}
+
+/** Lo que se le manda al servidor: el link recortado, o `null` si quedó vacío. */
+export const linkParaEnviar = (valor: string): string | null => valor.trim() || null;
 
 /** Motivo por el que un paso no está completo, o `undefined` si lo está. */
 export function problemaDelPaso(paso: number, b: BorradorTorneo): string | undefined {
@@ -199,6 +219,8 @@ export function problemaDelPaso(paso: number, b: BorradorTorneo): string | undef
     if (b.name.trim().length < 3) return 'El nombre necesita al menos 3 caracteres.';
     if (!b.date) return 'Falta la fecha.';
     if (!b.seasonId) return 'Elegí una temporada.';
+    const link = problemaDelLink(b.registrationUrl);
+    if (link) return link;
     // El servidor lo rechaza igual; decirlo acá evita el viaje.
     if (b.payment.required && b.payment.amount <= 0) {
       return 'Si el torneo cobra inscripción, poné el monto.';
@@ -227,6 +249,7 @@ export function cuerpoDeCreacion(b: BorradorTorneo) {
     name: b.name.trim(),
     date: b.date,
     description: b.description.trim(),
+    registrationUrl: linkParaEnviar(b.registrationUrl),
     // El monto se anula si no se cobra: uno que sobrevive apagado reaparece al
     // volver a marcar la casilla, y el torneo termina cobrando sin que nadie lo
     // haya decidido.

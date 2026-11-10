@@ -417,6 +417,78 @@ describe('editar y eliminar el torneo', () => {
     });
   });
 
+  /** `FE-36`: el link de pre-inscripción se carga, se cambia y se borra desde la ficha. */
+  describe('link de pre-inscripción', () => {
+    const conLink = (registrationUrl: string | null) => {
+      servidor({
+        'GET /api/admin/tournaments/t1': () => ({
+          json: { tournament: { ...TORNEO, status: 'sin_iniciar', registrationUrl } },
+        }),
+        'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
+      });
+      renderPantalla(TournamentPage);
+    };
+
+    it('el formulario muestra el link que ya tiene', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+      expect(screen.getByLabelText('Link de pre-inscripción')).toHaveValue('https://forms.gle/x');
+    });
+
+    it('cargarlo lo manda en el PATCH', async () => {
+      conLink(null);
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), {
+        target: { value: ' https://forms.gle/nuevo ' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => {
+        const patch = llamadas.find((l) => l.method === 'PATCH');
+        expect(patch?.body).toMatchObject({ registrationUrl: 'https://forms.gle/nuevo' });
+      });
+    });
+
+    it('vaciar el campo lo borra (null)', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => {
+        const patch = llamadas.find((l) => l.method === 'PATCH');
+        expect(patch?.body).toMatchObject({ registrationUrl: null });
+      });
+    });
+
+    /** Si no cambió, no viaja: el audit log no anota un cambio que no hubo. */
+    it('sin tocarlo, el PATCH no lo manda', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Nombre nuevo' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+      const patch = llamadas.find((l) => l.method === 'PATCH');
+      expect(patch?.body).not.toHaveProperty('registrationUrl');
+    });
+
+    it('un link sin https no deja guardar', async () => {
+      conLink(null);
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), {
+        target: { value: 'javascript:alert(1)' },
+      });
+
+      expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled();
+      expect(screen.getByLabelText('Link de pre-inscripción')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
+    });
+  });
+
   /**
    * Borrar pide dos toques sobre el mismo botón. Sin `confirm()` —bloquea el
    * hilo y en un celular saca del contexto— ni modal, que taparía la pantalla.

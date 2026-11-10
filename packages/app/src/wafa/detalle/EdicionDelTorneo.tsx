@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
+import { linkParaEnviar, problemaDelLink } from '../wizard.js';
 import type { Torneo } from './useTorneo.js';
 
 export function EdicionDelTorneo({
@@ -32,12 +33,21 @@ export function EdicionDelTorneo({
    */
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
 
+  const linkActual = torneo.registrationUrl ?? null;
+  const problemaDeLink = editando ? problemaDelLink(editando.registrationUrl ?? '') : undefined;
+
   const guardarDatos = async () => {
     if (!editando) return;
+    const link = linkParaEnviar(editando.registrationUrl ?? '');
     try {
       await rpc.admin.tournaments[':id'].$patch({
         param: { id: torneo.id },
-        json: { name: editando.name.trim(), date: editando.date.slice(0, 10) },
+        json: {
+          name: editando.name.trim(),
+          date: editando.date.slice(0, 10),
+          // Sólo si cambió: así el audit log no anota un cambio que no hubo (`BE-24`).
+          ...(link === linkActual ? {} : { registrationUrl: link }),
+        },
       });
       setEditando(undefined);
       await onCambio();
@@ -93,8 +103,8 @@ export function EdicionDelTorneo({
         </p>
       )}
 
-      {/* Sólo nombre, fecha y descripción. El recorrido tiene sus propias reglas —un blanco con
-          puntajes está bloqueado— y se edita desde su pantalla, no de refilón acá. */}
+      {/* Nombre, fecha y link de pre-inscripción. El recorrido tiene sus propias reglas —un blanco
+          con puntajes está bloqueado— y se edita desde su pantalla, no de refilón acá. */}
       {editando && (
         <form
           onSubmit={(e) => {
@@ -117,8 +127,24 @@ export function EdicionDelTorneo({
             onChange={(e) => setEditando({ ...editando, date: e.target.value })}
             required
           />
+          {/* `FE-36`. Vaciarlo lo borra: el formulario de pre-inscripción cerró. */}
+          <Field
+            label="Link de pre-inscripción"
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            value={editando.registrationUrl ?? ''}
+            onChange={(e) => setEditando({ ...editando, registrationUrl: e.target.value })}
+            placeholder="Opcional · https://…"
+            hint="Vacío, la landing no muestra el botón."
+            error={problemaDeLink}
+          />
 
-          <Button type="submit" ancho disabled={editando.name.trim().length < 3}>
+          <Button
+            type="submit"
+            ancho
+            disabled={editando.name.trim().length < 3 || problemaDeLink !== undefined}
+          >
             Guardar cambios
           </Button>
         </form>

@@ -7,7 +7,7 @@ import { formatearMonto } from '@bal/shared';
 import { Field } from '../../components/ui.js';
 import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import type { SeasonRow } from '../pages/Seasons.js';
-import type { BorradorTorneo } from '../wizard.js';
+import { type BorradorTorneo, problemaDelLink } from '../wizard.js';
 
 export function PasoDatos({
   borrador,
@@ -72,6 +72,22 @@ export function PasoDatos({
         value={borrador.description}
         onChange={(e) => onCambio({ description: e.target.value })}
         placeholder="Opcional"
+      />
+
+      {/*
+        `FE-36`: el formulario o la planilla donde los arqueros se pre-anotan. La landing lo
+        muestra como botón. Se valida con el mismo esquema que el servidor (`problemaDelLink`).
+      */}
+      <Field
+        label="Link de pre-inscripción"
+        type="url"
+        inputMode="url"
+        autoComplete="off"
+        value={borrador.registrationUrl}
+        onChange={(e) => onCambio({ registrationUrl: e.target.value })}
+        placeholder="Opcional · https://…"
+        hint="Formulario o planilla donde se pre-anotan los arqueros. La landing muestra un botón."
+        error={problemaDelLink(borrador.registrationUrl)}
       />
 
       {/* El monto es del torneo, uno solo para todos. Quién pagó se marca
