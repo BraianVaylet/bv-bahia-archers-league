@@ -124,7 +124,7 @@ export function Hero({
           </h1>
 
           <p className="max-w-[480px] text-base leading-[1.55] text-[var(--monte-muted)] min-[760px]:text-lg min-[760px]:leading-[1.55]">
-            Un torneo por mes, un recorrido por el monte. Seguí los resultados en vivo, los podios
+            Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios
             de cada fecha y el ranking de tu categoría.
           </p>
 
