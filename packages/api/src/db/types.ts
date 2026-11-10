@@ -298,6 +298,7 @@ export type AuditAction =
   | 'tournament.create'
   | 'tournament.start'
   | 'tournament.delete'
+  | 'tournament.update'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'
   | 'patrol.pin.reveal'

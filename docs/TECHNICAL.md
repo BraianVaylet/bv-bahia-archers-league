@@ -605,6 +605,7 @@ Los presupuestos de bundle los verifica `scripts/presupuesto.mjs` en CI. **Mide 
 | `INVALID_TOKEN` | 400 | Token no válido para la modalidad de ese blanco |
 | `INVALID_STATE_TRANSITION` | 409 | Ej. publicar un torneo que no está `completado` |
 | `TARGET_LOCKED` | 409 | Editar un blanco que ya tiene puntajes |
+| `FIELD_NOT_EDITABLE` | 409 | Editar un dato del torneo que su estado no permite (`camposEditables`, `SH-11`). `details.campos` lista todos los rechazados |
 | `ARCHER_IN_USE` | 409 | Eliminar un arquero que participó de un torneo |
 | `SIGNATURES_MISSING` | 409 | Cerrar el circuito sin todas las firmas |
 | `SIGNATURE_MISMATCH` | 409 | El puntaje cambió después de firmarse: lo devuelven el cierre del circuito y publicar |

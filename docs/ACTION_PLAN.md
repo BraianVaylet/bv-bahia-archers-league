@@ -714,7 +714,8 @@ _(Hecho. `camposEditables(status)` sin el parámetro `{ archivado }` —no cambi
 - `scores` sólo en `completado`.
 - Cobertura 100% del módulo.
 
-### `[ ] BE-24` · Edición por estado en el backend
+### `[x] BE-24` · Edición por estado en el backend
+_(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos como al crear —editando se podía dejar un recorrido con huecos—, un mapa de estacas que no ubica a un inscripto da 400 en vez de un 500 del dominio, y si el mismo pedido cambia el recorrido y rearma, las patrullas arrancan sobre el recorrido nuevo. **Deuda:** rearmar recrea los participantes y pierde las marcas de pago (ya pasaba con `archerIds`; ahora también con `stakeMap`). Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** `updateTournament` aplica la tabla de `SH-11` en vez de su propia lógica; `completado` pasa a aceptar nombre y fecha.
 **Archivos:** `packages/api/src/services/tournamentEditService.ts`, `packages/shared/src/schemas.ts` (`UpdateTournamentSchema` + `stakeMap`, `distances`), tests del servicio
 **Referencia:** `SH-11` · [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.7

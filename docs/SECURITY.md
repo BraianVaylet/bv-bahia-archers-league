@@ -261,7 +261,7 @@ El log existe para contestar «quién hizo esto, cuándo y desde dónde». Cada 
 
 | Quién | Acciones |
 |---|---|
-| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/publish/unpublish/target_edit/participants_edit` · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
+| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/update/publish/unpublish/target_edit/participants_edit` (`update` con los campos cambiados, sin sus valores) · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
 | Patrulla | `patrol.close` (con la IP de quien cerró) · `sync.forbidden` · `sync.conflict` |
 | Público | `archer.register_duplicate` |
 

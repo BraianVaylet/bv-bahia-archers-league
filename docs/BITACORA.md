@@ -14,6 +14,29 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `BE-24` — El backend edita según el estado del torneo
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-24-edicion-por-estado` (apilada sobre `SH-11`).
+
+`tournamentEditService.updateTournament` deja de decidir por su cuenta qué se edita: arma la lista de campos del pedido y la pasa por `exigirEditables` (`SH-11`). Esperando publicación ahora acepta nombre y fecha; publicado no acepta nada; en proceso, lo que ya aceptaba. `PATCH /admin/tournaments/:id` acepta además `stakeMap` y `distances` (sólo sin iniciar).
+
+**Decisiones:**
+- **`FIELD_NOT_EDITABLE` (409) es un código nuevo del API**, con `details.campos`: `DomainError` no viaja por HTTP y ningún lugar del backend lo traducía. Se rechaza el pedido entero, antes de tocar nada. Documentado en `TECHNICAL.md` §7.
+- **Cambiar el mapa de estacas rearma las patrullas sólo si algún inscripto cambia de estaca.** Si el cambio no toca a nadie (mover una categoría que no está en el torneo), las patrullas y sus PIN se quedan: no hay que reimprimir credenciales por un ajuste que no afecta a nadie.
+- **Audit `tournament.update` con los nombres de los campos, sin los valores** (el pago es plata). `target_edit` y `participants_edit` siguen como estaban. `SECURITY.md` (tabla del audit log) actualizado.
+- `prepararParticipantes` perdió su propia guarda de estado: ya la aplica `exigirCampos`, y tenerla en dos lugares era la duplicación que `SH-11` vino a sacar. `removeTournament` usa `puedeEliminar`.
+
+**Encontrado de paso y corregido:**
+- `UpdateTournamentSchema` no exigía índices de blancos contiguos, como sí `CreateTournamentSchema`: editando se podía dejar un recorrido con huecos.
+- Un `stakeMap` que no ubica la categoría de un inscripto hacía que `buildPatrols` lanzara un `DomainError` que salía como 500. Ahora es `VALIDATION_ERROR` (400).
+- Si un mismo pedido cambiaba el recorrido y rearmaba patrullas, los blancos de inicio se calculaban sobre el recorrido viejo.
+
+**Deuda:** rearmar las patrullas recrea los participantes y **pierde las marcas de pago** (`paid`). Ya pasaba al editar participantes; ahora también al mover una categoría de estaca. Lo razonable es conservar `paid` por `archerId` al rearmar → para `FE-32`, que es donde el admin va a disparar esto desde la pantalla.
+
+**Tests:** 13 casos nuevos en `tests/edicion.test.ts`, vistos fallar (11 en rojo; los dos que pasaban de entrada —en proceso acepta descripción y pago, que ya funcionaba, y el mapa vacío, que pasaba por la razón equivocada: `.strict()` no conocía `stakeMap`— se verificaron con mutación: sin la validación de estacas sale 500, y forzando el rearmado siempre, el de «no toca a nadie» falla). `@bal/api` 551 tests, `@bal/shared` 445, `pnpm -r typecheck`, Biome y `capas` verdes.
+
+---
+
 ## 2026-11-10 · `SH-11` — Qué se edita de un torneo en cada estado
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/sh-11-edicion-por-estado`.
