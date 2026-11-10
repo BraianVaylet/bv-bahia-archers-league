@@ -14,6 +14,16 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · Corrección de `REF7-8` — el anillo por patrulla arrancaba un blanco corrido
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+En el detalle de un torneo en proceso, el `AnilloDeRecorrido` de cada patrulla recibía `startTargetIndex` directo como `inicio`. Pero `startTargetIndex` es el **número** del blanco de inicio (1-based, `min(1)` en el schema) y el anillo cuenta **posiciones** en la lista (0-based): una patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos. Ahora se pasa la posición del blanco de inicio en la lista. Lo encontré al leer el dominio para `REF7-10`; el test de componente no lo veía porque sus datos arrancaban en el 0.
+
+**Tests:** un caso nuevo en `landing.test.tsx` (patrulla que arranca en el 3 con dos blancos: completos los de las posiciones 2 y 3), visto fallar con el código anterior.
+
+---
+
 ## 2026-11-10 · `REF7-9` — WAFA: cambios simples
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1` (PR #90).

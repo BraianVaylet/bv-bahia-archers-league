@@ -693,6 +693,41 @@ describe('TournamentPage', () => {
 
   const renderDetalle = () => renderEn(<TournamentPage />, '/torneos/t1', '/torneos/:id');
 
+  /**
+   * `startTargetIndex` es el **número** del blanco de inicio (1-based, como `targets[].index`) y el
+   * anillo cuenta posiciones en la lista (0-based). Pasarlo directo corría el avance un blanco: una
+   * patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos.
+   */
+  it('el anillo de cada patrulla cuenta desde su blanco de inicio', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: {
+          tournament: detalle({
+            status: 'en_proceso',
+            targets: [1, 2, 3, 4, 5, 6].map((index) => ({ index, modality: 'campo', arrows: 3 })),
+            patrols: [
+              {
+                number: 1,
+                startTargetIndex: 3,
+                status: 'en_curso',
+                targetsCompleted: 2,
+                members: [{ firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' }],
+              },
+            ],
+          }),
+        },
+      }),
+    });
+    renderDetalle();
+
+    const patrulla = await screen.findByTestId('patrulla-1');
+    const completos = [...patrulla.querySelectorAll('[data-completo]')].map((s) =>
+      Number(s.getAttribute('data-segmento')),
+    );
+    // Blancos 3 y 4 → posiciones 2 y 3.
+    expect(completos).toEqual([2, 3]);
+  });
+
   it('muestra el podio de un torneo publicado', async () => {
     servidor({
       '/api/public/tournaments/t1': () => ({
