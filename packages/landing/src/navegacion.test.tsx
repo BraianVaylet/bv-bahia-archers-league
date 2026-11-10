@@ -136,6 +136,19 @@ describe('navegar por el sitio público', () => {
     expect(within(principal()).queryByRole('link', { name: 'Ingresar' })).toBeNull();
   });
 
+  /**
+   * `REF7-12`: con el encabezado nuevo hay siete paradas de Tab antes del contenido (marca, cuatro
+   * secciones, tema, «Ingresar»). El primer enlace salta al `<main>`.
+   */
+  it('el primer enlace salta al contenido', () => {
+    render(<App />);
+    const primero = screen.getAllByRole('link')[0];
+
+    expect(primero).toHaveTextContent('Saltar al contenido');
+    expect(primero).toHaveAttribute('href', '#contenido');
+    expect(principal()).toHaveAttribute('id', 'contenido');
+  });
+
   it('abrir el sitio no le roba el foco a nadie', () => {
     render(<App />);
 
