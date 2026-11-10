@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `FE-37` — El pie enlaza el código fuente
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-37-pie-repositorio`.
+
+«Código fuente en GitHub» en la línea legal del pie de la landing, apuntando al repositorio público. Abre otra pestaña con `rel="noopener noreferrer"` y lo anuncia en texto oculto.
+
+**Decisiones:**
+- **En la línea legal, no en una columna.** «La liga» son páginas del sitio y «Acceso» es la PWA; el repositorio no es ninguna de las dos. La línea legal ya era el lugar del crédito.
+- **La línea legal pasa de `py-4` a `py-2`.** El enlace trae sus 44px de alto (regla 9 y el test de `marca.test.tsx` que mide todos los enlaces del pie); con el padding viejo la línea crecía de más.
+- **Ícono nuevo, `IconoEnlaceExterno`**, con el trazo común de `ref-7`: no había ninguno para «sale del sitio». Entró en la lista de `iconos.test.tsx`.
+- `REPOSITORIO` es una constante exportada de `Footer.tsx`, no un string repetido en el JSX y en el test.
+
+**Tests:** el del enlace (href, `target`, `rel`, nombre accesible con «GitHub» y «otra pestaña», ícono decorativo) y los del ícono nuevo, vistos fallar primero. `@bal/ui` 359 y `@bal/landing` 97 verdes; typecheck y Biome limpios. En el navegador: 44px de alto y sin scroll horizontal a 360 px y a 1024 px.
+
+---
+
 ## 2026-11-10 · `FE-39` — El alta rápida del wizard pide sexo y DNI
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, sin commitear (en la rama `copy/hero-predio`, junto a cambios de otra sesión que no son de esta tarea).
