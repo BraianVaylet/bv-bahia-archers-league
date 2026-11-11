@@ -13,6 +13,7 @@ import { camposEditables, puedeEliminar } from '@bal/shared';
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
+import { CampoDePago } from '../crear/CampoDePago.js';
 import { linkParaEnviar, problemaDelLink } from '../wizard.js';
 import type { Torneo } from './useTorneo.js';
 
@@ -42,15 +43,27 @@ export function EdicionDelTorneo({
   // El formulario de acá edita nombre y fecha; sin al menos eso, no hay nada que ofrecer.
   const sePuedeEditar = editables.has('name') && editables.has('date');
   const editaLink = editables.has('registrationUrl');
+  const editaDescripcion = editables.has('description');
+  const editaPago = editables.has('payment');
   const sePuedeEliminar = puedeEliminar(torneo.status);
 
   const linkActual = torneo.registrationUrl ?? null;
+  const descripcionActual = torneo.description ?? '';
+  const pagoActual = torneo.payment ?? { required: false, amount: 0 };
   const problemaDeLink =
     editando && editaLink ? problemaDelLink(editando.registrationUrl ?? '') : undefined;
+  const pagoSinMonto =
+    editando !== undefined &&
+    editaPago &&
+    editando.payment?.required === true &&
+    !(editando.payment.amount > 0);
 
   const guardarDatos = async () => {
     if (!editando) return;
     const link = linkParaEnviar(editando.registrationUrl ?? '');
+    const descripcion = (editando.description ?? '').trim();
+    const pago = editando.payment ?? pagoActual;
+    const pagoCambio = pago.required !== pagoActual.required || pago.amount !== pagoActual.amount;
     try {
       await rpc.admin.tournaments[':id'].$patch({
         param: { id: torneo.id },
@@ -60,6 +73,10 @@ export function EdicionDelTorneo({
           // Sólo si el estado lo permite y cambió: el servidor rechaza el pedido entero si sobra
           // un campo, y el audit log no anota un cambio que no hubo (`BE-24`).
           ...(editaLink && link !== linkActual ? { registrationUrl: link } : {}),
+          ...(editaDescripcion && descripcion !== descripcionActual.trim()
+            ? { description: descripcion }
+            : {}),
+          ...(editaPago && pagoCambio ? { payment: { ...pago } } : {}),
         },
       });
       setEditando(undefined);
@@ -144,6 +161,15 @@ export function EdicionDelTorneo({
             onChange={(e) => setEditando({ ...editando, date: e.target.value })}
             required
           />
+          {/* `FE-32`: lo que el servidor ya aceptaba y la ficha no ofrecía. */}
+          {editaDescripcion && (
+            <Field
+              label="Descripción"
+              value={editando.description ?? ''}
+              onChange={(e) => setEditando({ ...editando, description: e.target.value })}
+              placeholder="Opcional"
+            />
+          )}
           {/* `FE-36`. Vaciarlo lo borra: el formulario de pre-inscripción cerró. */}
           {editaLink && (
             <Field
@@ -158,11 +184,19 @@ export function EdicionDelTorneo({
               error={problemaDeLink}
             />
           )}
+          {editaPago && (
+            <CampoDePago
+              pago={editando.payment ?? pagoActual}
+              onCambio={(payment) => setEditando({ ...editando, payment })}
+            />
+          )}
 
           <Button
             type="submit"
             ancho
-            disabled={editando.name.trim().length < 3 || problemaDeLink !== undefined}
+            disabled={
+              editando.name.trim().length < 3 || problemaDeLink !== undefined || pagoSinMonto
+            }
           >
             Guardar cambios
           </Button>

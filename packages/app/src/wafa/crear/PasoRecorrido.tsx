@@ -1,5 +1,8 @@
 /**
- * Paso 2 del wizard de creación de torneo: el recorrido, blanco por blanco.
+ * El recorrido, blanco por blanco: el paso 2 del wizard y la edición del recorrido en la ficha.
+ *
+ * Recibe sólo los blancos (`FE-32`): antes pedía el borrador entero del wizard aunque usaba sólo
+ * esa parte, y la ficha no tiene un borrador de wizard.
  */
 
 import {
@@ -13,7 +16,7 @@ import { clasesDeBotonIcono, IconoBajar, IconoQuitar, IconoSubir } from '@bal/ui
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import {
   agregarBlanco,
-  type BorradorTorneo,
+  type BlancoBorrador,
   conModalidad,
   eliminarBlanco,
   maximoDelRecorrido,
@@ -21,13 +24,13 @@ import {
 } from '../wizard.js';
 
 export function PasoRecorrido({
-  borrador,
+  blancos,
   onCambio,
 }: {
-  readonly borrador: BorradorTorneo;
-  readonly onCambio: (b: Partial<BorradorTorneo>) => void;
+  readonly blancos: readonly BlancoBorrador[];
+  readonly onCambio: (blancos: BlancoBorrador[]) => void;
 }) {
-  const set = (blancos: BorradorTorneo['blancos']) => onCambio({ blancos });
+  const set = (nuevos: BlancoBorrador[]) => onCambio(nuevos);
 
   return (
     <div className="flex flex-col gap-3">
@@ -39,12 +42,12 @@ export function PasoRecorrido({
       >
         <span className="text-sm text-[var(--ink-muted)]">Máximo posible</span>
         <span className="font-display text-2xl font-bold tabular-nums">
-          {maximoDelRecorrido(borrador.blancos)}
+          {maximoDelRecorrido(blancos)}
         </span>
       </div>
 
       <ul className="flex flex-col gap-2">
-        {borrador.blancos.map((b, i) => (
+        {blancos.map((b, i) => (
           <li
             key={b.index}
             className={cn(clasesDeTarjeta(), 'flex flex-col gap-2')}
@@ -58,7 +61,7 @@ export function PasoRecorrido({
                   type="button"
                   aria-label={`Subir el blanco ${b.index}`}
                   disabled={i === 0}
-                  onClick={() => set(moverBlanco(borrador.blancos, b.index, -1))}
+                  onClick={() => set(moverBlanco(blancos, b.index, -1))}
                   className={clasesDeBotonIcono()}
                 >
                   <IconoSubir />
@@ -66,8 +69,8 @@ export function PasoRecorrido({
                 <button
                   type="button"
                   aria-label={`Bajar el blanco ${b.index}`}
-                  disabled={i === borrador.blancos.length - 1}
-                  onClick={() => set(moverBlanco(borrador.blancos, b.index, 1))}
+                  disabled={i === blancos.length - 1}
+                  onClick={() => set(moverBlanco(blancos, b.index, 1))}
                   className={clasesDeBotonIcono()}
                 >
                   <IconoBajar />
@@ -75,8 +78,8 @@ export function PasoRecorrido({
                 <button
                   type="button"
                   aria-label={`Eliminar el blanco ${b.index}`}
-                  disabled={borrador.blancos.length === 1}
-                  onClick={() => set(eliminarBlanco(borrador.blancos, b.index))}
+                  disabled={blancos.length === 1}
+                  onClick={() => set(eliminarBlanco(blancos, b.index))}
                   className={clasesDeBotonIcono()}
                 >
                   <IconoQuitar />
@@ -94,7 +97,7 @@ export function PasoRecorrido({
                   value={b.modality}
                   onChange={(e) =>
                     set(
-                      borrador.blancos.map((x) =>
+                      blancos.map((x) =>
                         x.index === b.index ? conModalidad(x, e.target.value as Modality) : x,
                       ),
                     )
@@ -119,7 +122,7 @@ export function PasoRecorrido({
                   value={b.arrows}
                   onChange={(e) =>
                     set(
-                      borrador.blancos.map((x) =>
+                      blancos.map((x) =>
                         x.index === b.index ? { ...x, arrows: Number(e.target.value) } : x,
                       ),
                     )
@@ -134,7 +137,7 @@ export function PasoRecorrido({
               value={b.description ?? ''}
               onChange={(e) =>
                 set(
-                  borrador.blancos.map((x) =>
+                  blancos.map((x) =>
                     x.index === b.index ? { ...x, description: e.target.value || null } : x,
                   ),
                 )
@@ -145,7 +148,7 @@ export function PasoRecorrido({
         ))}
       </ul>
 
-      <Button variante="secundario" ancho onClick={() => set(agregarBlanco(borrador.blancos))}>
+      <Button variante="secundario" ancho onClick={() => set(agregarBlanco(blancos))}>
         Agregar blanco
       </Button>
     </div>

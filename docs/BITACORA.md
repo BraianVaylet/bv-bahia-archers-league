@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · `FE-32` — WAFA: edición completa de un torneo sin iniciar
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado salvo estacas (→ `FE-40`), en la rama `feat/fe-32-edicion-completa`.
+
+**WAFA.** El formulario de «Editar» suma **descripción** y **pago** cuando `camposEditables` los permite (sin iniciar y en proceso), y manda sólo lo que cambió. El bloque de inscripción pasó a `crear/CampoDePago.tsx`, que usan el wizard y la ficha. Sin iniciar, «Editar recorrido» abre el mismo editor del paso 2 del wizard (`PasoRecorrido`, que ahora recibe sólo los blancos en vez del borrador entero) y, si cambia la cantidad de blancos, avisa antes de guardar que se rearman las patrullas, cambian los PIN y los pagos se conservan.
+
+**Backend (encontrado al planificar, con TDD):**
+- **Rearmar ya no borra los pagos.** Cambiar participantes o mover una categoría de estaca recreaba los participantes con `paid: false`: el admin marca los pagos en la puerta y un ajuste de último momento los perdía. Ahora se copian por `archerId` (deuda anotada en `BE-24`).
+- **Cambiar la cantidad de blancos sin iniciar rearma las patrullas.** El blanco de inicio de cada patrulla se reparte sobre el recorrido; con menos blancos, una podía quedar arrancando en uno que ya no existe. Cambiar cómo es un blanco, sin cambiar cuántos son, no rearma; en proceso nunca se rearma.
+
+**Decisiones:**
+- **El editor de recorrido aparece sólo cuando el torneo se puede rearmar entero** (`camposEditables` incluye a los participantes): en proceso el servidor deja tocar blancos sin puntajes, pero eso pide mostrar cuáles están bloqueados uno por uno; queda fuera de este editor.
+- **Estacas y distancias quedan para `FE-40`.** No existe pantalla ni en el wizard (se crea con el mapa por defecto), el backend ya lo acepta y el mapa por defecto cubre el uso normal. Es una interfaz nueva, no una extracción.
+
+**Tests:** 4 de backend en `edicion.test.ts` (pagos al cambiar participantes y al mover estaca, la cantidad de blancos rearma sin patrullas fuera del recorrido, cambiar un blanco sin cambiar la cantidad no rearma) y 5 de pantalla en `torneo-ui.test.tsx` (descripción y pago mandando sólo lo cambiado, dejar de cobrar, esperando publicación sin esos campos, editar el recorrido con el aviso, en proceso sin editor), vistos fallar los que no se cumplían. `@bal/api` 608, `@bal/app` 710, typecheck, Biome; presupuesto de WAFA 136,61 de 140 (WAFL sin cambios). En el navegador, con backend simulado: el editor de recorrido en la ficha y el aviso al agregar un blanco.
+
+---
+
 ## 2026-11-11 · `FE-34` — WAFA: pantalla de corrección de puntajes
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-34-corregir-puntajes`.

@@ -3,11 +3,11 @@
  */
 
 import { useCarga } from '@bal/cliente';
-import { formatearMonto } from '@bal/shared';
 import { Field } from '../../components/ui.js';
 import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import type { SeasonRow } from '../pages/Seasons.js';
 import { type BorradorTorneo, problemaDelLink } from '../wizard.js';
+import { CampoDePago } from './CampoDePago.js';
 
 export function PasoDatos({
   borrador,
@@ -90,47 +90,7 @@ export function PasoDatos({
         error={problemaDelLink(borrador.registrationUrl)}
       />
 
-      {/* El monto es del torneo, uno solo para todos. Quién pagó se marca
-          después, desde el detalle. Ver docs/SECURITY.md §2. */}
-      <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-medium">Inscripción</legend>
-
-        <label className="flex items-center gap-2 min-h-[44px]">
-          <input
-            type="checkbox"
-            checked={borrador.payment.required}
-            onChange={(e) =>
-              onCambio({
-                // Al desmarcar, el monto se va con la casilla: uno que sobrevive
-                // apagado reaparece al volver a marcarla.
-                payment: e.target.checked
-                  ? { ...borrador.payment, required: true }
-                  : { required: false, amount: 0 },
-              })
-            }
-            className="w-5 h-5"
-          />
-          Este torneo cobra inscripción
-        </label>
-
-        {borrador.payment.required && (
-          <Field
-            label="Monto por arquero"
-            type="number"
-            min={1}
-            step={1}
-            value={borrador.payment.amount === 0 ? '' : String(borrador.payment.amount)}
-            onChange={(e) =>
-              onCambio({ payment: { required: true, amount: Number(e.target.value) || 0 } })
-            }
-            hint={
-              borrador.payment.amount > 0
-                ? `${formatearMonto(borrador.payment.amount)} por arquero`
-                : 'En pesos, sin centavos.'
-            }
-          />
-        )}
-      </fieldset>
+      <CampoDePago pago={borrador.payment} onCambio={(payment) => onCambio({ payment })} />
     </div>
   );
 }

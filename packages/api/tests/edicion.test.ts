@@ -788,3 +788,80 @@ describe('cambiar estacas y distancias de un torneo sin iniciar', () => {
     expect(((await res.json()) as RespuestaDeError).error.code).toBe('FIELD_NOT_EDITABLE');
   });
 });
+
+/**
+ * Rearmar las patrullas recrea los participantes (`FE-32`). Lo que el club ya anotó de cada
+ * arquero —si pagó— no puede perderse por eso: el admin marca los pagos en la puerta, antes de
+ * largar, y un ajuste de último momento al recorrido o a la lista los borraba.
+ */
+describe('rearmar patrullas sin perder lo anotado', () => {
+  const pagos = async () =>
+    Object.fromEntries(
+      (await participants().find().toArray()).map((p) => [p.archerId.toHexString(), p.paid]),
+    );
+
+  it('cambiar los participantes conserva los pagos de los que siguen', async () => {
+    const { c, tournamentId, archerIds } = await torneoArmado();
+    const [pago, otro] = archerIds;
+    if (!pago || !otro) throw new Error('faltan arqueros');
+    await participants().updateOne({ archerId: new ObjectId(pago) }, { $set: { paid: true } });
+    const [nuevo] = await crearArqueros(c, [['tradicional', 1]], 100);
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      archerIds: [...archerIds, nuevo],
+    });
+
+    const despues = await pagos();
+    expect(despues[pago]).toBe(true);
+    expect(despues[otro]).toBe(false);
+    expect(despues[nuevo as string]).toBe(false);
+  });
+
+  it('mover una categoría de estaca conserva los pagos', async () => {
+    const { c, tournamentId, archerIds } = await torneoArmado();
+    const longbow = (await participants().findOne({ category: 'longbow' }))?.archerId;
+    if (!longbow) throw new Error('sin longbow');
+    await participants().updateOne({ archerId: longbow }, { $set: { paid: true } });
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      stakeMap: {
+        roja: ['recurvo', 'compuesto', 'cazador', 'longbow'],
+        azul: ['razo', 'tradicional'],
+        amarilla: ['escuela'],
+        naranja: ['principiantes'],
+      },
+    });
+
+    expect((await pagos())[longbow.toHexString()]).toBe(true);
+    expect(Object.keys(await pagos())).toHaveLength(archerIds.length);
+  });
+
+  /**
+   * El blanco de inicio de cada patrulla depende de cuántos blancos tiene el recorrido. Con menos
+   * blancos, una patrulla podía quedar arrancando en uno que ya no existe.
+   */
+  it('cambiar la cantidad de blancos rearma, y ninguna patrulla arranca fuera del recorrido', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const corto = recorridoDeReferencia().slice(0, 4);
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, { targets: corto });
+
+    expect(res.status).toBe(200);
+    const inicios = (await patrols().find().toArray()).map((p) => p.startTargetIndex);
+    expect(inicios.every((i) => i >= 1 && i <= corto.length)).toBe(true);
+  });
+
+  /** Cambiar sólo cómo es un blanco, sin cambiar cuántos son, no toca las patrullas ni sus PIN. */
+  it('cambiar un blanco sin cambiar la cantidad deja las patrullas como estaban', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const antes = (await patrols().find().toArray()).map((p) => p._id.toHexString()).sort();
+    const recorrido = recorridoDeReferencia().map((t) =>
+      t.index === 1 ? { ...t, description: 'Jabalí' } : t,
+    );
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, { targets: recorrido });
+
+    const despues = (await patrols().find().toArray()).map((p) => p._id.toHexString()).sort();
+    expect(despues).toEqual(antes);
+  });
+});
