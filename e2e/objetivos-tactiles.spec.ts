@@ -93,7 +93,7 @@ test('en WAFA nada tocable baja de 44 px', async ({ page, request }) => {
 
   await page.goto('/app/wafa');
   await page.getByLabel('Usuario').fill('admin');
-  await page.getByLabel('Password').fill(PASSWORD_NUEVO);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD_NUEVO);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText('Crear torneo')).toBeVisible();
 
@@ -174,7 +174,7 @@ test('el foco se ve al navegar con teclado', async ({ page, request }) => {
 
   await page.goto('/app/wafa');
   await page.getByLabel('Usuario').fill('admin');
-  await page.getByLabel('Password').fill(PASSWORD_NUEVO);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD_NUEVO);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText('Crear torneo')).toBeVisible();
 

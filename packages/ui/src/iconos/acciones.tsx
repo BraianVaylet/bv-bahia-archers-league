@@ -194,3 +194,24 @@ export function IconoCopiar(p: IconoProps) {
     </Svg>
   );
 }
+
+/** Ver lo escrito en un campo de password: un ojo abierto. */
+export function IconoOjo(p: IconoProps) {
+  return (
+    <Svg {...p}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  );
+}
+
+/** Volver a ocultarlo: el mismo ojo, tachado. */
+export function IconoOjoTachado(p: IconoProps) {
+  return (
+    <Svg {...p}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M4 4l16 16" />
+    </Svg>
+  );
+}

@@ -135,7 +135,7 @@ export async function torneoIniciado(
 export async function entrarComoAdmin(page: Page): Promise<void> {
   await page.goto('/app/wafa');
   await page.getByLabel('Usuario').fill('admin');
-  await page.getByLabel('Password').fill(PASSWORD_NUEVO);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD_NUEVO);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText('Crear torneo')).toBeVisible();
 }

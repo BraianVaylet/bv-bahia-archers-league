@@ -10,7 +10,7 @@
 import { MIN_PASSWORD_LENGTH } from '@bal/shared';
 import { useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
-import { Button, Field, Screen } from '../../components/ui.js';
+import { Button, CampoDePassword, Screen } from '../../components/ui.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { cambiarPassword } from '../sesion.js';
 
@@ -74,18 +74,16 @@ export function ChangePasswordPage({
       </div>
 
       <form onSubmit={(e) => void enviar(e)} className="flex flex-col gap-4">
-        <Field
+        <CampoDePassword
           label="Password actual"
-          type="password"
           value={actual}
           onChange={(e) => setActual(e.target.value)}
           autoComplete="current-password"
           required
         />
 
-        <Field
+        <CampoDePassword
           label="Password nuevo"
-          type="password"
           value={nuevo}
           onChange={(e) => setNuevo(e.target.value)}
           autoComplete="new-password"
