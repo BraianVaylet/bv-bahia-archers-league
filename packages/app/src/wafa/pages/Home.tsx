@@ -49,6 +49,8 @@ export interface TournamentRow {
   readonly maxPossibleScore: number;
   /** Qué proporción del recorrido es de cada modalidad. La calcula el servidor. */
   readonly modalities?: readonly ParteDeModalidad[];
+  /** Archivado (`BE-26`): sigue publicado, pero no suma al ranking ni se ve en la landing. */
+  readonly archived?: boolean;
 }
 
 /**
@@ -88,6 +90,16 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
       href={`/wafa/torneos/${torneo.id}`}
       enlace={EnlaceInterno}
       accion={ACCION_DEL_ADMIN[torneo.status]}
+      // `FE-35`: un archivado lo dice con texto y un tono neutro; nada de colores de estaca (regla 8).
+      {...(torneo.archived
+        ? {
+            pie: (
+              <span className="inline-flex items-center rounded-full border px-2.5 h-7 text-sm text-[var(--ink-muted)]">
+                Archivado · no suma ni se ve en la landing
+              </span>
+            ),
+          }
+        : {})}
     />
   );
 }
@@ -103,6 +115,9 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
   );
   const torneos = carga.datos;
   const error = carga.error;
+  const [verArchivados, setVerArchivados] = useState(false);
+  const archivados = torneos?.filter((t) => t.archived).length ?? 0;
+  const hayArchivados = archivados > 0;
 
   return (
     <Pantalla>
@@ -160,11 +175,27 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
           torneos.length > 0 &&
           ORDEN.map((status) => {
             const info = ESTADO_DE_TORNEO[status];
-            const delGrupo = torneos.filter((t) => t.status === status);
+            // `FE-35`: los archivados quedan fuera salvo que se pida verlos.
+            const delGrupo = torneos.filter(
+              (t) => t.status === status && (verArchivados || !t.archived),
+            );
+            const conFiltro = status === 'publicado' && hayArchivados;
 
             return (
               <section key={status} className="flex flex-col gap-3">
                 <RotuloDeSeccion titulo={info.plural} cantidad={delGrupo.length} />
+
+                {conFiltro && (
+                  <label className="flex items-center gap-2 min-h-[44px] text-sm">
+                    <input
+                      type="checkbox"
+                      checked={verArchivados}
+                      onChange={(e) => setVerArchivados(e.target.checked)}
+                      className="w-5 h-5"
+                    />
+                    Ver archivados ({archivados})
+                  </label>
+                )}
 
                 {delGrupo.length === 0 ? (
                   // Un grupo vacío dice qué va a aparecer, no sólo que no hay nada (§5.4).

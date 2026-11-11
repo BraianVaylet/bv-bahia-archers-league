@@ -299,6 +299,58 @@ describe('HomePage', () => {
   });
 
   /**
+   * `FE-35`: un archivado no suma ni se ve en la landing (`BE-26`). En el inicio de WAFA queda
+   * fuera del grupo de publicados por defecto, y se ve con el filtro, marcado con texto.
+   */
+  describe('torneos archivados', () => {
+    const conArchivado = () =>
+      servidor({
+        'GET /api/admin/tournaments': () => ({
+          json: {
+            tournaments: [
+              torneo({ id: 'vigente', name: 'Vigente', status: 'publicado' }),
+              {
+                ...torneo({ id: 'archivado', name: 'Suspendido', status: 'publicado' }),
+                archived: true,
+              },
+            ],
+          },
+        }),
+      });
+
+    it('por defecto no aparece', async () => {
+      conArchivado();
+      renderHome();
+
+      await screen.findByTestId('torneo-vigente');
+      expect(screen.queryByTestId('torneo-archivado')).toBeNull();
+    });
+
+    it('con «Ver archivados» aparece, marcado como archivado', async () => {
+      conArchivado();
+      renderHome();
+      await screen.findByTestId('torneo-vigente');
+
+      fireEvent.click(screen.getByLabelText(/Ver archivados/));
+
+      const tarjeta = await screen.findByTestId('torneo-archivado');
+      expect(tarjeta).toHaveTextContent('Archivado');
+    });
+
+    it('sin archivados, no ofrece el filtro', async () => {
+      servidor({
+        'GET /api/admin/tournaments': () => ({
+          json: { tournaments: [torneo({ id: 'vigente', status: 'publicado' })] },
+        }),
+      });
+      renderHome();
+      await screen.findByTestId('torneo-vigente');
+
+      expect(screen.queryByLabelText(/Ver archivados/)).toBeNull();
+    });
+  });
+
+  /**
    * El inicio nuevo (`REF7-9` / `W-1`, `DISENO.md` §5.4): un solo primario, tres accesos compactos y
    * los grupos con su rótulo y su cantidad. Antes eran cuatro botones de 52px —tres del mismo gris—
    * que ocupaban media pantalla antes del primer torneo.

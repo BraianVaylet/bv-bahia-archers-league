@@ -733,7 +733,8 @@ _(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos 
 **Contenido:** «Editar» abre los mismos controles que el paso de datos (nombre, fecha, descripción, link de `BE-27`, pago, estacas/distancias) y el de recorrido (blancos: modalidad, flechas, descripción). Qué se muestra lo decide `camposEditables`, no un `status ===` en el JSX. Cambiar blancos o estacas muestra antes de guardar que **las patrullas y los PIN se rehacen** (igual que participantes hoy).
 **DoD:** test de UI por campo · `web-design-guidelines` sobre la pantalla · objetivos táctiles de 44px.
 
-### `[ ] FE-33` · WAFA: editar nombre y fecha en proceso y esperando publicación
+### `[x] FE-33` · WAFA: editar nombre y fecha en proceso y esperando publicación
+_(Hecho. El formulario edita nombre, fecha y —si el estado lo deja— el link. Descripción y pago quedan para `FE-32`, que suma esos campos para todos los estados por la misma tabla. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
 **Objetivo:** el botón «Editar» deja de existir sólo para `sin_iniciar`.
 **Archivos:** `packages/app/src/wafa/detalle/EdicionDelTorneo.tsx`
 **Contenido:** mismo formulario que `FE-32`, filtrado por `camposEditables`: en `en_proceso` nombre, fecha, descripción, pago y link (decisión 1); en `completado` nombre y fecha. «Eliminar» sigue sólo en `sin_iniciar` (`puedeEliminar`). Un `409 FIELD_NOT_EDITABLE` o `INVALID_STATE_TRANSITION` (el torneo cambió de estado entre la carga y el guardado) se muestra tal cual y recarga la ficha.
@@ -779,7 +780,8 @@ _(Hecho. Qué suma al ranking es una sola consulta, `tournamentRepo.listQueSuman
 - Despublicar un torneo archivado: lo desarchiva en la misma operación (un `completado` archivado no tiene sentido).
 **DoD:** test que archivar baja `tournamentsPlayed` y cambia el `bestNAvgPct` del arquero afectado · desarchivar deja los standings idénticos a los de antes de archivar · `db:reconcile` respeta el archivo · `409` sobre `sin_iniciar`/`en_proceso`/`completado` · test que un archivado no sale en `/public/tournaments`, que su detalle y su tarjeta dan 404 y que no aparece en el historial de la ficha de arquero · `/security-review`.
 
-### `[ ] FE-35` · WAFA: archivar y desarchivar
+### `[x] FE-35` · WAFA: archivar y desarchivar
+_(Hecho. «Archivar»/«Desarchivar» en la pantalla de resultados de un publicado, al lado de «Despublicar», no en `ControlesDeEstado`: ahí ya vive la otra acción con motivo sobre un publicado. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
 **Archivos:** `packages/app/src/wafa/detalle/ControlesDeEstado.tsx`, `packages/app/src/wafa/pages/Home.tsx` (listado: filtro «Ver archivados», como el de arqueros)
 **Contenido:** «Archivar» / «Desarchivar» con motivo y dos toques, igual que despublicar; el texto de confirmar dice que el torneo **deja de verse en la landing y sale del ranking**. En el listado de WAFA los archivados quedan fuera por defecto y se ven con el filtro, marcados «Archivado» — chip con texto y token neutro, **sin color de estaca** (regla 8). La landing no cambia: el archivado ya no le llega (`BE-26`).
 **DoD:** test de UI · el chip tiene texto, no sólo color.

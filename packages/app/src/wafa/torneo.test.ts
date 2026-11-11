@@ -191,6 +191,16 @@ describe('avisosDePublicacion', () => {
     expect(sePuedePublicar(avisosDePublicacion('completado', [participante()]))).toBe(true);
   });
 
+  /**
+   * Un torneo ya publicado no está «sin poder publicarse»: ya lo está. La pantalla de resultados
+   * le mostraba al admin un error rojo diciendo que sólo se publica un completado, encima del
+   * cartel verde de «Publicado» (encontrado probando `FE-35`).
+   */
+  it('un torneo publicado no muestra el error de que no se puede publicar', () => {
+    const avisos = avisosDePublicacion('publicado', [participante()]);
+    expect(avisos.filter((a) => a.nivel === 'error')).toEqual([]);
+  });
+
   // Es información que el admin tiene que ver antes de aplicar los resultados,
   // no un motivo para impedirlo.
   it('las firmas desbloqueadas se avisan, con nombre, sin frenar', () => {
