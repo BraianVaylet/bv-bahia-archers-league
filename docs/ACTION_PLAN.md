@@ -760,7 +760,8 @@ _(Hecho. La guarda de estado responde `FIELD_NOT_EDITABLE` vía `camposEditables
 - `db:reconcile` sobre un torneo corregido da los mismos rollups.
 - `/security-review` (ruta nueva que escribe puntajes).
 
-### `[ ] FE-34` · WAFA: pantalla de corrección de puntajes
+### `[x] FE-34` · WAFA: pantalla de corrección de puntajes
+_(Hecho. El borrador de un blanco arranca vacío: se tipea lo que dice el papel, no se edita lo que dice la app. El DoD de «la vista previa de publicar refleja el total nuevo» sale solo: esa pantalla pide los resultados al montarse. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
 **Objetivo:** el admin, con la planilla de papel al lado, ve las flechas de un arquero blanco por blanco y corrige las que no coinciden.
 **Archivos:** `packages/app/src/wafa/pages/Corregir.tsx` (nueva, ruta `/wafa/torneos/:id/corregir`), acceso desde `Tournament.tsx` sólo si `camposEditables` incluye `scores`
 **Referencia:** `BE-25` · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.1 (teclado de scoring, reusar)

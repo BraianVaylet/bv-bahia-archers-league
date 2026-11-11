@@ -14,6 +14,26 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · `FE-34` — WAFA: pantalla de corrección de puntajes
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-34-corregir-puntajes`.
+
+`/wafa/torneos/:id/corregir`, a la que se llega desde la ficha con «Corregir puntajes» sólo esperando publicación (`camposEditables`, campo `scores`). El admin elige un arquero —ordenados por apellido, como en la planilla— y ve su tarjeta blanco por blanco: número y modalidad, flechas, puntos del blanco y acumulado, con los ya corregidos marcados. «Corregir #N» abre el teclado de scoring de WAFL (`ScoreKeypad`) con el set **de ese blanco**, «Borrar la última», el motivo y «Guardar corrección». Al guardar se vuelve a pedir la tarjeta: lo que quedó lo dice el servidor (`BE-25`).
+
+**Decisiones:**
+- **El borrador arranca vacío**, no con las flechas que tiene la app: el admin tipea lo que dice el papel. Editar sobre lo que ya estaba invita a corregir a medias.
+- **Se reusa `ScoreKeypad` tal cual**, con sus 56px (64 de alto): el admin ya lo conoce de WAFL y no hay una segunda versión del teclado que mantener.
+- **Acá sí se espera la respuesta** (es WAFA, con red, como publicar): el botón pasa a «Guardando…» y un rechazo se muestra en línea sin perder flechas ni motivo.
+- En otro estado la pantalla se abre igual, pero sólo para mirar: dice que se corrige esperando publicación y no ofrece «Corregir».
+- La lógica que no es pintar (acumulado, agregar/quitar flechas sin pasarse, qué falta para guardar) vive en `wafa/correccion.ts`, con test.
+- Sin `as unknown as`: los tipos que infiere el cliente RPC para las tres respuestas alcanzan.
+
+**Encontrado en el navegador y corregido:** los dos números de cada fila no decían cuál era cuál (se agregó un encabezado de columnas, oculto para el lector de pantalla, y cada número lleva su etiqueta `sr-only`); y a 360 px las flechas se partían en tres líneas: la modalidad pasó debajo del número de blanco y las flechas no se cortan.
+
+**Tests:** 8 de lógica en `correccion.test.ts`, 6 de pantalla en `corregir-ui.test.tsx` (tarjeta con flechas, subtotal y acumulado; marca de corregido; corrige con el teclado del blanco y manda flechas y motivo, y vuelve a pedir la tarjeta; un blanco vacío abre el teclado de su modalidad; un rechazo no pierde lo tipeado; en otro estado sólo se mira) y 4 de acceso desde la ficha, vistos fallar. Mutaciones: sin volver a pedir la tarjeta y sin la guarda de estado, detectadas. `@bal/app` 703, typecheck y Biome verdes. En el navegador, con backend simulado: corrección completa de un blanco de sala vacío (X·10·9), a 1024 y 360 px, sin scroll horizontal y con todos los botones de al menos 44px.
+
+---
+
 ## 2026-11-11 · `FE-33` y `FE-35` — WAFA: editar según el estado, y archivar
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-33-35-edicion-y-archivo`.
