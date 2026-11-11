@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { botonClases, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ControlesDeEstado } from '../detalle/ControlesDeEstado.js';
+import { EdicionDelRecorrido } from '../detalle/EdicionDelRecorrido.js';
 import { EdicionDelTorneo } from '../detalle/EdicionDelTorneo.js';
 import { EdicionDeParticipantes } from '../detalle/EdicionDeParticipantes.js';
 import { ParticipantesDelTorneo } from '../detalle/ParticipantesDelTorneo.js';
@@ -138,6 +139,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
             )}
 
             <RecorridoDelTorneo torneo={torneo} bloqueados={bloqueados} />
+            <EdicionDelRecorrido torneo={torneo} onCambio={alCambiar} onError={setErrorDeAccion} />
 
             {participantes.length > 0 && torneo.status !== 'sin_iniciar' && (
               <ParticipantesDelTorneo

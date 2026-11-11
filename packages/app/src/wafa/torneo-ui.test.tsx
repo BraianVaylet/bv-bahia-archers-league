@@ -641,6 +641,90 @@ describe('editar y eliminar el torneo', () => {
   });
 });
 
+// ── FE-32 · Edición completa de un torneo sin iniciar ────────────────────────
+
+/**
+ * Todo lo que el servidor acepta sin iniciar se edita desde la ficha (`FE-32`): además de nombre,
+ * fecha y link, la descripción, el pago y el recorrido. Qué se ofrece lo decide `camposEditables`.
+ */
+describe('edición completa sin iniciar', () => {
+  const conEstado = (status: string, extra: Record<string, unknown> = {}) => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: {
+          tournament: {
+            ...TORNEO,
+            status,
+            description: 'Se larga 9:30',
+            payment: { required: true, amount: 5000 },
+            ...extra,
+          },
+        },
+      }),
+      'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
+    });
+    renderPantalla(TournamentPage);
+  };
+  const ultimoPatch = () => llamadas.filter((l) => l.method === 'PATCH').at(-1)?.body as object;
+
+  it('edita la descripción y el pago, y manda sólo lo que cambió', async () => {
+    conEstado('sin_iniciar');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByLabelText('Descripción')).toHaveValue('Se larga 9:30');
+    fireEvent.change(screen.getByLabelText('Monto por arquero'), { target: { value: '6000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    expect(ultimoPatch()).toMatchObject({ payment: { required: true, amount: 6000 } });
+    expect(ultimoPatch()).not.toHaveProperty('description');
+  });
+
+  it('dejar de cobrar manda el pago apagado y en cero', async () => {
+    conEstado('sin_iniciar');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    fireEvent.click(screen.getByLabelText('Este torneo cobra inscripción'));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    expect(ultimoPatch()).toMatchObject({ payment: { required: false, amount: 0 } });
+  });
+
+  it('esperando publicación no ofrece descripción ni pago', async () => {
+    conEstado('completado');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.queryByLabelText('Descripción')).toBeNull();
+    expect(screen.queryByLabelText('Este torneo cobra inscripción')).toBeNull();
+  });
+
+  /**
+   * El recorrido entero se rehace sólo sin iniciar: cambiar cuántos blancos hay rearma las
+   * patrullas y les cambia el PIN, y eso se dice antes de guardar.
+   */
+  it('edita el recorrido, avisa que agregar un blanco rearma las patrullas, y lo manda', async () => {
+    conEstado('sin_iniciar');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar recorrido' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar blanco' }));
+
+    expect(screen.getByText(/se rearman las patrullas/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar recorrido' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    const { targets } = ultimoPatch() as { targets: { index: number }[] };
+    expect(targets.map((t) => t.index)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('en proceso no ofrece rehacer el recorrido', async () => {
+    conEstado('en_proceso');
+    await screen.findByTestId('estado');
+
+    expect(screen.queryByRole('button', { name: 'Editar recorrido' })).toBeNull();
+  });
+});
+
 // ── REF2-5 · Iniciar y volver atrás ──────────────────────────────────────────
 
 describe('iniciar el torneo', () => {

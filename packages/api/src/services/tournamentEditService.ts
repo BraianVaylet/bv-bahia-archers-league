@@ -23,7 +23,7 @@ import {
   type UpdateTournamentInput,
 } from '@bal/shared';
 import { ObjectId } from 'mongodb';
-import type { StakeMapDoc, TargetDoc, TournamentDoc } from '../db/types.js';
+import type { ParticipantDoc, StakeMapDoc, TargetDoc, TournamentDoc } from '../db/types.js';
 import { AppError, notFound, validationError } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
 import * as auditRepo from '../repositories/auditRepo.js';
@@ -113,21 +113,51 @@ function estacaEn(mapa: StakeMap, category: string): Stake | null {
  * A quiénes hay que rearmar, o `null` si las patrullas quedan como están.
  *
  * - Si el pedido trae participantes, a ellos (como siempre).
- * - Si sólo cambia el mapa de estacas, a los inscriptos **sólo si alguno cambia de estaca**: si
- *   nadie se mueve, las patrullas y sus PIN se quedan y no hay que reimprimir nada.
+ * - Si cambia el mapa de estacas, a los inscriptos **sólo si alguno cambia de estaca**: si nadie
+ *   se mueve, las patrullas y sus PIN se quedan y no hay que reimprimir nada.
+ * - Si cambia **la cantidad** de blancos con el torneo sin iniciar, a los inscriptos (`FE-32`): el
+ *   blanco de inicio de cada patrulla se reparte sobre el recorrido, y con menos blancos una podía
+ *   quedar arrancando en uno que ya no existe. Cambiar cómo es un blanco, sin cambiar cuántos son,
+ *   no rearma. En proceso nunca se rearma: las patrullas ya están en el predio.
  */
 async function quienesRearmar(
   torneo: TournamentDoc,
   input: UpdateTournamentInput,
 ): Promise<readonly string[] | null> {
   if (input.archerIds !== undefined) return input.archerIds;
-  if (!input.stakeMap) return null;
 
-  const mapa = input.stakeMap;
+  const cambiaLaCantidad =
+    torneo.status === 'sin_iniciar' &&
+    input.targets !== undefined &&
+    input.targets.length !== torneo.targets.length;
+  if (!input.stakeMap && !cambiaLaCantidad) return null;
+
   const inscriptos = await tournamentRepo.listParticipants(torneo._id);
-  const alguienCambia = inscriptos.some((p) => estacaEn(mapa, p.category) !== p.stake);
+  const mapa = input.stakeMap;
+  const alguienCambiaDeEstaca =
+    mapa !== undefined && inscriptos.some((p) => estacaEn(mapa, p.category) !== p.stake);
 
-  return alguienCambia ? inscriptos.map((p) => p.archerId.toHexString()) : null;
+  return alguienCambiaDeEstaca || cambiaLaCantidad
+    ? inscriptos.map((p) => p.archerId.toHexString())
+    : null;
+}
+
+/**
+ * Lo que el club ya anotó de cada arquero sobrevive al rearmado (`FE-32`).
+ *
+ * Rearmar recrea los participantes con `paid: false`. El admin marca los pagos en la puerta,
+ * antes de largar, y un ajuste de último momento los borraba. Se copian por `archerId`: quien
+ * sigue en el torneo conserva su pago; quien entra, arranca sin pagar.
+ */
+async function conLosPagos(
+  torneo: TournamentDoc,
+  participantDocs: readonly ParticipantDoc[],
+): Promise<ParticipantDoc[]> {
+  const previos = await tournamentRepo.listParticipants(torneo._id);
+  const pagaron = new Set(previos.filter((p) => p.paid).map((p) => p.archerId.toHexString()));
+  return participantDocs.map((p) =>
+    pagaron.has(p.archerId.toHexString()) ? { ...p, paid: true } : p,
+  );
 }
 
 /**
@@ -239,7 +269,9 @@ export async function updateTournament(
   }
 
   if (nuevosParticipantes) {
-    const { patrolDocs, participantDocs } = nuevosParticipantes;
+    const { patrolDocs } = nuevosParticipantes;
+    // Antes de borrar la distribución vieja: de ahí salen los pagos que se conservan.
+    const participantDocs = await conLosPagos(torneo, nuevosParticipantes.participantDocs);
 
     // En una transacción: un torneo sin patrullas, aunque sea por un instante,
     // es un torneo que un líder no puede abrir.

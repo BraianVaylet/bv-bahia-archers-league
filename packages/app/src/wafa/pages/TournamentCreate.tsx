@@ -105,7 +105,9 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
         </ol>
 
         {paso === 1 && <PasoDatos borrador={borrador} onCambio={cambiar} />}
-        {paso === 2 && <PasoRecorrido borrador={borrador} onCambio={cambiar} />}
+        {paso === 2 && (
+          <PasoRecorrido blancos={borrador.blancos} onCambio={(blancos) => cambiar({ blancos })} />
+        )}
         {paso === 3 && <PasoParticipantes borrador={borrador} onCambio={cambiar} />}
         {paso === 4 && <PasoRevision borrador={borrador} onIrA={setPaso} />}
 

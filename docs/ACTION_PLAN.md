@@ -443,6 +443,7 @@ El script de verificación y los archivos `.gz` que generó eran scratch, fuera 
 
 # Fase 7 — Mejoras · P2
 
+- `[ ] FE-40` Editor de estacas y distancias en WAFA (salió de `FE-32`, 2026-11-11). El backend ya lo acepta sin iniciar (`PATCH` con `stakeMap`/`distances`, `BE-24`), rearma si alguien cambia de estaca y conserva los pagos. Falta la pantalla: qué categoría tira desde qué estaca y a cuántos metros, en el wizard y en la ficha. **DoD:** test de UI, aviso de rearmado antes de guardar, sin colores de estaca fuera de las estacas (regla 8).
 - `[ ] FE-22` QR de acceso a patrulla (elimina la necesidad de mostrar el PIN — ver [`SECURITY.md`](SECURITY.md) §9).
 - `[ ] FE-23` Exportar y compartir podios (Web Share API + impresión).
 - `[ ] FE-24` Gráficos de evolución en la ficha de arquero (SVG puro, sin dependencias).
@@ -726,7 +727,8 @@ _(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos 
 - Audit: `tournament.update` con la lista de campos cambiados (no los valores de `payment`).
 **DoD:** test por estado con un campo permitido y uno no permitido · `completado` acepta `{name, date}` y rechaza `{targets}` · el `updateIfStatus` sigue protegiendo la carrera de estado · `/security-review`.
 
-### `[ ] FE-32` · WAFA: edición completa de un torneo sin iniciar
+### `[x] FE-32` · WAFA: edición completa de un torneo sin iniciar
+_(Hecho **salvo el editor de estacas y distancias**, que pasa a `FE-40`: no existe ni en el wizard, el backend ya lo acepta (`BE-24`) y el mapa por defecto cubre el uso normal. Además, el backend conserva los pagos al rearmar y rearma si cambia la cantidad de blancos. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
 **Objetivo:** que todo lo que el backend acepta en `sin_iniciar` se pueda editar desde la ficha, reusando los pasos del wizard.
 **Archivos:** `packages/app/src/wafa/detalle/EdicionDelTorneo.tsx`, `packages/app/src/wafa/crear/{PasoDatos,PasoRecorrido}.tsx` (extraer lo reusable), `wafa/torneo.ts`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.3 y §6.7 · `SH-11`
