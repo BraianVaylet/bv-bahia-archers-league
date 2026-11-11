@@ -44,7 +44,7 @@ function torneo(status: TournamentDoc['status'], name = `Torneo ${status}`) {
     ],
     participantCount: 4,
     // Lo que el listado no necesita y no tiene por qué traerse.
-    stakeMap: { razo: 'azul' },
+    stakeMap: { raso: 'azul' },
     description: 'una descripción larga',
     payment: { required: true, amount: 5000 },
   } as unknown as TournamentDoc;

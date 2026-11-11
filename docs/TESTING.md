@@ -78,8 +78,8 @@ Los ejemplos del reglamento del club son **normativos** y se testean literalment
 
 | Caso | Composición |
 |---|---|
-| Dos pares homogéneos de la misma categoría | `A:[razo, razo]` · `B:[razo, razo]` |
-| Dos pares homogéneos de categorías distintas | `A:[razo, razo]` · `B:[escuela, escuela]` |
+| Dos pares homogéneos de la misma categoría | `A:[raso, raso]` · `B:[raso, raso]` |
+| Dos pares homogéneos de categorías distintas | `A:[raso, raso]` · `B:[escuela, escuela]` |
 | Compuesto + escuela | `A:[compuesto, compuesto]` · `B:[escuela, escuela]` |
 | Unidad solitaria | `A:[compuesto, compuesto]` · `B:[cazador]` |
 | Unidad solitaria de escuela | `A:[compuesto, compuesto]` · `B:[escuela]` |
@@ -88,8 +88,8 @@ Los ejemplos del reglamento del club son **normativos** y se testean literalment
 
 | Caso | Composición | Regla |
 |---|---|---|
-| Pares mezclados | `A:[razo, tradicional]` · `B:[razo, cazador]` | `H2` |
-| Pares mezclados | `A:[longbow, compuesto]` · `B:[razo, compuesto]` | `H2` |
+| Pares mezclados | `A:[raso, tradicional]` · `B:[raso, cazador]` | `H2` |
+| Pares mezclados | `A:[longbow, compuesto]` · `B:[raso, compuesto]` | `H2` |
 | Patrulla 100% escuela | `A:[escuela, escuela]` · `B:[escuela, escuela]` | `H3` |
 | Patrulla 100% escuela, 2 arqueros | `A:[escuela, escuela]` | `H3` |
 | Patrulla 100% escuela, 3 arqueros | `A:[escuela, escuela]` · `B:[escuela]` | `H3` |
@@ -106,7 +106,7 @@ Los ejemplos del reglamento del club son **normativos** y se testean literalment
 - Caso extremo: **todos** los participantes son de escuela → no se genera ninguna patrulla válida; se devuelve el warning, no se rompe.
 - Caso extremo: 2 participantes → una sola patrulla.
 - Caso extremo: número impar en cada categoría → las unidades solitarias se combinan correctamente.
-- `S1`: dados 6 razo y 2 compuesto, los razo quedan agrupados, no dispersos.
+- `S1`: dados 6 raso y 2 compuesto, los raso quedan agrupados, no dispersos.
 
 ### 3.3 `ranking.test.ts`
 
@@ -334,7 +334,7 @@ Caso 1 — el flujo completo nuevo:
  5. El admin arma un torneo que la incluye
  6. Recorrido, firmas y cierre por WAFL, por interfaz —el mecanismo ya lo prueba TEST-1, acá alcanza con que cierre—
  7. El admin publica
- 8. En la landing: aparece en Razo/General y en Razo/Femenino, NO en Razo/Masculino
+ 8. En la landing: aparece en Raso/General y en Raso/Femenino, NO en Raso/Masculino
  9. Ningún «puntos de liga» en pantalla
 
 Caso 2 — el camino corto:
@@ -439,7 +439,7 @@ startDb() · stopDb() · clearDb(db)                // MongoDB en memoria, en mo
 testEnvRaw(overrides) · testEnv(overrides)        // variables de entorno válidas para tests
 cliente(ip?)                                       // un cliente HTTP con su cookie de sesión y su CSRF
 adminListo()                                       // un cliente ya logueado como admin
-crearTemporada(admin) · crearArqueros(admin, [['razo', 4]])
+crearTemporada(admin) · crearArqueros(admin, [['raso', 4]])
 recorridoDeReferencia()                            // 14 blancos: 6×3D, 6×campo, 1×aire libre, 1×sala
 escenarioDeSync()                                  // torneo iniciado, una patrulla de 4 y el líder adentro
 ```

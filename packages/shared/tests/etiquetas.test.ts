@@ -20,7 +20,7 @@ describe('etiquetas de categoría', () => {
     recurvo: 'Recurvo',
     compuesto: 'Compuesto',
     cazador: 'Cazador',
-    razo: 'Razo',
+    raso: 'Raso',
     tradicional: 'Tradicional',
     longbow: 'Longbow',
     // El pedido no la nombra: queda como estaba.

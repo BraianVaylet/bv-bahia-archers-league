@@ -24,7 +24,7 @@ function participante(overrides: Partial<ResultadoParticipante> = {}): Resultado
     archerId: `a${n}`,
     firstName: `Nombre${n}`,
     lastName: `Apellido${String(n).padStart(3, '0')}`,
-    category: 'razo',
+    category: 'raso',
     stake: 'azul',
     patrolNumber: 1,
     total: 0,
@@ -152,7 +152,7 @@ describe('podios', () => {
 
   it('cada categoría tiene su propio podio', () => {
     const p = podios([
-      participante({ category: 'razo', total: 50 }),
+      participante({ category: 'raso', total: 50 }),
       participante({ category: 'longbow', total: 90 }),
     ]);
 
@@ -162,7 +162,7 @@ describe('podios', () => {
   });
 
   it('las categorías vacías no aparecen', () => {
-    expect(podios([participante({ category: 'razo' })]).map((p) => p.category)).toEqual(['razo']);
+    expect(podios([participante({ category: 'raso' })]).map((p) => p.category)).toEqual(['raso']);
   });
 
   // Un ausente no tiró: su cero no puede ocupar un lugar del podio.

@@ -109,7 +109,7 @@ export async function torneoIniciado(
     const { archer } = await api.post<{ archer: { id: string } }>('/api/admin/archers', {
       firstName: `Nombre${opciones.nombre}${i}`,
       lastName: `Apellido${opciones.nombre}${String(i).padStart(3, '0')}`,
-      category: 'razo',
+      category: 'raso',
     });
     archerIds.push(archer.id);
   }

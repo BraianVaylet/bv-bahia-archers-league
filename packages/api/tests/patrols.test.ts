@@ -115,7 +115,7 @@ async function crearArqueros(c: ReturnType<typeof cliente>, defs: [BowCategory, 
   return creados;
 }
 
-/** Torneo con 3 razo y 3 longbow sobre 4 blancos: dos patrullas, de 4 y de 2. */
+/** Torneo con 3 raso y 3 longbow sobre 4 blancos: dos patrullas, de 4 y de 2. */
 async function torneoConPatrullas(c: ReturnType<typeof cliente>) {
   const temporada = await c.post('/api/admin/seasons', {
     name: 'Liga 2026',
@@ -125,7 +125,7 @@ async function torneoConPatrullas(c: ReturnType<typeof cliente>) {
   const seasonId = ((await temporada.json()) as { season: { id: string } }).season.id;
 
   const archerIds = await crearArqueros(c, [
-    ['razo', 3],
+    ['raso', 3],
     ['longbow', 3],
   ]);
 
@@ -182,10 +182,10 @@ function talCual(patrullas: readonly Patrulla[]) {
 /** Los ids de una patrulla, en el orden en que vinieron. */
 const ids = (p: Patrulla) => p.members.map((m) => m.id);
 
-/** Una distribución con la unidad A mezclando razo y longbow: viola `H2`. */
+/** Una distribución con la unidad A mezclando raso y longbow: viola `H2`. */
 function conUnidadMezclada(patrols: Patrulla[]) {
   const todos = patrols.flatMap((p) => p.members);
-  const razo = todos.filter((m) => m.category === 'razo');
+  const raso = todos.filter((m) => m.category === 'raso');
   const longbow = todos.filter((m) => m.category === 'longbow');
   const [p1, p2] = patrols as [Patrulla, Patrulla];
 
@@ -196,9 +196,9 @@ function conUnidadMezclada(patrols: Patrulla[]) {
         number: p1.number,
         startTargetIndex: p1.startTargetIndex,
         units: enUnidades([
-          razo[0]?.id as string,
+          raso[0]?.id as string,
           longbow[0]?.id as string,
-          razo[1]?.id as string,
+          raso[1]?.id as string,
           longbow[1]?.id as string,
         ]),
       },
@@ -206,7 +206,7 @@ function conUnidadMezclada(patrols: Patrulla[]) {
         id: p2.id,
         number: p2.number,
         startTargetIndex: p2.startTargetIndex,
-        units: enUnidades([razo[2]?.id as string, longbow[2]?.id as string]),
+        units: enUnidades([raso[2]?.id as string, longbow[2]?.id as string]),
       },
     ],
   };

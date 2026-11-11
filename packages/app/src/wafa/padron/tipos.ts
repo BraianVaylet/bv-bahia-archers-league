@@ -29,7 +29,7 @@ export interface Borrador {
 export const BORRADOR_VACIO: Borrador = {
   firstName: '',
   lastName: '',
-  category: 'razo',
+  category: 'raso',
   sex: '',
   dni: '',
 };

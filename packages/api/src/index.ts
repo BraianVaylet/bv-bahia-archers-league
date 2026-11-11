@@ -8,6 +8,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { connect, disconnect } from './db/client.js';
 import { ensureIndexes } from './db/indexes.js';
+import { migrarCategoriaRazoARaso } from './db/migraciones.js';
 import { seed } from './db/seed.js';
 import { env } from './env.js';
 import { apagarOrdenadamente, PLAZO_DE_APAGADO_MS } from './lib/apagado.js';
@@ -20,6 +21,12 @@ async function main(): Promise<void> {
   const cfg = env();
 
   const db = await connect();
+  // Antes que nada: el resto del servidor asume que los datos usan las claves
+  // de categoría actuales. Idempotente, así que corre en cada arranque.
+  const migracion = await migrarCategoriaRazoARaso(db);
+  if (Object.values(migracion).some((n) => n > 0)) {
+    log.info('migracion.categoria_raso', { ...migracion });
+  }
   await ensureIndexes(db);
   await seed(db, cfg);
 

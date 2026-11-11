@@ -443,7 +443,7 @@ describe('ArchersPage', () => {
     id: 'x1',
     firstName: 'Juan',
     lastName: 'Pérez',
-    category: 'razo',
+    category: 'raso',
     sex: null,
     dni: null,
     profileIncomplete: true,
@@ -463,7 +463,7 @@ describe('ArchersPage', () => {
     renderArqueros();
 
     expect(await screen.findByTestId('arquero-Pérez')).toHaveTextContent('Pérez, Juan');
-    expect(screen.getByTestId('arquero-Pérez')).toHaveTextContent('Razo');
+    expect(screen.getByTestId('arquero-Pérez')).toHaveTextContent('Raso');
   });
 
   /**
@@ -519,9 +519,9 @@ describe('ArchersPage', () => {
   describe('filtro por categoría', () => {
     const padronMixto = () =>
       listar([
-        arquero({ lastName: 'Pérez', category: 'razo' }),
+        arquero({ lastName: 'Pérez', category: 'raso' }),
         arquero({ id: 'x2', lastName: 'Gómez', category: 'longbow' }),
-        arquero({ id: 'x3', lastName: 'Díaz', category: 'razo' }),
+        arquero({ id: 'x3', lastName: 'Díaz', category: 'raso' }),
       ]);
 
     it('deja sólo los de la categoría elegida', async () => {
@@ -563,7 +563,7 @@ describe('ArchersPage', () => {
 
       const antes = llamadas.filter((l) => l.url.includes('/admin/archers')).length;
       fireEvent.change(screen.getByLabelText('Filtrar por categoría'), {
-        target: { value: 'razo' },
+        target: { value: 'raso' },
       });
 
       expect(llamadas.filter((l) => l.url.includes('/admin/archers'))).toHaveLength(antes);
@@ -708,7 +708,7 @@ describe('ArchersPage', () => {
       expect(alta?.body).toEqual({
         firstName: 'Ana',
         lastName: 'Gómez',
-        category: 'razo',
+        category: 'raso',
         sex: null,
         dni: null,
       });
@@ -912,7 +912,7 @@ describe('ArchersPage', () => {
       expect(fila).toHaveTextContent('Pendiente, Nueva');
       expect(fila).toHaveTextContent('30555555');
       expect(fila).toHaveTextContent('Femenino');
-      expect(fila).toHaveTextContent('Razo');
+      expect(fila).toHaveTextContent('Raso');
     });
 
     it('aprobar pide un segundo toque antes de pegarle al servidor', async () => {

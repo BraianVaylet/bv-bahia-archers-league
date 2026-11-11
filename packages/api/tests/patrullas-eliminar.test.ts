@@ -63,7 +63,7 @@ async function torneoConPatrullas(): Promise<Armado> {
     ['recurvo', 3],
     ['compuesto', 4],
     ['cazador', 3],
-    ['razo', 2],
+    ['raso', 2],
   ]);
 
   const res = await c.post('/api/admin/tournaments', {

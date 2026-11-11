@@ -226,7 +226,7 @@ describe('reconcile', () => {
       archerId: new ObjectId(),
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       stake: 'azul',
       unit: 'A',
       position: 'izquierda',

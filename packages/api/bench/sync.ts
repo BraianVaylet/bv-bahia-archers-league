@@ -187,7 +187,7 @@ async function prepararEscenario(app: Hono) {
       await admin.post('/api/admin/archers', {
         firstName: `Nombre${i}`,
         lastName: `Apellido${i}`,
-        category: 'razo',
+        category: 'raso',
       }),
     );
     archerIds.push(r.archer.id);

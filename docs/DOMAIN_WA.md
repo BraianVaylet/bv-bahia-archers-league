@@ -84,7 +84,7 @@ Ocho categorías. Todas las de la liga son **senior** salvo `escuela` y `princip
 | `recurvo` | Recurvo olímpico | `roja` |
 | `compuesto` | Compuesto libre | `roja` |
 | `cazador` | Compuesto cazador | `roja` |
-| `razo` | Razo | `azul` |
+| `raso` | Raso | `azul` |
 | `tradicional` | Tradicional | `azul` |
 | `longbow` | Longbow | `azul` |
 | `escuela` | Escuela | `amarilla` |
@@ -92,7 +92,7 @@ Ocho categorías. Todas las de la liga son **senior** salvo `escuela` y `princip
 
 > **`principiantes` es no senior, igual que `escuela`.** `H3` (ver §5) la protege de la misma manera: ninguna patrulla puede ser 100% `principiantes`, y el armado automático la mezcla en la misma bolsa no-senior que `escuela` — `isEscuela()` ya generaliza por el flag `senior` de `CATEGORY_INFO`, no por el nombre de la categoría. La etiqueta visible es «Iniciación» porque «Principiantes» (13 caracteres) no entra en el límite de 11 de las etiquetas de categoría (`docs/DESIGN_SYSTEM.md`); la clave de dominio sigue siendo `principiantes`.
 
-> **Nota terminológica.** `razo` (barebow / arco desnudo) y `cazador` (bowhunter) vienen del uso de campo y 3D en federaciones hispanohablantes. Se respeta la grafía **`razo`** que usa el club. WA Field internacional reconoce recurvo, compuesto y barebow; el mapeo de estacas se ofrece **editable por torneo** para adaptarse al reglamento vigente del club.
+> **Nota terminológica.** `raso` (barebow / arco desnudo) y `cazador` (bowhunter) vienen del uso de campo y 3D en federaciones hispanohablantes. Se usa la grafía **`raso`** (hasta el 2026-11-11 el código decía `razo`; los datos guardados con la clave vieja se migran solos al arrancar el servidor, ver `packages/api/src/db/migraciones.ts`). WA Field internacional reconoce recurvo, compuesto y barebow; el mapeo de estacas se ofrece **editable por torneo** para adaptarse al reglamento vigente del club.
 
 ---
 
@@ -103,7 +103,7 @@ Estacas por cercanía al blanco: **roja** (más lejos) › **azul** (media) › 
 | Estaca | Categorías por defecto | Referencia IFAA de distancia máxima |
 |---|---|---|
 | `roja` | recurvo, compuesto, cazador | hasta ~45 m |
-| `azul` | razo, tradicional, longbow | hasta ~30 m |
+| `azul` | raso, tradicional, longbow | hasta ~30 m |
 | `amarilla` | escuela | distancias cortas |
 | `naranja` | principiantes | distancias muy cortas |
 
@@ -163,8 +163,8 @@ Estos casos son **normativos** y se traducen literalmente a tests (ver `TESTING.
 
 | Patrulla | Por qué es válida |
 |---|---|
-| `A:[razo, razo]` · `B:[razo, razo]` | Ambas unidades homogéneas. 4 arqueros. Cumple `H1`,`H2`; sin escuela, `H3` no aplica. |
-| `A:[razo, razo]` · `B:[escuela, escuela]` | Unidades homogéneas; la patrulla tiene 2 seniors → cumple `H3`. |
+| `A:[raso, raso]` · `B:[raso, raso]` | Ambas unidades homogéneas. 4 arqueros. Cumple `H1`,`H2`; sin escuela, `H3` no aplica. |
+| `A:[raso, raso]` · `B:[escuela, escuela]` | Unidades homogéneas; la patrulla tiene 2 seniors → cumple `H3`. |
 | `A:[compuesto, compuesto]` · `B:[escuela, escuela]` | Ídem anterior. |
 | `A:[compuesto, compuesto]` · `B:[cazador]` | Unidad `B` solitaria: permitido. Patrulla de 3. |
 | `A:[compuesto, compuesto]` · `B:[escuela]` | Patrulla de 3, con 2 seniors acompañando a 1 escuela. |
@@ -173,8 +173,8 @@ Estos casos son **normativos** y se traducen literalmente a tests (ver `TESTING.
 
 | Patrulla | Regla violada |
 |---|---|
-| `A:[razo, tradicional]` · `B:[razo, cazador]` | `H2` — ninguna unidad es homogénea. |
-| `A:[longbow, compuesto]` · `B:[razo, compuesto]` | `H2` — ídem. |
+| `A:[raso, tradicional]` · `B:[raso, cazador]` | `H2` — ninguna unidad es homogénea. |
+| `A:[longbow, compuesto]` · `B:[raso, compuesto]` | `H2` — ídem. |
 | `A:[escuela, escuela]` · `B:[escuela, escuela]` | `H3` — patrulla 100% escuela, sin ningún senior. |
 
 Casos derivados que también fallan por `H3`: una patrulla `A:[escuela, escuela]` sola (2 arqueros, todos escuela) o `A:[escuela, escuela] · B:[escuela]` (3 arqueros, todos escuela).

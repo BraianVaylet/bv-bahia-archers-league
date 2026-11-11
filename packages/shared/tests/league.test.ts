@@ -31,7 +31,7 @@ function arquero(overrides: Partial<Rankable> = {}): Rankable {
     archerId: `a${n}`,
     firstName: `Nombre${n}`,
     lastName: `Apellido${String(n).padStart(3, '0')}`,
-    category: 'razo',
+    category: 'raso',
     stake: 'azul',
     total: 0,
     innerCount: 0,
@@ -46,7 +46,7 @@ function standing(overrides: Partial<ArcherStanding> = {}): ArcherStanding {
     archerId: 'a1',
     firstName: 'Juan',
     lastName: 'Pérez',
-    category: 'razo',
+    category: 'raso',
     tournamentsPlayed: 0,
     bestNormalizedPct: 0,
     bestRawScore: 0,
@@ -163,7 +163,7 @@ describe('applyTournamentToStandings', () => {
       tournamentId: 't1',
       maxPossibleScore: 330,
       participants: [
-        arquero({ archerId: 'razo1', category: 'razo', total: 100 }),
+        arquero({ archerId: 'raso1', category: 'raso', total: 100 }),
         arquero({ archerId: 'comp1', category: 'compuesto', total: 50 }),
       ],
     };

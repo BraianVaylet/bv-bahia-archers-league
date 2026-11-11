@@ -86,7 +86,7 @@ test.describe('alta pública de arqueros', () => {
     const { archer: compañera } = await api.post<{ archer: { id: string } }>('/api/admin/archers', {
       firstName: 'Compañera',
       lastName: 'DePatrulla',
-      category: 'razo',
+      category: 'raso',
     });
 
     const { season } = await api.post<{ season: { id: string } }>('/api/admin/seasons', {
@@ -165,21 +165,21 @@ test.describe('alta pública de arqueros', () => {
     // 7. El admin publica.
     await api.post(`/api/admin/tournaments/${tournament.id}/publish`);
 
-    // 8. En la landing, sin sesión: aparece en Razo/General Y en Razo/Femenino,
-    //    NO en Razo/Masculino — es lo que prueba BE-21/FE-28 de punta a punta,
+    // 8. En la landing, sin sesión: aparece en Raso/General Y en Raso/Femenino,
+    //    NO en Raso/Masculino — es lo que prueba BE-21/FE-28 de punta a punta,
     //    con un arquero que de verdad vino del autoregistro público.
     const contextoRanking = await browser.newContext();
     const paginaRanking = await contextoRanking.newPage();
     await paginaRanking.goto(`/ranking?temporada=${season.id}`);
 
-    const tarjetaRazo = paginaRanking.getByTestId('cat-razo');
-    await expect(tarjetaRazo).toContainText('Pública');
+    const tarjetaRaso = paginaRanking.getByTestId('cat-raso');
+    await expect(tarjetaRaso).toContainText('Pública');
 
     await paginaRanking.getByRole('tab', { name: 'Femenino' }).click();
-    await expect(tarjetaRazo).toContainText('Pública');
+    await expect(tarjetaRaso).toContainText('Pública');
 
     await paginaRanking.getByRole('tab', { name: 'Masculino' }).click();
-    await expect(tarjetaRazo).not.toContainText('Pública');
+    await expect(tarjetaRaso).not.toContainText('Pública');
 
     // Ningún «puntos de liga» en pantalla: es el sistema que retiró SH-9.
     await expect(paginaRanking.getByText(/puntos de liga/i)).toHaveCount(0);

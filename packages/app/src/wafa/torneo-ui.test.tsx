@@ -26,7 +26,7 @@ const participante = (o: Record<string, unknown> = {}) => ({
   archerId: 'a1',
   firstName: 'Juan',
   lastName: 'Pérez',
-  category: 'razo',
+  category: 'raso',
   stake: 'azul',
   patrolNumber: 1,
   total: 100,
@@ -224,7 +224,7 @@ describe('PublishPage', () => {
     completado();
     renderPantalla(PublishPage, '/wafa/torneos/t1/publicar');
 
-    const podio = await screen.findByTestId('podio-razo');
+    const podio = await screen.findByTestId('podio-raso');
     expect(podio).toHaveTextContent('Pérez');
     expect(podio).toHaveTextContent('Gómez');
     expect(podio).toHaveTextContent('100');

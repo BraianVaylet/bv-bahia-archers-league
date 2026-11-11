@@ -1,5 +1,5 @@
 /**
- * Comandos de base de datos: `db:indexes`, `db:seed`, `db:reset`, `db:reconcile`.
+ * Comandos de base de datos: `db:indexes`, `db:seed`, `db:reset`, `db:reconcile`, `db:migrate`.
  *
  * Uso: `pnpm --filter @bal/api db:<comando>`. Ver `docs/CONFIG.md` §4.
  */
@@ -7,11 +7,12 @@
 import * as publishService from '../services/publishService.js';
 import { connect, disconnect } from './client.js';
 import { ensureIndexes } from './indexes.js';
+import { migrarCategoriaRazoARaso } from './migraciones.js';
 import { reconcile } from './reconcile.js';
 import { reset } from './reset.js';
 import { seed } from './seed.js';
 
-const COMANDOS = ['indexes', 'seed', 'reset', 'reconcile'] as const;
+const COMANDOS = ['indexes', 'seed', 'reset', 'reconcile', 'migrate'] as const;
 type Comando = (typeof COMANDOS)[number];
 
 function esComando(valor: string | undefined): valor is Comando {
@@ -43,6 +44,15 @@ async function main(): Promise<void> {
           resultado.adminCreated
             ? `Administrador "${resultado.adminUsername}" creado. Al primer login se le va a exigir cambiar el password.`
             : `El administrador "${resultado.adminUsername}" ya existía. Sin cambios.`,
+        );
+        break;
+      }
+      case 'migrate': {
+        // También corre sola al arrancar el servidor; esto es para correrla a
+        // mano y ver qué tocó.
+        const r = await migrarCategoriaRazoARaso(db);
+        console.info(
+          `Categoría razo → raso. Arqueros: ${r.archers}. Participantes: ${r.participants}. Standings: ${r.standings}. Torneos: ${r.tournaments}.`,
         );
         break;
       }

@@ -163,7 +163,7 @@ export const CATEGORY_INFO: Readonly<Record<BowCategory, CategoryInfo>> = {
   recurvo: { key: 'recurvo', label: 'Recurvo', sort: 1, senior: true },
   compuesto: { key: 'compuesto', label: 'Compuesto', sort: 2, senior: true },
   cazador: { key: 'cazador', label: 'Cazador', sort: 3, senior: true },
-  razo: { key: 'razo', label: 'Razo', sort: 4, senior: true },
+  raso: { key: 'raso', label: 'Raso', sort: 4, senior: true },
   tradicional: { key: 'tradicional', label: 'Tradicional', sort: 5, senior: true },
   longbow: { key: 'longbow', label: 'Longbow', sort: 6, senior: true },
   escuela: { key: 'escuela', label: 'Escuela', sort: 7, senior: false },
@@ -183,7 +183,7 @@ export function isEscuela(category: BowCategory): boolean {
 /** docs/DOMAIN_WA.md §4 — mapeo por defecto, editable por torneo. */
 export const DEFAULT_STAKE_MAP: StakeMap = {
   roja: ['recurvo', 'compuesto', 'cazador'],
-  azul: ['razo', 'tradicional', 'longbow'],
+  azul: ['raso', 'tradicional', 'longbow'],
   amarilla: ['escuela'],
   naranja: ['principiantes'],
 };

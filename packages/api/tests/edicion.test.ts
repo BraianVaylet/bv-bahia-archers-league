@@ -72,7 +72,7 @@ async function torneoArmado(): Promise<TorneoArmado> {
     ['recurvo', 2],
     ['compuesto', 4],
     ['cazador', 2],
-    ['razo', 2],
+    ['raso', 2],
     ['longbow', 2],
   ]);
 
@@ -720,7 +720,7 @@ describe('cambiar estacas y distancias de un torneo sin iniciar', () => {
     const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
       stakeMap: {
         roja: ['recurvo', 'compuesto', 'cazador', 'longbow'],
-        azul: ['razo', 'tradicional'],
+        azul: ['raso', 'tradicional'],
         amarilla: ['escuela'],
         naranja: ['principiantes'],
       },
@@ -743,7 +743,7 @@ describe('cambiar estacas y distancias de un torneo sin iniciar', () => {
     const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
       stakeMap: {
         roja: ['recurvo', 'compuesto', 'cazador'],
-        azul: ['razo', 'longbow'],
+        azul: ['raso', 'longbow'],
         amarilla: ['escuela', 'tradicional'],
         naranja: ['principiantes'],
       },
@@ -826,7 +826,7 @@ describe('rearmar patrullas sin perder lo anotado', () => {
     await c.patch(`/api/admin/tournaments/${tournamentId}`, {
       stakeMap: {
         roja: ['recurvo', 'compuesto', 'cazador', 'longbow'],
-        azul: ['razo', 'tradicional'],
+        azul: ['raso', 'tradicional'],
         amarilla: ['escuela'],
         naranja: ['principiantes'],
       },

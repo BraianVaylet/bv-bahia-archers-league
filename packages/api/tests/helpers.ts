@@ -194,7 +194,7 @@ export interface EscenarioDeSync {
 export async function escenarioDeSync(): Promise<EscenarioDeSync> {
   const admin = await adminListo();
   const seasonId = await crearTemporada(admin);
-  const archerIds = await crearArqueros(admin, [['razo', 4]]);
+  const archerIds = await crearArqueros(admin, [['raso', 4]]);
 
   const res = await admin.post('/api/admin/tournaments', {
     seasonId,

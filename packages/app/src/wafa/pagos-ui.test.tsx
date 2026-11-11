@@ -18,7 +18,7 @@ const participante = (o: Record<string, unknown> = {}) => ({
   id: 'p1',
   firstName: 'Juan',
   lastName: 'Pérez',
-  category: 'razo',
+  category: 'raso',
   patrolNumber: 1,
   paid: false,
   ...o,

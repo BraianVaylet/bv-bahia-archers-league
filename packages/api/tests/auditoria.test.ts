@@ -91,7 +91,7 @@ const idDe = async (res: Response, clave: string): Promise<string> =>
 /** Un torneo sin iniciar con cuatro arqueros, y lo necesario para tocarlo. */
 async function torneoNuevo(admin: Cliente) {
   const seasonId = await crearTemporada(admin);
-  const archerIds = await crearArqueros(admin, [['razo', 4]]);
+  const archerIds = await crearArqueros(admin, [['raso', 4]]);
 
   const res = await admin.post('/api/admin/tournaments', {
     seasonId,
@@ -145,7 +145,7 @@ describe('padrón de arqueros', () => {
     const res = await admin.post('/api/admin/archers', {
       firstName: 'Ana',
       lastName: 'Lopez',
-      category: 'razo',
+      category: 'raso',
       sex: 'femenino',
       dni: '30111222',
     });
@@ -189,7 +189,7 @@ describe('padrón de arqueros', () => {
     await admin.post('/api/admin/archers', {
       firstName: 'Ana',
       lastName: 'Lopez',
-      category: 'razo',
+      category: 'raso',
       sex: 'femenino',
       dni: '30111222',
     });
@@ -199,7 +199,7 @@ describe('padrón de arqueros', () => {
     expect(texto).not.toContain('Ana');
     expect(texto).not.toContain('Lopez');
     expect(texto).not.toContain('30111222');
-    expect(entrada.meta).toEqual({ category: 'razo' });
+    expect(entrada.meta).toEqual({ category: 'raso' });
   });
 
   it('lo que falla no deja entrada: eliminar un arquero que no existe', async () => {

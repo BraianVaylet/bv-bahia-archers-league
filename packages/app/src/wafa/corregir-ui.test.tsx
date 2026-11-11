@@ -29,7 +29,7 @@ const participante = (id: string, lastName: string) => ({
   archerId: `a-${id}`,
   firstName: 'Juan',
   lastName,
-  category: 'razo',
+  category: 'raso',
   stake: 'azul',
   patrolNumber: 1,
   total: 19,
@@ -45,7 +45,7 @@ const participante = (id: string, lastName: string) => ({
 
 const tarjeta = (corrected: number[] = []) => ({
   scorecard: {
-    archer: { id: 'x1', firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+    archer: { id: 'x1', firstName: 'Juan', lastName: 'Pérez', category: 'raso', stake: 'azul' },
     total: 19,
     maxTotal: 52,
     rows: [

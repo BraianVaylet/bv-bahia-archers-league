@@ -30,7 +30,7 @@ const RECORRIDO: StatTarget[] = [
 function rollup(overrides: Partial<StatParticipantRollup> = {}): StatParticipantRollup {
   return {
     participantId: 'p1',
-    category: 'razo',
+    category: 'raso',
     total: 0,
     innerCount: 0,
     tenCount: 0,
@@ -45,7 +45,7 @@ function resultado(overrides: Partial<ArcherTournamentResult> = {}): ArcherTourn
     tournamentId: 't1',
     tournamentName: '1ª fecha',
     date: '2026-03-01',
-    category: 'razo',
+    category: 'raso',
     total: 0,
     maxPossibleScore: 100,
     position: 1,
@@ -218,7 +218,7 @@ describe('tournamentStats', () => {
   const campo: StatParticipantRollup[] = [
     rollup({
       participantId: 'p1',
-      category: 'razo',
+      category: 'raso',
       total: 90,
       innerCount: 4,
       tenCount: 6,
@@ -226,7 +226,7 @@ describe('tournamentStats', () => {
     }),
     rollup({
       participantId: 'p2',
-      category: 'razo',
+      category: 'raso',
       total: 70,
       innerCount: 2,
       tenCount: 3,
@@ -257,10 +257,10 @@ describe('tournamentStats', () => {
     expect(s.averageScore).toBe(70); // (90 + 70 + 50) / 3
     expect(s.bestScore).toBe(90);
 
-    const razo = s.byCategory.find((c) => c.category === 'razo');
-    expect(razo?.participants).toBe(2);
-    expect(razo?.averageScore).toBe(80);
-    expect(razo?.bestScore).toBe(90);
+    const raso = s.byCategory.find((c) => c.category === 'raso');
+    expect(raso?.participants).toBe(2);
+    expect(raso?.averageScore).toBe(80);
+    expect(raso?.bestScore).toBe(90);
 
     expect(s.byCategory.find((c) => c.category === 'escuela')?.bestScore).toBe(50);
   });
@@ -276,10 +276,10 @@ describe('tournamentStats', () => {
     const s = tournamentStats([
       rollup({ participantId: 'p1', category: 'escuela', total: 10 }),
       rollup({ participantId: 'p2', category: 'recurvo', total: 20 }),
-      rollup({ participantId: 'p3', category: 'razo', total: 30 }),
+      rollup({ participantId: 'p3', category: 'raso', total: 30 }),
     ]);
 
-    expect(s.byCategory.map((c) => c.category)).toEqual(['recurvo', 'razo', 'escuela']);
+    expect(s.byCategory.map((c) => c.category)).toEqual(['recurvo', 'raso', 'escuela']);
   });
 
   it('sin participantes no inventa un mejor puntaje', () => {
