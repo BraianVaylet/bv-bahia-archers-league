@@ -7,7 +7,7 @@
  * Ver `docs/ARCHITECTURE.md` §3.
  */
 
-import { Footer } from '@bal/ui';
+import { Footer, IndicadorDeAmbiente } from '@bal/ui';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { A_LA_APP, Encabezado, EnlaceInterno } from './components/ui.js';
@@ -54,6 +54,8 @@ export function App() {
             Saltar al contenido
           </a>
 
+          {/* «Estás en modo desarrollo», sobre el encabezado. En producción no dibuja nada. */}
+          <IndicadorDeAmbiente />
           <Encabezado />
 
           <main id="contenido" tabIndex={-1} className="flex-1">

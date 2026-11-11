@@ -15,6 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { Context, Hono } from 'hono';
+import type { Env } from '../env.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 
@@ -84,6 +85,27 @@ const REVALIDAR = 'no-cache';
 /** `/assets/…` en la landing, `/app/assets/…` en la PWA. */
 const esAssetConHash = (ruta: string): boolean => /^(\/app)?\/assets\//.test(ruta);
 
+/** Los valores de `NODE_ENV` que acepta `env.ts`. */
+export type Ambiente = Env['NODE_ENV'];
+
+/**
+ * Escribe el ambiente en el `<html>`: `<html data-ambiente="development" lang="es-AR">`.
+ *
+ * Es lo que lee `IndicadorDeAmbiente` (`@bal/ui`) para mostrar la barra «estás en modo
+ * desarrollo». **El build no lo puede saber**: `vite build` corre siempre en modo `production`
+ * y la imagen de Docker es la misma para los dos ambientes de Railway; lo único que cambia
+ * entre uno y otro es el `NODE_ENV` del contenedor.
+ *
+ * Va en el documento y no en un endpoint porque WAFL arranca sin red: su `index.html` es el
+ * que precacheó el service worker, y con él viaja el ambiente. Ninguna pantalla espera un
+ * fetch para saber dónde está.
+ *
+ * El valor sale de `env.ts`, validado contra un enum: nunca es texto del request.
+ */
+export function marcarAmbiente(html: string, ambiente: Ambiente): string {
+  return html.replace(/<html(?=[\s>])/, `<html data-ambiente="${ambiente}"`);
+}
+
 /**
  * Cabeceras de todo archivo servido desde disco.
  *
@@ -110,15 +132,31 @@ function cabecerasDeArchivo(_ruta: string, c: Context): void {
  * `/app/wafl` daría 404 — que es exactamente lo que hace un líder al que se le
  * cierra el navegador a mitad del recorrido.
  */
-export function montarEstaticos(app: Hono, rutas: RutasDeFrontend = RUTAS_POR_DEFECTO): void {
+export function montarEstaticos(
+  app: Hono,
+  rutas: RutasDeFrontend = RUTAS_POR_DEFECTO,
+  // Por omisión, producción: que la barra de desarrollo aparezca tiene que ser una decisión.
+  ambiente: Ambiente = 'production',
+): void {
   // Se lee una vez, acá. El fallback de SPA es el request que hace cada líder al
   // reabrir el navegador en la ruta donde estaba, y leía de disco en cada uno.
   // El `dist` de un contenedor no cambia mientras corre.
-  const indexApp = readFileSync(join(rutas.app, 'index.html'), 'utf8');
-  const indexLanding = readFileSync(join(rutas.landing, 'index.html'), 'utf8');
+  const indexApp = marcarAmbiente(readFileSync(join(rutas.app, 'index.html'), 'utf8'), ambiente);
+  const indexLanding = marcarAmbiente(
+    readFileSync(join(rutas.landing, 'index.html'), 'utf8'),
+    ambiente,
+  );
 
   const pagina = (c: Context, contenido: string) =>
     c.html(contenido, 200, { 'Cache-Control': REVALIDAR });
+
+  // **El `index.html` se entrega desde memoria, antes que `serveStatic`.** Si no, `/app`, `/app/`,
+  // `/app/index.html` —el que precachea el service worker— y `/` salían del disco (o de su
+  // `.br`), sin el ambiente.
+  for (const ruta of ['/app', '/app/', '/app/index.html']) {
+    app.get(ruta, (c) => pagina(c, indexApp));
+  }
+  for (const ruta of ['/', '/index.html']) app.get(ruta, (c) => pagina(c, indexLanding));
 
   // Los `.br` y `.gz` los deja el build (`scripts/precomprimir.mjs`) junto a cada
   // asset. Se entrega el que el cliente acepta, sin comprimir nada por request.
@@ -131,7 +169,6 @@ export function montarEstaticos(app: Hono, rutas: RutasDeFrontend = RUTAS_POR_DE
       onFound: cabecerasDeArchivo,
     }),
   );
-  app.get('/app', (c) => pagina(c, indexApp));
   app.get('/app/*', (c) => pagina(c, indexApp));
 
   app.use(

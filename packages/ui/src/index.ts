@@ -64,6 +64,11 @@ export {
   type GraficoDeTortaProps,
   type ParteDeTorta,
 } from './GraficoDeTorta.js';
+export {
+  IndicadorDeAmbiente,
+  type IndicadorDeAmbienteProps,
+  leerAmbiente,
+} from './IndicadorDeAmbiente.js';
 export * from './iconos/acciones.js';
 export type { Icono, IconoProps } from './iconos/base.js';
 export { Svg } from './iconos/base.js';

@@ -29,6 +29,23 @@ La categoría barebow se escribe **Raso**. Cambia la etiqueta **y la clave** (`B
 **WAFL no se ve afectado:** no muestra la categoría y sus ops del outbox no la llevan. **Riesgo en la transición:** un WAFA abierto con el JS viejo (la PWA actualiza con `prompt`) recibe `raso` del servidor y no la conoce hasta que se acepte la actualización. No conviene deployar con el admin trabajando.
 
 **Tests:** 5 en `migraciones.test.ts`, vistos fallar contra un stub (y el del mapa incompleto, contra la primera implementación). Suite completa: shared 463, cliente 64, ui 360, api 615, landing 112, app 716. Biome, typecheck, capas y docs OK. E2E sin correr localmente.
+## 2026-11-11 · UI — barra «estás en modo desarrollo»
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/indicador-ambiente`. Pedido del autor, fuera del plan.
+
+Una franja de lado a lado arriba del encabezado de la landing, la puerta de la PWA, WAFA y WAFL que dice «Estás en modo desarrollo» cuando el servidor corre con `NODE_ENV=development`. En producción no se dibuja nada. Componente `IndicadorDeAmbiente` en `@bal/ui`.
+
+**Decisión: el ambiente se resuelve en runtime, no en el build.** `vite build` corre siempre en modo `production`, el `Dockerfile` no recibe ningún `ARG` y fija `ENV NODE_ENV=production` en la imagen final: los dos ambientes de Railway construyen la misma imagen y sólo difieren en el `NODE_ENV` que les pone la plataforma al correr. Un `define` de Vite diría «producción» en los dos. Por eso la API escribe el ambiente en el `<html>` que entrega (`data-ambiente="…"`, `marcarAmbiente` en `middleware/estaticos.ts`) y la UI lo lee del documento.
+
+**Sin fetch.** WAFL no lee de respuestas HTTP y arranca sin red: el atributo viaja en el `index.html` que precacheó el service worker. Para eso el `index.html` se sirve desde memoria también en `/app`, `/app/`, `/app/index.html` (el que pide Workbox) y `/index.html`: antes esas rutas salían del disco o de su `.br` por `serveStatic`, y no llevarían el ambiente. El costo es que el `index.html` (~1 KB) viaja sin comprimir.
+
+**`pnpm dev` también es desarrollo:** ahí no hay API que sirva el HTML, así que un plugin de Vite (`@bal/ui/vite`, `ambienteDeDesarrollo`, `apply: 'serve'`) marca el `<html>` igual. `vite preview` y el build no lo aplican.
+
+**El alto lo reserva el CSS.** La PWA mide sus pantallas con `h-dvh`: una franja de más hacía scrollear el documento y cortaba la barra de acción de abajo. `tokens.css` define `--reserva-aviso-de-ambiente` (0 en producción, 28 px con `data-ambiente='development'`) y `Pantalla` y la puerta lo descuentan. Sin JS, así que no hay un frame corrido. Colores `monte` / `monte-accent`: ni estaca, ni error, ni el encabezado; el par se sumó a `contraste.test.ts` como texto. No es interactiva: no entra en la regla de 44 px ni suma paradas al Tab.
+
+**Supuesto:** el ambiente de desarrollo de Railway tiene que setear `NODE_ENV=development` como variable del servicio; si no, hereda el `production` de la imagen y la barra no aparece. No se puede verificar desde el repo.
+
+**Tests:** `estaticos.test.ts` (+12: cada ruta que entrega el `index.html` lleva el ambiente, también con `Accept-Encoding: br` y con el `?__WB_REVISION__` del service worker; por omisión, producción), `ambiente.test.tsx` y `vite.test.ts` en `@bal/ui`, y montaje en `puerta.test.tsx` (puerta, WAFA, WAFL, WAFL sin red) y `navegacion.test.tsx` (sobre el encabezado de la landing). Todos vistos fallar primero. El test de `Pantalla` en `wafa.test.tsx` cambia a la altura nueva, sin perder lo que cuidaba (alto exacto, no mínimo).
 
 ---
 
