@@ -14,6 +14,7 @@
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { BarraDeAcciones } from '../distribucion/BarraDeAcciones.js';
 import { TarjetaDePatrulla } from '../distribucion/TarjetaDePatrulla.js';
@@ -70,9 +71,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
           </section>
         )}
 
-        {p.patrullas === undefined && !p.error && (
-          <p className="text-[var(--ink-muted)]">Cargando…</p>
-        )}
+        {p.patrullas === undefined && !p.error && <Cargando texto="Cargando las patrullas…" />}
 
         <div className="flex flex-col gap-3">
           {p.borrador.map((patrulla) => (

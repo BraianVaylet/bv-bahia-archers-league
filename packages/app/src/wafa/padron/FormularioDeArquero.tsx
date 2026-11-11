@@ -166,7 +166,7 @@ export function FormularioDeArquero({
         <Button variante="secundario" onClick={onCancelar}>
           Cancelar
         </Button>
-        <Button type="submit" ancho disabled={enviando || !completo}>
+        <Button type="submit" ancho ocupado={enviando} disabled={!completo}>
           {textoDeGuardar}
         </Button>
       </div>

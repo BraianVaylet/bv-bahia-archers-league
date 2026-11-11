@@ -48,17 +48,32 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variante?: VarianteDeBoton;
   readonly tamaño?: TamañoDeBoton;
   readonly ancho?: boolean;
+  /**
+   * La acción está en curso: el botón se deshabilita y lo anuncia con `aria-busy`. El texto lo pone
+   * quien lo usa, y dice qué está pasando —«Guardando…», «Publicando…»—, no un spinner.
+   */
+  readonly ocupado?: boolean;
 }
 
 /**
  * La navegación es trabajo de `<a>`: un `<Link>` que tiene que **verse** como
  * botón usa `botonClases` directo, sin un `<button>` anidado adentro.
  */
-export function Button({ variante = 'primario', tamaño, ancho, className, ...props }: ButtonProps) {
+export function Button({
+  variante = 'primario',
+  tamaño,
+  ancho,
+  ocupado = false,
+  className,
+  disabled,
+  ...props
+}: ButtonProps) {
   return (
     <button
       type="button"
       className={botonClases({ variante, tamaño, ancho, className })}
+      disabled={disabled || ocupado}
+      aria-busy={ocupado || undefined}
       {...props}
     />
   );

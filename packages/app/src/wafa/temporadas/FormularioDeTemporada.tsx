@@ -73,7 +73,7 @@ export function FormularioDeTemporada({
         required
       />
 
-      <Button type="submit" ancho disabled={enviando || !nombre || problema !== undefined}>
+      <Button type="submit" ancho ocupado={enviando} disabled={!nombre || problema !== undefined}>
         Crear
       </Button>
     </form>

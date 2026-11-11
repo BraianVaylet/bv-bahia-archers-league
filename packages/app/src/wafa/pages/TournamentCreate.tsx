@@ -135,7 +135,7 @@ export function TournamentCreatePage({ onVolver, onCreado }: TournamentCreatePag
               Continuar
             </Button>
           ) : (
-            <Button ancho disabled={enviando} onClick={() => void confirmar()}>
+            <Button ancho ocupado={enviando} onClick={() => void confirmar()}>
               {enviando ? 'Creando…' : 'Crear torneo'}
             </Button>
           )}

@@ -13,6 +13,7 @@
 
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
 import { FilaDeArquero } from '../padron/FilaDeArquero.js';
@@ -109,7 +110,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
           </p>
         )}
 
-        {arqueros === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
+        {arqueros === undefined && !error && <Cargando texto="Cargando el padrón…" filas={5} />}
 
         {visibles?.length === 0 && (
           <p className="text-[var(--ink-muted)]">{mensajeDeVacio(padron)}</p>

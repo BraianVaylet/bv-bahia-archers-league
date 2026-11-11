@@ -9,6 +9,7 @@
  */
 
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Cargando } from '../components/Cargando.js';
 import { Screen } from '../components/ui.js';
 import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import { ArchersPage } from './pages/Archers.js';
@@ -44,7 +45,7 @@ export function WafaApp() {
   if (sesion.estado === 'cargando') {
     return (
       <Screen>
-        <p className="pt-10 text-[var(--ink-muted)]">Cargando…</p>
+        <Cargando forma="pantalla" texto="Revisando tu sesión…" />
       </Screen>
     );
   }

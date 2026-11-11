@@ -72,7 +72,7 @@ export function ControlesDeEstado({
           )}
           <Button
             ancho
-            disabled={iniciando}
+            ocupado={iniciando}
             onClick={() => (confirmandoInicio ? void iniciar() : setConfirmandoInicio(true))}
           >
             {iniciando ? 'Iniciando…' : confirmandoInicio ? 'Sí, iniciar' : 'Iniciar torneo'}
@@ -85,7 +85,7 @@ export function ControlesDeEstado({
         puntaje: acá no se esconde el botón por las dudas, se muestra el motivo cuando dice que no.
       */}
       {torneo.status === 'en_proceso' && (
-        <Button variante="secundario" ancho disabled={iniciando} onClick={() => void volverAtras()}>
+        <Button variante="secundario" ancho ocupado={iniciando} onClick={() => void volverAtras()}>
           {iniciando ? 'Volviendo…' : 'Volver a sin iniciar'}
         </Button>
       )}

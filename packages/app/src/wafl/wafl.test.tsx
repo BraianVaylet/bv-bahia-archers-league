@@ -142,6 +142,20 @@ describe('CircuitPage · piel de REF7-10', () => {
     expect(await screen.findByRole('img', { name: /de \d+ blancos cargados/ })).toBeInTheDocument();
   });
 
+  /**
+   * Antes de leer IndexedDB no hay de dónde sacar el avance: el recorrido aparecía en «0 de N» y
+   * saltaba al número real. Ahora espera la lectura, con el indicador de carga demorado.
+   */
+  it('no pinta un avance falso antes de leer los puntajes guardados', async () => {
+    render(<CircuitPage bundle={bundle} onAbrirBlanco={vi.fn()} onResultados={vi.fn()} />);
+
+    expect(screen.queryByText(/\d+ de \d+ blancos/)).toBeNull();
+    expect(screen.queryAllByTestId('numero-blanco')).toHaveLength(0);
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    expect(await screen.findAllByTestId('numero-blanco')).not.toHaveLength(0);
+  });
+
   /** `F-4`: cerrar sesión vive en el encabezado; al final de la lista sobraba. */
   it('no hay un «Cerrar sesión» al final de la lista: sólo el del encabezado', async () => {
     render(

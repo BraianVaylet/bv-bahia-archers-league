@@ -89,7 +89,7 @@ export function LoginPage({ onEntro }: LoginPageProps) {
           </p>
         )}
 
-        <Button type="submit" ancho disabled={enviando || !username || !password}>
+        <Button type="submit" ancho ocupado={enviando} disabled={!username || !password}>
           {enviando ? 'Entrando…' : 'Entrar'}
         </Button>
 

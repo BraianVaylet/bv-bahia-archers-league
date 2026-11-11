@@ -52,7 +52,10 @@ export function PasoDatos({
           className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
           required
         >
-          <option value="">Elegí una temporada</option>
+          {/* Un `<select>` no puede llevar adentro el indicador: lo dice su primera opción. */}
+          <option value="">
+            {temporadas === undefined ? 'Cargando las temporadas…' : 'Elegí una temporada'}
+          </option>
           {temporadas?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}

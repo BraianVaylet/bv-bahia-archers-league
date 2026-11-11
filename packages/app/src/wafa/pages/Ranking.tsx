@@ -20,6 +20,7 @@
 import { textoDeRanking } from '@bal/shared';
 import { IconoCompartir, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { CategoriaDelRanking } from '../ranking/CategoriaDelRanking.js';
 import { Pestañas } from '../ranking/Pestañas.js';
@@ -29,6 +30,7 @@ import { useRanking } from '../ranking/useRanking.js';
 export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
   useTituloDePagina('Ranking');
   const { temporadas, elegida, setElegida, bestN, categorias, error } = useRanking();
+  const cargandoRanking = elegida !== '' && categorias === undefined && !error;
   const [copiado, setCopiado] = useState(false);
   const [vista, setVista] = useState<Vista>('general');
 
@@ -79,6 +81,8 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
       <Encabezado contexto="Administración" titulo="Ranking" onVolver={onVolver} />
 
       <Screen>
+        {temporadas === undefined && <Cargando forma="linea" texto="Cargando las temporadas…" />}
+
         {temporadas?.length === 0 && (
           <p className="text-[var(--ink-muted)]">
             Todavía no hay temporadas cargadas. Creá una y publicá un torneo.
@@ -132,6 +136,8 @@ export function RankingPage({ onVolver }: { readonly onVolver: () => void }) {
             </Button>
           </>
         )}
+
+        {cargandoRanking && <Cargando texto="Cargando el ranking…" />}
 
         {categorias?.map((c) => (
           <CategoriaDelRanking key={c.category} c={c} vista={vista} bestN={bestN} />

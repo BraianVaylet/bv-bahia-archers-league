@@ -101,7 +101,8 @@ export function ChangePasswordPage({
         <Button
           type="submit"
           ancho
-          disabled={enviando || !actual || !nuevo || problema !== undefined}
+          ocupado={enviando}
+          disabled={!actual || !nuevo || problema !== undefined}
         >
           {enviando ? 'Guardando…' : 'Guardar'}
         </Button>

@@ -20,6 +20,7 @@ import { camposEditables, type FilaDeTarjeta, type Modality, SCORING } from '@ba
 import { ChipCategoria, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { ScoreKeypad } from '../../wafl/ScoreKeypad.js';
@@ -137,6 +138,10 @@ export function CorregirPage({ onVolver }: { readonly onVolver: () => void }) {
           </p>
         )}
 
+        {datos.datos === undefined && !datos.error && (
+          <Cargando forma="detalle" texto="Cargando el torneo…" />
+        )}
+
         {torneo && (
           <div className="pt-2 flex flex-col gap-1">
             <h1 className="font-display text-display font-bold">{torneo.name}</h1>
@@ -194,6 +199,10 @@ export function CorregirPage({ onVolver }: { readonly onVolver: () => void }) {
           <p role="status" className="text-sm text-[var(--ok)]">
             {hecho}
           </p>
+        )}
+
+        {elegido !== undefined && tarjeta.datos === undefined && !tarjeta.error && (
+          <Cargando forma="detalle" texto="Cargando la tarjeta del arquero…" />
         )}
 
         {tarjeta.datos && (
@@ -312,7 +321,8 @@ export function CorregirPage({ onVolver }: { readonly onVolver: () => void }) {
                           </Button>
                           <Button
                             ancho
-                            disabled={problema !== undefined || guardando}
+                            ocupado={guardando}
+                            disabled={problema !== undefined}
                             onClick={() => void guardar()}
                           >
                             {guardando ? 'Guardando…' : 'Guardar corrección'}
