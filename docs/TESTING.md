@@ -343,6 +343,35 @@ Caso 2 — el camino corto:
  3. No aparece en /admin/archers ni en /admin/archers?status=pendiente —lo mismo que consulta el wizard—
 ```
 
+### Fase 9 — edición por estado, corrección, archivo y próximas fechas (`TEST-4`)
+
+```
+e2e/fase-9.spec.ts
+
+Caso 1 — próximas fechas:
+ 1. Torneo sin iniciar, con fecha futura y link de pre-inscripción (por API)
+ 2. La landing lo muestra en «Próximas fechas», con «Pre-inscribirme» al link
+ 3. WAFA: «Editar recorrido» desde la ficha, agregar un blanco → aviso de rearmado → guardar
+ 4. WAFA: eliminar (dos toques)
+ 5. Un visitante nuevo ya no lo ve en «Próximas fechas»
+
+Caso 2 — corrección, publicación y archivo:
+ 1. Torneo completo por API: puntajes, firmas de los dos arqueros y cierre
+ 2. WAFA: «Corregir puntajes» → arquero → blanco 1 → teclado (10, 10) → motivo → guardar
+ 3. Se publica, aunque el arquero ya había firmado
+ 4. La tarjeta pública muestra las flechas corregidas
+ 5. Corregir con el torneo publicado → 409
+ 6. WAFA: archivar desde la pantalla de resultados, con motivo
+ 7. Sale del ranking de la temporada, del listado público y su detalle da error
+ 8. Desarchivar → vuelve al ranking y su detalle se ve
+```
+
+Dos cosas que este E2E encontró y quedaron corregidas, con su test de unidad:
+- **Corregir a un arquero que ya firmó trababa la publicación** (`SIGNATURE_MISMATCH`). Ver `BE-25` en la bitácora del 2026-11-11.
+- **A 320 px, el selector de temporada del ranking de la landing scrolleaba de costado** con una temporada de nombre largo: un `select` nativo toma el ancho de su opción más larga.
+
+Y una que **no es un bug**: el navegador que ya pidió `/api/public/tournaments/upcoming` sigue mostrando un torneo recién eliminado hasta que vence su `Cache-Control` (`publicCache`). El caso 1 lo verifica con un visitante nuevo.
+
 ---
 
 ## 7. Cómo correr

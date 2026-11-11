@@ -845,7 +845,8 @@ _(Hecho. `AltaRapida` quedó como un botón que abre `FormularioDeArquero` (tít
 - `grep` sin coincidencias de `rpc.admin.archers.$post` fuera del punto único que use la función extraída.
 - El test del padrón (`FE-29`) sigue verde sin cambios de comportamiento.
 
-### `[ ] TEST-4` · E2E de la fase
+### `[x] TEST-4` · E2E de la fase
+_(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos bugs, corregidos con test de unidad: corregir a un arquero que ya firmó trababa la publicación (`BE-25`), y el selector de temporada del ranking de la landing desbordaba a 320 px. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
 **Archivos:** `e2e/edicion-por-estado.spec.ts`, `e2e/correccion-y-archivo.spec.ts`, `e2e/proximas-fechas.spec.ts`
 **Referencia:** [`TESTING.md`](TESTING.md) (agregar la subsección)
 **DoD:** contra el stack real, como `TEST-1`:

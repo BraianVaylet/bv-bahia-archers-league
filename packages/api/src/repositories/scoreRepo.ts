@@ -125,8 +125,16 @@ export async function applyRollupDelta(
  *
  * Ver `docs/SECURITY.md` §7.
  */
-export async function scorecardHashOf(participante: ParticipantDoc): Promise<string> {
-  const propios = (await scores().find({ participantId: participante._id }).toArray())
+export async function scorecardHashOf(
+  participante: ParticipantDoc,
+  // Con la `session` de una transacción, ve lo que esa transacción escribió (`BE-25`).
+  session?: ClientSession,
+): Promise<string> {
+  const propios = (
+    await scores()
+      .find({ participantId: participante._id }, session ? { session } : {})
+      .toArray()
+  )
     .sort((a, b) => a.targetIndex - b.targetIndex)
     .map((s) => ({ t: s.targetIndex, a: s.arrows, total: s.total }));
 

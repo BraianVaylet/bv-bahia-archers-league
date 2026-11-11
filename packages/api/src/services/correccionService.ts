@@ -130,6 +130,28 @@ export async function corregirPuntaje(
       session,
     );
 
+    /*
+      La firma no se borra (decisión 3), pero su hash se recalcula con el puntaje corregido y queda
+      marcada. Sin esto, publicar la rechazaba como «cambió después de firmar» (`SIGNATURE_MISMATCH`)
+      y la corrección trababa justo el caso para el que existe. Un cambio que NO pase por acá sigue
+      sin coincidir con el hash y traba la publicación, como antes (encontrado con `TEST-4`).
+    */
+    if (vigente.signature) {
+      const conElTotalNuevo = await scoreRepo.findParticipant(vigente._id, session);
+      if (conElTotalNuevo) {
+        await scoreRepo.setSignature(
+          vigente._id,
+          {
+            ...vigente.signature,
+            scorecardHash: await scoreRepo.scorecardHashOf(conElTotalNuevo, session),
+            correctedBy: actorId,
+            correctedAt: ahora,
+          },
+          session,
+        );
+      }
+    }
+
     await auditRepo.record(
       {
         actorType: 'admin',
