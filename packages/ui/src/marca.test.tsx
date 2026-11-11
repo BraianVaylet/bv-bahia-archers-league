@@ -137,6 +137,19 @@ describe('Footer', () => {
   });
 
   /**
+   * La liga decide quién compite: anotarse en el padrón o en un torneo no garantiza un lugar. Se
+   * dice en la letra chica del pie, en todas las páginas, sin cartel aparte.
+   */
+  it('la línea legal dice que la liga se reserva el derecho de admisión', () => {
+    const { container } = render(<Footer />);
+    const legal = screen.getByText('Círculo Bahiense de Arquería · Bahía Blanca').parentElement;
+
+    expect(legal).toHaveTextContent('La Liga se reserva el derecho de admisión.');
+    // En la línea legal, no en las columnas de navegación.
+    expect(container.querySelector('nav')?.textContent).not.toMatch(/admisión/);
+  });
+
+  /**
    * **El `alt` del escudo del club no es decorativo.** El nombre del club no está escrito al lado
    * de su escudo: con el `alt` vacío, para un lector de pantalla **el club no existiría**.
    */
