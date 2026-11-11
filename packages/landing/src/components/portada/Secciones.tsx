@@ -49,13 +49,13 @@ const PASOS = [
     n: '01',
     titulo: 'Un recorrido multitarget',
     texto:
-      'Cada fecha consta de un circuito en el predio que puede contar con blancos a 18m, aire libre, campo y 3D. Cada blanco puntua segun la modalidad',
+      'Cada fecha consta de un circuito en el predio que puede contar con blancos a 18 m, aire libre, campo y 3D. Cada blanco puntúa según la modalidad.',
   },
   {
     n: '02',
     titulo: 'En patrullas con doble planilla',
     texto:
-      'Grupos de 2 a 4 arqueros. El líder anota los puntajes desde la app, el arquero mas novato anota en la planilla fisica. La planilla fisica es la fuente de verdad.',
+      'Grupos de 2 a 4 arqueros. El líder anota los puntajes desde la app, el arquero más novato anota en la planilla física. La planilla física es la fuente de verdad.',
   },
   {
     n: '03',
@@ -151,7 +151,7 @@ const MODALIDADES: readonly { modality: Modality; nombre: string; texto: string 
   {
     modality: 'aire_libre',
     nombre: 'Aire libre',
-    texto: 'Distancias conocidas sobre la linea de tiro.',
+    texto: 'Distancias conocidas sobre la línea de tiro.',
   },
   {
     modality: 'campo',
