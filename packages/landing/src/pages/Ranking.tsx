@@ -194,7 +194,7 @@ export function RankingPage() {
       </div>
 
       {temporadas.estado === 'listo' && temporadas.datos.seasons.length > 0 && (
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm min-w-0">
           Temporada
           <select
             aria-label="Temporada"
@@ -202,7 +202,11 @@ export function RankingPage() {
             onChange={(e) => setParams({ temporada: e.target.value })}
             // Fondo y texto explícitos: un `select` nativo sin color propio sale ilegible en el
             // modo oscuro de Windows.
-            className="min-h-[44px] px-3 rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--ink)]"
+            //
+            // `min-w-0 flex-1 max-w-full`: un `select` nativo toma el ancho de su opción más larga,
+            // y una temporada de nombre largo hacía scrollear la página de costado a 320 px (lo
+            // encontró el E2E de `TEST-4`). Acá se achica y la opción se corta con «…».
+            className="min-w-0 flex-1 max-w-full min-h-[44px] px-3 rounded-[var(--radius-md)] border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--ink)]"
           >
             {temporadas.datos.seasons.map((s) => (
               <option key={s.id} value={s.id}>

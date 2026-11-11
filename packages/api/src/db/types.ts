@@ -182,6 +182,13 @@ export interface SignatureDoc {
   scorecardHash: string;
   unlockedBy: ObjectId | null;
   unlockReason: string | null;
+  /**
+   * El admin corrigió el puntaje después de esta firma, contra la planilla de papel (`BE-25`).
+   * El hash se recalcula en la misma operación: lo que cambie **por fuera** de la corrección sigue
+   * sin coincidir y traba la publicación. Opcional: las firmas sin corrección no lo tienen.
+   */
+  correctedBy?: ObjectId | null;
+  correctedAt?: Date;
 }
 
 export interface ParticipantDoc {

@@ -176,7 +176,71 @@ describe('corregir un puntaje', () => {
     const registro = await auditLog().findOne({ action: 'score.admin_correct' });
     expect(registro?.meta).toMatchObject({ despuesDeFirmar: true });
   });
+
+  /**
+   * La corrección existe para poder publicar con el papel. Publicar rechaza un arquero cuyo
+   * puntaje cambió después de firmar (`SIGNATURE_MISMATCH`): si la corrección del admin contara
+   * como «cambió después de firmar», justo el caso para el que existe quedaría trabado.
+   * (Encontrado armando el E2E de `TEST-4`.)
+   */
+  it('corregir a un arquero que ya firmó no traba la publicación', async () => {
+    const e = await torneoParaCorregir();
+    // Firma real, por el sync: el hash es el del puntaje del momento.
+    await tournaments().updateOne({}, { $set: { status: 'en_proceso' } });
+    await e.lider.post('/api/wafl/sync', {
+      ops: [
+        {
+          type: 'signature',
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: e.pid,
+          pngDataUrl: PNG,
+        },
+      ],
+    });
+    await tournaments().updateOne({}, { $set: { status: 'completado' } });
+    expect((await participants().findOne({ _id: new ObjectId(e.pid) }))?.signature).not.toBeNull();
+
+    await e.admin.put(ruta(e, e.pid, 1), { arrows: ['10', '10'], reason: MOTIVO });
+    const res = await e.admin.post(`/api/admin/tournaments/${e.tournamentId}/publish`);
+
+    expect(res.status).toBe(200);
+  });
+
+  /**
+   * Lo que sí tiene que seguir trabando: un cambio **que no pasó por la corrección** después de
+   * firmar —un script, una edición a mano en la base—.
+   */
+  it('un cambio por fuera de la corrección, después de firmar, sigue trabando la publicación', async () => {
+    const e = await torneoParaCorregir();
+    await tournaments().updateOne({}, { $set: { status: 'en_proceso' } });
+    await e.lider.post('/api/wafl/sync', {
+      ops: [
+        {
+          type: 'signature',
+          opId: uuid(),
+          clientUpdatedAt: new Date().toISOString(),
+          participantId: e.pid,
+          pngDataUrl: PNG,
+        },
+      ],
+    });
+    await tournaments().updateOne({}, { $set: { status: 'completado' } });
+    await e.admin.put(ruta(e, e.pid, 1), { arrows: ['10', '10'], reason: MOTIVO });
+    await scores().updateOne(
+      { participantId: new ObjectId(e.pid), targetIndex: 1 },
+      { $set: { arrows: ['5', '5'] } },
+    );
+
+    const res = await e.admin.post(`/api/admin/tournaments/${e.tournamentId}/publish`);
+
+    expect(res.status).toBe(409);
+  });
 });
+
+const PNG = `data:image/png;base64,${Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+]).toString('base64')}`;
 
 describe('lo que la corrección no acepta', () => {
   /** Regla 1: el servidor es la autoridad del puntaje. Un total en el body no se lee: se rechaza. */

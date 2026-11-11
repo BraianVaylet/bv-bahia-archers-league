@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · `TEST-4` — E2E de la Fase 9, y dos bugs que encontró
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `test/test-4-e2e-fase-9`. **Con esto, la Fase 9 queda cerrada** (salvo `FE-40`, el editor de estacas, que pasó a P2).
+
+`e2e/fase-9.spec.ts`, contra el stack real, dos casos: (1) un torneo que viene aparece en «Próximas fechas» con su botón de pre-inscripción, se le rehace el recorrido desde la ficha, se elimina y un visitante nuevo ya no lo ve; (2) un torneo completo con firmas: el admin corrige una flecha desde la pantalla de corrección, se publica, la tarjeta pública muestra lo corregido, corregir publicado da 409, se archiva desde resultados —sale del ranking, del listado y su detalle da error— y al desarchivar vuelve. Detalle en `TESTING.md` §6.
+
+**Bugs encontrados y corregidos:**
+- **Corregir a un arquero que ya firmó trababa la publicación.** La firma guarda el hash del puntaje del momento, y publicar rechaza a quien cambió después de firmar (`SIGNATURE_MISMATCH`): la corrección del admin contaba como ese cambio, así que trababa justo el caso para el que existe. Ahora, en la misma transacción de la corrección, la firma recalcula su hash con el puntaje corregido y queda marcada (`correctedBy`/`correctedAt` en `SignatureDoc`). Un cambio que **no** pase por la corrección sigue sin coincidir y traba como antes. Para eso `scorecardHashOf` recibe la `session`: sin ella no ve el puntaje que la transacción acaba de escribir (mutación verificada). Dos tests nuevos en `correccion.test.ts`, el primero visto fallar.
+- **A 320 px, el selector de temporada del ranking de la landing desbordaba** con una temporada de nombre largo (las del E2E se llaman «Liga de Corrección E2E…»): un `select` nativo toma el ancho de su opción más larga. Lo detectó el chequeo de scroll horizontal de `flujo-completo`. Ahora se achica (`min-w-0 flex-1 max-w-full`).
+
+**No es un bug:** el navegador que ya pidió la lista de próximas fechas sigue mostrando un torneo recién eliminado hasta que vence el `Cache-Control` de `/api/public/*` (`publicCache`). Se verificó que la API ya no lo devolvía; el E2E mira con un visitante nuevo. El primer intento también confundía el nombre del torneo con el de su temporada («Liga de <nombre>»), que la landing muestra como temporada activa: la verificación se acotó a la sección.
+
+**Verificación:** la suite E2E entera, 65 de 65 contra el stack real (4,6 min, Chromium, Pixel 7 y iPhone 14 donde corresponde). `@bal/api` 610, `@bal/landing` 112, `pnpm -r typecheck` y `biome check . --error-on-warnings` verdes.
+
+---
+
 ## 2026-11-11 · `FE-32` — WAFA: edición completa de un torneo sin iniciar
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado salvo estacas (→ `FE-40`), en la rama `feat/fe-32-edicion-completa`.
