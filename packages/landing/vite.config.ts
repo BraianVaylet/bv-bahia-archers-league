@@ -1,3 +1,4 @@
+import { ambienteDeDesarrollo } from '@bal/ui/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -7,7 +8,8 @@ import { defineConfig } from 'vite';
 // Ver docs/ARCHITECTURE.md §3.
 export default defineConfig({
   base: '/',
-  plugins: [react(), tailwindcss()],
+  // `ambienteDeDesarrollo`: `pnpm dev` es desarrollo, y lo marca como la API en Railway.
+  plugins: [react(), tailwindcss(), ambienteDeDesarrollo()],
   server: {
     port: 5174,
     proxy: {

@@ -137,7 +137,7 @@ export function createApp(options: AppOptions = {}): Hono {
   // tampoco: que una suite pase o falle según si alguien corrió `pnpm build`
   // antes es exactamente el tipo de intermitencia que no se puede tener.
   if (options.servirFrontends ?? (cfg.NODE_ENV !== 'test' && hayBuild(RUTAS_POR_DEFECTO))) {
-    montarEstaticos(app);
+    montarEstaticos(app, RUTAS_POR_DEFECTO, cfg.NODE_ENV);
   }
 
   app.notFound((c) =>

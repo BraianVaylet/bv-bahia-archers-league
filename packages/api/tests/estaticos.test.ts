@@ -5,7 +5,12 @@ import { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { resetEnvCache } from '../src/env.js';
-import { elegirRutas, hayBuild, montarEstaticos } from '../src/middleware/estaticos.js';
+import {
+  elegirRutas,
+  hayBuild,
+  marcarAmbiente,
+  montarEstaticos,
+} from '../src/middleware/estaticos.js';
 import { startDb, stopDb, testEnvRaw } from './helpers.js';
 
 /**
@@ -266,5 +271,94 @@ describe('compresión del JSON de la API', () => {
     const res = await con(conRutasGrandes(), '/api/_grande');
 
     expect(res.headers.get('content-encoding')).toBeNull();
+  });
+});
+
+// ── Indicador de ambiente ────────────────────────────────────────────────────
+
+/**
+ * La barra «estás en modo desarrollo» de la landing, WAFA y WAFL.
+ *
+ * **El build no sabe en qué ambiente va a correr.** `vite build` corre siempre en modo
+ * `production` y la imagen de Docker es la misma para los dos ambientes de Railway: lo único
+ * que cambia entre uno y otro es el `NODE_ENV` del contenedor. Así que el servidor lo escribe
+ * en el `<html>` que entrega, y la interfaz lo lee del documento, sin un fetch: WAFL tiene que
+ * arrancar sin red, y su `index.html` es el que precacheó el service worker.
+ */
+describe('ambiente en el index.html', () => {
+  const RUTAS_AMB = { landing: join(RAIZ, 'amb-landing'), app: join(RAIZ, 'amb-app') };
+
+  beforeAll(async () => {
+    await mkdir(RUTAS_AMB.landing, { recursive: true });
+    await mkdir(RUTAS_AMB.app, { recursive: true });
+    await writeFile(
+      join(RUTAS_AMB.landing, 'index.html'),
+      '<!doctype html><html lang="es-AR"><body>LANDING</body></html>',
+    );
+    await writeFile(
+      join(RUTAS_AMB.app, 'index.html'),
+      '<!doctype html><html lang="es-AR"><body>PWA</body></html>',
+    );
+    // El build deja precomprimido el `index.html` también. Si `serveStatic` lo entregara,
+    // saldría el del disco, sin el ambiente.
+    await writeFile(join(RUTAS_AMB.app, 'index.html.br'), 'BROTLI-DEL-INDEX');
+    await writeFile(join(RUTAS_AMB.landing, 'index.html.br'), 'BROTLI-DEL-INDEX');
+  });
+
+  function montadoEn(ambiente: 'development' | 'production' | 'test') {
+    const app = new Hono();
+    montarEstaticos(app, RUTAS_AMB, ambiente);
+    return app;
+  }
+
+  it('marcarAmbiente agrega el atributo al <html> y respeta los que ya tenía', () => {
+    expect(marcarAmbiente('<!doctype html><html lang="es-AR"><head>', 'development')).toBe(
+      '<!doctype html><html data-ambiente="development" lang="es-AR"><head>',
+    );
+  });
+
+  it('marcarAmbiente no toca otra etiqueta que empiece igual', () => {
+    expect(marcarAmbiente('<htmlx><html>', 'production')).toBe(
+      '<htmlx><html data-ambiente="production">',
+    );
+  });
+
+  it.each([
+    '/',
+    '/index.html',
+    '/torneos/abc123',
+    '/app',
+    '/app/',
+    '/app/index.html',
+    '/app/wafl/blanco/7',
+  ])('%s lleva el ambiente del servidor', async (ruta) => {
+    const res = await montadoEn('development').request(`http://localhost${ruta}`, {
+      headers: { 'accept-encoding': 'gzip, deflate, br' },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-cache');
+    expect(await res.text()).toMatch('<html data-ambiente="development" lang="es-AR">');
+  });
+
+  // El que precachea el service worker de WAFL: lo pide con un parámetro de revisión.
+  it('el index.html que pide el service worker también lo lleva', async () => {
+    const res = await montadoEn('development').request(
+      'http://localhost/app/index.html?__WB_REVISION__=abc',
+    );
+    expect(await res.text()).toMatch('data-ambiente="development"');
+  });
+
+  it('en producción dice producción', async () => {
+    const res = await montadoEn('production').request('http://localhost/app/wafl');
+    expect(await res.text()).toMatch('data-ambiente="production"');
+  });
+
+  it('sin ambiente explícito asume producción: la barra no aparece por omisión', async () => {
+    const app = new Hono();
+    montarEstaticos(app, RUTAS_AMB);
+    expect(await (await app.request('http://localhost/')).text()).toMatch(
+      'data-ambiente="production"',
+    );
   });
 });

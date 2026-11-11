@@ -23,7 +23,7 @@ Todo lo necesario para levantar el proyecto de cero, en local y en producción, 
 
 | Variable | Requerida | Default | Descripción |
 |---|---|---|---|
-| `NODE_ENV` | no | `development` | `production` en el deploy |
+| `NODE_ENV` | no | `development` | `production` en el deploy. Con `development`, la landing y la PWA muestran la barra «estás en modo desarrollo» (la API lo escribe en el `<html>`; ver `BITACORA.md`, 2026-11-11). La imagen de Docker trae `production`: el ambiente de desarrollo de Railway tiene que setearlo |
 | `PORT` | no | `8787` | Puerto del servidor. **En Railway no se setea**: lo inyecta la plataforma |
 | `MONGODB_URI` | **sí** | — | Connection string de Atlas. Incluye usuario, password y `?retryWrites=true&w=majority` |
 | `MONGODB_DB` | no | `bal` | Nombre de la base |

@@ -1128,6 +1128,9 @@ describe('Pantalla', () => {
    * Con el mínimo la página crece con su contenido y el header y el pie se van
    * con el scroll — que es exactamente lo que se reportó. Con el alto exacto y
    * `overflow-hidden`, lo único que scrollea es el medio.
+   *
+   * El alto es la ventana **menos la barra de ambiente**, que en desarrollo va arriba de todo y
+   * en producción vale cero (`--reserva-aviso-de-ambiente`, `@bal/ui/tokens.css`).
    */
   it('mide el alto de la ventana, no un mínimo', () => {
     const { container } = render(
@@ -1137,8 +1140,8 @@ describe('Pantalla', () => {
     );
 
     const cascara = container.firstElementChild as HTMLElement;
-    expect(cascara.className).toMatch(/\bh-dvh\b/);
-    expect(cascara.className).not.toMatch(/min-h-dvh/);
+    expect(cascara.className).toContain('h-[calc(100dvh_-_var(--reserva-aviso-de-ambiente))]');
+    expect(cascara.className).not.toMatch(/min-h-/);
     expect(cascara.className).toMatch(/overflow-hidden/);
   });
 

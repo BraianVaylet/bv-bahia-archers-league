@@ -207,6 +207,22 @@
 }
 
 /**
+ * El alto de la barra «estás en modo desarrollo» (`IndicadorDeAmbiente`).
+ *
+ * El ambiente lo escribe en el `<html>` quien sirve el documento (`data-ambiente`). La barra mide
+ * `--alto-aviso-de-ambiente`; `--reserva-aviso-de-ambiente` es lo que ocupa de verdad —cero en
+ * producción— y lo descuentan las pantallas de alto fijo, como la `Pantalla` de la PWA.
+ */
+:root {
+  --alto-aviso-de-ambiente: 28px;
+  --reserva-aviso-de-ambiente: 0px;
+}
+
+:root[data-ambiente='development'] {
+  --reserva-aviso-de-ambiente: var(--alto-aviso-de-ambiente);
+}
+
+/**
  * Colores de estaca. SEMÁNTICA RESERVADA.
  *
  * No se usan para nada más en toda la interfaz. Si aparece rojo en la pantalla,

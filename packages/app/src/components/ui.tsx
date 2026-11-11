@@ -143,9 +143,17 @@ export function Field({ label, error, hint, id, className, ...props }: FieldProp
  * Estaba escrito igual en doce pantallas. Extraerlo es lo que permite corregir
  * el alto **una vez** en lugar de doce — la misma razón por la que `REF-4`
  * extrajo `Encabezado`.
+ *
+ * **Menos la barra de ambiente.** En desarrollo, `IndicadorDeAmbiente` ocupa una franja arriba de
+ * todo; con `h-dvh` entero el documento scrolleaba esa franja y la barra de abajo quedaba
+ * cortada. `--reserva-aviso-de-ambiente` vale cero en producción (`@bal/ui/tokens.css`).
  */
 export function Pantalla({ children }: { readonly children: ReactNode }) {
-  return <div className="flex flex-col h-dvh overflow-hidden">{children}</div>;
+  return (
+    <div className="flex flex-col h-[calc(100dvh_-_var(--reserva-aviso-de-ambiente))] overflow-hidden">
+      {children}
+    </div>
+  );
 }
 
 // ── Contenedor ───────────────────────────────────────────────────────────────
