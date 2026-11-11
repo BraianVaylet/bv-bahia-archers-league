@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
+import { Archivar } from '../publicacion/Archivar.js';
 import { Despublicar } from '../publicacion/Despublicar.js';
 import { PodioDeCategoria } from '../publicacion/PodioDeCategoria.js';
 import {
@@ -31,6 +32,8 @@ interface Torneo {
   readonly id: string;
   readonly name: string;
   readonly status: TournamentStatus;
+  /** Archivado (`BE-26`): sigue publicado, pero no suma ni se ve en la landing. */
+  readonly archived?: boolean;
 }
 
 const SIN_PARTICIPANTES: ResultadoParticipante[] = [];
@@ -77,6 +80,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
   const losPodios = podios(participantes);
   const avisos = torneo ? avisosDePublicacion(torneo.status, participantes) : [];
   const publicado = torneo?.status === 'publicado';
+  const archivado = torneo?.archived === true;
   useTituloDePagina(publicado ? 'Resultados' : 'Publicar');
 
   return (
@@ -97,9 +101,15 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
         {torneo && (
           <div className="pt-2">
             <h1 className="font-display text-display font-bold">{torneo.name}</h1>
-            {publicado && (
+            {publicado && !archivado && (
               <p className="text-[var(--ok)]">
                 Publicado. Los resultados ya están en la página pública y aplicados a la liga.
+              </p>
+            )}
+            {/* `FE-35`. Con texto, no sólo un color: «Archivado» dice qué le pasa al torneo. */}
+            {publicado && archivado && (
+              <p className="text-[var(--ink-muted)]" role="status">
+                Archivado. Sigue publicado, pero no suma al ranking ni se ve en la página pública.
               </p>
             )}
           </div>
@@ -130,7 +140,10 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
 
       <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t flex flex-col gap-2">
         {publicado ? (
-          <Despublicar id={id} onHecho={() => void carga.recargar()} />
+          <>
+            <Archivar id={id} archivado={archivado} onHecho={() => void carga.recargar()} />
+            <Despublicar id={id} onHecho={() => void carga.recargar()} />
+          </>
         ) : confirmando ? (
           <>
             <p className="text-sm text-center">

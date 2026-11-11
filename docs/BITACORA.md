@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · `FE-33` y `FE-35` — WAFA: editar según el estado, y archivar
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-33-35-edicion-y-archivo`.
+
+**`FE-33`.** «Editar» deja de ser sólo de un torneo sin iniciar. `EdicionDelTorneo` lee `camposEditables` y `puedeEliminar` de `@bal/shared` (`SH-11`) en vez de preguntar `status === 'sin_iniciar'`: en proceso edita nombre, fecha y link (decisión 1); esperando publicación, nombre y fecha; publicado, no ofrece nada. El `PATCH` sólo manda lo que el estado permite —el servidor rechaza el pedido entero si sobra un campo (`BE-24`)—. «Eliminar», sólo sin iniciar.
+
+**`FE-35`.** En la pantalla de resultados de un torneo publicado, «Archivar» y «Desarchivar» (componente `publicacion/Archivar.tsx`), con motivo y el texto exacto de qué pasa: sale del ranking y deja de verse en la página pública, sin despublicarlo. Un archivado lo dice arriba («Archivado. Sigue publicado, pero no suma…»). En el inicio, los archivados quedan fuera del grupo de publicados; «Ver archivados (N)» —sólo si hay alguno— los muestra con un chip de texto, tono neutro (regla 8).
+
+**Decisiones:**
+- **Archivar va al lado de «Despublicar»**, en la pantalla de resultados, no en `ControlesDeEstado` como decía el plan: es la otra acción con motivo sobre un publicado, y juntas se leen como lo que son, dos maneras de sacar un torneo de la liga.
+- **Descripción y pago no entran en el formulario de `FE-33`.** Lo hace `FE-32`, para todos los estados a la vez, por la misma tabla.
+
+**Encontrado de paso y corregido:** la pantalla de resultados de un torneo **ya publicado** mostraba un error rojo «Sólo se puede publicar un torneo completado…» debajo del cartel verde de «Publicado» (`avisosDePublicacion` sólo exceptuaba `completado`). Test escrito primero y visto fallar.
+
+**Tests:** 3 de edición por estado en `torneo-ui.test.tsx` (en proceso, esperando publicación con el `PATCH` limitado a nombre y fecha, publicado sin «Editar»; el viejo «en proceso no ofrece editar» se reescribió, porque la decisión 1 lo cambió), 2 de archivar en la pantalla de resultados, 3 del filtro en el inicio (`wafa.test.tsx`) y 1 de `avisosDePublicacion`, vistos fallar. `@bal/app` 683, typecheck y Biome verdes. En el navegador, con backend simulado: el filtro y el chip en el inicio, y archivar desde resultados (manda el motivo, pasa a «Archivado» con «Desarchivar»).
+
+---
+
 ## 2026-11-10 · `BE-26` — Archivar y desarchivar torneos publicados
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-26-archivar-torneos`.
