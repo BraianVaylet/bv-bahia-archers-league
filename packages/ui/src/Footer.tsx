@@ -109,7 +109,7 @@ export function Footer({
       </div>
 
       <div className="mx-auto w-full max-w-[1200px] px-4 py-4 border-t flex flex-wrap justify-between gap-x-4 gap-y-1 text-[13px] text-[var(--ink-muted)]">
-        <span>Círculo Bahiense de Arquería · Bahía Blanca</span>
+        <span>Círculo Bahiense de Arquería · Bahía Blanca -- La Liga se reserva el derecho de admisión.</span>
         {temporada ? <span className="font-mono">{temporada}</span> : null}
       </div>
     </footer>
