@@ -81,7 +81,7 @@ describe('Footer', () => {
     // El PNG del club y el SVG de la liga.
     expect(escudos.querySelector('img')).not.toBeNull();
     expect(escudos.querySelector('svg')).not.toBeNull();
-    expect(screen.getByText(/Un torneo por mes en Bahía Blanca/)).toBeInTheDocument();
+    expect(screen.getByText(/organizada por el CBA/)).toBeInTheDocument();
   });
 
   it('enlaza las páginas de la liga con el enlace de quien lo monta', () => {

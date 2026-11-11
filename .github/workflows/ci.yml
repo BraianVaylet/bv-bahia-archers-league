@@ -112,6 +112,20 @@ jobs:
     name: E2E con tramo offline
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # **Corre adentro de la imagen oficial de Playwright**, que ya trae Chromium, WebKit y las
+    # bibliotecas del sistema que necesitan. Así el job no toca `apt`.
+    #
+    # Antes se instalaban con `playwright install --with-deps`, que corre un `apt-get` contra los
+    # mirrors de Ubuntu: infraestructura de terceros que se cuelga. El 2026-08-17 se quedó 13
+    # minutos en silencio; el 2026-11-11 los runners no resolvían `archive.ubuntu.com` durante
+    # horas y el E2E falló en todos los PR. Un timeout lo hacía fallar rápido, pero no lo evitaba.
+    #
+    # El tag va con la versión de `@playwright/test` del lockfile. Si quedan desfasados no se
+    # rompe: el paso de abajo baja el navegador que falte, desde el CDN de Playwright y sin `apt`.
+    # `--ipc=host`: Chromium se queda sin memoria compartida con el `/dev/shm` de 64 MB de Docker.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -123,30 +137,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # La clave lleva la distro del contenedor: el binario de MongoDB depende de ella.
       - name: Caché del binario de MongoDB
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/mongodb-binaries
-          key: mongo-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
+          key: mongo-${{ runner.os }}-noble-${{ env.MONGOMS_VERSION }}
 
-      # El navegador pesa y no cambia salvo que cambie la versión de Playwright,
-      # que está clavada en el lockfile.
-      - name: Caché del navegador de Playwright
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # `--with-deps` dispara un `apt-get` contra los mirrors de Ubuntu, que es
-      # infraestructura de terceros y **se cuelga**: el 2026-08-17 se quedó 13
-      # minutos en silencio en una sola línea y se comió el job entero.
-      #
-      # El timeout no lo evita; lo convierte en un fallo de 6 minutos que se
-      # relanza, en vez de uno de 30 que hay que ir a cancelar a mano.
+      # Con la imagen al día es un no-op. Sin `--with-deps`: las bibliotecas ya están.
       # Chromium (escritorio y Pixel 7) y WebKit (iPhone 14): `REF6-9` / `T-2`.
-      - name: Instalar Chromium y WebKit
+      - name: Chromium y WebKit
         timeout-minutes: 6
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install chromium webkit
 
       # El servidor de E2E levanta su propio MongoDB en memoria y construye los
       # frontends: no hace falta ningún servicio externo.

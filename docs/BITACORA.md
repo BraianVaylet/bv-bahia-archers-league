@@ -25,6 +25,13 @@ La línea legal del pie de la landing suma «La Liga se reserva el derecho de ad
 **Tests:** 1 en `marca.test.tsx` (la leyenda está en la línea legal y no en la navegación), visto fallar. `@bal/ui` 360, `@bal/landing` 112, Biome con `--error-on-warnings`. En el navegador, a 967 y 360 px, sin scroll horizontal.
 
 ---
+## 2026-11-11 · CI — el E2E corre en la imagen de Playwright, sin `apt`
+
+Desde las 13:37 de hoy los runners de GitHub no resolvían los mirrors de Ubuntu (`Temporary failure resolving 'archive.ubuntu.com'`): `playwright install --with-deps` se colgaba en el `apt-get` y el E2E caía por timeout en todos los PR (#109, #110), con la misma imagen del runner con la que había pasado a las 13:01. GitHub no reportaba incidente.
+
+**Decisión:** el job `e2e` corre en un contenedor `mcr.microsoft.com/playwright:v<versión>-noble`, que ya trae los navegadores y sus bibliotecas. El job deja de depender de `apt`, que ya había colgado el CI el 2026-08-17. Queda un `playwright install chromium webkit` sin `--with-deps`: si Dependabot sube Playwright antes que el tag de la imagen, baja el navegador del CDN de Playwright en vez de romper.
+
+**Deuda:** el tag de la imagen se actualiza a mano junto con `@playwright/test`. Desfasados no rompen, pero cuestan una descarga por job.
 
 ## 2026-11-11 · `TEST-4` — E2E de la Fase 9, y dos bugs que encontró
 
@@ -2645,7 +2652,7 @@ Un recuadro de ancho cero —jsdom, o el instante previo al primer layout— dar
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-1`
 
-Arranca [`ref-4`](post/ref-4/ACTION_PLAN.md). Las etiquetas de categoría y modalidad se acortan según el diccionario del pedido: «Compuesto cazador» pasa a «Cazador», «Sala 18 m» a «18 m», «Juego de campo» a «Campo».
+Arranca [`ref-4`](post/ref-4/ACTION_PLAN.md). Las etiquetas de categoría y modalidad se acortan según el diccionario del pedido: «Compuesto cazador» pasa a «Cazador», «18 m» a «18 m», «Juego de campo» a «Campo».
 
 **Ninguna clave cambia.** `recurvo`, `compuesto`, `campo` viajan en la base, en las URLs y en los `data-testid`. Lo que cambia es sólo lo que lee un humano.
 

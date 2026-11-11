@@ -8,7 +8,7 @@ Qué hace el sistema, para quién, y bajo qué reglas. Este documento es la fuen
 
 La Liga Bahiense de Arquería (CBA, Bahía Blanca) corre **un torneo por mes** durante la temporada. Compiten socios del club e invitados de otros clubes, en 7 categorías.
 
-Los torneos son **multitarget**: un recorrido por el predio con N blancos, donde cada blanco tiene su propia modalidad (sala 18 m, aire libre, juego de campo, 3D) y su propio reglamento de flechas. Los arqueros se reparten en **patrullas** que arrancan en blancos distintos y recorren el circuito en paralelo.
+Los torneos son **multitarget**: un recorrido por el predio con N blancos, donde cada blanco tiene su propia modalidad (18 m, aire libre, juego de campo, 3D) y su propio reglamento de flechas. Los arqueros se reparten en **patrullas** que arrancan en blancos distintos y recorren el circuito en paralelo.
 
 Hoy los puntajes se anotan en planilla de papel y se cargan a mano después. Eso es lento, propenso a errores y hace que los resultados tarden días.
 

@@ -124,8 +124,8 @@ export function Hero({
           </h1>
 
           <p className="max-w-[480px] text-base leading-[1.55] text-[var(--monte-muted)] min-[760px]:text-lg min-[760px]:leading-[1.55]">
-            Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios
-            de cada fecha y el ranking de tu categoría.
+            Torneos todo el año, recorridos dinámicos en el predio del Círculo Bahiense de Arquería.
+            Seguí los resultados, los podios y el ranking de cada categoría.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 min-[760px]:flex-row">
