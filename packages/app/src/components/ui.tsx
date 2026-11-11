@@ -13,6 +13,8 @@ import {
   clasesDeTarjeta,
   cn,
   IconoAviso,
+  IconoOjo,
+  IconoOjoTachado,
   IconoSalir,
   IconoVolver,
   Logo,
@@ -21,7 +23,12 @@ import {
   type TamañoDeBoton,
   type VarianteDeBoton,
 } from '@bal/ui';
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  useState,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { IndicadorDeConexion } from './IndicadorDeConexion.js';
 
@@ -71,6 +78,8 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   readonly label: string;
   readonly error?: string | undefined;
   readonly hint?: string;
+  /** Un control dentro del campo, a la derecha (el ojo de `CampoDePassword`). */
+  readonly accesorio?: ReactNode;
 }
 
 /**
@@ -81,7 +90,7 @@ export interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
  * 1px más un anillo interior de 1px, para que el campo no salte de tamaño— y el
  * mensaje lleva su ícono: el rojo nunca va solo.
  */
-export function Field({ label, error, hint, id, className, ...props }: FieldProps) {
+export function Field({ label, error, hint, id, className, accesorio, ...props }: FieldProps) {
   const inputId = id ?? `campo-${label.toLowerCase().replace(/\s+/g, '-')}`;
   const hintId = hint ? `${inputId}-hint` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
@@ -92,21 +101,28 @@ export function Field({ label, error, hint, id, className, ...props }: FieldProp
         {label}
       </label>
 
-      <input
-        id={inputId}
-        // Nunca menos de 16px: por debajo, iOS hace zoom al enfocar.
-        className={cn(
-          'min-h-[52px] px-4 text-base rounded-[var(--radius-md)]',
-          'bg-[var(--surface)] text-[var(--ink)] border placeholder:text-[var(--ink-muted)]',
-          error
-            ? 'border-[var(--danger)] ring-1 ring-inset ring-[var(--danger)]'
-            : 'border-[var(--line-strong)]',
-          className,
+      <div className="relative flex flex-col">
+        <input
+          id={inputId}
+          // Nunca menos de 16px: por debajo, iOS hace zoom al enfocar.
+          className={cn(
+            'min-h-[52px] px-4 text-base rounded-[var(--radius-md)]',
+            'bg-[var(--surface)] text-[var(--ink)] border placeholder:text-[var(--ink-muted)]',
+            error
+              ? 'border-[var(--danger)] ring-1 ring-inset ring-[var(--danger)]'
+              : 'border-[var(--line-strong)]',
+            // Lo que se escribe no pasa por debajo del accesorio.
+            accesorio != null && 'pr-14',
+            className,
+          )}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={cn(errorId, hintId) || undefined}
+          {...props}
+        />
+        {accesorio != null && (
+          <span className="absolute inset-y-0 right-1 flex items-center">{accesorio}</span>
         )}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={cn(errorId, hintId) || undefined}
-        {...props}
-      />
+      </div>
 
       {hint && (
         <p id={hintId} className="text-sm text-[var(--ink-muted)]">
@@ -124,6 +140,43 @@ export function Field({ label, error, hint, id, className, ...props }: FieldProp
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Campo de password con un ojo para ver lo que se escribió.
+ *
+ * El admin escribe la clave en el celular, al sol: un typo que no se ve termina
+ * en un «incorrecto» que no se entiende. Arranca **oculto**, siempre.
+ *
+ * El botón dice de qué campo es («Mostrar password nuevo»): hay pantallas con
+ * dos. La etiqueta no cambia; el estado lo da `aria-pressed`, que es como un
+ * lector de pantalla anuncia un interruptor. `type="button"` porque dentro de
+ * un `<form>` un botón sin tipo es submit, y tocar el ojo mandaría el login.
+ */
+export function CampoDePassword(props: Omit<FieldProps, 'type' | 'accesorio'>) {
+  const [visible, setVisible] = useState(false);
+  const Icono = visible ? IconoOjoTachado : IconoOjo;
+
+  return (
+    <Field
+      {...props}
+      type={visible ? 'text' : 'password'}
+      accesorio={
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-pressed={visible}
+          aria-label={`Mostrar ${props.label.toLowerCase()}`}
+          className={cn(
+            'min-h-[44px] min-w-[44px] inline-flex items-center justify-center',
+            'rounded-[var(--radius-sm)] text-[var(--ink-muted)] hover:text-[var(--ink)]',
+          )}
+        >
+          <Icono size={20} />
+        </button>
+      }
+    />
   );
 }
 

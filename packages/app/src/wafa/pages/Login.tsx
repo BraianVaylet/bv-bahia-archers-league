@@ -6,7 +6,7 @@
 
 import { Logo, useTituloDePagina } from '@bal/ui';
 import { type FormEvent, useState } from 'react';
-import { Button, Field, Screen } from '../../components/ui.js';
+import { Button, CampoDePassword, Field, Screen } from '../../components/ui.js';
 import { VolverALaLiga } from '../../components/VolverALaLiga.js';
 import { ApiError } from '../../lib/apiClient.js';
 import { login } from '../sesion.js';
@@ -75,9 +75,8 @@ export function LoginPage({ onEntro }: LoginPageProps) {
           required
         />
 
-        <Field
+        <CampoDePassword
           label="Password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
