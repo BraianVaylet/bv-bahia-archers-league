@@ -34,6 +34,7 @@ import {
 } from '@bal/ui';
 import { Link, useParams } from 'react-router-dom';
 import { BotonPreinscripcion } from '../components/BotonPreinscripcion.js';
+import { type ProximaFecha, ProximasFechas } from '../components/portada/ProximasFechas.js';
 import {
   Cabecera,
   Cargando,
@@ -112,12 +113,16 @@ const ESTADOS_PUBLICOS: readonly TournamentStatus[] = ['en_proceso', 'publicado'
 export function TournamentsPage() {
   useTituloDePagina('Torneos');
   const torneos = useRecurso<{ tournaments: TorneoResumen[] }>('/tournaments');
+  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming');
 
   return (
     <Screen>
       <div className="pt-6">
         <h1 className="font-display text-display font-bold">Torneos</h1>
       </div>
+
+      {/* `FE-38`: lo que viene, arriba de todo. Sin próximas fechas no aparece. */}
+      <ProximasFechas proximas={proximas} />
 
       {torneos.estado === 'cargando' && <Cargando />}
       {torneos.estado === 'error' && <Fallo mensaje={torneos.mensaje} />}

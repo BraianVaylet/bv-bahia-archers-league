@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `FE-38` — Landing: «Próximas fechas»
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-38-proximas-fechas`.
+
+La sección que pidió el autor: los torneos que vienen, para que los arqueros sepan qué se juega pronto. En la portada, debajo del hero, las tres más cercanas; en `/torneos`, todas, arriba del listado. Cada tarjeta: la fecha grande (día de la semana, día y mes), el nombre, cuántos blancos, la inscripción («Sin costo» si no se cobra), la barra de modalidades, la descripción en dos líneas y, si hay link, «Pre-inscribirme» (`BotonPreinscripcion` de `FE-36`). Lee `GET /api/public/tournaments/upcoming` (`BE-28`).
+
+**Decisiones:**
+- **Archivo propio** (`components/portada/ProximasFechas.tsx`), montado desde `Home.tsx` y `Tournaments.tsx`. `Secciones.tsx` no se tocó: tiene cambios sin commitear de otra sesión en el checkout compartido, y así no hay nada que mezclar.
+- **Sin próximas fechas o si el pedido falla, no se dibuja nada.** El plan pedía lo primero; lo segundo se agregó: es un extra de la portada, y un error ahí le sumaría ruido a una página que se ve bien sin la sección. Las otras secciones sí muestran su error, porque son el contenido principal.
+- **Debajo del hero, antes de «Cómo se juega»**, como proponía el plan: es lo que cambia de un mes a otro, y quien entra a la portada busca eso antes que la explicación del juego.
+- `ESTADO_DE_TORNEO.sin_iniciar.publico` **no se tocó** (el plan lo listaba): la sección tiene su propio título y no usa la etiqueta del estado. Cambiarla habría hecho aparecer «Próximamente» en lugares que hoy no lo esperan.
+- La lógica que no es pintar (cuántas en portada, el bloque de fecha en UTC, «Sin costo») vive en `lib/proximas.ts`, con test.
+
+**Tests:** 6 de `lib/proximas.test.ts` y 6 de pantalla en `landing.test.tsx` (tres en portada, qué dice cada tarjeta, botón con link, sin fechas no aparece, con error no aparece, `/torneos` las muestra todas), vistos fallar. `@bal/landing` 112, typecheck y Biome verdes. En el navegador, con backend simulado: portada a 1280 y 360 px, sin scroll horizontal, botón de 52 px; el bloque de fecha se estiraba al alto de la tarjeta y quedó arriba (`self-start`).
+
+---
+
 ## 2026-11-10 · `FE-36` — Link de pre-inscripción en WAFA y botón en la landing
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-36-link-preinscripcion`.
