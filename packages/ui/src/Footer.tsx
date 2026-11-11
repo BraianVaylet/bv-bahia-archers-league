@@ -122,7 +122,15 @@ export function Footer({
       </div>
 
       <div className="mx-auto w-full max-w-[1200px] px-4 py-2 border-t flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-[var(--ink-muted)]">
-        <span>Círculo Bahiense de Arquería · Bahía Blanca</span>
+        {/*
+          Quién organiza y, en la misma letra chica, que la liga decide quién compite: anotarse en
+          el padrón o pre-inscribirse a una fecha no garantiza un lugar (pedido del autor,
+          2026-11-11). Sutil a propósito: es una condición, no un aviso.
+        */}
+        <span className="flex flex-wrap gap-x-4 gap-y-1">
+          <span>Círculo Bahiense de Arquería · Bahía Blanca</span>
+          <span>La Liga se reserva el derecho de admisión.</span>
+        </span>
         <span className="flex flex-wrap items-center gap-x-4">
           {temporada ? <span className="font-mono">{temporada}</span> : null}
           {/*

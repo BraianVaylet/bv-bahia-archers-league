@@ -14,6 +14,17 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · Copy — «La Liga se reserva el derecho de admisión»
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `copy/derecho-de-admision`. Pedido del autor, fuera del plan.
+
+La línea legal del pie de la landing suma «La Liga se reserva el derecho de admisión.», al lado de «Círculo Bahiense de Arquería · Bahía Blanca»: anotarse en el padrón o pre-inscribirse a una fecha no garantiza un lugar.
+
+**Decisión:** **en la línea legal del pie**, no en el formulario de alta ni en la banda «Sumate al padrón». El autor pidió que fuera sutil: la línea legal es la letra chica que ya existe, aparece en todas las páginas de la landing y no compite con ningún llamado a la acción. Ponerlo junto al botón de alta lo habría convertido en un aviso. Mismo tamaño y color que el resto de la línea (13 px, `--ink-muted`); en un celular queda en su propia línea.
+
+**Tests:** 1 en `marca.test.tsx` (la leyenda está en la línea legal y no en la navegación), visto fallar. `@bal/ui` 360, `@bal/landing` 112, Biome con `--error-on-warnings`. En el navegador, a 967 y 360 px, sin scroll horizontal.
+
+---
 ## 2026-11-11 · CI — el E2E corre en la imagen de Playwright, sin `apt`
 
 Desde las 13:37 de hoy los runners de GitHub no resolvían los mirrors de Ubuntu (`Temporary failure resolving 'archive.ubuntu.com'`): `playwright install --with-deps` se colgaba en el `apt-get` y el E2E caía por timeout en todos los PR (#109, #110), con la misma imagen del runner con la que había pasado a las 13:01. GitHub no reportaba incidente.
