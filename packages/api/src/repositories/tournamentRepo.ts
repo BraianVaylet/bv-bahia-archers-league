@@ -74,12 +74,68 @@ export type TorneoParaListar = Pick<
 export function listPublicos(): Promise<TorneoParaListar[]> {
   return tournaments()
     .find(
-      { status: { $in: ['publicado', 'en_proceso'] } },
+      // Un archivado se oculta de la landing (`BE-26`, decisión 5). `$in: [null]` matchea también
+      // a los torneos anteriores, que no tienen la clave.
+      { status: { $in: ['publicado', 'en_proceso'] }, archivedAt: { $in: [null] } },
       { projection: { name: 1, date: 1, status: 1, targets: 1, participantCount: 1 } },
     )
     .sort({ date: -1 })
     .limit(200)
     .toArray() as Promise<TorneoParaListar[]>;
+}
+
+/**
+ * Los torneos que **suman al ranking**: publicados y no archivados (`BE-26`).
+ *
+ * **Es el único lugar que decide qué entra al recálculo de una temporada.** Lo usan publicar,
+ * despublicar, archivar, desarchivar y `db:reconcile`; antes cada uno armaba su lista a su manera,
+ * y un filtro que faltara en uno —el de archivados en `db:reconcile`, por ejemplo— volvía a meter
+ * en el ranking un torneo que el admin había sacado. Sin `limit`: el ranking no puede depender de
+ * cuántos torneos haya.
+ */
+export function listQueSuman(
+  seasonId?: ObjectId,
+  session?: ClientSession,
+): Promise<TournamentDoc[]> {
+  return tournaments()
+    .find(
+      {
+        status: 'publicado',
+        archivedAt: { $in: [null] },
+        ...(seasonId ? { seasonId } : {}),
+      },
+      session ? { session } : {},
+    )
+    .toArray();
+}
+
+/**
+ * Archiva o desarchiva un torneo **sólo si está publicado y en el estado opuesto** (`BE-26`).
+ *
+ * La comprobación y la escritura son una sola operación: dos toques seguidos en «Archivar» no
+ * pueden archivarlo dos veces.
+ *
+ * @returns el documento nuevo, o `null` si no estaba publicado o ya estaba como se pedía.
+ */
+export function marcarArchivado(
+  id: ObjectId,
+  archivar: boolean,
+  actorId: ObjectId,
+  session: ClientSession,
+): Promise<TournamentDoc | null> {
+  return tournaments().findOneAndUpdate(
+    {
+      _id: id,
+      status: 'publicado',
+      archivedAt: archivar ? { $in: [null] } : { $type: 'date' },
+    },
+    {
+      $set: archivar
+        ? { archivedAt: new Date(), archivedBy: actorId }
+        : { archivedAt: null, archivedBy: null },
+    },
+    { returnDocument: 'after', session },
+  );
 }
 
 /** Lo que «Próximas fechas» lee de cada torneo: la convocatoria, nada de la organización interna. */

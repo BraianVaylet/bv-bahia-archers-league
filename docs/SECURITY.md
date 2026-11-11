@@ -261,7 +261,7 @@ El log existe para contestar «quién hizo esto, cuándo y desde dónde». Cada 
 
 | Quién | Acciones |
 |---|---|
-| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/update/publish/unpublish/target_edit/participants_edit` (`update` con los campos cambiados, sin sus valores) · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `score.admin_correct` (blanco, flechas de antes y de después, motivo y si el arquero ya había firmado; `BE-25`) · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
+| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/update/publish/unpublish/archive/unarchive/target_edit/participants_edit` (`update` con los campos cambiados, sin sus valores; `archive`/`unarchive` con el motivo) · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `score.admin_correct` (blanco, flechas de antes y de después, motivo y si el arquero ya había firmado; `BE-25`) · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
 | Patrulla | `patrol.close` (con la IP de quien cerró) · `sync.forbidden` · `sync.conflict` |
 | Público | `archer.register_duplicate` |
 

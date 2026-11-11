@@ -9,7 +9,12 @@
  * **Las respuestas son las mismas, byte por byte**: esto movió código, no lo cambió.
  */
 
-import { distribucionDeModalidades, hoyEnArgentina, type TournamentStatus } from '@bal/shared';
+import {
+  distribucionDeModalidades,
+  hoyEnArgentina,
+  resultadosVisibles,
+  type TournamentStatus,
+} from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
@@ -76,13 +81,13 @@ export async function proximasFechas(ahora: Date = new Date()) {
  * puntajes**: en proceso sólo salen la distribución de patrullas y el avance. Ver
  * `docs/FUNCTIONAL.md` §5.3.
  *
- * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar o completado sin publicar.
+ * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar, completado sin publicar, o
+ *   publicado pero archivado (`BE-26`, decisión 5: un archivado se oculta).
  */
 export async function detallePublico(id: ObjectId) {
   const torneo = await tournamentRepo.findById(id);
-  if (!torneo || torneo.status === 'sin_iniciar' || torneo.status === 'completado') {
-    throw notFound();
-  }
+  const visible = torneo !== null && (torneo.status === 'en_proceso' || resultadosVisibles(torneo));
+  if (!torneo || !visible) throw notFound();
 
   const [miembros, patrullas] = await Promise.all([
     tournamentRepo.listParticipants(torneo._id),
@@ -174,6 +179,8 @@ export async function listadoAdmin(filtro: FiltroDeTorneos = {}) {
       patrolCount: t.patrolCount,
       participantCount: t.participantCount,
       maxPossibleScore: t.maxPossibleScore,
+      // Archivado (`BE-26`): WAFA lo sigue mostrando, marcado, para poder desarchivarlo.
+      archived: Boolean(t.archivedAt),
       // La distribución se calcula acá y no en el cliente: el listado no manda los blancos, y
       // mandarlos para que el cliente los cuente sería enviar catorce objetos por torneo para
       // mostrar cuatro números.
@@ -200,6 +207,7 @@ export async function detalleAdmin(id: ObjectId) {
       targets: doc.targets,
       maxPossibleScore: doc.maxPossibleScore,
       stakeMap: doc.stakeMap,
+      archived: Boolean(doc.archivedAt),
       patrolCount: doc.patrolCount,
       participantCount: doc.participantCount,
     },

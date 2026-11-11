@@ -14,6 +14,7 @@ import {
   type ArcherStanding,
   type BowCategory,
   bestNAvgPct,
+  resultadosVisibles,
   sortStandingsByGender,
 } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
@@ -90,7 +91,8 @@ export async function fichaDeArquero(archerId: ObjectId) {
   const participaciones = await tournamentRepo.listParticipationsOfArcher(archerId);
   const torneos = await tournamentRepo.findManyByIds(participaciones.map((p) => p.tournamentId));
   const publicados = new Map(
-    torneos.filter((t) => t.status === 'publicado').map((t) => [t._id.toHexString(), t]),
+    // Los que se ven: publicados y no archivados (`BE-26`), la misma regla que el detalle.
+    torneos.filter((t) => resultadosVisibles(t)).map((t) => [t._id.toHexString(), t]),
   );
 
   const history = participaciones

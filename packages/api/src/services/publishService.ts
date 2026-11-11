@@ -11,6 +11,8 @@
 import {
   type ArcherStanding,
   applyTournamentToStandings,
+  puedeArchivar,
+  puedeDesarchivar,
   type Rankable,
   type TournamentContribution,
 } from '@bal/shared';
@@ -114,7 +116,8 @@ export interface ReconcileStandingsResult {
  * Fue lo que pasó con «mejor de 2»: `topNPcts` no existía.
  */
 export async function reconcileStandings(): Promise<ReconcileStandingsResult> {
-  const publicados = await tournamentRepo.list({ status: 'publicado' });
+  // Los que suman: sin los archivados (`BE-26`), o `db:reconcile` los volvería a meter.
+  const publicados = await tournamentRepo.listQueSuman();
   const bestN = env().LEAGUE_BEST_N;
 
   const porTemporada = new Map<string, TournamentDoc[]>();
@@ -190,9 +193,8 @@ export async function publish(tournamentId: ObjectId, actorId: ObjectId): Promis
       session,
     );
 
-    const publicados = (await tournamentRepo.list({ seasonId: torneo.seasonId })).filter(
-      (t) => t.status === 'publicado' || t._id.equals(tournamentId),
-    );
+    // Con la `session`: el torneo recién pasó a `publicado` dentro de esta transacción.
+    const publicados = await tournamentRepo.listQueSuman(torneo.seasonId, session);
 
     const acumulado = await recalcularTemporada(publicados, env().LEAGUE_BEST_N);
     await standingRepo.replaceSeason(torneo.seasonId, acumulado, session);
@@ -241,13 +243,13 @@ export async function unpublish(
     const actualizado = await transition(
       tournamentId,
       'completado',
-      { publishedAt: null, publishedBy: null },
+      // Un `completado` archivado no tiene sentido: despublicar lo desarchiva (`BE-26`).
+      { publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null },
       session,
     );
 
-    const publicados = (await tournamentRepo.list({ seasonId: torneo.seasonId })).filter(
-      (t) => t.status === 'publicado' && !t._id.equals(tournamentId),
-    );
+    // Con la `session`: el torneo ya dejó de estar publicado dentro de esta transacción.
+    const publicados = await tournamentRepo.listQueSuman(torneo.seasonId, session);
 
     const acumulado = await recalcularTemporada(publicados, env().LEAGUE_BEST_N);
     await standingRepo.replaceSeason(torneo.seasonId, acumulado, session);
@@ -271,3 +273,74 @@ export async function unpublish(
     };
   });
 }
+
+/**
+ * Archiva o desarchiva un torneo publicado (`BE-26`, decisiones 4, 5 y 6 de la Fase 9).
+ *
+ * **No cambia el estado**: sigue `publicado`. Lo que cambia es si suma al ranking de la temporada
+ * —se recalcula entera, igual que al publicar— y si se ve en la landing (`resultadosVisibles`).
+ * Se puede revertir: desarchivar lo devuelve y el ranking queda como estaba.
+ *
+ * @throws {AppError} `NOT_FOUND` si el torneo no existe.
+ * @throws {AppError} `INVALID_STATE_TRANSITION` si no está publicado, o ya estaba como se pide.
+ */
+async function cambiarArchivo(
+  tournamentId: ObjectId,
+  archivar: boolean,
+  actorId: ObjectId,
+  reason: string,
+): Promise<PublishResult> {
+  const torneo = await tournamentRepo.findById(tournamentId);
+  if (!torneo) throw notFound();
+
+  const permitido = archivar
+    ? puedeArchivar(torneo.status, Boolean(torneo.archivedAt))
+    : puedeDesarchivar(torneo.status, Boolean(torneo.archivedAt));
+  if (!permitido) throw noSePuedeArchivar(archivar);
+
+  return conTransaccion(async (session) => {
+    // Condicionado al estado: si cambió entre la lectura y acá (dos toques), no hace nada.
+    const actualizado = await tournamentRepo.marcarArchivado(
+      tournamentId,
+      archivar,
+      actorId,
+      session,
+    );
+    if (!actualizado) throw noSePuedeArchivar(archivar);
+
+    const publicados = await tournamentRepo.listQueSuman(torneo.seasonId, session);
+    const acumulado = await recalcularTemporada(publicados, env().LEAGUE_BEST_N);
+    await standingRepo.replaceSeason(torneo.seasonId, acumulado, session);
+
+    await auditRepo.record(
+      {
+        actorType: 'admin',
+        actorId,
+        action: archivar ? 'tournament.archive' : 'tournament.unarchive',
+        entity: 'tournament',
+        entityId: tournamentId,
+        meta: { reason, standings: acumulado.length },
+      },
+      session,
+    );
+
+    return {
+      tournamentId: tournamentId.toHexString(),
+      status: actualizado.status,
+      standingsUpdated: acumulado.length,
+    };
+  });
+}
+
+const noSePuedeArchivar = (archivar: boolean) =>
+  new AppError('INVALID_STATE_TRANSITION', {
+    message: archivar
+      ? 'Sólo se archiva un torneo publicado que no esté archivado.'
+      : 'Ese torneo no está archivado.',
+  });
+
+export const archive = (tournamentId: ObjectId, actorId: ObjectId, reason: string) =>
+  cambiarArchivo(tournamentId, true, actorId, reason);
+
+export const unarchive = (tournamentId: ObjectId, actorId: ObjectId, reason: string) =>
+  cambiarArchivo(tournamentId, false, actorId, reason);

@@ -101,3 +101,17 @@ export function puedeArchivar(status: TournamentStatus, archivado: boolean): boo
 export function puedeDesarchivar(status: TournamentStatus, archivado: boolean): boolean {
   return status === 'publicado' && archivado;
 }
+
+/**
+ * Si los resultados de un torneo se ven desde afuera: publicado y no archivado (`BE-26`).
+ *
+ * Una sola regla para el detalle público, la tarjeta de puntajes y la ficha del arquero
+ * (decisión 5 de la Fase 9: un archivado **se oculta**). `archivedAt` es opcional porque los
+ * torneos anteriores a `BE-26` no tienen la clave.
+ */
+export function resultadosVisibles(torneo: {
+  readonly status: TournamentStatus;
+  readonly archivedAt?: Date | null;
+}): boolean {
+  return torneo.status === 'publicado' && !torneo.archivedAt;
+}
