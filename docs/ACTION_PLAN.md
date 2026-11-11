@@ -739,7 +739,8 @@ _(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos 
 **Contenido:** mismo formulario que `FE-32`, filtrado por `camposEditables`: en `en_proceso` nombre, fecha, descripción, pago y link (decisión 1); en `completado` nombre y fecha. «Eliminar» sigue sólo en `sin_iniciar` (`puedeEliminar`). Un `409 FIELD_NOT_EDITABLE` o `INVALID_STATE_TRANSITION` (el torneo cambió de estado entre la carga y el guardado) se muestra tal cual y recarga la ficha.
 **DoD:** test de UI con los tres estados · en `publicado` no aparece «Editar».
 
-### `[ ] BE-25` · Corrección de puntajes por el admin, contra la planilla de papel · **TDD** ⭐
+### `[x] BE-25` · Corrección de puntajes por el admin, contra la planilla de papel · **TDD** ⭐
+_(Hecho. La guarda de estado responde `FIELD_NOT_EDITABLE` vía `camposEditables` (no `INVALID_STATE_TRANSITION`, como decía el plan): una sola tabla. Además, `GET .../participants/:pid/scorecard` para `FE-34`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** con el torneo `completado`, el admin reemplaza las flechas de un participante en un blanco y el servidor recalcula todo, igual que si lo hubiera mandado el líder.
 **Archivos:** `packages/api/src/services/scoreCorrectionService.ts` (nuevo), `repositories/scoreRepo.ts`, `routes/admin.ts`, `db/types.ts` (`ScoreDoc.correctedBy/correctedAt`, `AuditAction` + `score.admin_correct`), `packages/shared/src/schemas.ts` (`ScoreCorrectionSchema`)
 **Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §6 (cómo `syncService` aplica un puntaje y actualiza los rollups por delta) · regla 1 de `CLAUDE.md` · decisiones 2 y 3

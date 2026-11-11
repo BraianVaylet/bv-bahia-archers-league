@@ -369,7 +369,9 @@ Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve
 | `POST` | `/api/admin/tournaments` | Crea torneo + participantes + patrullas + credenciales (transacción) |
 | `GET` | `/api/admin/tournaments?status=&seasonId=` | Listado |
 | `GET` | `/api/admin/tournaments/:id` | Detalle + avance + resumen |
-| `PATCH` | `/api/admin/tournaments/:id` | Solo `sin_iniciar`, o blancos sin puntajes si `en_proceso` |
+| `PATCH` | `/api/admin/tournaments/:id` | Qué campos, según el estado: `camposEditables` de `@bal/shared` (`SH-11`/`BE-24`). Un campo de más → `409 FIELD_NOT_EDITABLE`. En `en_proceso`, los blancos con puntajes no se tocan (`TARGET_LOCKED`) |
+| `PUT` | `/api/admin/tournaments/:id/participants/:participantId/scores/:targetIndex` | Corrección del admin contra la planilla de papel (`BE-25`). Cuerpo `{ arrows, reason }`, `.strict()`: ningún total. Sólo `completado` (`FIELD_NOT_EDITABLE` si no). Valida contra la modalidad del blanco, escribe por el mismo camino que el sync (`escrituraDePuntaje`) y audita `score.admin_correct` con antes, después y motivo. La firma no se borra |
+| `GET` | `/api/admin/tournaments/:id/participants/:participantId/scorecard` | Tarjeta del arquero para el admin, en cualquier estado, con `corrected` (los blancos que el admin corrigió). Sin firma ni pago |
 | `POST` | `/api/admin/tournaments/:id/start` | `sin_iniciar` → `en_proceso` |
 | `POST` | `/api/admin/tournaments/:id/publish` | `completado` → `publicado` (transacción, materializa standings) |
 | `POST` | `/api/admin/tournaments/:id/unpublish` | Revierte. Auditado |

@@ -391,6 +391,19 @@ export const SyncBatchSchema = z
     path: ['ops'],
   });
 
+/**
+ * Corrección de un puntaje por el admin, contra la planilla de papel (`BE-25`).
+ *
+ * **Sólo tokens y motivo.** Igual que en el sync, ningún total viaja del cliente (regla 1): el
+ * servidor deriva los valores con la modalidad **de ese blanco**, leída del torneo en base. Los
+ * tokens se acotan en forma, no contra una lista fija. El motivo es obligatorio: es lo que el audit
+ * log va a tener que explicar si alguien pregunta por qué cambió un resultado.
+ */
+export const ScoreCorrectionSchema = z.strictObject({
+  arrows: z.array(z.string().min(1).max(2)).min(1).max(MAX_ARROWS_PER_TARGET),
+  reason: z.string().trim().min(5, 'Contá en pocas palabras por qué se corrige.').max(500),
+});
+
 // ── Tipos inferidos ──────────────────────────────────────────────────────────
 
 export type AdminLoginInput = z.infer<typeof AdminLoginSchema>;
@@ -406,3 +419,4 @@ export type UpdateTournamentInput = z.infer<typeof UpdateTournamentSchema>;
 export type PatrolDistributionInput = z.infer<typeof PatrolDistributionSchema>;
 export type SyncOpInput = z.infer<typeof SyncOpSchema>;
 export type SyncBatchInput = z.infer<typeof SyncBatchSchema>;
+export type ScoreCorrectionInput = z.infer<typeof ScoreCorrectionSchema>;
