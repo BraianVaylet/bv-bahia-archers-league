@@ -155,3 +155,30 @@ describe('navegar por el sitio público', () => {
     expect(document.activeElement).toBe(document.body);
   });
 });
+
+/**
+ * La barra «estás en modo desarrollo» (`@bal/ui`, `IndicadorDeAmbiente`), sobre el encabezado. El
+ * ambiente lo escribe en el `<html>` quien sirve el documento.
+ */
+describe('barra de ambiente', () => {
+  afterEach(() => document.documentElement.removeAttribute('data-ambiente'));
+
+  it('en desarrollo avisa, arriba del encabezado', () => {
+    document.documentElement.setAttribute('data-ambiente', 'development');
+    render(<App />);
+
+    const barra = screen.getByText(/estás en modo desarrollo/i);
+    const encabezado = screen.getByRole('banner');
+    expect(
+      barra.compareDocumentPosition(encabezado) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('en producción no hay barra', () => {
+    document.documentElement.setAttribute('data-ambiente', 'production');
+    render(<App />);
+
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.queryByText(/modo desarrollo/i)).toBeNull();
+  });
+});

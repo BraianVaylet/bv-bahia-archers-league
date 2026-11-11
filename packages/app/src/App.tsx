@@ -7,7 +7,14 @@
  * Ver `docs/ARCHITECTURE.md` §2.
  */
 
-import { AnillosDeFondo, IconoEditar, IconoPanel, Logo, useTituloDePagina } from '@bal/ui';
+import {
+  AnillosDeFondo,
+  IconoEditar,
+  IconoPanel,
+  IndicadorDeAmbiente,
+  Logo,
+  useTituloDePagina,
+} from '@bal/ui';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { InstalarApp } from './components/InstalarApp.js';
@@ -57,7 +64,7 @@ const BASENAME = '/app';
 function Elegir() {
   useTituloDePagina();
   return (
-    <div className="grid min-[760px]:grid-cols-2 min-[760px]:min-h-dvh">
+    <div className="grid min-[760px]:grid-cols-2 min-[760px]:min-h-[calc(100dvh_-_var(--reserva-aviso-de-ambiente))]">
       <aside className="relative overflow-hidden bg-[var(--monte)] text-[var(--monte-ink)] flex flex-col justify-between gap-8 px-4 pt-6 pb-8 min-[760px]:p-12">
         {/*
           Decorativos, y **lejos del texto**: en la primera versión cruzaban el titular. Los valores
@@ -130,6 +137,13 @@ function Elegir() {
 export function App() {
   return (
     <>
+      {/*
+        «Estás en modo desarrollo», arriba de todo y en las tres pantallas: la puerta, WAFA y WAFL.
+        Afuera del router por lo mismo que `RegistroDeVersion`: no depende de la ruta. Lee el
+        ambiente del `<html>`, que viene en el `index.html` precacheado: sin fetch, también sin
+        señal. En producción no dibuja nada.
+      */}
+      <IndicadorDeAmbiente />
       <BrowserRouter basename={BASENAME}>
         <NavegacionAccesible />
         <Suspense fallback={<Cargando />}>

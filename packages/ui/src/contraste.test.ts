@@ -91,6 +91,7 @@ const PARES: readonly Par[] = [
   ['monte-ink', 'monte', TEXTO, 'texto sobre la banda monte'],
   ['monte-muted', 'monte', TEXTO, 'texto secundario sobre monte'],
   ['monte-accent', 'monte', NO_TEXTO, 'palabra destacada y anillo sobre monte'],
+  ['monte-accent', 'monte', TEXTO, 'texto de la barra «estás en modo desarrollo»'],
   ['monte-ink', 'monte-2', TEXTO, 'badge sobre monte'],
   // Los puntos de `BadgeEstado` (`REF7-4`): una marca, no texto.
   ...['ink-muted', 'nock-text', 'warn', 'ok'].flatMap((t) =>

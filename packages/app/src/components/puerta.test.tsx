@@ -253,3 +253,52 @@ describe('cerrar el diálogo', () => {
     expect(screen.queryByTestId('dialogo-instalar')).toBeNull();
   });
 });
+
+/**
+ * La barra «estás en modo desarrollo» (`@bal/ui`, `IndicadorDeAmbiente`), arriba de todo en la
+ * puerta, WAFA y WAFL. El ambiente lo escribe en el `<html>` quien sirve el documento.
+ */
+describe('barra de ambiente', () => {
+  afterEach(() => document.documentElement.removeAttribute('data-ambiente'));
+
+  const montarEn = async (ruta: string) => {
+    window.history.replaceState({}, '', ruta);
+    const { App } = await import('../App.js');
+    return render(<App />);
+  };
+
+  it.each(['/app/', '/app/wafa', '/app/wafl'])(
+    'en desarrollo avisa en %s, antes que cualquier otra cosa',
+    async (ruta) => {
+      document.documentElement.setAttribute('data-ambiente', 'development');
+      const { container } = await montarEn(ruta);
+
+      const barra = screen
+        .getByText(/estás en modo desarrollo/i)
+        .closest('[data-indicador-ambiente]');
+      expect(barra).not.toBeNull();
+      expect(container.firstElementChild).toBe(barra);
+    },
+  );
+
+  // WAFL tiene que arrancar sin red: la barra no espera ninguna respuesta.
+  it('en WAFL aparece sin red', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    );
+    document.documentElement.setAttribute('data-ambiente', 'development');
+    await montarEn('/app/wafl');
+
+    expect(screen.getByText(/estás en modo desarrollo/i)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('en producción no hay barra', async () => {
+    document.documentElement.setAttribute('data-ambiente', 'production');
+    await montarEn('/app/');
+
+    await screen.findByRole('heading', { level: 1, name: '¿Cómo entrás hoy?' });
+    expect(screen.queryByText(/modo desarrollo/i)).toBeNull();
+  });
+});

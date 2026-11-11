@@ -1,3 +1,4 @@
+import { ambienteDeDesarrollo } from '@bal/ui/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -11,6 +12,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // `pnpm dev` es desarrollo: marca el `index.html` como lo hace la API en Railway, para que se
+    // vea la barra «estás en modo desarrollo». Ver `@bal/ui/src/vite.ts`.
+    ambienteDeDesarrollo(),
 
     VitePWA({
       // NUNCA autoUpdate. `autoUpdate` recarga la app sola cuando detecta una
