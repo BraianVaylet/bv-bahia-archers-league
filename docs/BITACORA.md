@@ -14,6 +14,14 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · CI — el E2E corre en la imagen de Playwright, sin `apt`
+
+Desde las 13:37 de hoy los runners de GitHub no resolvían los mirrors de Ubuntu (`Temporary failure resolving 'archive.ubuntu.com'`): `playwright install --with-deps` se colgaba en el `apt-get` y el E2E caía por timeout en todos los PR (#109, #110), con la misma imagen del runner con la que había pasado a las 13:01. GitHub no reportaba incidente.
+
+**Decisión:** el job `e2e` corre en un contenedor `mcr.microsoft.com/playwright:v<versión>-noble`, que ya trae los navegadores y sus bibliotecas. El job deja de depender de `apt`, que ya había colgado el CI el 2026-08-17. Queda un `playwright install chromium webkit` sin `--with-deps`: si Dependabot sube Playwright antes que el tag de la imagen, baja el navegador del CDN de Playwright en vez de romper.
+
+**Deuda:** el tag de la imagen se actualiza a mano junto con `@playwright/test`. Desfasados no rompen, pero cuestan una descarga por job.
+
 ## 2026-11-11 · `TEST-4` — E2E de la Fase 9, y dos bugs que encontró
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `test/test-4-e2e-fase-9`. **Con esto, la Fase 9 queda cerrada** (salvo `FE-40`, el editor de estacas, que pasó a P2).
