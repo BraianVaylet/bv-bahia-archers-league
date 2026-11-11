@@ -19,7 +19,7 @@ Cada blanco del recorrido tiene **su propia modalidad**. Esto es la diferencia c
 
 | Modalidad | `key` | Flechas default | Tokens válidos (orden descendente) | Máx por flecha | Token inner (desempate 1º) | Token desempate 2º |
 |---|---|---|---|---|---|---|
-| Sala 18 m | `sala` | **3** | `X 10 9 8 7 6 5 4 3 2 1 M` | 10 | `X` | `10` |
+| 18 m | `sala` | **3** | `X 10 9 8 7 6 5 4 3 2 1 M` | 10 | `X` | `10` |
 | Aire libre | `aire_libre` | **6** | `X 10 9 8 7 6 5 4 3 2 1 M` | 10 | `X` | `10` |
 | Juego de campo | `campo` | **3** | `X6 6 5 4 3 2 1 M` | 6 | `X6` | `6` |
 | 3D | `3d` | **2** | `11 10 8 5 M` | 11 | `11` | `10` |

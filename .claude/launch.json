@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@bal/app", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@bal/landing", "dev"],
+      "port": 5174
+    },
+    {
+      "name": "app-wt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "../bal-sh11", "--filter", "@bal/app", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "landing-wt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "../bal-sh11", "--filter", "@bal/landing", "dev"],
+      "port": 5174
+    }
+  ]
+}

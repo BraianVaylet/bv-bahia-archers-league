@@ -75,10 +75,10 @@ def landing():
     t3 = tcard(status('oficial', 'Resultados oficiales'), '1ª fecha · Apertura', '5 blancos · 10 arqueros', '14/06/2026', [('aire-libre', 40), ('campo', 40), ('sala', 20)], 'Podios y estadísticas')
     tabs = ''.join(f'<a href="#"{" aria-current=\"true\"" if i == 0 else ""}><span style="display:flex;gap:10px;align-items:center;color:var(--cat-{s})">{{i:categoria-{s}}}<span style="color:var(--ink)">{l}</span></span><span class="bal-mono">{n}</span></a>' for i, (s, l, n) in enumerate([('recurvo', 'Recurvo olímpico', 14), ('compuesto', 'Compuesto libre', 9), ('cazador', 'Compuesto cazador', 6), ('tradicional', 'Tradicional', 7), ('longbow', 'Longbow', 4), ('razo', 'Razo', 5)]))
     rank = C['RankingTable'][1].replace('<div class="pv-col" style="max-width:640px">', '<div>')
-    mods = [('sala', 'Sala 18 m', 'Bajo techo, cara de 10 zonas.', ['X', '10', '9', '8', '…', 'M']),
-            ('aire-libre', 'Aire libre', 'Distancia larga según la estaca.', ['X', '10', '9', '…', '1', 'M']),
-            ('campo', 'Juego de campo', 'Cara negra con centro amarillo.', ['X6', '6', '5', '4', '3', '2', '1', 'M']),
-            ('3d', '3D', 'Siluetas de animales en el monte.', ['11', '10', '8', '5', 'M'])]
+    mods = [('sala', '18 m', 'A 18 metros bajo la modalidad Sala.', ['X', '10', '9', '8', '…', 'M']),
+            ('aire-libre', 'Aire libre', 'Distancias conocidas sobre la linea de tiro.', ['X', '10', '9', '…', '1', 'M']),
+            ('campo', 'Juego de campo', 'Distancias conocidas y desconocidas con dianas de Juego de Campo.', ['X6', '6', '5', '4', '3', '2', '1', 'M']),
+            ('3d', '3D', 'Distancias desconocidas. Blancos con formato 2D y 3D.', ['11', '10', '8', '5', 'M'])]
     modsh = ''.join(f'<div class="mod" style="--chip:var(--mod-{s})"><div class="glyph">{{i:{MODICON[s]}}}</div><h3>{t}</h3><p>{d}</p><div class="tokens">' + ''.join(f'<span>{x}</span>' for x in tk) + '</div></div>' for s, t, d, tk in mods)
     body = SITEBAR + f'''
 <main>
@@ -88,7 +88,7 @@ def landing():
   <div>
    <span class="bal-eyebrow">Temporada 2026 · Bahía Blanca</span>
    <h1 class="bal-display">La liga de <em>arquería</em> de Bahía&nbsp;Blanca.</h1>
-   <p class="lead">Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.</p>
+   <p class="lead">Un torneo por mes, un recorrido por el predio. Seguí los resultados, los podios de cada fecha y el ranking de tu categoría.</p>
    <div class="ctas"><a class="bal-btn bal-btn--primario bal-btn--lg" href="#">Ver el ranking{{i:flecha}}</a><a class="bal-btn bal-btn--sobre-monte bal-btn--lg" href="#">Torneos</a></div>
   </div>
   <div class="hero__media">
@@ -101,8 +101,8 @@ def landing():
 <section class="how wrap" aria-labelledby="como">
  <span class="bal-eyebrow" id="como">Cómo se juega</span>
  <div class="how__grid">
-  <div class="how__item"><span class="n">01</span><h3>Un recorrido multitarget</h3><p>Cada fecha es una vuelta por el predio con blancos de sala, aire libre, campo y 3D.</p></div>
-  <div class="how__item"><span class="n">02</span><h3>En patrullas</h3><p>Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, con o sin señal.</p></div>
+  <div class="how__item"><span class="n">01</span><h3>Un recorrido multitarget</h3><p>Cada fecha consta de un circuito en el predio con blancos de sala, aire libre, campo y 3D.</p></div>
+  <div class="how__item"><span class="n">02</span><h3>En patrullas</h3><p>Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, el arquero mas novato anota en la planilla en papel.</p></div>
   <div class="how__item"><span class="n">03</span><h3>Ranking por categoría</h3><p>Suman las mejores fechas de la temporada, normalizadas para comparar recorridos distintos.</p></div>
  </div>
 </section>

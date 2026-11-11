@@ -264,7 +264,7 @@ Píldora de 44px de alto mínimo, padding de 0 12px, borde `--line`, texto de 13
 
 - **Estático, al final del documento** (`L-2`). Fondo `--surface`, borde superior `--line`.
 - Grilla de `2fr 1fr 1fr`, máximo de 1200px, padding de 48px 16px 32px y gap de 32px. Debajo de 720px pasa a `1fr 1fr` y el primer bloque ocupa las dos columnas.
-  1. Escudos de 44px: el CBA **sobre placa blanca literal** (como hoy; ver el comentario de `Footer.tsx`) con `alt="Círculo Bahiense de Arquería"` + el `Logo` con `alt=""`. Debajo, la descripción de 14px en `--ink-muted`: "Liga Bahiense de Arquería. Un torneo por mes en Bahía Blanca: recorridos multitarget con sala, aire libre, campo y 3D."
+  1. Escudos de 44px: el CBA **sobre placa blanca literal** (como hoy; ver el comentario de `Footer.tsx`) con `alt="Círculo Bahiense de Arquería"` + el `Logo` con `alt=""`. Debajo, la descripción de 14px en `--ink-muted`: "La Liga Bahiense de Arquería es organizada por el CBA (Circulo Bahiense de Arqueria de Bahia Blanca). Torneos multitarger en nuestro predio.  "
   2. "LA LIGA" (eyebrow): Ranking · Torneos · Sumate al padrón.
   3. "ACCESO" (eyebrow): **un solo enlace, «Ingresar a la app»**, a `/app/`. *(Cambiado el 2026-11-09, en `REF7-4`: la versión anterior traía «Líderes de patrulla · Administración», un acceso por rol que contradice la puerta única de `FUNCTIONAL.md` §5.1. El autor eligió la puerta única; ver la bitácora.)*
 - Línea legal con borde superior y texto de 13px en `--ink-muted`: "Círculo Bahiense de Arquería · Bahía Blanca" a la izquierda y "Temporada 2026" en mono a la derecha (el nombre de la temporada activa, de `/api/public/seasons`).
@@ -306,7 +306,7 @@ Contenedor de secciones: `max-w-[1200px] mx-auto px-4`. Las secciones, en orden:
 - Columna izquierda:
   - Eyebrow en `--monte-muted`: "TEMPORADA 2026 · BAHÍA BLANCA" (el nombre de la temporada activa).
   - `h1` en `font-display`, `--text-hero` (64px; 40px en celular), `--monte-ink`: «La liga de **arquería** de Bahía Blanca.», con "arquería" en `--monte-accent`, sin itálica, y `&nbsp;` entre "Bahía" y "Blanca".
-  - Bajada de 18px / 1.55 (16px en celular) en `--monte-muted` y máximo de 480px: «Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría.»
+  - Bajada de 18px / 1.55 (16px en celular) en `--monte-muted` y máximo de 480px: «Un torneo por mes, un recorrido por el predio. Seguí los resultados, los podios de cada fecha y el ranking de tu categoría.»
   - CTAs (`gap` de 12px, `margin-top` de 32px; en celular, en columna y a todo el ancho): "Ver el ranking →" (primario `lg`, a `/ranking`) y "Torneos" (`sobreMonte` `lg`, a `/torneos`).
 - Columna derecha: la foto `portada.webp` (`alt=""`, `width`/`height` y **`height:auto`**, `aspect-ratio` de 4/3.2, 4/3 en celular, `--radius-lg`, `loading="eager"`). Encima, la **tarjeta "En curso"**: `position:absolute; left:-32px; bottom:-28px; width:320px` (en celular `left:12px; right:12px; bottom:-40px`), fondo `--surface`, borde `--line`, `--radius-lg`, `box-shadow: var(--shadow-float)`, padding de 16px y grilla de `auto 1fr` con gap de 16px. Adentro: un `CircuitRing` de 76 (sin etiqueta) con el avance **agregado** de todas las patrullas, `BadgeEstado` "En curso", el nombre del torneo en 16px y "N patrullas en el recorrido" en 13px. Toda la tarjeta enlaza a `/torneos/:id`.
   - **Sin torneo en curso:** la tarjeta muestra la **última fecha publicada** ("Resultados oficiales", nombre y "Ver podios").
@@ -315,8 +315,8 @@ Contenedor de secciones: `max-w-[1200px] mx-auto px-4`. Las secciones, en orden:
 
 **2. Cómo se juega** (`padding-top:64px; padding-bottom:48px`. **No usar** el shorthand `padding`, que pisa el `px-4` del contenedor: pasó en la referencia)
 - Eyebrow "CÓMO SE JUEGA" y una grilla de 3 columnas con gap de 24px (1 columna en celular). Cada ítem lleva borde superior de 2px `--ink`, `padding-top` de 16px, número en mono de 12px `--ink-muted`, `h3` de 20px y texto de 15px `--ink-muted`:
-  - 01 · **Un recorrido multitarget** · «Cada fecha es una vuelta por el predio con blancos de sala, aire libre, campo y 3D.»
-  - 02 · **En patrullas** · «Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, con o sin señal.»
+  - 01 · **Un recorrido multitarget** · «Cada fecha consta de un circuito en el predio con blancos de sala, aire libre, campo y 3D.»
+  - 02 · **En patrullas** · «Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, el arquero mas novato anota en la planilla en papel.»
   - 03 · **Ranking por categoría** · «Suman las mejores fechas de la temporada, normalizadas para comparar recorridos distintos.»
 
 **3. Torneos** (`padding-block` de 48px)
@@ -334,10 +334,10 @@ Contenedor de secciones: `max-w-[1200px] mx-auto px-4`. Las secciones, en orden:
 **5. Modalidades** (`padding-block` de 48px)
 - `SectionHeader` "MODALIDADES". `h2`: "Cuatro escenarios, un recorrido".
 - Grilla de 4 columnas con gap de 16px (2 en celular). Cada tarjeta (`--surface`, borde `--line`, `--radius-lg`, padding de 24px 16px) lleva una placa de 48px `--radius-md` sobre `--surface-2` con el glifo de 26px en su `COLOR_DE_MODALIDAD`, el `h3` de 18px, la descripción de 14px `--ink-muted` y los valores de flecha como fichas mono de 12px (24px de alto, borde `--line`) **leídos de `SCORING[m].scoringSet`**, no escritos a mano:
-  - Sala 18 m · «Bajo techo, cara de 10 zonas.»
-  - Aire libre · «Distancia larga según la estaca.»
-  - Juego de campo · «Cara negra con centro amarillo.»
-  - 3D · «Siluetas de animales en el monte.»
+  - 18 m · «A 18 metros bajo la modalidad Sala.»
+  - Aire libre · «Distancias conocidas sobre la linea de tiro.»
+  - Juego de campo · «Distancias conocidas y desconocidas con dianas de Juego de Campo.»
+  - 3D · «Distancias desconocidas. Blancos con formato 2D y 3D.»
   - Si el set tiene más de 7 tokens, se muestran los 4 primeros, "…" y los 2 últimos.
 
 **6. Sumate al padrón**
@@ -408,7 +408,7 @@ El resto de WAFA solo hereda los componentes: botones, campos, `BadgeEstado`, `S
 |---|---|
 | Hero eyebrow | TEMPORADA {año} · BAHÍA BLANCA |
 | Hero h1 | La liga de arquería de Bahía Blanca. |
-| Hero bajada | Un torneo por mes, un recorrido por el predio. Seguí los resultados en vivo, los podios de cada fecha y el ranking de tu categoría. |
+| Hero bajada | Un torneo por mes, un recorrido por el predio. Seguí los resultados, los podios de cada fecha y el ranking de tu categoría. |
 | Hero CTAs | Ver el ranking · Torneos |
 | Tarjeta en curso | En curso · {torneo} · {n} patrullas en el recorrido |
 | Cómo se juega | ver §5.1-2 |

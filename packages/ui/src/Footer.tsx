@@ -79,8 +79,7 @@ export function Footer({
           </span>
 
           <p className="max-w-[44ch] text-sm text-[var(--ink-muted)]">
-            Liga Bahiense de Arquería. Un torneo por mes en Bahía Blanca: recorridos multitarget con
-            sala, aire libre, campo y 3D.
+            La Liga Bahiense de Arquería es organizada por el CBA (Circulo Bahiense de Arqueria de Bahia Blanca). Torneos multitarger en nuestro predio.  
           </p>
         </div>
 

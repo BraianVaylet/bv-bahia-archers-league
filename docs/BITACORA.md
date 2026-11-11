@@ -2217,7 +2217,7 @@ Un recuadro de ancho cero —jsdom, o el instante previo al primer layout— dar
 
 **Autor:** Claude Opus 5 · **Estado:** completado · **Tareas:** `REF4-1`
 
-Arranca [`ref-4`](post/ref-4/ACTION_PLAN.md). Las etiquetas de categoría y modalidad se acortan según el diccionario del pedido: «Compuesto cazador» pasa a «Cazador», «Sala 18 m» a «18 m», «Juego de campo» a «Campo».
+Arranca [`ref-4`](post/ref-4/ACTION_PLAN.md). Las etiquetas de categoría y modalidad se acortan según el diccionario del pedido: «Compuesto cazador» pasa a «Cazador», «18 m» a «18 m», «Juego de campo» a «Campo».
 
 **Ninguna clave cambia.** `recurvo`, `compuesto`, `campo` viajan en la base, en las URLs y en los `data-testid`. Lo que cambia es sólo lo que lee un humano.
 

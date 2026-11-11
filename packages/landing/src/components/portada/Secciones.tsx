@@ -48,20 +48,21 @@ const PASOS = [
   {
     n: '01',
     titulo: 'Un recorrido multitarget',
-    texto: 'Cada fecha es una vuelta por el predio con blancos de sala, aire libre, campo y 3D.',
+    texto: 'Cada fecha consta de un circuito en el predio que puede contar con blancos a 18m, aire libre, campo y 3D. Cada blanco puntua segun la modalidad' ,
   },
   {
     n: '02',
-    titulo: 'En patrullas',
+    titulo: 'En patrullas con doble planilla',
     texto:
-      'Grupos de 2 a 4 arqueros. El líder anota los puntajes desde el celular, con o sin señal.',
+      'Grupos de 2 a 4 arqueros. El líder anota los puntajes desde la app, el arquero mas novato anota en la planilla fisica. La planilla fisica es la fuente de verdad.',
+      
   },
   {
     n: '03',
     titulo: 'Ranking por categoría',
     texto:
       'Suman las mejores fechas de la temporada, normalizadas para comparar recorridos distintos.',
-  },
+  },  
 ] as const;
 
 export function ComoSeJuega() {
@@ -146,10 +147,10 @@ export function SeccionTorneos({
 // ── Modalidades ──────────────────────────────────────────────────────────────
 
 const MODALIDADES: readonly { modality: Modality; nombre: string; texto: string }[] = [
-  { modality: 'sala', nombre: 'Sala 18 m', texto: 'Bajo techo, cara de 10 zonas.' },
-  { modality: 'aire_libre', nombre: 'Aire libre', texto: 'Distancia larga según la estaca.' },
-  { modality: 'campo', nombre: 'Juego de campo', texto: 'Cara negra con centro amarillo.' },
-  { modality: '3d', nombre: '3D', texto: 'Siluetas de animales en el monte.' },
+  { modality: 'sala', nombre: '18 m', texto: 'A 18 metros bajo la modalidad Sala.' },
+  { modality: 'aire_libre', nombre: 'Aire libre', texto: 'Distancias conocidas sobre la linea de tiro.' },
+  { modality: 'campo', nombre: 'Juego de campo', texto: 'Distancias conocidas y desconocidas con dianas de Juego de Campo.' },
+  { modality: '3d', nombre: '3D', texto: 'Distancias desconocidas. Blancos con formato 2D y 3D.' },
 ];
 
 export function Modalidades() {
