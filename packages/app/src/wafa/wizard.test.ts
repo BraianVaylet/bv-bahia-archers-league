@@ -161,10 +161,10 @@ describe('maximoDelRecorrido', () => {
 
 describe('conteoPorCategoria', () => {
   it('cuenta por categoría y omite las vacías', () => {
-    const conteo = conteoPorCategoria([...varios('razo', 3), ...varios('escuela', 1)]);
+    const conteo = conteoPorCategoria([...varios('raso', 3), ...varios('escuela', 1)]);
 
     expect(conteo).toHaveLength(2);
-    expect(conteo.find((c) => c.category === 'razo')?.cantidad).toBe(3);
+    expect(conteo.find((c) => c.category === 'raso')?.cantidad).toBe(3);
     expect(conteo.find((c) => c.category === 'escuela')?.cantidad).toBe(1);
   });
 });
@@ -172,11 +172,11 @@ describe('conteoPorCategoria', () => {
 describe('avisoDeComposicion', () => {
   it('con menos de dos arqueros no se puede armar ni una patrulla', () => {
     expect(avisoDeComposicion([], 10).nivel).toBe('error');
-    expect(avisoDeComposicion(varios('razo', 1), 10).nivel).toBe('error');
+    expect(avisoDeComposicion(varios('raso', 1), 10).nivel).toBe('error');
   });
 
   it('una composición cómoda no avisa nada', () => {
-    expect(avisoDeComposicion(varios('razo', 4), 10).nivel).toBe('ok');
+    expect(avisoDeComposicion(varios('raso', 4), 10).nivel).toBe('ok');
   });
 
   // H3: ninguna patrulla puede ser 100% escuela. Ver docs/DOMAIN_WA.md §5.
@@ -198,18 +198,18 @@ describe('avisoDeComposicion', () => {
   it('más escuela que seniors avisa que va a quedar justo, sin frenar', () => {
     // 2 de escuela forman una unidad; el senior solitario la acompaña. Entra,
     // pero sin margen.
-    const aviso = avisoDeComposicion([...varios('escuela', 2), ...varios('razo', 1)], 10);
+    const aviso = avisoDeComposicion([...varios('escuela', 2), ...varios('raso', 1)], 10);
 
     expect(aviso.nivel).toBe('aviso');
   });
 
   /**
    * Se cuentan UNIDADES, no cabezas: 3 de escuela forman dos unidades —una de a
-   * dos y un solitario— mientras que 2 razo forman una sola. Una unidad de
+   * dos y un solitario— mientras que 2 raso forman una sola. Una unidad de
    * escuela queda sin senior aunque «haya seniors».
    */
   it('3 de escuela y 2 seniors NO alcanza, aunque parezca que sí', () => {
-    expect(avisoDeComposicion([...varios('escuela', 3), ...varios('razo', 2)], 10).nivel).toBe(
+    expect(avisoDeComposicion([...varios('escuela', 3), ...varios('raso', 2)], 10).nivel).toBe(
       'error',
     );
   });
@@ -217,7 +217,7 @@ describe('avisoDeComposicion', () => {
   it('el aviso corre el mismo algoritmo que el servidor, no una heurística', () => {
     // 1 escuela + 1 senior alcanza: el senior la acompaña. Una regla del tipo
     // "escuela <= seniors/2" diría que no, y estaría equivocada.
-    expect(avisoDeComposicion([arquero('escuela'), arquero('razo')], 10).nivel).toBe('ok');
+    expect(avisoDeComposicion([arquero('escuela'), arquero('raso')], 10).nivel).toBe('ok');
   });
 });
 
@@ -229,7 +229,7 @@ describe('problemaDelPaso', () => {
     name: '3ª fecha',
     date: '2026-08-08',
     seasonId: 's1',
-    elegidos: varios('razo', 4),
+    elegidos: varios('raso', 4),
   });
 
   it('el paso 1 exige nombre, fecha y temporada', () => {
@@ -255,7 +255,7 @@ describe('problemaDelPaso', () => {
   // Un aviso es información, no una pared: el admin puede saber algo que el
   // algoritmo no.
   it('el paso 3 NO frena ante un aviso', () => {
-    const justo = { ...completo(), elegidos: [...varios('escuela', 2), ...varios('razo', 1)] };
+    const justo = { ...completo(), elegidos: [...varios('escuela', 2), ...varios('raso', 1)] };
     expect(problemaDelPaso(3, justo)).toBeUndefined();
   });
 
@@ -291,7 +291,7 @@ describe('cuerpoDeCreacion', () => {
       date: '2026-08-08',
       description: '  ',
       blancos: [blancoNuevo(1, 'sala'), { ...blancoNuevo(2, '3d'), description: 'Jabalí' }],
-      elegidos: varios('razo', 2),
+      elegidos: varios('raso', 2),
     };
 
     expect(cuerpoDeCreacion(b)).toEqual({

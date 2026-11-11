@@ -163,7 +163,7 @@ describe('categorías de arco', () => {
       'recurvo',
       'compuesto',
       'cazador',
-      'razo',
+      'raso',
       'tradicional',
       'longbow',
       'escuela',
@@ -197,7 +197,7 @@ describe('estacas', () => {
   it('el mapeo por defecto es el del reglamento del club', () => {
     expect(DEFAULT_STAKE_MAP).toEqual({
       roja: ['recurvo', 'compuesto', 'cazador'],
-      azul: ['razo', 'tradicional', 'longbow'],
+      azul: ['raso', 'tradicional', 'longbow'],
       amarilla: ['escuela'],
       naranja: ['principiantes'],
     });
@@ -213,7 +213,7 @@ describe('estacas', () => {
     expect(stakeForCategory('recurvo')).toBe('roja');
     expect(stakeForCategory('compuesto')).toBe('roja');
     expect(stakeForCategory('cazador')).toBe('roja');
-    expect(stakeForCategory('razo')).toBe('azul');
+    expect(stakeForCategory('raso')).toBe('azul');
     expect(stakeForCategory('tradicional')).toBe('azul');
     expect(stakeForCategory('longbow')).toBe('azul');
     expect(stakeForCategory('escuela')).toBe('amarilla');
@@ -224,7 +224,7 @@ describe('estacas', () => {
     // El stakeMap es editable por torneo: DOMAIN_WA.md §4.
     const personalizado = {
       roja: ['recurvo'],
-      azul: ['compuesto', 'cazador', 'razo', 'tradicional', 'longbow'],
+      azul: ['compuesto', 'cazador', 'raso', 'tradicional', 'longbow'],
       amarilla: ['escuela'],
     } as const;
     expect(stakeForCategory('compuesto', personalizado)).toBe('azul');

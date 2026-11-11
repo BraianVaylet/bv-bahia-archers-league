@@ -23,7 +23,7 @@ export const BOW_CATEGORIES = [
   'recurvo',
   'compuesto',
   'cazador',
-  'razo',
+  'raso',
   'tradicional',
   'longbow',
   'escuela',

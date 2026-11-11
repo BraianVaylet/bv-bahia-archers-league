@@ -111,9 +111,9 @@ describe('distribucionDeModalidades', () => {
 
 describe('distribucionDeCategorias', () => {
   it('reparte los participantes por categoría', () => {
-    const r = distribucionDeCategorias(['razo', 'razo', 'recurvo', 'escuela']);
+    const r = distribucionDeCategorias(['raso', 'raso', 'recurvo', 'escuela']);
 
     expect(r.reduce((n, x) => n + x.pct, 0)).toBe(100);
-    expect(r[0]).toEqual({ category: 'razo', count: 2, pct: 50 });
+    expect(r[0]).toEqual({ category: 'raso', count: 2, pct: 50 });
   });
 });

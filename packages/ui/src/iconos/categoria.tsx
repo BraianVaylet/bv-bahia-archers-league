@@ -7,7 +7,6 @@
  *
  * | Allá | Acá |
  * |---|---|
- * | `raso` | `razo` |
  * | `recurvo_olimpico` | `recurvo` |
  * | `recurvo_tradicional` | `tradicional` |
  * | — | `escuela` |
@@ -44,8 +43,8 @@ export function IconoCazador(p: IconoProps) {
   );
 }
 
-/** Razo (barebow): flecha con emplumado. */
-export function IconoRazo(p: IconoProps) {
+/** Raso (barebow): flecha con emplumado. */
+export function IconoRaso(p: IconoProps) {
   return (
     <Svg {...p}>
       <path d="M3 21 21 3" />
@@ -129,7 +128,7 @@ export const ICONO_DE_CATEGORIA: Readonly<Record<BowCategory, Icono>> = {
   recurvo: IconoRecurvo,
   compuesto: IconoCompuesto,
   cazador: IconoCazador,
-  razo: IconoRazo,
+  raso: IconoRaso,
   tradicional: IconoTradicional,
   longbow: IconoLongbow,
   escuela: IconoEscuela,

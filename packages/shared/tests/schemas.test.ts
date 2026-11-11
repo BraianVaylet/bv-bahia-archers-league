@@ -58,7 +58,7 @@ describe('inyección NoSQL', () => {
     [
       'ArcherInputSchema.firstName',
       ArcherInputSchema,
-      { firstName: { $ne: null }, lastName: 'Pérez', category: 'razo' },
+      { firstName: { $ne: null }, lastName: 'Pérez', category: 'raso' },
     ],
     [
       'CreateTournamentSchema.seasonId',
@@ -81,7 +81,7 @@ describe('inyección NoSQL', () => {
     const r = ArcherInputSchema.safeParse({
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       $where: 'this.password.length > 0',
     });
     expect(r.success).toBe(false);
@@ -94,7 +94,7 @@ describe('propiedades no declaradas', () => {
     [
       'ArcherInputSchema',
       ArcherInputSchema,
-      { firstName: 'Juan', lastName: 'Pérez', category: 'razo' },
+      { firstName: 'Juan', lastName: 'Pérez', category: 'raso' },
     ],
     [
       'SeasonInputSchema',
@@ -504,7 +504,7 @@ describe('SyncBatchSchema', () => {
 describe('ArcherInputSchema', () => {
   it('acepta un arquero válido', () => {
     expect(
-      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo' })
+      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'raso' })
         .success,
     ).toBe(true);
   });
@@ -513,7 +513,7 @@ describe('ArcherInputSchema', () => {
     const r = ArcherInputSchema.parse({
       firstName: '  Juan  ',
       lastName: ' Pérez ',
-      category: 'razo',
+      category: 'raso',
     });
     expect(r.firstName).toBe('Juan');
     expect(r.lastName).toBe('Pérez');
@@ -528,7 +528,7 @@ describe('ArcherInputSchema', () => {
 
   it('rechaza nombres vacíos o sólo espacios', () => {
     expect(
-      ArcherInputSchema.safeParse({ firstName: '   ', lastName: 'Pérez', category: 'razo' })
+      ArcherInputSchema.safeParse({ firstName: '   ', lastName: 'Pérez', category: 'raso' })
         .success,
     ).toBe(false);
   });
@@ -541,7 +541,7 @@ describe('ArcherInputSchema', () => {
    * `CLAUDE.md`, y nadie lo había notado porque nada lo mostraba.
    */
   it('el error de un nombre vacío está en español, no es el default de Zod', () => {
-    const r = ArcherInputSchema.safeParse({ firstName: '', lastName: 'Pérez', category: 'razo' });
+    const r = ArcherInputSchema.safeParse({ firstName: '', lastName: 'Pérez', category: 'raso' });
     expect(r.success).toBe(false);
     if (!r.success) {
       expect(r.error.issues[0]?.message).toMatch(/vacío/i);
@@ -552,7 +552,7 @@ describe('ArcherInputSchema', () => {
   // Decisión del 2026-10-24 (Fase 8): opcionales para no romper el alta del
   // admin, que todavía no manda estos campos (FE-29 sigue pendiente).
   it('sexo y DNI son opcionales, y por defecto quedan en null', () => {
-    const r = ArcherInputSchema.parse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo' });
+    const r = ArcherInputSchema.parse({ firstName: 'Juan', lastName: 'Pérez', category: 'raso' });
     expect(r.sex).toBeNull();
     expect(r.dni).toBeNull();
   });
@@ -561,7 +561,7 @@ describe('ArcherInputSchema', () => {
     const r = ArcherInputSchema.safeParse({
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       sex: 'masculino',
       dni: '30123456',
     });
@@ -572,7 +572,7 @@ describe('ArcherInputSchema', () => {
     const r = ArcherInputSchema.safeParse({
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       sex: 'otro',
     });
     expect(r.success).toBe(false);
@@ -587,7 +587,7 @@ describe('ArcherInputSchema', () => {
 
   it.each(['3012345', '1234567', '12345678'])('acepta un DNI de 7 u 8 dígitos (%s)', (dni) => {
     expect(
-      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+      ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'raso', dni })
         .success,
     ).toBe(true);
   });
@@ -596,7 +596,7 @@ describe('ArcherInputSchema', () => {
     'rechaza un DNI mal formado (%s)',
     (dni) => {
       expect(
-        ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'razo', dni })
+        ArcherInputSchema.safeParse({ firstName: 'Juan', lastName: 'Pérez', category: 'raso', dni })
           .success,
       ).toBe(false);
     },
@@ -607,7 +607,7 @@ describe('ArcherSelfRegisterSchema', () => {
   const valido = {
     firstName: 'Juan',
     lastName: 'Pérez',
-    category: 'razo',
+    category: 'raso',
     sex: 'masculino',
     dni: '30123456',
   } as const;

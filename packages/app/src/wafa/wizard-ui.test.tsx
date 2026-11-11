@@ -15,8 +15,8 @@ const TEMPORADAS = [
 ];
 
 const PADRON = [
-  { id: 'a1', firstName: 'Juan', lastName: 'Pérez', category: 'razo' },
-  { id: 'a2', firstName: 'Ana', lastName: 'Gómez', category: 'razo' },
+  { id: 'a1', firstName: 'Juan', lastName: 'Pérez', category: 'raso' },
+  { id: 'a2', firstName: 'Ana', lastName: 'Gómez', category: 'raso' },
   { id: 'a3', firstName: 'Luis', lastName: 'Díaz', category: 'longbow' },
   { id: 'a4', firstName: 'Sol', lastName: 'Ruiz', category: 'longbow' },
 ];
@@ -274,13 +274,13 @@ describe('paso 3 · participantes', () => {
     expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('4 arqueros elegidos');
 
     /**
-     * El conteo por categoría pasó de un texto suelto —«Razo: 2»— a un chip con
+     * El conteo por categoría pasó de un texto suelto —«Raso: 2»— a un chip con
      * su ícono y su color más el número al lado (`REF2-6`). La información es la
      * misma; el nodo de texto no. Se busca la lista entera para no atarse a cómo
      * quedan repartidos los `<span>`.
      */
     const conteo = screen.getByTestId('conteo-elegidos').parentElement?.textContent ?? '';
-    expect(conteo).toMatch(/Razo\s*2/);
+    expect(conteo).toMatch(/Raso\s*2/);
     expect(conteo).toMatch(/Longbow\s*2/);
   });
 
@@ -335,7 +335,7 @@ describe('paso 3 · participantes', () => {
     responder?.(
       new Response(
         JSON.stringify({
-          archers: [{ id: 'g1', firstName: 'Ana', lastName: 'Gómez', category: 'razo' }],
+          archers: [{ id: 'g1', firstName: 'Ana', lastName: 'Gómez', category: 'raso' }],
         }),
       ),
     );
@@ -396,7 +396,7 @@ describe('paso 3 · participantes', () => {
   it('el alta desde el wizard pide sexo y DNI, y los manda', async () => {
     rutas['POST /api/admin/archers'] = () => ({
       status: 201,
-      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'razo' } },
+      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'raso' } },
     });
     await irAlTres();
     await screen.findByText('Pérez, Juan');
@@ -415,7 +415,7 @@ describe('paso 3 · participantes', () => {
     expect(alta?.body).toEqual({
       firstName: 'Eva',
       lastName: 'Luna',
-      category: 'razo',
+      category: 'raso',
       sex: 'femenino',
       dni: '30123456',
     });
@@ -424,7 +424,7 @@ describe('paso 3 · participantes', () => {
   it('sin sexo ni DNI igual crea: siguen siendo opcionales', async () => {
     rutas['POST /api/admin/archers'] = () => ({
       status: 201,
-      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'razo' } },
+      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'raso' } },
     });
     await irAlTres();
     await screen.findByText('Pérez, Juan');

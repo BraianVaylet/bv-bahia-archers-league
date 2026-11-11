@@ -95,7 +95,7 @@ El índice TTL limpia las sesiones vencidas sin ningún trabajo de la aplicació
   _id: ObjectId,
   firstName: "Juan",
   lastName: "Pérez",
-  category: "razo",                     // ver DOMAIN_WA.md §3
+  category: "raso",                     // ver DOMAIN_WA.md §3
   sex: "masculino" | "femenino" | null, // null: padrón viejo, no se inventa el valor
   dni: "30123456" | null,               // 7-8 dígitos, sin puntos. null: padrón viejo
   registrationStatus: "pendiente" | "aprobado",   // ver decisión 7 de ACTION_PLAN.md Fase 8
@@ -134,7 +134,7 @@ Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoreg
   maxPossibleScore: 330,                // congelado; recalculado si se edita un blanco virgen
   stakeMap: {                           // editable por torneo
     roja:     ["recurvo", "compuesto", "cazador"],
-    azul:     ["razo", "tradicional", "longbow"],
+    azul:     ["raso", "tradicional", "longbow"],
     amarilla: ["escuela"]
   },
   distances: { roja: 45, azul: 30, amarilla: 15 },   // informativo
@@ -189,7 +189,7 @@ Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoreg
   // snapshot congelado al crear el torneo
   firstName: "Juan",
   lastName: "Pérez",
-  category: "razo",
+  category: "raso",
   sex: "masculino" | "femenino" | null,  // null si el arquero no lo tenía cargado
 
   // asignación
@@ -277,7 +277,7 @@ Usar el `opId` del cliente como `_id` hace que la deduplicación sea un `insert`
 {
   _id: ObjectId,
   seasonId: ObjectId,
-  category: "razo",
+  category: "raso",
   archerId: ObjectId,
   firstName: "Juan",                    // desnormalizado para render directo
   lastName: "Pérez",
@@ -413,7 +413,7 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
                   "targets": [ /* ordenados desde startTargetIndex */ ] },
   "patrol":     { "id": "...", "number": 3, "startTargetIndex": 10, "status": "en_curso" },
   "participants": [ { "id": "...", "firstName": "...", "lastName": "...",
-                      "category": "razo", "stake": "azul", "unit": "A", "position": "izquierda" } ],
+                      "category": "raso", "stake": "azul", "unit": "A", "position": "izquierda" } ],
   "scores":     [ { "participantId": "...", "targetIndex": 10, "arrows": ["6","5","M"] } ],
   "signatures": [ { "participantId": "...", "signedAt": "..." } ],
   "serverTime": "2026-08-10T13:00:00.000Z"

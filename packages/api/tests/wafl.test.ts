@@ -74,7 +74,7 @@ interface Escenario {
 
 /** Torneo iniciado, con una patrulla lista para anotar. */
 async function escenario(
-  composicion: [BowCategory, number][] = [['razo', 2]],
+  composicion: [BowCategory, number][] = [['raso', 2]],
   targets = [
     { index: 1, modality: '3d', arrows: 2, description: null },
     { index: 2, modality: 'sala', arrows: 3, description: null },
@@ -278,7 +278,7 @@ describe('bundle', () => {
       arrows: 3,
       description: null,
     }));
-    const e = await escenario([['razo', 8]], targets);
+    const e = await escenario([['raso', 8]], targets);
 
     // La patrulla 2 arranca en un blanco distinto del 1.
     const segunda = await patrols().findOne({
@@ -482,7 +482,7 @@ describe('sincronización', () => {
     // puntaje de cualquier `participantId` que traiga el cuerpo, un líder podría
     // leer los puntajes de otra patrulla reenviando uno de sus propios opId.
     it('un duplicado NO devuelve el puntaje de un arquero de otra patrulla', async () => {
-      const e = await escenario([['razo', 8]]);
+      const e = await escenario([['raso', 8]]);
       const c = await lider(e);
 
       const otra = await patrols().findOne({
@@ -631,7 +631,7 @@ describe('sincronización', () => {
   describe('autorización por operación', () => {
     // Es lo que impide el IDOR entre patrullas.
     it('rechaza una op de un participante de OTRA patrulla', async () => {
-      const e = await escenario([['razo', 8]]);
+      const e = await escenario([['raso', 8]]);
       const c = await lider(e);
 
       const otraPatrulla = await patrols().findOne({
@@ -655,7 +655,7 @@ describe('sincronización', () => {
     });
 
     it('en un batch MIXTO aplica las propias y rechaza las ajenas', async () => {
-      const e = await escenario([['razo', 8]]);
+      const e = await escenario([['raso', 8]]);
       const c = await lider(e);
 
       const otraPatrulla = await patrols().findOne({

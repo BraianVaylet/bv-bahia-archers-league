@@ -28,7 +28,7 @@ function miembro(overrides: Partial<MiembroVista> = {}): MiembroVista {
     id: `p${n}`,
     firstName: `Nombre${n}`,
     lastName: `Apellido${String(n).padStart(3, '0')}`,
-    category: 'razo',
+    category: 'raso',
     stake: 'azul',
     unit: 'A',
     position: 'izquierda',
@@ -162,7 +162,7 @@ describe('violacionesDe', () => {
 
   it('una unidad con categorías mezcladas viola H2', () => {
     const v = violacionesDe(
-      borradorDe([patrulla(1, [miembro({ category: 'razo' }), miembro({ category: 'longbow' })])]),
+      borradorDe([patrulla(1, [miembro({ category: 'raso' }), miembro({ category: 'longbow' })])]),
     );
 
     expect(v.some((x) => x.code === 'MIXED_UNIT')).toBe(true);
@@ -200,9 +200,9 @@ describe('textoDeViolacion', () => {
         code: 'MIXED_UNIT',
         patrolNumber: 1,
         unit: 'A',
-        categories: ['razo', 'longbow'],
+        categories: ['raso', 'longbow'],
       }),
-    ).toMatch(/unidad A.*razo, longbow/);
+    ).toMatch(/unidad A.*raso, longbow/);
   });
 });
 

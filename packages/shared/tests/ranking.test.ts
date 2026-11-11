@@ -23,7 +23,7 @@ function arquero(overrides: Partial<Rankable> = {}): Rankable {
     archerId: `a${n}`,
     firstName: `Nombre${n}`,
     lastName: `Apellido${String(n).padStart(3, '0')}`,
-    category: 'razo',
+    category: 'raso',
     stake: 'azul',
     total: 0,
     innerCount: 0,
@@ -174,13 +174,13 @@ describe('rankParticipants', () => {
 describe('rankByCategory', () => {
   it('rankea cada categoría por separado', () => {
     const porCategoria = rankByCategory([
-      arquero({ participantId: 'razo1', category: 'razo', total: 100 }),
-      arquero({ participantId: 'razo2', category: 'razo', total: 200 }),
+      arquero({ participantId: 'raso1', category: 'raso', total: 100 }),
+      arquero({ participantId: 'raso2', category: 'raso', total: 200 }),
       arquero({ participantId: 'comp1', category: 'compuesto', total: 50 }),
     ]);
 
-    expect(ids(porCategoria.razo ?? [])).toEqual(['razo2', 'razo1']);
-    expect(posiciones(porCategoria.razo ?? [])).toEqual([1, 2]);
+    expect(ids(porCategoria.raso ?? [])).toEqual(['raso2', 'raso1']);
+    expect(posiciones(porCategoria.raso ?? [])).toEqual([1, 2]);
     expect(ids(porCategoria.compuesto ?? [])).toEqual(['comp1']);
     expect(posiciones(porCategoria.compuesto ?? [])).toEqual([1]);
   });
@@ -192,7 +192,7 @@ describe('rankByCategory', () => {
   });
 
   it('no crea entradas para categorías sin participantes', () => {
-    const r = rankByCategory([arquero({ category: 'razo' })]);
+    const r = rankByCategory([arquero({ category: 'raso' })]);
     expect(r.recurvo).toBeUndefined();
   });
 

@@ -45,7 +45,7 @@ const VACIO: Borrador = {
   lastName: '',
   dni: '',
   sex: '',
-  category: 'razo',
+  category: 'raso',
   sitioWeb: '',
 };
 

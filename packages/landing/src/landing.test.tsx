@@ -378,7 +378,7 @@ describe('RankingPage', () => {
 
   it('muestra el ranking de cada categoría', async () => {
     conTemporada([
-      { category: 'razo', ranked: [arquero()], notYetEligible: [] },
+      { category: 'raso', ranked: [arquero()], notYetEligible: [] },
       {
         category: 'longbow',
         ranked: [arquero({ archerId: 'a2', lastName: 'Gómez' })],
@@ -387,17 +387,17 @@ describe('RankingPage', () => {
     ]);
     renderEn(<RankingPage />, '/ranking', '/ranking');
 
-    expect(await screen.findByTestId('cat-razo')).toHaveTextContent('Razo');
+    expect(await screen.findByTestId('cat-raso')).toHaveTextContent('Raso');
     expect(screen.getByTestId('cat-longbow')).toHaveTextContent('Longbow');
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('81.2%');
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('84.5%');
   });
 
   it('arranca en la primera temporada sin que haya que elegirla', async () => {
-    conTemporada([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conTemporada([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     renderEn(<RankingPage />, '/ranking', '/ranking');
 
-    await screen.findByTestId('cat-razo');
+    await screen.findByTestId('cat-raso');
     expect(llamadas.some((u) => u.includes('seasonId=s1'))).toBe(true);
   });
 
@@ -405,7 +405,7 @@ describe('RankingPage', () => {
   it('los que no llegan al mínimo van aparte, CON la explicación', async () => {
     conTemporada([
       {
-        category: 'razo',
+        category: 'raso',
         ranked: [arquero()],
         notYetEligible: [arquero({ archerId: 'a9', lastName: 'Díaz', tournamentsPlayed: 1 })],
       },
@@ -418,7 +418,7 @@ describe('RankingPage', () => {
   });
 
   it('una categoría sin nadie clasificado lo dice', async () => {
-    conTemporada([{ category: 'razo', ranked: [], notYetEligible: [arquero()] }]);
+    conTemporada([{ category: 'raso', ranked: [], notYetEligible: [arquero()] }]);
     renderEn(<RankingPage />, '/ranking', '/ranking');
 
     expect(await screen.findByText(/Nadie llegó todavía al mínimo/)).toBeDefined();
@@ -430,7 +430,7 @@ describe('RankingPage', () => {
    * peor que no mostrar nada.
    */
   it('al cambiar de temporada vuelve a «Cargando», no deja lo anterior', async () => {
-    conTemporada([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conTemporada([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     servidor({
       '/api/public/seasons': () => ({
         json: {
@@ -469,7 +469,7 @@ describe('RankingPage', () => {
       conTemporada(
         [
           {
-            category: 'razo',
+            category: 'raso',
             ranked: [
               arquero({ archerId: 'a1', lastName: 'Oro', position: 1 }),
               arquero({ archerId: 'a2', lastName: 'Plata', position: 2 }),
@@ -541,7 +541,7 @@ describe('RankingPage', () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
-      const seccion = await screen.findByTestId('cat-razo');
+      const seccion = await screen.findByTestId('cat-raso');
       expect(seccion.className).toMatch(/border/);
       expect(seccion.className).toMatch(/rounded/);
     });
@@ -566,7 +566,7 @@ describe('RankingPage', () => {
           json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
         }),
         '/api/public/rankings?seasonId=s1': () => ({
-          json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+          json: { bestN, categories: [{ category: 'raso', general, femenino, masculino }] },
         }),
       });
     };
@@ -612,11 +612,11 @@ describe('RankingPage', () => {
     it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
       conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
       renderEn(<RankingPage />, '/ranking', '/ranking');
-      await screen.findByTestId('cat-razo');
+      await screen.findByTestId('cat-raso');
 
       fireEvent.click(screen.getByRole('tab', { name: 'Femenino' }));
 
-      expect(await screen.findByTestId('cat-razo')).toBeDefined();
+      expect(await screen.findByTestId('cat-raso')).toBeDefined();
     });
 
     it('una vista sin nadie clasificado lo dice, no deja la tabla vacía', async () => {
@@ -685,7 +685,7 @@ describe('TournamentPage', () => {
         startTargetIndex: 1,
         status: 'cerrada',
         targetsCompleted: 2,
-        members: [{ firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' }],
+        members: [{ firstName: 'Juan', lastName: 'Pérez', category: 'raso', stake: 'azul' }],
       },
     ],
     ...o,
@@ -712,7 +712,7 @@ describe('TournamentPage', () => {
                 status: 'en_curso',
                 targetsCompleted: 2,
                 members: [
-                  { firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+                  { firstName: 'Juan', lastName: 'Pérez', category: 'raso', stake: 'azul' },
                 ],
               },
             ],
@@ -741,7 +741,7 @@ describe('TournamentPage', () => {
               {
                 firstName: 'Ana',
                 lastName: 'Gómez',
-                category: 'razo',
+                category: 'raso',
                 total: 40,
                 normalizedPct: 76.92,
                 innerCount: 1,
@@ -751,7 +751,7 @@ describe('TournamentPage', () => {
               {
                 firstName: 'Juan',
                 lastName: 'Pérez',
-                category: 'razo',
+                category: 'raso',
                 total: 45,
                 normalizedPct: 86.54,
                 innerCount: 3,
@@ -765,7 +765,7 @@ describe('TournamentPage', () => {
     });
     renderDetalle();
 
-    const podio = await screen.findByTestId('podio-razo');
+    const podio = await screen.findByTestId('podio-raso');
     expect(podio).toHaveTextContent('86.54%');
 
     // El orden lo da `rankByCategory`, el mismo del servidor: el de 45 va
@@ -787,7 +787,7 @@ describe('TournamentPage', () => {
                 id: 'p-juan',
                 firstName: 'Juan',
                 lastName: 'Pérez',
-                category: 'razo',
+                category: 'raso',
                 total: 45,
                 normalizedPct: 86.54,
                 innerCount: 3,
@@ -799,7 +799,7 @@ describe('TournamentPage', () => {
                 id: 'p-ana',
                 firstName: 'Ana',
                 lastName: 'Gómez',
-                category: 'razo',
+                category: 'raso',
                 total: 40,
                 normalizedPct: 76.92,
                 innerCount: 1,
@@ -814,7 +814,7 @@ describe('TournamentPage', () => {
     });
     renderDetalle();
 
-    const podio = await screen.findByTestId('podio-razo');
+    const podio = await screen.findByTestId('podio-raso');
 
     expect(within(podio).getByRole('link', { name: /Pérez, Juan/ })).toHaveAttribute(
       'href',
@@ -846,7 +846,7 @@ describe('TournamentPage', () => {
       /Los puntajes se publican cuando termina/,
     );
     expect(screen.getByTestId('patrulla-1')).toHaveTextContent('2 de 2 blancos');
-    expect(screen.queryByTestId('podio-razo')).toBeNull();
+    expect(screen.queryByTestId('podio-raso')).toBeNull();
   });
 
   /**
@@ -870,7 +870,7 @@ describe('TournamentPage', () => {
     const miembro = nombre.closest('li') as HTMLElement;
 
     // El nombre y la categoría comparten línea.
-    expect(arriba.textContent).toMatch(new RegExp(CATEGORY_INFO.razo.label));
+    expect(arriba.textContent).toMatch(new RegExp(CATEGORY_INFO.raso.label));
 
     // La estaca está en el mismo miembro, pero NO en esa línea.
     expect(miembro.textContent ?? '').toMatch(/azul/i);
@@ -1054,7 +1054,7 @@ describe('ArcherPage', () => {
             seasons: [
               {
                 seasonId: 's1',
-                category: 'razo',
+                category: 'raso',
                 tournamentsPlayed: 3,
                 bestNormalizedPct: 84.5,
                 bestRawScore: 279,
@@ -1071,7 +1071,7 @@ describe('ArcherPage', () => {
     renderFicha();
 
     const temporada = await screen.findByTestId('temporada-s1');
-    expect(temporada).toHaveTextContent('Razo');
+    expect(temporada).toHaveTextContent('Raso');
     expect(temporada).toHaveTextContent('3');
 
     /*
@@ -1137,7 +1137,7 @@ describe('ArcherRegisterPage', () => {
   it('el alta exitosa dice que queda PENDIENTE, nunca que ya está anotado', async () => {
     servidor({
       '/api/public/archers': () => ({
-        json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+        json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'raso' } },
       }),
     });
     renderAlta();
@@ -1199,7 +1199,7 @@ describe('ArcherRegisterPage', () => {
     it('un humano lo deja vacío y el alta sale igual', async () => {
       servidor({
         '/api/public/archers': () => ({
-          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'raso' } },
         }),
       });
       renderAlta();
@@ -1215,7 +1215,7 @@ describe('ArcherRegisterPage', () => {
     it('si lo llena un bot, el valor viaja tal cual al servidor para que lo descarte', async () => {
       servidor({
         '/api/public/archers': () => ({
-          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'razo' } },
+          json: { archer: { id: 'a1', firstName: 'Ana', lastName: 'Pérez', category: 'raso' } },
         }),
       });
       renderAlta();

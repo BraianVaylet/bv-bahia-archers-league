@@ -41,7 +41,7 @@ afterEach(() => {
 const tarjeta = (o: Record<string, unknown> = {}) => ({
   scorecard: {
     tournament: { id: 't1', name: '3ª fecha', date: '2026-08-08' },
-    archer: { firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+    archer: { firstName: 'Juan', lastName: 'Pérez', category: 'raso', stake: 'azul' },
     total: 51,
     maxTotal: 52,
     normalizedPct: 98.08,

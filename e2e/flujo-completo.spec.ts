@@ -181,7 +181,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
 
   // 3. Padrón con varias categorías, incluida escuela.
   const categorias = [
-    ...Array.from({ length: 4 }, () => 'razo'),
+    ...Array.from({ length: 4 }, () => 'raso'),
     ...Array.from({ length: 4 }, () => 'longbow'),
     ...Array.from({ length: 4 }, () => 'recurvo'),
     ...Array.from({ length: 4 }, () => 'tradicional'),
@@ -343,7 +343,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   await entrarComoAdmin(pagePublicar);
   await pagePublicar.goto(`/app/wafa/torneos/${tournament.id}/publicar`);
 
-  await expect(pagePublicar.getByTestId('podio-razo')).toBeVisible();
+  await expect(pagePublicar.getByTestId('podio-raso')).toBeVisible();
   await pagePublicar.getByRole('button', { name: 'Publicar' }).click();
   await pagePublicar.getByRole('button', { name: 'Sí, publicar' }).click();
   await expect(pagePublicar.getByText(/Publicado\./)).toBeVisible();
@@ -354,7 +354,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
   const publico = await anonimo.newPage();
 
   await publico.goto(`/torneos/${tournament.id}`);
-  await expect(publico.getByTestId('podio-razo')).toBeVisible();
+  await expect(publico.getByTestId('podio-raso')).toBeVisible();
 
   /**
    * Con la temporada en la URL, no con la que la landing elija por defecto.
@@ -365,7 +365,7 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
    * defecto era la de otro spec y no tenía nada publicado.
    */
   await publico.goto(`/ranking?temporada=${season.id}`);
-  await expect(publico.getByRole('heading', { name: 'Razo' })).toBeVisible();
+  await expect(publico.getByRole('heading', { name: 'Raso' })).toBeVisible();
 
   /**
    * **Cero scroll horizontal, con datos reales y en un celular chico.**
@@ -435,11 +435,11 @@ test('un torneo completo, con la carga hecha sin conexión', async ({ browser, r
     }[];
   };
 
-  const razo = categories.find((c) => c.category === 'razo');
-  expect(razo).toBeDefined();
+  const raso = categories.find((c) => c.category === 'raso');
+  expect(raso).toBeDefined();
 
   const conResultado =
-    razo?.general.notYetEligible.filter(
+    raso?.general.notYetEligible.filter(
       (e) => e.tournamentsPlayed === 1 && e.bestNormalizedPct > 0,
     ) ?? [];
   expect(conResultado.length).toBeGreaterThan(0);

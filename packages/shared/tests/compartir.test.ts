@@ -21,7 +21,7 @@ describe('textoDeRanking', () => {
     const t = textoDeRanking({
       temporada: 'Liga 2026',
       bestN: 2,
-      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 85)] }],
+      categorias: [{ category: 'raso', ranked: [linea(1, 'Pérez', 85)] }],
     });
 
     expect(t.split('\n')[0]).toMatch(/Liga 2026/);
@@ -30,7 +30,7 @@ describe('textoDeRanking', () => {
 
   /** El `bestN` vigente cambia el encabezado, aunque el ranking sea el mismo. */
   it('un bestN distinto cambia el encabezado', () => {
-    const categorias = [{ category: 'razo' as const, ranked: [linea(1, 'Pérez', 85)] }];
+    const categorias = [{ category: 'raso' as const, ranked: [linea(1, 'Pérez', 85)] }];
 
     const dosMejores = textoDeRanking({ temporada: 'Liga', bestN: 2, categorias });
     const tresMejores = textoDeRanking({ temporada: 'Liga', bestN: 3, categorias });
@@ -44,7 +44,7 @@ describe('textoDeRanking', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
       bestN: 2,
-      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 85)] }],
+      categorias: [{ category: 'raso', ranked: [linea(1, 'Pérez', 85)] }],
     });
 
     expect(t).toMatch(/85 %/);
@@ -55,12 +55,12 @@ describe('textoDeRanking', () => {
       temporada: 'Liga',
       bestN: 2,
       categorias: [
-        { category: 'razo', ranked: [linea(1, 'Pérez', 12)] },
+        { category: 'raso', ranked: [linea(1, 'Pérez', 12)] },
         { category: 'longbow', ranked: [linea(1, 'Gómez', 9)] },
       ],
     });
 
-    expect(t).toMatch(/Razo/);
+    expect(t).toMatch(/Raso/);
     expect(t).toMatch(/Longbow/);
     expect(t).toMatch(/Pérez/);
     expect(t).toMatch(/Gómez/);
@@ -73,7 +73,7 @@ describe('textoDeRanking', () => {
       bestN: 2,
       categorias: [
         {
-          category: 'razo',
+          category: 'raso',
           ranked: [
             linea(1, 'Uno', 5),
             linea(2, 'Dos', 4),
@@ -95,7 +95,7 @@ describe('textoDeRanking', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
       bestN: 2,
-      categorias: [{ category: 'razo', ranked }],
+      categorias: [{ category: 'raso', ranked }],
     });
 
     expect(t).toMatch(new RegExp(`Ap${TOPE_AL_COMPARTIR}`));
@@ -108,12 +108,12 @@ describe('textoDeRanking', () => {
       temporada: 'Liga',
       bestN: 2,
       categorias: [
-        { category: 'razo', ranked: [linea(1, 'Pérez', 12)] },
+        { category: 'raso', ranked: [linea(1, 'Pérez', 12)] },
         { category: 'longbow', ranked: [] },
       ],
     });
 
-    expect(t).toMatch(/Razo/);
+    expect(t).toMatch(/Raso/);
     expect(t).not.toMatch(/Longbow/);
   });
 
@@ -127,7 +127,7 @@ describe('textoDeRanking', () => {
     const t = textoDeRanking({
       temporada: 'Liga',
       bestN: 2,
-      categorias: [{ category: 'razo', ranked: [linea(1, 'Pérez', 12)] }],
+      categorias: [{ category: 'raso', ranked: [linea(1, 'Pérez', 12)] }],
     });
 
     expect(t).not.toMatch(/[|\t]/);

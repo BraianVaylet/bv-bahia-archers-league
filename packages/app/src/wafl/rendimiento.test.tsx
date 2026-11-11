@@ -53,7 +53,7 @@ const participantes = [
   id: id as string,
   firstName: firstName as string,
   lastName: lastName as string,
-  category: 'razo',
+  category: 'raso',
   stake: 'azul',
   unit: unit as string,
   position: position as string,

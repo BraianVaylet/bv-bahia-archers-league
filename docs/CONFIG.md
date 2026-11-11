@@ -174,6 +174,11 @@ pnpm --filter @bal/api db:reconcile
 ```
 Recalcula todos los rollups de `participants` desde `scores`. Red de seguridad ante cualquier desalineación.
 
+```bash
+pnpm --filter @bal/api db:migrate
+```
+Corre las migraciones de datos (hoy: la categoría `razo` → `raso`) e informa cuántos documentos tocó. **No hace falta correrla antes del deploy**: el servidor la corre sola al arrancar y es idempotente. Sirve para verificarla a mano.
+
 ---
 
 ## 5. Build de producción

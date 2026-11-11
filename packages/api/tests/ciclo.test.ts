@@ -78,10 +78,10 @@ const TARGETS = [
   { index: 2, modality: 'sala', arrows: 3, description: null },
 ];
 
-/** Torneo creado con 2 razo, listo para iniciar. */
+/** Torneo creado con 2 raso, listo para iniciar. */
 async function torneoNuevo(
   c: ReturnType<typeof cliente>,
-  cats: [BowCategory, number][] = [['razo', 2]],
+  cats: [BowCategory, number][] = [['raso', 2]],
 ) {
   const s = await c.post('/api/admin/seasons', {
     name: 'Liga 2026',
@@ -681,7 +681,7 @@ describe('endpoints públicos', () => {
    */
   it('expone el usuario de cada patrulla, que ya se derivaba del número', async () => {
     const c = await admin();
-    const { tournamentId } = await torneoNuevo(c, [['razo', 4]]);
+    const { tournamentId } = await torneoNuevo(c, [['raso', 4]]);
     await c.post(`/api/admin/tournaments/${tournamentId}/start`);
 
     const body = (await (
@@ -1111,13 +1111,13 @@ describe('sexo: del arquero al standing', () => {
     const conSexo = await c.post('/api/admin/archers', {
       firstName: 'Ana',
       lastName: 'Arquera',
-      category: 'razo',
+      category: 'raso',
       sex: 'femenino',
     });
     const sinSexo = await c.post('/api/admin/archers', {
       firstName: 'Beto',
       lastName: 'Arquero',
-      category: 'razo',
+      category: 'raso',
     });
     const archerIds = [
       ((await conSexo.json()) as { archer: { id: string } }).archer.id,
@@ -1164,18 +1164,18 @@ describe('sexo: del arquero al standing', () => {
       }[];
     };
 
-    const vistasDeRazo = async (seasonId: string) => {
+    const vistasDeRaso = async (seasonId: string) => {
       const body = (await (
         await cliente().get(`/api/public/rankings?seasonId=${seasonId}`)
       ).json()) as Ranking;
-      const razo = body.categories.find((cat) => cat.category === 'razo');
+      const raso = body.categories.find((cat) => cat.category === 'raso');
       return {
-        femenino: razo?.femenino.notYetEligible.map((a) => a.lastName) ?? [],
-        masculino: razo?.masculino.notYetEligible.map((a) => a.lastName) ?? [],
+        femenino: raso?.femenino.notYetEligible.map((a) => a.lastName) ?? [],
+        masculino: raso?.masculino.notYetEligible.map((a) => a.lastName) ?? [],
       };
     };
 
-    /** Torneo de 2 razo sin sexo, jugado y publicado. */
+    /** Torneo de 2 raso sin sexo, jugado y publicado. */
     const publicadoSinSexo = async (c: ReturnType<typeof cliente>) => {
       const torneo = await torneoNuevo(c);
       await c.post(`/api/admin/tournaments/${torneo.tournamentId}/start`);
@@ -1187,17 +1187,17 @@ describe('sexo: del arquero al standing', () => {
     it('entra al ranking de su sexo apenas el admin lo carga', async () => {
       const c = await admin();
       const { seasonId, archerIds } = await publicadoSinSexo(c);
-      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: [] });
+      expect(await vistasDeRaso(seasonId)).toEqual({ femenino: [], masculino: [] });
 
       const res = await c.patch(`/api/admin/archers/${archerIds[0]}`, {
         firstName: 'Nombre1',
         lastName: 'Apellido001',
-        category: 'razo',
+        category: 'raso',
         sex: 'femenino',
       });
       expect(res.status).toBe(200);
 
-      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: ['Apellido001'], masculino: [] });
+      expect(await vistasDeRaso(seasonId)).toEqual({ femenino: ['Apellido001'], masculino: [] });
     });
 
     it('sigue ahí después de recalcular la liga desde los torneos', async () => {
@@ -1207,23 +1207,23 @@ describe('sexo: del arquero al standing', () => {
       await c.patch(`/api/admin/archers/${archerIds[0]}`, {
         firstName: 'Nombre1',
         lastName: 'Apellido001',
-        category: 'razo',
+        category: 'raso',
         sex: 'masculino',
       });
       await publishService.reconcileStandings();
 
-      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
+      expect(await vistasDeRaso(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
     });
 
     it('un sexo mal cargado se corrige: cambia de vista, no queda en las dos', async () => {
       const c = await admin();
       const { seasonId, archerIds } = await publicadoSinSexo(c);
-      const datos = { firstName: 'Nombre1', lastName: 'Apellido001', category: 'razo' };
+      const datos = { firstName: 'Nombre1', lastName: 'Apellido001', category: 'raso' };
 
       await c.patch(`/api/admin/archers/${archerIds[0]}`, { ...datos, sex: 'femenino' });
       await c.patch(`/api/admin/archers/${archerIds[0]}`, { ...datos, sex: 'masculino' });
 
-      expect(await vistasDeRazo(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
+      expect(await vistasDeRaso(seasonId)).toEqual({ femenino: [], masculino: ['Apellido001'] });
     });
 
     /**
@@ -1237,7 +1237,7 @@ describe('sexo: del arquero al standing', () => {
       await c.patch(`/api/admin/archers/${archerIds[0]}`, {
         firstName: 'Nombre1',
         lastName: 'Corregido',
-        category: 'razo',
+        category: 'raso',
         sex: 'femenino',
       });
 
@@ -1271,7 +1271,7 @@ describe('ranking público por sexo', () => {
       const r = await c.post('/api/admin/archers', {
         firstName: 'Nombre',
         lastName,
-        category: 'razo',
+        category: 'raso',
         sex,
       });
       return ((await r.json()) as { archer: { id: string } }).archer.id;
@@ -1358,18 +1358,18 @@ describe('ranking público por sexo', () => {
       }[];
     };
 
-    const razo = body.categories.find((cat) => cat.category === 'razo');
-    expect(razo?.general.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+    const raso = body.categories.find((cat) => cat.category === 'raso');
+    expect(raso?.general.notYetEligible.map((a) => a.lastName).sort()).toEqual([
       'Cuarto',
       'Primera',
       'Segunda',
       'Tercero',
     ]);
-    expect(razo?.femenino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+    expect(raso?.femenino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
       'Primera',
       'Segunda',
     ]);
-    expect(razo?.masculino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
+    expect(raso?.masculino.notYetEligible.map((a) => a.lastName).sort()).toEqual([
       'Cuarto',
       'Tercero',
     ]);

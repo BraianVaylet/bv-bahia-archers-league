@@ -48,7 +48,7 @@ test('próximas fechas: con link, recorrido editado desde la ficha, y eliminado 
     const { archer } = await api.post<{ archer: { id: string } }>('/api/admin/archers', {
       firstName: `Prox${i}`,
       lastName: `ProximaE2E${i}`,
-      category: 'razo',
+      category: 'raso',
     });
     archerIds.push(archer.id);
   }

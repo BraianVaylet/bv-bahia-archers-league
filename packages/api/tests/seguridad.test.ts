@@ -82,7 +82,7 @@ interface Escenario {
   participantIds: string[];
 }
 
-async function escenario(composicion: [BowCategory, number][] = [['razo', 2]]): Promise<Escenario> {
+async function escenario(composicion: [BowCategory, number][] = [['raso', 2]]): Promise<Escenario> {
   const admin = cliente();
   await admin.post('/api/auth/admin/login', { username: 'admin', password: PASSWORD });
   await admin.post('/api/auth/admin/password', {
@@ -191,7 +191,7 @@ describe('autorización', () => {
    * error de sincronización de alguien probando.
    */
   it('una op de otra patrulla queda registrada en el audit log', async () => {
-    const e = await escenario([['razo', 8]]);
+    const e = await escenario([['raso', 8]]);
     const c = await lider(e);
 
     const otra = await patrols().findOne({
@@ -348,7 +348,7 @@ describe('después del cierre', () => {
    * verde por un motivo que no es el que se quiere probar.
    */
   it('un puntaje que llega con la patrulla cerrada se rechaza y no toca los totales', async () => {
-    const e = await escenario([['razo', 8]]);
+    const e = await escenario([['raso', 8]]);
     const c = await lider(e);
 
     await cargarYFirmar(c, e);
@@ -378,7 +378,7 @@ describe('después del cierre', () => {
   });
 
   it('una firma que llega con la patrulla cerrada se rechaza y deja la firma original', async () => {
-    const e = await escenario([['razo', 8]]);
+    const e = await escenario([['raso', 8]]);
     const c = await lider(e);
 
     await cargarYFirmar(c, e);
@@ -408,7 +408,7 @@ describe('después del cierre', () => {
   });
 
   it('un puntaje que viaja en el mismo lote que el cierre, y va después, se rechaza', async () => {
-    const e = await escenario([['razo', 8]]);
+    const e = await escenario([['raso', 8]]);
     const c = await lider(e);
 
     await cargarYFirmar(c, e);
@@ -545,7 +545,7 @@ describe('inyección', () => {
       const r = await admin.post('/api/admin/archers', {
         firstName: `Nombre${i}`,
         lastName: `Apellido${i}`,
-        category: 'razo',
+        category: 'raso',
       });
       archerIds.push(((await r.json()) as { archer: { id: string } }).archer.id);
     }

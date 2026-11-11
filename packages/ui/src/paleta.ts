@@ -43,7 +43,7 @@ export const COLOR_DE_CATEGORIA: Readonly<Record<BowCategory, ParDeColor>> = {
   recurvo: { claro: '#0a6f6a', oscuro: '#5ecfc4' },
   compuesto: { claro: '#5f39ad', oscuro: '#b39cf5' },
   cazador: { claro: '#8e2560', oscuro: '#f08fc0' },
-  razo: { claro: '#47661a', oscuro: '#a8d15c' },
+  raso: { claro: '#47661a', oscuro: '#a8d15c' },
   // Tierra apagada, a propósito: un marrón es un rojo oscuro, y sólo deja de
   // leerse como estaca si baja la saturación. El test lo mide.
   tradicional: { claro: '#6b4526', oscuro: '#c99a72' },

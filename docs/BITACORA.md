@@ -14,6 +14,21 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · Dominio — la categoría `razo` pasa a llamarse `raso`
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `dominio/categoria-raso`. Pedido del autor, fuera del plan.
+
+La categoría barebow se escribe **Raso**. Cambia la etiqueta **y la clave** (`BOW_CATEGORIES`, `CATEGORY_INFO`, `DEFAULT_STAKE_MAP`, icono, color, tests, E2E y docs vigentes). Revierte la nota de [`DOMAIN_WA.md`](DOMAIN_WA.md) §3 que respetaba la grafía `razo`.
+
+**Decisión: la clave también, con migración.** `razo` no era sólo texto: es lo que se guarda en Mongo (`archers`, `participants`, `standings` y `tournaments.stakeMap`). Cambiar el código sin migrar habría dejado datos con una clave que nadie entiende: `CATEGORY_INFO['razo']` es `undefined` y la landing y WAFA revientan al leer `.label`; los podios y el ranking, que agrupan por `BOW_CATEGORIES`, los habrían descartado **en silencio**; `isEscuela('razo')` tira al armar patrullas; y Zod rechaza la clave vieja al editar. Por eso `db/migraciones.ts` corre **al arrancar el servidor**, antes que `ensureIndexes`, y es idempotente: no hay paso manual antes del deploy que olvidarse. También está como `db:migrate` para verificarla a mano.
+
+**Una trampa que el test encontró:** la primera versión usaba `stakeMap.<estaca>.$[c]`. Un torneo cuyo mapa no tiene las cuatro estacas hace que Mongo rechace el update **entero** («The path 'stakeMap.naranja' must exist…») — con la migración en el arranque, eso es un servidor que no levanta. Se pasó a un update con pipeline que recorre sólo las estacas que el documento tiene.
+
+**Qué no se tocó:** el `auditLog` (registro histórico, se lee como texto), las entradas anteriores de esta bitácora, `docs/pre/` y `docs/post/` (registros históricos). Los índices únicos con `category` no pueden chocar: `raso` no existía como clave.
+
+**WAFL no se ve afectado:** no muestra la categoría y sus ops del outbox no la llevan. **Riesgo en la transición:** un WAFA abierto con el JS viejo (la PWA actualiza con `prompt`) recibe `raso` del servidor y no la conoce hasta que se acepte la actualización. No conviene deployar con el admin trabajando.
+
+**Tests:** 5 en `migraciones.test.ts`, vistos fallar contra un stub (y el del mapa incompleto, contra la primera implementación). Suite completa: shared 463, cliente 64, ui 360, api 615, landing 112, app 716. Biome, typecheck, capas y docs OK. E2E sin correr localmente.
 ## 2026-11-11 · UI — barra «estás en modo desarrollo»
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/indicador-ambiente`. Pedido del autor, fuera del plan.

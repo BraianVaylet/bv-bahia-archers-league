@@ -138,7 +138,7 @@ describe('arqueros', () => {
     const res = await c.post('/api/admin/archers', {
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
     });
     expect(res.status).toBe(201);
 
@@ -154,7 +154,7 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Ángel',
       lastName: 'Gómez',
-      category: 'razo',
+      category: 'raso',
     });
 
     const res = (await (await c.get('/api/admin/archers?q=gomez')).json()) as {
@@ -169,7 +169,7 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
     });
 
     const res = (await (await c.get('/api/admin/archers?q=.*')).json()) as { archers: unknown[] };
@@ -178,7 +178,7 @@ describe('arqueros', () => {
 
   it('archiva y restaura', async () => {
     const c = await adminListo();
-    const [id] = await crearArqueros(c, [['razo', 1]]);
+    const [id] = await crearArqueros(c, [['raso', 1]]);
 
     await c.post(`/api/admin/archers/${id}/archive`);
     expect(
@@ -197,7 +197,7 @@ describe('arqueros', () => {
 
   it('elimina un arquero que nunca participó', async () => {
     const c = await adminListo();
-    const [id] = await crearArqueros(c, [['razo', 1]]);
+    const [id] = await crearArqueros(c, [['raso', 1]]);
 
     expect((await c.del(`/api/admin/archers/${id}`)).status).toBe(200);
     expect(await archers().countDocuments()).toBe(0);
@@ -206,7 +206,7 @@ describe('arqueros', () => {
   it('NO elimina un arquero que participó de un torneo', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 2]]);
+    const ids = await crearArqueros(c, [['raso', 2]]);
 
     await c.post('/api/admin/tournaments', {
       seasonId,
@@ -227,7 +227,7 @@ describe('arqueros', () => {
   it('la lista marca quién participó de un torneo y quién no', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 2]]);
+    const ids = await crearArqueros(c, [['raso', 2]]);
     const [suelto] = await crearArqueros(c, [['longbow', 1]]);
 
     await c.post('/api/admin/tournaments', {
@@ -265,7 +265,7 @@ describe('arqueros', () => {
 
   it('un arquero nuevo nace aprobado', async () => {
     const c = await adminListo();
-    await c.post('/api/admin/archers', { firstName: 'Juan', lastName: 'Pérez', category: 'razo' });
+    await c.post('/api/admin/archers', { firstName: 'Juan', lastName: 'Pérez', category: 'raso' });
 
     expect((await archers().findOne({ firstName: 'Juan' }))?.registrationStatus).toBe('aprobado');
   });
@@ -275,14 +275,14 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       dni: '30123456',
     });
 
     const res = await c.post('/api/admin/archers', {
       firstName: 'Otro',
       lastName: 'Arquero',
-      category: 'razo',
+      category: 'raso',
       dni: '30123456',
     });
 
@@ -297,7 +297,7 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Juan',
       lastName: 'Pérez',
-      category: 'razo',
+      category: 'raso',
       dni: '30123458',
     });
 
@@ -314,11 +314,11 @@ describe('arqueros', () => {
 
   it('dos arqueros sin DNI no chocan entre sí', async () => {
     const c = await adminListo();
-    await c.post('/api/admin/archers', { firstName: 'Uno', lastName: 'Sin DNI', category: 'razo' });
+    await c.post('/api/admin/archers', { firstName: 'Uno', lastName: 'Sin DNI', category: 'raso' });
     const res = await c.post('/api/admin/archers', {
       firstName: 'Dos',
       lastName: 'Sin DNI',
-      category: 'razo',
+      category: 'raso',
     });
 
     expect(res.status).toBe(201);
@@ -327,11 +327,11 @@ describe('arqueros', () => {
 
   it('marca profileIncomplete cuando falta sexo o DNI, y no cuando están los dos', async () => {
     const c = await adminListo();
-    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Datos', category: 'razo' });
+    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Datos', category: 'raso' });
     await c.post('/api/admin/archers', {
       firstName: 'Con',
       lastName: 'Datos',
-      category: 'razo',
+      category: 'raso',
       sex: 'femenino',
       dni: '30123457',
     });
@@ -351,10 +351,10 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Con',
       lastName: 'Dni',
-      category: 'razo',
+      category: 'raso',
       dni: '30123457',
     });
-    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Dni', category: 'razo' });
+    await c.post('/api/admin/archers', { firstName: 'Sin', lastName: 'Dni', category: 'raso' });
 
     const { archers: lista } = (await (await c.get('/api/admin/archers?q=30123457')).json()) as {
       archers: { firstName: string }[];
@@ -368,7 +368,7 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Con',
       lastName: 'Dni',
-      category: 'razo',
+      category: 'raso',
       dni: '30123457',
     });
 
@@ -389,13 +389,13 @@ describe('arqueros', () => {
     await c.post('/api/admin/archers', {
       firstName: 'Aprobado',
       lastName: 'Ya',
-      category: 'razo',
+      category: 'raso',
     });
     await archers().insertOne({
       _id: new ObjectId(),
       firstName: 'Pendiente',
       lastName: 'DeAprobar',
-      category: 'razo',
+      category: 'raso',
       sex: null,
       dni: null,
       registrationStatus: 'pendiente',
@@ -504,7 +504,7 @@ describe('alta pública de arqueros', () => {
   const alta = {
     firstName: 'Ana',
     lastName: 'Pública',
-    category: 'razo',
+    category: 'raso',
     sex: 'femenino',
     dni: '30999999',
   };
@@ -597,7 +597,7 @@ describe('alta pública de arqueros', () => {
       expect(entrada?.entityId.equals(existente?._id as ObjectId)).toBe(true);
       expect(entrada?.actorType).toBe('system');
       // Lo que se intentó, para que el admin juzgue; el DNI no se copia al log.
-      expect(entrada?.meta).toMatchObject({ category: 'razo', lastName: 'Persona' });
+      expect(entrada?.meta).toMatchObject({ category: 'raso', lastName: 'Persona' });
       expect(JSON.stringify(entrada?.meta)).not.toContain('30999999');
     });
 
@@ -692,7 +692,7 @@ async function altaPendiente(dni = '30888888') {
   const res = await cliente().post('/api/public/archers', {
     firstName: 'Pedro',
     lastName: 'Pendiente',
-    category: 'razo',
+    category: 'raso',
     sex: 'masculino',
     dni,
   });
@@ -733,7 +733,7 @@ describe('aprobar o rechazar altas pendientes', () => {
   it('rechazar uno que ya participó devuelve ARCHER_IN_USE, no lo borra', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const archerIds = await crearArqueros(c, [['razo', 2]]);
+    const archerIds = await crearArqueros(c, [['raso', 2]]);
 
     await c.post('/api/admin/tournaments', {
       seasonId,
@@ -788,7 +788,7 @@ describe('aprobar o rechazar altas pendientes', () => {
 describe('torneos por arquero', () => {
   it('un arquero recién creado tiene cero', async () => {
     const c = await adminListo();
-    await crearArqueros(c, [['razo', 1]]);
+    await crearArqueros(c, [['raso', 1]]);
 
     const { archers } = (await (await c.get('/api/admin/archers')).json()) as {
       archers: { tournamentCount: number; participated: boolean }[];
@@ -801,7 +801,7 @@ describe('torneos por arquero', () => {
   it('cuenta los torneos en los que participó', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 2]]);
+    const ids = await crearArqueros(c, [['raso', 2]]);
 
     for (const fecha of ['2026-08-08', '2026-09-08']) {
       await c.post('/api/admin/tournaments', {
@@ -836,7 +836,7 @@ describe('torneos por arquero', () => {
   it('cuenta torneos distintos, no participaciones', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 2]]);
+    const ids = await crearArqueros(c, [['raso', 2]]);
 
     await c.post('/api/admin/tournaments', {
       seasonId,
@@ -908,7 +908,7 @@ describe('creación de torneo', () => {
       ['recurvo', 2],
       ['compuesto', 4],
       ['cazador', 3],
-      ['razo', 4],
+      ['raso', 4],
       ['tradicional', 2],
       ['longbow', 1],
       ['escuela', 4],
@@ -946,7 +946,7 @@ describe('creación de torneo', () => {
   it('el torneo arranca en sin_iniciar', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 4]]);
+    const ids = await crearArqueros(c, [['raso', 4]]);
 
     await c.post('/api/admin/tournaments', {
       seasonId,
@@ -963,7 +963,7 @@ describe('creación de torneo', () => {
     it('congela nombre y categoría: editar el arquero después NO cambia el histórico', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 2]]);
+      const ids = await crearArqueros(c, [['raso', 2]]);
 
       await c.post('/api/admin/tournaments', {
         seasonId,
@@ -981,7 +981,7 @@ describe('creación de torneo', () => {
 
       const p = await participants().findOne({ archerId: new ObjectId(ids[0]) });
       expect(p?.firstName).toBe('Nombre1');
-      expect(p?.category).toBe('razo');
+      expect(p?.category).toBe('raso');
     });
   });
 
@@ -989,7 +989,7 @@ describe('creación de torneo', () => {
     it('genera usuario patrullaN y un PIN de 6 dígitos', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 8]]);
+      const ids = await crearArqueros(c, [['raso', 8]]);
 
       await c.post('/api/admin/tournaments', {
         seasonId,
@@ -1015,7 +1015,7 @@ describe('creación de torneo', () => {
     it('el PIN no se guarda en claro en ningún campo', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 4]]);
+      const ids = await crearArqueros(c, [['raso', 4]]);
 
       await c.post('/api/admin/tournaments', {
         seasonId,
@@ -1035,7 +1035,7 @@ describe('creación de torneo', () => {
     it('dos patrullas no comparten PIN por casualidad del generador', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 16]]);
+      const ids = await crearArqueros(c, [['raso', 16]]);
 
       await c.post('/api/admin/tournaments', {
         seasonId,
@@ -1058,7 +1058,7 @@ describe('creación de torneo', () => {
     it('si falla la inserción de participantes NO queda nada a medias', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 4]]);
+      const ids = await crearArqueros(c, [['raso', 4]]);
 
       const repo = await import('../src/repositories/tournamentRepo.js');
       vi.spyOn(repo, 'insertParticipants').mockRejectedValueOnce(
@@ -1083,7 +1083,7 @@ describe('creación de torneo', () => {
   describe('validación', () => {
     it('rechaza una temporada inexistente', async () => {
       const c = await adminListo();
-      const ids = await crearArqueros(c, [['razo', 2]]);
+      const ids = await crearArqueros(c, [['raso', 2]]);
 
       const res = await c.post('/api/admin/tournaments', {
         seasonId: new ObjectId().toHexString(),
@@ -1098,7 +1098,7 @@ describe('creación de torneo', () => {
     it('rechaza un arquero inexistente', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 2]]);
+      const ids = await crearArqueros(c, [['raso', 2]]);
 
       const res = await c.post('/api/admin/tournaments', {
         seasonId,
@@ -1113,7 +1113,7 @@ describe('creación de torneo', () => {
     it('rechaza inscribir a un arquero archivado', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 2]]);
+      const ids = await crearArqueros(c, [['raso', 2]]);
       await c.post(`/api/admin/archers/${ids[0]}/archive`);
 
       const res = await c.post('/api/admin/tournaments', {
@@ -1131,7 +1131,7 @@ describe('creación de torneo', () => {
     it('rechaza blancos con índices no contiguos', async () => {
       const c = await adminListo();
       const seasonId = await crearTemporada(c);
-      const ids = await crearArqueros(c, [['razo', 2]]);
+      const ids = await crearArqueros(c, [['raso', 2]]);
 
       const res = await c.post('/api/admin/tournaments', {
         seasonId,
@@ -1203,7 +1203,7 @@ describe('creación de torneo', () => {
   it('registra la creación en el audit log, sin datos sensibles', async () => {
     const c = await adminListo();
     const seasonId = await crearTemporada(c);
-    const ids = await crearArqueros(c, [['razo', 4]]);
+    const ids = await crearArqueros(c, [['raso', 4]]);
 
     await c.post('/api/admin/tournaments', {
       seasonId,

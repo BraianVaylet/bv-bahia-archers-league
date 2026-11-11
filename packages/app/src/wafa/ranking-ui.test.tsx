@@ -20,7 +20,7 @@ const arquero = (o: Record<string, unknown> = {}) => ({
   archerId: 'a1',
   firstName: 'Juan',
   lastName: 'Pérez',
-  category: 'razo',
+  category: 'raso',
   tournamentsPlayed: 3,
   bestNormalizedPct: 84.5,
   bestNAvgPct: 81.2,
@@ -90,7 +90,7 @@ describe('RankingPage de WAFA', () => {
    * (`REF6-11`: `conservarDatos`).
    */
   it('al cambiar de temporada, el ranking anterior se queda a la vista hasta que llega el nuevo', async () => {
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conRanking([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     rutas['GET /api/public/seasons'] = () => ({
       json: {
         seasons: [
@@ -125,7 +125,7 @@ describe('RankingPage de WAFA', () => {
           bestN: 2,
           categories: [
             {
-              category: 'razo',
+              category: 'raso',
               general: {
                 ranked: [arquero({ archerId: 'a9', lastName: 'Vieja' })],
                 notYetEligible: [],
@@ -141,10 +141,10 @@ describe('RankingPage de WAFA', () => {
     expect(screen.queryByTestId('fila-Pérez')).toBeNull();
   });
   it('lista el ranking por categoría', async () => {
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conRanking([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     renderRanking();
 
-    expect(await screen.findByTestId('cat-razo')).toHaveTextContent('Razo');
+    expect(await screen.findByTestId('cat-raso')).toHaveTextContent('Raso');
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('Pérez, Juan');
   });
 
@@ -156,7 +156,7 @@ describe('RankingPage de WAFA', () => {
   it('marca el podio sin medallas de color, con el puesto escrito', async () => {
     conRanking([
       {
-        category: 'razo',
+        category: 'raso',
         ranked: [
           arquero({ archerId: 'a1', lastName: 'Oro', position: 1 }),
           arquero({ archerId: 'a4', lastName: 'Cuarto', position: 4 }),
@@ -186,7 +186,7 @@ describe('RankingPage de WAFA', () => {
     conRanking(
       [
         {
-          category: 'razo',
+          category: 'raso',
           ranked: [arquero()],
           notYetEligible: [arquero({ archerId: 'a9', lastName: 'Díaz', tournamentsPlayed: 2 })],
         },
@@ -237,7 +237,7 @@ describe('pestañas de sexo', () => {
       json: { seasons: [{ id: 's1', name: 'Liga 2026', status: 'activa' }] },
     });
     rutas['GET /api/public/rankings?seasonId=s1'] = () => ({
-      json: { bestN, categories: [{ category: 'razo', general, femenino, masculino }] },
+      json: { bestN, categories: [{ category: 'raso', general, femenino, masculino }] },
     });
   }
 
@@ -266,11 +266,11 @@ describe('pestañas de sexo', () => {
   it('cambiar de pestaña no cambia el testid de la tarjeta de categoría', async () => {
     conVistas({ ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] });
     renderRanking();
-    await screen.findByTestId('cat-razo');
+    await screen.findByTestId('cat-raso');
 
     fireEvent.click(screen.getByRole('tab', { name: 'Masculino' }));
 
-    expect(await screen.findByTestId('cat-razo')).toBeDefined();
+    expect(await screen.findByTestId('cat-raso')).toBeDefined();
   });
 });
 
@@ -287,9 +287,9 @@ describe('compartir el ranking', () => {
       configurable: true,
     });
 
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }], 3);
+    conRanking([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }], 3);
     renderRanking();
-    await screen.findByTestId('cat-razo');
+    await screen.findByTestId('cat-raso');
 
     fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
     await waitFor(() => expect(compartido).toHaveLength(1));
@@ -316,9 +316,9 @@ describe('compartir el ranking', () => {
       configurable: true,
     });
 
-    conRanking([{ category: 'razo', ranked: [arquero()], notYetEligible: [] }]);
+    conRanking([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     renderRanking();
-    await screen.findByTestId('cat-razo');
+    await screen.findByTestId('cat-raso');
 
     fireEvent.click(screen.getByRole('button', { name: 'Compartir' }));
 
@@ -346,7 +346,7 @@ describe('compartir el ranking', () => {
         bestN: 2,
         categories: [
           {
-            category: 'razo',
+            category: 'raso',
             general: { ranked: [arquero({ lastName: 'Gral' })], notYetEligible: [] },
             femenino: {
               ranked: [arquero({ archerId: 'f1', lastName: 'Fem' })],

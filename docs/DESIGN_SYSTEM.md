@@ -97,7 +97,7 @@ Esto no es un adorno, es una necesidad aritmética. Excluyendo rojo, azul y amar
 | Teal | Recurvo olímpico | Aire libre |
 | Violeta | Compuesto libre | Sala |
 | Magenta | Compuesto cazador | — |
-| Verde | Razo, Longbow | Juego de campo |
+| Verde | Raso, Longbow | Juego de campo |
 | Tierra apagada | Tradicional | 3D |
 | Neutro | Escuela | — |
 
@@ -108,7 +108,7 @@ Esto no es un adorno, es una necesidad aritmética. Excluyendo rojo, azul y amar
 - Cada color llega a **AA contra el fondo de su tema**.
 - Ningún color se confunde con una estaca: no puede estar a menos de 25° de tono **y** ser saturado a la vez. Un tierra apagado no se lee como «roja»; un rojo vivo sí.
 
-> El segundo test rechazó tres de los once colores del primer intento. El oliva de `razo` estaba a 22° del amarillo de estaca con saturación 1,0 — un oliva **es** un amarillo oscuro—, y lo mismo el marrón de `tradicional` y el óxido de `3d` respecto del rojo. No se veían mal; se veían como estacas.
+> El segundo test rechazó tres de los once colores del primer intento. El oliva de `raso` estaba a 22° del amarillo de estaca con saturación 1,0 — un oliva **es** un amarillo oscuro—, y lo mismo el marrón de `tradicional` y el óxido de `3d` respecto del rojo. No se veían mal; se veían como estacas.
 
 Los glifos de modalidad siguen siendo los mismos, y ahora también hay uno por categoría:
 
@@ -116,7 +116,7 @@ Los glifos de modalidad siguen siendo los mismos, y ahora también hay uno por c
 |---|---|---|---|---|
 | Sala | Anillos concéntricos | | Compuesto libre | Mira de scope con un pin |
 | Aire libre | Sol sobre el horizonte | | Compuesto cazador | Anillo de mira con tres pines |
-| Juego de campo | Terreno con pinos | | Razo | Flecha con emplumado |
+| Juego de campo | Terreno con pinos | | Raso | Flecha con emplumado |
 | 3D | Silueta de animal | | Recurvo olímpico | Arco con estabilizador |
 | | | | Tradicional | Arco de palas recurvadas |
 | | | | Longbow | Arco largo en D |

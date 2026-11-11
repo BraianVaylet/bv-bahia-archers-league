@@ -17,7 +17,7 @@ const TORNEO = {
   targets: [1, 2, 3, 4].map((index) => ({ index })),
 };
 
-const miembro = (id: string, lastName: string, category = 'razo', stake = 'azul') => ({
+const miembro = (id: string, lastName: string, category = 'raso', stake = 'azul') => ({
   id,
   firstName: 'Nombre',
   lastName,
@@ -227,7 +227,7 @@ describe('edición manual', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mover a Ruiz a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 1' }));
 
-    // Ahora la patrulla 2 tiene sólo a Díaz (longbow): Pérez (razo) cae al lado.
+    // Ahora la patrulla 2 tiene sólo a Díaz (longbow): Pérez (raso) cae al lado.
     fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
     fireEvent.click(screen.getByRole('button', { name: 'A la 2' }));
 
@@ -582,7 +582,7 @@ describe('la ficha del arquero en la patrulla', () => {
 
     const ficha = screen.getByTestId('miembro-Pérez');
     expect(ficha.textContent).toMatch(/Estaca/);
-    expect(ficha.textContent).toMatch(/Razo|Recurvo|Compuesto|Longbow|Tradicional|Escuela/);
+    expect(ficha.textContent).toMatch(/Raso|Recurvo|Compuesto|Longbow|Tradicional|Escuela/);
   });
 
   /**
