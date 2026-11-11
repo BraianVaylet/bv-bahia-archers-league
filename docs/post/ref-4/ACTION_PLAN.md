@@ -52,7 +52,7 @@ Las claves del dominio **ya son cortas** (`recurvo`, `compuesto`, `cazador`). Lo
 | `Recurvo olímpico` | `Recurvo` |
 | `Compuesto libre` | `Compuesto` |
 | `Compuesto cazador` | `Cazador` |
-| `Sala 18 m` | `18 m` |
+| `18 m` | `18 m` |
 | `Juego de campo` | `Campo` |
 
 `Campo` además **acerca** la etiqueta al término de `CLAUDE.md`, que ya dice «campo». No se toca ninguna clave, ningún dato guardado, ninguna URL.

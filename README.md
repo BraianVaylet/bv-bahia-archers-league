@@ -2,7 +2,7 @@
 
 Sistema de organización y gestión de torneos de la **Liga Bahiense de Arquería** (CBA, Bahía Blanca).
 
-La liga corre un torneo por mes durante la temporada. Los torneos son **multitarget**: un recorrido por el predio con N blancos, donde cada blanco tiene su propia modalidad — sala 18 m, aire libre, juego de campo o 3D — con su propio reglamento de flechas. Los arqueros se reparten en **patrullas** y el líder de cada una anota los puntajes desde el celular, caminando por el monte.
+La liga corre un torneo por mes durante la temporada. Los torneos son **multitarget**: un recorrido por el predio con N blancos, donde cada blanco tiene su propia modalidad — 18 m, aire libre, juego de campo o 3D — con su propio reglamento de flechas. Los arqueros se reparten en **patrullas** y el líder de cada una anota los puntajes desde el celular, caminando por el monte.
 
 > **El requisito que manda sobre todo lo demás:** la app se usa mientras se compite, con guantes, al sol y sin señal confiable. **No puede dejar de funcionar.**
 
