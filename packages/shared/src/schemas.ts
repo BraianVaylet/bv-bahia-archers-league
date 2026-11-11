@@ -221,12 +221,27 @@ export const MarkPaymentSchema = z.strictObject({ paid: z.boolean() });
 
 const SIN_PAGO = { required: false, amount: 0 } as const;
 
+/**
+ * El link donde los arqueros se pre-anotan: un formulario o una planilla externa (`BE-27`).
+ *
+ * La landing lo dibuja como `href` de un botón, así que **sólo `https:`**: un `javascript:` o un
+ * `data:` en un `href` es XSS almacenado, y un `http:` manda al arquero a un formulario sin
+ * cifrar. Ver `docs/SECURITY.md` §16.
+ */
+export const RegistrationUrlSchema = z
+  .url({
+    protocol: /^https$/,
+    error: 'El link de pre-inscripción tiene que empezar con https://.',
+  })
+  .max(500, 'El link de pre-inscripción es demasiado largo.');
+
 export const CreateTournamentSchema = z
   .strictObject({
     seasonId: ObjectIdSchema,
     name: texto(3, 120),
     date: z.coerce.date(),
     description: z.string().max(1000).default(''),
+    registrationUrl: RegistrationUrlSchema.nullable().optional(),
     payment: PaymentConfigSchema.default(SIN_PAGO),
     targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS),
     // Mínimo 2: con menos no se puede armar ni una patrulla (H1).
@@ -248,6 +263,8 @@ export const UpdateTournamentSchema = z
     name: texto(3, 120).optional(),
     date: z.coerce.date().optional(),
     description: z.string().max(1000).optional(),
+    /** `null` lo borra: el formulario de pre-inscripción cerró. */
+    registrationUrl: RegistrationUrlSchema.nullable().optional(),
     payment: PaymentConfigSchema.optional(),
     targets: z.array(TargetConfigSchema).min(1).max(MAX_TARGETS).optional(),
     /**
@@ -258,10 +275,24 @@ export const UpdateTournamentSchema = z
      * lista **rearma las patrullas**, porque las patrullas se derivan de ella.
      */
     archerIds: z.array(ObjectIdSchema).min(MIN_PATROL_SIZE).max(MAX_PARTICIPANTS).optional(),
+    /**
+     * Qué estaca le toca a cada categoría, y a qué distancia está cada estaca (`BE-24`).
+     *
+     * Igual que `archerIds`, **qué estado lo permite lo decide el servicio** (`camposEditables`).
+     * Cambiar el mapa re-snapshotea la estaca de cada participante y, si alguno cambia, rearma
+     * las patrullas.
+     */
+    stakeMap: StakeMapSchema.optional(),
+    distances: DistancesSchema.optional(),
   })
   .refine((v) => v.archerIds === undefined || new Set(v.archerIds).size === v.archerIds.length, {
     message: 'Hay arqueros repetidos.',
     path: ['archerIds'],
+  })
+  // La misma regla que al crear: editando se podía dejar un recorrido con huecos (`BE-24`).
+  .refine((v) => v.targets === undefined || indicesContiguos(v.targets), {
+    message: 'Los blancos tienen que estar numerados de 1 a N, sin huecos ni repetidos.',
+    path: ['targets'],
   });
 
 // ── Patrullas ────────────────────────────────────────────────────────────────
@@ -360,6 +391,19 @@ export const SyncBatchSchema = z
     path: ['ops'],
   });
 
+/**
+ * Corrección de un puntaje por el admin, contra la planilla de papel (`BE-25`).
+ *
+ * **Sólo tokens y motivo.** Igual que en el sync, ningún total viaja del cliente (regla 1): el
+ * servidor deriva los valores con la modalidad **de ese blanco**, leída del torneo en base. Los
+ * tokens se acotan en forma, no contra una lista fija. El motivo es obligatorio: es lo que el audit
+ * log va a tener que explicar si alguien pregunta por qué cambió un resultado.
+ */
+export const ScoreCorrectionSchema = z.strictObject({
+  arrows: z.array(z.string().min(1).max(2)).min(1).max(MAX_ARROWS_PER_TARGET),
+  reason: z.string().trim().min(5, 'Contá en pocas palabras por qué se corrige.').max(500),
+});
+
 // ── Tipos inferidos ──────────────────────────────────────────────────────────
 
 export type AdminLoginInput = z.infer<typeof AdminLoginSchema>;
@@ -375,3 +419,4 @@ export type UpdateTournamentInput = z.infer<typeof UpdateTournamentSchema>;
 export type PatrolDistributionInput = z.infer<typeof PatrolDistributionSchema>;
 export type SyncOpInput = z.infer<typeof SyncOpSchema>;
 export type SyncBatchInput = z.infer<typeof SyncBatchSchema>;
+export type ScoreCorrectionInput = z.infer<typeof ScoreCorrectionSchema>;

@@ -11,6 +11,7 @@ Séptima ronda: hacer que la landing, la puerta `/app`, WAFA y WAFL se vean prof
 | [`referencia/capturas/`](referencia/capturas) | Renders de las pantallas a 1280 y 390 px |
 | [`referencia/design-system-README.md`](referencia/design-system-README.md) | El brand book del Design System publicado (reglas de uso de cada token) |
 | [`referencia/design-system-REDISENO.md`](referencia/design-system-REDISENO.md) | El resumen del plan tal como se entregó en el Design System |
+| [`antes-despues/`](antes-despues/README.md) | Seis pantallas antes del rediseño y al cerrarlo (`REF7-12`) |
 
 ## Arranque rápido para una sesión nueva de Claude Code
 

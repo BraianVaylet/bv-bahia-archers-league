@@ -16,12 +16,7 @@
  * puntajes válidos del mismo batch.
  */
 
-import {
-  type Modality,
-  type SyncBatchInput,
-  type SyncOpInput,
-  validateTargetScore,
-} from '@bal/shared';
+import { type SyncBatchInput, type SyncOpInput, validateTargetScore } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
 import { iniciarSesion } from '../db/sesion.js';
 import type { ParticipantDoc, ScoreDoc, TournamentDoc } from '../db/types.js';
@@ -31,6 +26,7 @@ import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
+import { escribirPuntaje } from './escrituraDePuntaje.js';
 import { conTransaccion } from './tournamentService.js';
 import { transition } from './tournamentStateService.js';
 
@@ -61,13 +57,6 @@ export interface SyncResult {
   readonly patrol: { status: string; targetsCompleted: number };
   readonly serverTime: string;
 }
-
-const MODALIDADES_EN_CERO: Record<Modality, number> = {
-  sala: 0,
-  aire_libre: 0,
-  campo: 0,
-  '3d': 0,
-};
 
 const rechazo = (opId: string, code: string, message: string): OpResult => ({
   opId,
@@ -312,31 +301,6 @@ function motivoDeBloqueo(participante: ParticipantDoc, patrullaCerrada: boolean)
   return participante.signature !== null ? 'SIGNATURE_LOCKED' : null;
 }
 
-/**
- * Lo que cambia en los rollups del participante al guardar un blanco.
- *
- * Es la diferencia contra lo que había: editar un blanco no debe sumar dos
- * veces, y sólo un blanco nuevo suma uno a `targetsCompleted`.
- */
-function deltaDeRollup(
-  computo: Pick<ScoreDoc, 'total' | 'innerCount' | 'xCount' | 'tenCount' | 'mCount'>,
-  previo: ScoreDoc | null,
-  modality: Modality,
-) {
-  const diferencia = (campo: 'total' | 'innerCount' | 'xCount' | 'tenCount' | 'mCount') =>
-    computo[campo] - (previo?.[campo] ?? 0);
-
-  return {
-    total: diferencia('total'),
-    innerCount: diferencia('innerCount'),
-    xCount: diferencia('xCount'),
-    tenCount: diferencia('tenCount'),
-    mCount: diferencia('mCount'),
-    targetsCompleted: previo ? 0 : 1,
-    byModality: { ...MODALIDADES_EN_CERO, [modality]: diferencia('total') },
-  };
-}
-
 async function aplicarScore(
   op: Extract<SyncOpInput, { type: 'score' }>,
   patrolId: ObjectId,
@@ -418,34 +382,19 @@ async function aplicarScore(
   }
 
   // Paso 5 — APLICAR. Los totales son los que RECALCULÓ el servidor; el cliente
-  // no manda totales y si los mandara se ignorarían.
-  const ahora = new Date();
-  const doc: ScoreDoc = {
-    _id: existente?._id ?? new ObjectId(),
-    tournamentId: torneo._id,
-    patrolId,
-    participantId: participante._id,
-    targetIndex: op.targetIndex,
-    modality: blanco.modality,
-    arrows: [...op.arrows],
-    total: computo.total,
-    innerCount: computo.innerCount,
-    xCount: computo.xCount,
-    tenCount: computo.tenCount,
-    mCount: computo.mCount,
-    clientUpdatedAt: op.clientUpdatedAt,
-    lastOpId: op.opId,
-    createdAt: existente?.createdAt ?? ahora,
-    updatedAt: ahora,
-  };
-
-  await scoreRepo.upsertScore(doc, session);
-
-  await scoreRepo.applyRollupDelta(
-    participante._id,
-    participante.total,
-    deltaDeRollup(computo, existente, blanco.modality),
-    torneo.maxPossibleScore,
+  // no manda totales y si los mandara se ignorarían. El mismo camino que usa la
+  // corrección del admin (`escrituraDePuntaje`, `BE-25`).
+  await escribirPuntaje(
+    {
+      torneo,
+      participante,
+      blanco,
+      arrows: op.arrows,
+      computo,
+      existente,
+      clientUpdatedAt: op.clientUpdatedAt,
+      lastOpId: op.opId,
+    },
     session,
   );
 
@@ -525,7 +474,7 @@ function resumenDelLote(
  * Las lecturas van **con la `session`**: sin ella no ven lo que la transacción
  * escribe. Es el «7 de 8».
  */
-async function recalcularAvanceDePatrulla(patrolId: ObjectId): Promise<void> {
+export async function recalcularAvanceDePatrulla(patrolId: ObjectId): Promise<void> {
   await conTransaccion(async (session) => {
     const miembros = await tournamentRepo.listParticipantsOfPatrol(patrolId, session);
     const puntajes = await scoreRepo.listScoresOfPatrol(patrolId, session);

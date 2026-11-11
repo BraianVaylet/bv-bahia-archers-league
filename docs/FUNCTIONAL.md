@@ -99,6 +99,8 @@ Al tocar un arquero se navega a su ficha (§5.4).
 ### 5.3 Sección Listado de torneos
 Torneos **publicados** y **en proceso**, ordenados por fecha descendente.
 
+**Próximas fechas** (`2026-11-10`, decisión 7 de la Fase 9): arriba del listado, y en la portada, los torneos **sin iniciar** con fecha de hoy en adelante —hoy en Bahía Blanca—, el más cercano primero. De cada uno se muestra **sólo la convocatoria**: nombre, fecha, descripción, costo de inscripción, cantidad de blancos, modalidades y, si el admin lo cargó, el botón al formulario de pre-inscripción. Quién está anotado y cómo se arman las patrullas no se publican: pueden cambiar hasta minutos antes de largar. Un torneo sin iniciar sigue sin tener ficha propia.
+
 Al entrar a un torneo:
 - **Si está publicado:** configuración del recorrido (cantidad de blancos, modalidad y flechas de cada uno), podios por categoría y general, mejores puntajes por categoría, puntaje de cada arquero por blanco, totales de `X`, `10` y `M`, estadísticas agregadas.
 - **Si está publicado, además:** cada arquero de los podios es un enlace a su **tarjeta de puntajes** (§5.3.1).
@@ -189,11 +191,13 @@ Vista de todas las patrullas: composición, unidades `A`/`B`, posición izquierd
 
 **En proceso:**
 - Seguimiento en vivo: blancos completados por patrulla, puntajes cargados, patrullas pendientes de firma. La pantalla **se refresca sola cada 30 s** mientras la pestaña está visible (en pausa con la pestaña oculta; al volver refresca de inmediato). Un refresco que falla no muestra nada: lo que ya se ve sigue siendo lo mejor que hay.
+- Se pueden editar nombre, fecha, descripción, link de pre-inscripción y pago (`2026-11-10`, decisión 1 de la Fase 9).
 - Solo se pueden editar los blancos **en los que ninguna patrulla cargó puntajes**. Un blanco con al menos un puntaje queda bloqueado.
 - Acción de **desbloquear firma** si un arquero se fue sin firmar (queda en el audit log con motivo).
 
 **Completado** (todas las patrullas cerraron su circuito):
-- Vista de resultados completa: podios por categoría, puntos de liga que sumaría cada arquero.
+- Vista de resultados completa: podios por categoría.
+- Se pueden editar nombre y fecha, y **corregir las flechas** de un arquero cuando la app no coincide con la planilla de papel, que es la fuente de verdad (`2026-11-10`, decisiones 2 y 3 de la Fase 9; ver `BE-25`).
 - Botón **Publicar**.
 
 **Publicado:**
@@ -216,7 +220,7 @@ El torneo en curso y la lista de blancos **ordenados desde el blanco de inicio d
 
 Cada blanco muestra número, modalidad, cantidad de flechas y estado (pendiente / completo). Se toca para cargar.
 
-Arriba, siempre visible, el **indicador de sincronización**: `Sincronizado` / `N cambios pendientes` / `Sin conexión`.
+Arriba, siempre visible, el **indicador de sincronización**: `Al día` / `N por enviar` / `Sin señal · N guardados` / `No se pudo enviar · <motivo>` (textos cortos desde `ref-7`; ver [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §9).
 
 ### 7.3 Página de blanco
 Muestra modalidad, cantidad de flechas, descripción, y los arqueros de la patrulla con **qué unidad tira primero, quién a la izquierda, quién a la derecha, y en qué estaca**.
@@ -261,12 +265,18 @@ Con **todas** las firmas presentes, se habilita **Finalizar**. Al confirmarse:
 
 | Estado | Quién escribe | Visible en landing |
 |---|---|---|
-| `sin_iniciar` | Admin (todo, **incluidos los participantes**) | No |
-| `en_proceso` | Líderes (puntajes) · Admin (blancos vírgenes) | Solo patrullas y avance, sin puntajes |
-| `completado` | Nadie | Solo patrullas y avance |
-| `publicado` | Nadie | Todo: resultados, podios, rankings |
+| `sin_iniciar` | Admin (todo, **incluidos los participantes**) | Sólo en «Próximas fechas» si su fecha es de hoy en adelante, y sólo la convocatoria (§5.3) |
+| `en_proceso` | Líderes (puntajes) · Admin (nombre, fecha, descripción, link de pre-inscripción, pago y blancos vírgenes) | Solo patrullas y avance, sin puntajes |
+| `completado` | Admin (nombre, fecha y **corrección de puntajes** contra la planilla de papel) | Solo patrullas y avance |
+| `publicado` | Nadie (para corregir: despublicar, corregir, publicar) | Todo: resultados, podios, rankings |
 
 Transiciones inválidas rechazadas por el servidor con `409 INVALID_STATE_TRANSITION`.
+
+**Qué campo se edita en qué estado** vive en un solo lugar, `camposEditables` de `@bal/shared` (`SH-11`, `2026-11-10`): lo leen el servicio que guarda y la pantalla que muestra el formulario, así no pueden decir cosas distintas. Un campo fuera de la tabla se rechaza con `FIELD_NOT_EDITABLE`. La regla de «un blanco con puntajes no se toca» es aparte, en el servicio: necesita mirar la base.
+
+### 8.3 Archivar un torneo publicado (`BE-26`, `2026-11-10`)
+
+**No es un estado nuevo, es una marca sobre `publicado`.** Un torneo archivado sigue publicado, pero **no suma al ranking de la temporada** y **no se ve en la landing**: ni en el listado, ni su detalle, ni sus tarjetas de puntaje, ni en el historial de la ficha de un arquero (decisión 5 de la Fase 9). En WAFA sigue visible, marcado. Se revierte: desarchivar lo devuelve y el ranking queda como estaba. Archivar y desarchivar piden motivo y quedan en el audit log. Despublicar un archivado lo desarchiva en la misma operación: un `completado` archivado no tiene sentido. Qué suma al ranking lo decide una sola consulta (`listQueSuman`), la misma para publicar, despublicar, archivar, desarchivar y `db:reconcile`.
 
 ### 8.1 Volver a `sin_iniciar` (`REF2-3`)
 
@@ -299,8 +309,8 @@ Con el torneo en marcha se rechaza con `409`: las patrullas ya están en el mont
 
 - **Dado** que ingresé con conexión y la app descargó el recorrido, **cuando** pierdo la señal por completo, **entonces** puedo cargar el puntaje de los 14 blancos, ver los resultados parciales y navegar entre blancos, sin ningún error.
 - **Y** cada toque de flecha se refleja en pantalla en menos de 50 ms.
-- **Y** el indicador muestra `Sin conexión` y la cantidad de cambios pendientes.
-- **Cuando** vuelve la señal, **entonces** todo se sincroniza solo y el indicador pasa a `Sincronizado`, sin que yo haga nada.
+- **Y** el indicador muestra `Sin señal` y la cantidad de cambios guardados.
+- **Cuando** vuelve la señal, **entonces** todo se sincroniza solo y el indicador pasa a `Al día`, sin que yo haga nada.
 
 ### US-03 · No se pierde nada
 > Como líder de patrulla, quiero que nada se pierda si se cierra la app, para no tener que recargar puntajes.

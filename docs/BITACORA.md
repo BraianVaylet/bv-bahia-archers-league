@@ -14,6 +14,422 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · `TEST-4` — E2E de la Fase 9, y dos bugs que encontró
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `test/test-4-e2e-fase-9`. **Con esto, la Fase 9 queda cerrada** (salvo `FE-40`, el editor de estacas, que pasó a P2).
+
+`e2e/fase-9.spec.ts`, contra el stack real, dos casos: (1) un torneo que viene aparece en «Próximas fechas» con su botón de pre-inscripción, se le rehace el recorrido desde la ficha, se elimina y un visitante nuevo ya no lo ve; (2) un torneo completo con firmas: el admin corrige una flecha desde la pantalla de corrección, se publica, la tarjeta pública muestra lo corregido, corregir publicado da 409, se archiva desde resultados —sale del ranking, del listado y su detalle da error— y al desarchivar vuelve. Detalle en `TESTING.md` §6.
+
+**Bugs encontrados y corregidos:**
+- **Corregir a un arquero que ya firmó trababa la publicación.** La firma guarda el hash del puntaje del momento, y publicar rechaza a quien cambió después de firmar (`SIGNATURE_MISMATCH`): la corrección del admin contaba como ese cambio, así que trababa justo el caso para el que existe. Ahora, en la misma transacción de la corrección, la firma recalcula su hash con el puntaje corregido y queda marcada (`correctedBy`/`correctedAt` en `SignatureDoc`). Un cambio que **no** pase por la corrección sigue sin coincidir y traba como antes. Para eso `scorecardHashOf` recibe la `session`: sin ella no ve el puntaje que la transacción acaba de escribir (mutación verificada). Dos tests nuevos en `correccion.test.ts`, el primero visto fallar.
+- **A 320 px, el selector de temporada del ranking de la landing desbordaba** con una temporada de nombre largo (las del E2E se llaman «Liga de Corrección E2E…»): un `select` nativo toma el ancho de su opción más larga. Lo detectó el chequeo de scroll horizontal de `flujo-completo`. Ahora se achica (`min-w-0 flex-1 max-w-full`).
+
+**No es un bug:** el navegador que ya pidió la lista de próximas fechas sigue mostrando un torneo recién eliminado hasta que vence el `Cache-Control` de `/api/public/*` (`publicCache`). Se verificó que la API ya no lo devolvía; el E2E mira con un visitante nuevo. El primer intento también confundía el nombre del torneo con el de su temporada («Liga de <nombre>»), que la landing muestra como temporada activa: la verificación se acotó a la sección.
+
+**Verificación:** la suite E2E entera, 65 de 65 contra el stack real (4,6 min, Chromium, Pixel 7 y iPhone 14 donde corresponde). `@bal/api` 610, `@bal/landing` 112, `pnpm -r typecheck` y `biome check . --error-on-warnings` verdes.
+
+---
+
+## 2026-11-11 · `FE-32` — WAFA: edición completa de un torneo sin iniciar
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado salvo estacas (→ `FE-40`), en la rama `feat/fe-32-edicion-completa`.
+
+**WAFA.** El formulario de «Editar» suma **descripción** y **pago** cuando `camposEditables` los permite (sin iniciar y en proceso), y manda sólo lo que cambió. El bloque de inscripción pasó a `crear/CampoDePago.tsx`, que usan el wizard y la ficha. Sin iniciar, «Editar recorrido» abre el mismo editor del paso 2 del wizard (`PasoRecorrido`, que ahora recibe sólo los blancos en vez del borrador entero) y, si cambia la cantidad de blancos, avisa antes de guardar que se rearman las patrullas, cambian los PIN y los pagos se conservan.
+
+**Backend (encontrado al planificar, con TDD):**
+- **Rearmar ya no borra los pagos.** Cambiar participantes o mover una categoría de estaca recreaba los participantes con `paid: false`: el admin marca los pagos en la puerta y un ajuste de último momento los perdía. Ahora se copian por `archerId` (deuda anotada en `BE-24`).
+- **Cambiar la cantidad de blancos sin iniciar rearma las patrullas.** El blanco de inicio de cada patrulla se reparte sobre el recorrido; con menos blancos, una podía quedar arrancando en uno que ya no existe. Cambiar cómo es un blanco, sin cambiar cuántos son, no rearma; en proceso nunca se rearma.
+
+**Decisiones:**
+- **El editor de recorrido aparece sólo cuando el torneo se puede rearmar entero** (`camposEditables` incluye a los participantes): en proceso el servidor deja tocar blancos sin puntajes, pero eso pide mostrar cuáles están bloqueados uno por uno; queda fuera de este editor.
+- **Estacas y distancias quedan para `FE-40`.** No existe pantalla ni en el wizard (se crea con el mapa por defecto), el backend ya lo acepta y el mapa por defecto cubre el uso normal. Es una interfaz nueva, no una extracción.
+
+**Tests:** 4 de backend en `edicion.test.ts` (pagos al cambiar participantes y al mover estaca, la cantidad de blancos rearma sin patrullas fuera del recorrido, cambiar un blanco sin cambiar la cantidad no rearma) y 5 de pantalla en `torneo-ui.test.tsx` (descripción y pago mandando sólo lo cambiado, dejar de cobrar, esperando publicación sin esos campos, editar el recorrido con el aviso, en proceso sin editor), vistos fallar los que no se cumplían. `@bal/api` 608, `@bal/app` 710, typecheck, Biome; presupuesto de WAFA 136,61 de 140 (WAFL sin cambios). En el navegador, con backend simulado: el editor de recorrido en la ficha y el aviso al agregar un blanco.
+
+---
+
+## 2026-11-11 · `FE-34` — WAFA: pantalla de corrección de puntajes
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-34-corregir-puntajes`.
+
+`/wafa/torneos/:id/corregir`, a la que se llega desde la ficha con «Corregir puntajes» sólo esperando publicación (`camposEditables`, campo `scores`). El admin elige un arquero —ordenados por apellido, como en la planilla— y ve su tarjeta blanco por blanco: número y modalidad, flechas, puntos del blanco y acumulado, con los ya corregidos marcados. «Corregir #N» abre el teclado de scoring de WAFL (`ScoreKeypad`) con el set **de ese blanco**, «Borrar la última», el motivo y «Guardar corrección». Al guardar se vuelve a pedir la tarjeta: lo que quedó lo dice el servidor (`BE-25`).
+
+**Decisiones:**
+- **El borrador arranca vacío**, no con las flechas que tiene la app: el admin tipea lo que dice el papel. Editar sobre lo que ya estaba invita a corregir a medias.
+- **Se reusa `ScoreKeypad` tal cual**, con sus 56px (64 de alto): el admin ya lo conoce de WAFL y no hay una segunda versión del teclado que mantener.
+- **Acá sí se espera la respuesta** (es WAFA, con red, como publicar): el botón pasa a «Guardando…» y un rechazo se muestra en línea sin perder flechas ni motivo.
+- En otro estado la pantalla se abre igual, pero sólo para mirar: dice que se corrige esperando publicación y no ofrece «Corregir».
+- La lógica que no es pintar (acumulado, agregar/quitar flechas sin pasarse, qué falta para guardar) vive en `wafa/correccion.ts`, con test.
+- Sin `as unknown as`: los tipos que infiere el cliente RPC para las tres respuestas alcanzan.
+
+**Encontrado en el navegador y corregido:** los dos números de cada fila no decían cuál era cuál (se agregó un encabezado de columnas, oculto para el lector de pantalla, y cada número lleva su etiqueta `sr-only`); y a 360 px las flechas se partían en tres líneas: la modalidad pasó debajo del número de blanco y las flechas no se cortan.
+
+**Presupuesto de WAFA, de 135 a 140 KB gz (decisión del autor, 2026-11-11).** El CI del PR falló en «Presupuestos de bundle»: WAFA pasó de 133,97 a 136,2 KB (la pantalla más el teclado de WAFL, que ahora comparten las dos apps). Se probó cargar bajo demanda la corrección y después el wizard de crear torneo: en los dos casos rolldown reacomodó el código compartido, la pantalla de elegir rol subió ~1,1 KB y **WAFL pasó a 124,8-125,04, encima de su tope de 125** —lo mismo que `TECHNICAL.md` §5 ya decía de la landing: un `React.lazy` que no baja el inicial sólo agrega una espera—. Recortar 1,2 KB sin sacar funcionalidad no era viable. WAFA es la app del admin, con el wifi del club o una computadora; el límite que cuida el uso en el predio es el de WAFL (125), que no cambia. `scripts/presupuesto.mjs` y `TECHNICAL.md` §5 actualizados.
+
+**Tests:** 8 de lógica en `correccion.test.ts`, 6 de pantalla en `corregir-ui.test.tsx` (tarjeta con flechas, subtotal y acumulado; marca de corregido; corrige con el teclado del blanco y manda flechas y motivo, y vuelve a pedir la tarjeta; un blanco vacío abre el teclado de su modalidad; un rechazo no pierde lo tipeado; en otro estado sólo se mira) y 4 de acceso desde la ficha, vistos fallar. Mutaciones: sin volver a pedir la tarjeta y sin la guarda de estado, detectadas. `@bal/app` 703, typecheck y Biome verdes. En el navegador, con backend simulado: corrección completa de un blanco de sala vacío (X·10·9), a 1024 y 360 px, sin scroll horizontal y con todos los botones de al menos 44px.
+
+---
+
+## 2026-11-11 · `FE-33` y `FE-35` — WAFA: editar según el estado, y archivar
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-33-35-edicion-y-archivo`.
+
+**`FE-33`.** «Editar» deja de ser sólo de un torneo sin iniciar. `EdicionDelTorneo` lee `camposEditables` y `puedeEliminar` de `@bal/shared` (`SH-11`) en vez de preguntar `status === 'sin_iniciar'`: en proceso edita nombre, fecha y link (decisión 1); esperando publicación, nombre y fecha; publicado, no ofrece nada. El `PATCH` sólo manda lo que el estado permite —el servidor rechaza el pedido entero si sobra un campo (`BE-24`)—. «Eliminar», sólo sin iniciar.
+
+**`FE-35`.** En la pantalla de resultados de un torneo publicado, «Archivar» y «Desarchivar» (componente `publicacion/Archivar.tsx`), con motivo y el texto exacto de qué pasa: sale del ranking y deja de verse en la página pública, sin despublicarlo. Un archivado lo dice arriba («Archivado. Sigue publicado, pero no suma…»). En el inicio, los archivados quedan fuera del grupo de publicados; «Ver archivados (N)» —sólo si hay alguno— los muestra con un chip de texto, tono neutro (regla 8).
+
+**Decisiones:**
+- **Archivar va al lado de «Despublicar»**, en la pantalla de resultados, no en `ControlesDeEstado` como decía el plan: es la otra acción con motivo sobre un publicado, y juntas se leen como lo que son, dos maneras de sacar un torneo de la liga.
+- **Descripción y pago no entran en el formulario de `FE-33`.** Lo hace `FE-32`, para todos los estados a la vez, por la misma tabla.
+
+**Encontrado de paso y corregido:** la pantalla de resultados de un torneo **ya publicado** mostraba un error rojo «Sólo se puede publicar un torneo completado…» debajo del cartel verde de «Publicado» (`avisosDePublicacion` sólo exceptuaba `completado`). Test escrito primero y visto fallar.
+
+**Tests:** 3 de edición por estado en `torneo-ui.test.tsx` (en proceso, esperando publicación con el `PATCH` limitado a nombre y fecha, publicado sin «Editar»; el viejo «en proceso no ofrece editar» se reescribió, porque la decisión 1 lo cambió), 2 de archivar en la pantalla de resultados, 3 del filtro en el inicio (`wafa.test.tsx`) y 1 de `avisosDePublicacion`, vistos fallar. `@bal/app` 683, typecheck y Biome verdes. En el navegador, con backend simulado: el filtro y el chip en el inicio, y archivar desde resultados (manda el motivo, pasa a «Archivado» con «Desarchivar»).
+
+---
+
+## 2026-11-10 · `BE-26` — Archivar y desarchivar torneos publicados
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-26-archivar-torneos`.
+
+`POST /api/admin/tournaments/:id/archive` y `/unarchive`, con motivo. Un torneo archivado **sigue publicado**, pero deja de sumar al ranking de la temporada (se recalcula entera en la transacción) y **se oculta de la landing**: listado, detalle, tarjetas de puntaje e historial de la ficha del arquero (decisión 5, tal como la eligió el autor). En WAFA sigue visible, con `archived: true` en el detalle y el listado. Desarchivar lo devuelve y el ranking queda idéntico.
+
+**Decisiones:**
+- **Una sola consulta decide qué suma al ranking**: `tournamentRepo.listQueSuman(seasonId?)` (publicados y no archivados). Antes publicar, despublicar y `reconcileStandings` armaban la lista cada uno a su manera, filtrando en memoria; un filtro que faltara en uno —el de archivados en `db:reconcile`— volvía a meter en el ranking un torneo sacado a propósito. Además, `reconcileStandings` usaba `list()`, que tiene `limit(200)`: con más de 200 torneos publicados, el recálculo de todas las temporadas se quedaba corto. `listQueSuman` no tiene límite.
+- **Una sola regla decide qué se ve**: `resultadosVisibles({ status, archivedAt })` en `@bal/shared/edicion.ts` (regla 2: es negocio, no I/O). La usan el detalle público, la tarjeta y la ficha; el listado público filtra lo mismo en la consulta.
+- **No es un estado nuevo**: `archivedAt`/`archivedBy` opcionales en `TournamentDoc`; `null` y la clave ausente valen «no archivado» (`$in: [null]` en Mongo los matchea a los dos).
+- **La escritura es condicional** (`marcarArchivado`): sólo si está publicado y en el estado opuesto. Dos toques seguidos en «Archivar» no archivan dos veces.
+- **Despublicar un archivado lo desarchiva** en la misma transición.
+- Publicar y despublicar leen los que suman **con la `session`**, así ven el cambio de estado de su propia transacción en vez de agregar o quitar el torneo a mano.
+
+**Docs:** `FUNCTIONAL.md` §8.3 nuevo, `TECHNICAL.md` (las dos rutas, despublicar, listado público), `SECURITY.md` (acciones del audit log).
+
+**Tests:** 16 en `tests/archivo.test.ts` (saca del ranking sin despublicar; desarchivar lo deja idéntico; `db:reconcile` lo respeta; audit log con motivo; 409 en los otros tres estados, dos veces, o desarchivar lo que no está; sin motivo; despublicar desarchiva; WAFA lo marca; sin sesión; listado, detalle, tarjeta e historial de la ficha lo ocultan; desarchivado vuelve a verse) y 5 de `resultadosVisibles` en `@bal/shared`, vistos fallar. Mutaciones, todas detectadas: `listQueSuman` sin el filtro, el listado público sin el filtro, despublicar sin desarchivar, el detalle y la ficha con la regla vieja. La de la ficha **no se detectaba** con el primer test: al archivar el único torneo el arquero perdía su ranking y la ficha daba 404 antes de llegar al historial; el test se rehízo para que conserve su lugar. `@bal/shared` 463 (100% de líneas y funciones), `@bal/api` 604, `@bal/app` 674, `@bal/landing` 112, typecheck, Biome y `capas` verdes.
+
+---
+
+## 2026-11-10 · `BE-25` — Corrección de puntajes por el admin, contra la planilla de papel
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-25-correccion-puntajes`.
+
+`PUT /api/admin/tournaments/:id/participants/:participantId/scores/:targetIndex` con `{ arrows, reason }`: el admin reemplaza las flechas de un arquero en un blanco cuando la app no coincide con la planilla de papel, y el servidor recalcula ese blanco y los totales del arquero. Sólo con el torneo esperando publicación. Más `GET .../participants/:participantId/scorecard`, la tarjeta del arquero en cualquier estado, con los blancos corregidos marcados, para la pantalla de `FE-34`.
+
+**Decisiones:**
+- **Un solo camino de escritura.** La parte del sync que armaba el documento y el delta de los rollups pasó a `services/escrituraDePuntaje.ts` (`escribirPuntaje`), y la usan el sync y la corrección. Antes de mover nada se corrió la suite del sync (128 tests) y se volvió a correr después, igual. Con dos copias, un arreglo en una no llegaba a la otra y los rollups —de donde salen podios y ranking— podían sumar distinto según quién anotó.
+- **La guarda de estado es `camposEditables` (`SH-11`)**, campo `scores`, y responde `FIELD_NOT_EDITABLE`, no `INVALID_STATE_TRANSITION` como decía el plan: una sola tabla, el mismo código que el resto de la edición por estado.
+- **Ancla contra un «publicar» simultáneo.** Dentro de la transacción se escribe el torneo condicionado a `completado` (`lastCorrectedAt`, campo nuevo). Si alguien publicó entre la lectura y la escritura, no matchea y se corta; si publica mientras la transacción corre, las dos tocan el mismo documento y una choca. Sin esto, una corrección podía caer sobre un torneo ya publicado sin recalcular el ranking.
+- **El participante se relee dentro de la transacción**: el delta de los rollups parte del total vigente, no del que se leyó antes.
+- **La firma no se borra** (decisión 3). El audit log `score.admin_correct` guarda el blanco, las flechas de antes y de después, el motivo y `despuesDeFirmar`.
+- **El puntaje queda marcado** (`correctedBy`/`correctedAt` en `ScoreDoc`, opcionales) y la marca sobrevive a correcciones posteriores. `lastOpId` es `admin:<id>:<ms>`, distinguible de un opId de WAFL.
+- Un arquero ausente da 409; un participante de otro torneo, 404 sin tocar nada.
+- Después de la transacción se recalcula el avance de la patrulla (`recalcularAvanceDePatrulla`, ahora exportada): un blanco que estaba vacío lo cambia.
+
+**Docs:** `TECHNICAL.md` (las dos rutas, y la fila del `PATCH` que seguía describiendo la regla vieja), `SECURITY.md` (acción `score.admin_correct` en la tabla del audit log). `FUNCTIONAL.md` §6.7 ya lo describía desde `SH-11`.
+
+**Tests:** 21 en `tests/correccion.test.ts` (reemplaza y recalcula; carga un blanco vacío y lo cuenta; ida y vuelta deja los rollups idénticos; audit log; la firma se conserva; total en el body, tokens de otra modalidad y cantidad de flechas rechazados; sin motivo; 409 en los otros tres estados sin tocar nada; participante ajeno, inexistente, blanco inexistente, ausente; sin sesión; tarjeta del admin), vistos fallar. Mutaciones: sin chequeo de torneo, delta de blancos mal, sin marcar la corrección y sin anotar la firma, todas detectadas. **Las dos guardas de estado se cubren entre sí**: sacando sólo una, la otra frena y los tests pasan; sacando las dos fallan los tres de estado. La carrera que cubre el ancla en particular no se reproduce en un test determinístico. `@bal/api` 588, `@bal/shared` 458, typecheck, Biome y `capas` verdes. **No se corrió `/security-review`**: repaso manual (autorización, `.strict()`, IDOR entre torneos, carrera con publicar, audit), anotado en el PR.
+
+---
+
+## 2026-11-10 · `FE-38` — Landing: «Próximas fechas»
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-38-proximas-fechas`.
+
+La sección que pidió el autor: los torneos que vienen, para que los arqueros sepan qué se juega pronto. En la portada, debajo del hero, las tres más cercanas; en `/torneos`, todas, arriba del listado. Cada tarjeta: la fecha grande (día de la semana, día y mes), el nombre, cuántos blancos, la inscripción («Sin costo» si no se cobra), la barra de modalidades, la descripción en dos líneas y, si hay link, «Pre-inscribirme» (`BotonPreinscripcion` de `FE-36`). Lee `GET /api/public/tournaments/upcoming` (`BE-28`).
+
+**Decisiones:**
+- **Archivo propio** (`components/portada/ProximasFechas.tsx`), montado desde `Home.tsx` y `Tournaments.tsx`. `Secciones.tsx` no se tocó: tiene cambios sin commitear de otra sesión en el checkout compartido, y así no hay nada que mezclar.
+- **Sin próximas fechas o si el pedido falla, no se dibuja nada.** El plan pedía lo primero; lo segundo se agregó: es un extra de la portada, y un error ahí le sumaría ruido a una página que se ve bien sin la sección. Las otras secciones sí muestran su error, porque son el contenido principal.
+- **Debajo del hero, antes de «Cómo se juega»**, como proponía el plan: es lo que cambia de un mes a otro, y quien entra a la portada busca eso antes que la explicación del juego.
+- `ESTADO_DE_TORNEO.sin_iniciar.publico` **no se tocó** (el plan lo listaba): la sección tiene su propio título y no usa la etiqueta del estado. Cambiarla habría hecho aparecer «Próximamente» en lugares que hoy no lo esperan.
+- La lógica que no es pintar (cuántas en portada, el bloque de fecha en UTC, «Sin costo») vive en `lib/proximas.ts`, con test.
+
+**Tests:** 6 de `lib/proximas.test.ts` y 6 de pantalla en `landing.test.tsx` (tres en portada, qué dice cada tarjeta, botón con link, sin fechas no aparece, con error no aparece, `/torneos` las muestra todas), vistos fallar. `@bal/landing` 112, typecheck y Biome verdes. En el navegador, con backend simulado: portada a 1280 y 360 px, sin scroll horizontal, botón de 52 px; el bloque de fecha se estiraba al alto de la tarjeta y quedó arriba (`self-start`).
+
+---
+
+## 2026-11-10 · `FE-36` — Link de pre-inscripción en WAFA y botón en la landing
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-36-link-preinscripcion`.
+
+WAFA: «Link de pre-inscripción» en el paso 1 del wizard y en el formulario de edición de la ficha (sin iniciar). Landing: botón «Pre-inscribirme» en el detalle del torneo, si hay link.
+
+**Decisiones:**
+- **WAFA valida con `RegistrationUrlSchema`**, el mismo esquema del servidor (`problemaDelLink` en `wizard.ts`): el error aparece en el campo y frena «Continuar» / «Guardar cambios». Vacío es válido y viaja como `null`.
+- **Al editar, el link sólo viaja si cambió.** Así el audit log (`tournament.update`, `BE-24`) no anota un cambio que no hubo cada vez que se corrige el nombre.
+- **El botón es `BotonPreinscripcion`**, propio, para que lo reuse «Próximas fechas» (`FE-38`). Abre otra pestaña con `rel="noopener noreferrer"`, anuncia «se abre en otra pestaña» en texto oculto y muestra el dominio al lado. Sin link no dibuja nada.
+- **La landing vuelve a mirar que sea `https:` antes de dibujarlo**, aunque el servidor ya lo exige: React no bloquea un `javascript:` en un `href`, y una respuesta vieja en caché o un intermediario podrían traer otra cosa. El valor se usa tal cual llegó; no se reconstruye.
+
+**Alcance:** el detalle público sólo existe para torneos en proceso o publicados, así que el botón ahí se ve poco; donde importa es en «Próximas fechas» (`FE-38`), que ya tiene el componente listo.
+
+**Tests:** 2 de lógica en `wizard.test.ts`, 1 de pantalla del wizard, 5 de la ficha en `torneo-ui.test.tsx` (muestra el actual, lo manda, vaciar lo borra, sin tocarlo no viaja, sin https no deja guardar) y 3 de la landing (botón con dominio y otra pestaña, sin link nada, un no-https no se dibuja), vistos fallar. Los que pasaban de entrada se verificaron con mutación: mandar siempre el link rompe «sin tocarlo no viaja», y sacar el chequeo de `https:` en la landing rompe «un no-https no se dibuja». `@bal/app` 674, `@bal/landing` 100, typecheck y Biome verdes. En el navegador, con backend simulado: el botón de la landing a 1280 y a 360 px, 52 px de alto, sin scroll horizontal. El campo de WAFA no se abrió en el navegador: es el `Field` estándar, cubierto por los tests de pantalla.
+
+---
+
+## 2026-11-10 · `BE-28` — Endpoint público de próximas fechas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-28-proximas-fechas` (apilada sobre `BE-27`).
+
+`GET /api/public/tournaments/upcoming`: los torneos `sin_iniciar` con fecha de hoy en adelante, el más cercano primero, hasta 6, con sólo la convocatoria (nombre, fecha, descripción, `registrationUrl`, `payment`, cantidad de blancos y modalidades). Es la primera vez que un torneo sin iniciar sale por la API pública (decisión 7).
+
+**Decisiones:**
+- **«Hoy» es el día de Bahía Blanca**, con `hoyEnArgentina(ahora)` nuevo en `@bal/shared/fechas.ts`: las fechas se guardan como medianoche UTC del día, y comparar contra el día UTC sacaba el torneo del día del listado a las 21 h de acá. Recibe `ahora` por parámetro: el dominio no lee el reloj.
+- **La lista blanca está en la proyección del repositorio** (`listProximos`), además del mapeo explícito del servicio: participantes, patrullas, estacas y PIN no salen de la base. Un test compara la respuesta entera, clave por clave.
+- **`payment` sale entero** (`{ required, amount }`), igual que en el detalle público, y no sólo el monto como decía el plan: la landing tiene que poder distinguir «sin costo» de «no se sabe».
+- **`modalities` con el mismo formato que el listado público** (`distribucionDeModalidades`), para que la landing reuse `BarraDeModalidades` sin adaptar nada.
+- La ruta va **antes** de `/tournaments/:id`, o `upcoming` se tomaría como un id.
+- `detallePublico` sigue dando 404 para un `sin_iniciar`: sólo existe en este listado.
+
+**Docs:** `FUNCTIONAL.md` §5.3 (próximas fechas) y §8 (la columna «Visible en landing» de `sin_iniciar`), `TECHNICAL.md` (tabla de endpoints públicos), `SECURITY.md` §11.
+
+**Tests:** 3 de `hoyEnArgentina` en `fechas.test.ts` (23 h de acá todavía es hoy, medianoche ya es mañana, cruce de año) y 7 del endpoint en `proximas-fechas.test.ts` (hoy en adelante y en orden, excluye los que arrancaron, lista blanca exacta, torneo viejo sin link, tope de 6, lista vacía, el detalle sigue en 404), todos vistos fallar. `@bal/shared` 458, `@bal/api` 567, typecheck, Biome y `capas` verdes.
+
+---
+
+## 2026-11-10 · `BE-27` — Link de pre-inscripción del torneo
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-27-link-preinscripcion` (apilada sobre `BE-24`).
+
+`registrationUrl` en el torneo: se carga al crear, se edita sin iniciar y en proceso (`camposEditables`, decisión 1), `null` lo borra, y sale en el detalle de WAFA y en el detalle público. Los torneos viejos, sin la clave, se leen como `null`.
+
+**Decisiones:**
+- **Sólo `https:`**, con `z.url({ protocol: /^https$/ })` y tope de 500 caracteres. Es el primer dato del admin que la landing va a usar como `href`, y React no bloquea un `javascript:` en un atributo. `SECURITY.md` §16 nuevo.
+- **`RegistrationUrlSchema` se exporta** de `@bal/shared`, para que el formulario de WAFA (`FE-36`) valide con el mismo esquema que el servidor.
+- **El tipo es opcional (`registrationUrl?: string | null`)** en `TournamentDoc`, no `string | null`: los documentos viejos no tienen la clave y el tipo no debe prometer lo contrario. Quien lo lee usa `?? null`. Mismo criterio que `BE-23`.
+- El campo ya estaba en la tabla de `SH-11`, así que la edición por estado no necesitó nada nuevo: `BE-24` lo toma de `CAMPOS_DE_TORNEO`.
+
+**Tests:** 10 casos de esquema en `schemas.test.ts` (acepta https; rechaza `javascript:`, `data:`, `http:`, texto, vacío y más de 500; opcional al crear; `null` al editar). Los de rechazo pasaban antes de agregar el campo —`.strict()` rechazaba la clave entera— y se verificaron con mutación: permitiendo `http|javascript|data` en el protocolo, fallan tres. 9 casos de API en `preinscripcion.test.ts` (crear, sin cargar, detalle público, torneo viejo sin la clave, editar sin iniciar y en proceso, borrar con `null`, 409 esperando publicación, `javascript:` rechazado sin tocar la base), vistos fallar. `@bal/shared` 455, `@bal/api` 560, typecheck, Biome y `capas` verdes.
+
+---
+
+## 2026-11-10 · `BE-24` — El backend edita según el estado del torneo
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-24-edicion-por-estado` (apilada sobre `SH-11`).
+
+`tournamentEditService.updateTournament` deja de decidir por su cuenta qué se edita: arma la lista de campos del pedido y la pasa por `exigirEditables` (`SH-11`). Esperando publicación ahora acepta nombre y fecha; publicado no acepta nada; en proceso, lo que ya aceptaba. `PATCH /admin/tournaments/:id` acepta además `stakeMap` y `distances` (sólo sin iniciar).
+
+**Decisiones:**
+- **`FIELD_NOT_EDITABLE` (409) es un código nuevo del API**, con `details.campos`: `DomainError` no viaja por HTTP y ningún lugar del backend lo traducía. Se rechaza el pedido entero, antes de tocar nada. Documentado en `TECHNICAL.md` §7.
+- **Cambiar el mapa de estacas rearma las patrullas sólo si algún inscripto cambia de estaca.** Si el cambio no toca a nadie (mover una categoría que no está en el torneo), las patrullas y sus PIN se quedan: no hay que reimprimir credenciales por un ajuste que no afecta a nadie.
+- **Audit `tournament.update` con los nombres de los campos, sin los valores** (el pago es plata). `target_edit` y `participants_edit` siguen como estaban. `SECURITY.md` (tabla del audit log) actualizado.
+- `prepararParticipantes` perdió su propia guarda de estado: ya la aplica `exigirCampos`, y tenerla en dos lugares era la duplicación que `SH-11` vino a sacar. `removeTournament` usa `puedeEliminar`.
+
+**Encontrado de paso y corregido:**
+- `UpdateTournamentSchema` no exigía índices de blancos contiguos, como sí `CreateTournamentSchema`: editando se podía dejar un recorrido con huecos.
+- Un `stakeMap` que no ubica la categoría de un inscripto hacía que `buildPatrols` lanzara un `DomainError` que salía como 500. Ahora es `VALIDATION_ERROR` (400).
+- Si un mismo pedido cambiaba el recorrido y rearmaba patrullas, los blancos de inicio se calculaban sobre el recorrido viejo.
+
+**Deuda:** rearmar las patrullas recrea los participantes y **pierde las marcas de pago** (`paid`). Ya pasaba al editar participantes; ahora también al mover una categoría de estaca. Lo razonable es conservar `paid` por `archerId` al rearmar → para `FE-32`, que es donde el admin va a disparar esto desde la pantalla.
+
+**Tests:** 13 casos nuevos en `tests/edicion.test.ts`, vistos fallar (11 en rojo; los dos que pasaban de entrada —en proceso acepta descripción y pago, que ya funcionaba, y el mapa vacío, que pasaba por la razón equivocada: `.strict()` no conocía `stakeMap`— se verificaron con mutación: sin la validación de estacas sale 500, y forzando el rearmado siempre, el de «no toca a nadie» falla). `@bal/api` 551 tests, `@bal/shared` 445, `pnpm -r typecheck`, Biome y `capas` verdes.
+
+---
+
+## 2026-11-10 · `SH-11` — Qué se edita de un torneo en cada estado
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/sh-11-edicion-por-estado`.
+
+`packages/shared/src/edicion.ts`: la tabla de qué campo se edita en qué estado (`camposEditables`), el rechazo de un pedido con campos de más (`exigirEditables` → `CampoNoEditableError`, código `FIELD_NOT_EDITABLE`), y `puedeEliminar` / `puedeArchivar` / `puedeDesarchivar`. Todavía no la usa nadie: el servicio la adopta en `BE-24` y WAFA en `FE-32`/`FE-33`.
+
+**Decisiones de la Fase 9, confirmadas por el autor:** las siete como estaban propuestas, salvo la 5 — **un torneo archivado se oculta de la landing** (listado, detalle, tarjetas de puntaje e historial de la ficha de arquero), en vez de mostrarse con «No suma al ranking». Se reescribieron `BE-26`, `FE-35` y `TEST-4` en `ACTION_PLAN.md`. `FUNCTIONAL.md` §6.7 y §8 dicen ahora quién escribe en cada estado.
+
+**Desvíos respecto del plan:**
+- `camposEditables(status)` **no recibe `{ archivado }`**, como decía el plan: un archivado es un publicado y no se edita nada en ninguno de los dos, así que el parámetro no cambiaba ningún resultado. Archivado sólo importa para archivar y desarchivar, que sí lo reciben.
+- **Los campos rechazados van en `CampoNoEditableError.campos`, no en `details`**: `DomainError` no tiene `details` (eso es del `AppError` del backend). `BE-24` hace la traducción. Lleva **todos** los que sobran, no el primero.
+- `camposEditables` devuelve un `Set` nuevo en cada llamada: con uno compartido, un llamador que lo casteara y le agregara un campo le cambiaba la regla a todos. El test lo cubre (se vio fallar).
+- De paso, `FUNCTIONAL.md` §6.7 todavía decía «puntos de liga que sumaría cada arquero», retirado en `SH-9`.
+
+**Tests:** 24 en `tests/edicion.test.ts`, en ciclos de uno (rojo → verde). Los dos que pasaron sin haberse visto fallar (`publicado` no edita nada) se verificaron con mutaciones: `publicado` aceptando el nombre, `sin_iniciar` aceptando puntajes, archivar dos veces y reportar sólo el primer campo rechazado — las cuatro detectadas. Cobertura del módulo 100% (líneas, ramas, funciones); `@bal/shared` 445 tests, `pnpm -r typecheck` y Biome limpios.
+
+---
+
+## 2026-11-10 · `FE-37` — El pie enlaza el código fuente
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-37-pie-repositorio`.
+
+«Código fuente en GitHub» en la línea legal del pie de la landing, apuntando al repositorio público. Abre otra pestaña con `rel="noopener noreferrer"` y lo anuncia en texto oculto.
+
+**Decisiones:**
+- **En la línea legal, no en una columna.** «La liga» son páginas del sitio y «Acceso» es la PWA; el repositorio no es ninguna de las dos. La línea legal ya era el lugar del crédito.
+- **La línea legal pasa de `py-4` a `py-2`.** El enlace trae sus 44px de alto (regla 9 y el test de `marca.test.tsx` que mide todos los enlaces del pie); con el padding viejo la línea crecía de más.
+- **Ícono nuevo, `IconoEnlaceExterno`**, con el trazo común de `ref-7`: no había ninguno para «sale del sitio». Entró en la lista de `iconos.test.tsx`.
+- `REPOSITORIO` es una constante exportada de `Footer.tsx`, no un string repetido en el JSX y en el test.
+
+**Tests:** el del enlace (href, `target`, `rel`, nombre accesible con «GitHub» y «otra pestaña», ícono decorativo) y los del ícono nuevo, vistos fallar primero. `@bal/ui` 359 y `@bal/landing` 97 verdes; typecheck y Biome limpios. En el navegador: 44px de alto y sin scroll horizontal a 360 px y a 1024 px.
+
+---
+
+## 2026-11-10 · `FE-39` — El alta rápida del wizard pide sexo y DNI
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, sin commitear (en la rama `copy/hero-predio`, junto a cambios de otra sesión que no son de esta tarea).
+
+El «Arquero nuevo» del paso de participantes (crear torneo y editar participantes de un `sin_iniciar`) era una copia del formulario anterior a `FE-29`: mandaba nombre, apellido y categoría, y el arquero nacía sin sexo ni DNI. Ahora usa `FormularioDeArquero`, el mismo del padrón.
+
+**Decisiones:**
+- **Una función para el cuerpo del alta** (`aCuerpoDeArquero`, en `wafa/padron/tipos.ts`): el padrón y el wizard la usan, así no pueden volver a divergir. Sexo y DNI en blanco viajan como `null`: siguen opcionales (decisión 6 de la Fase 8).
+- `FormularioDeArquero` recibe `nivelDeTitulo` (`h2` en el padrón, `h3` dentro del paso del wizard) y `textoDeGuardar` («Crear y sumar» en el wizard, porque guardar también lo suma a los elegidos).
+- **`useId()` para el `select` de categoría y el `name` de los radios de sexo.** El formulario usaba `id="categoria"` y `name="sexo"` fijos; la copia del wizard había esquivado el choque con `id="categoria-nueva"`. Con el formulario en dos lugares, el id por instancia es lo que garantiza que cada etiqueta apunte a su control.
+- El error del servidor (DNI repetido) lo muestra el formulario, que queda abierto con lo tipeado; los elegidos no se tocan hasta que el alta sale bien.
+
+**Tests:** 3 casos nuevos en `wizard-ui.test.tsx`, vistos fallar antes del fix (no existían los campos, el body no traía `sex`/`dni`): el alta manda sexo y DNI, sin ellos igual crea con `null`, y un DNI repetido muestra el mensaje sin perder elegidos. En ese último, el `alert` del error se busca por texto: con un solo elegido, el aviso de composición también es `role="alert"` y `findByRole` encontraba ese primero. `pnpm -r typecheck` y los 649 tests de `@bal/app` verdes; Biome limpio en `packages/app`. Probado en el navegador contra un backend simulado (sin tocar la base local): DNI tipeado con letras y puntos llega filtrado, el 409 se muestra en el formulario, y al corregir el DNI el arquero se crea y queda elegido.
+
+**Fuera de alcance, encontrado al correr el lint completo:** `npx biome check packages scripts e2e` falla en `landing/.../portada/{Hero,Secciones}.tsx` (formato; son cambios sin commitear de otra sesión) y en `api/tests/docs.test.ts:69` (`useTemplate`, ya commiteado en `REF6-15`). Ninguno es de esta tarea.
+
+---
+
+## 2026-11-10 · Fase 9 — Plan de edición por estado, archivo, pre-inscripción y próximas fechas
+
+**Autor:** Claude Opus 5.5 · **Estado:** plan escrito, sin código. Pendiente de que el autor confirme las decisiones.
+
+Pedido del autor: editar torneos según su estado (incluida la corrección de puntajes contra la planilla de papel antes de publicar), eliminar los sin iniciar, archivar los publicados, link de pre-inscripción con botón en la landing, link al repositorio en el pie y «Próximas fechas» en la landing. Quedó como Fase 9 de `ACTION_PLAN.md`: `SH-11`, `BE-24`..`BE-28`, `FE-32`..`FE-39`, `TEST-4`. **Planillas impresas: fuera de alcance** — el autor decidió (2026-11-10) usar las planillas oficiales de FATARCO; la app no las genera.
+
+**Fix agregado (`FE-39`):** el alta rápida de arquero en el wizard (`AltaRapida`, en `SelectorDeArqueros.tsx`) es una copia anterior a `FE-29` y no pide ni DNI ni sexo. Se reemplaza por `FormularioDeArquero` del padrón, con el armado del cuerpo extraído a una sola función.
+
+**Relevado antes de planificar:** eliminar un `sin_iniciar` ya está hecho de punta a punta; el `PATCH` del torneo ya acepta en el backend más de lo que la UI expone (descripción, pago, blancos); `completado` hoy no acepta ninguna edición, y no existe ningún camino para que el admin escriba un puntaje.
+
+**Decisiones abiertas** (tabla en `ACTION_PLAN.md`, Fase 9): las 7 se escribieron como propuestas. Las que cambian documentación de diseño cuando se confirmen: la columna «Quién escribe» y «Visible en landing» de `FUNCTIONAL.md` §8 (corrección en `completado`, `sin_iniciar` visible en próximas fechas, flag de archivo), y una entrada nueva en `SECURITY.md` por el `href` que carga el admin.
+
+---
+
+## 2026-11-10 · Corrección — Juego de campo sin `X6`
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `fix/campo-sin-x6`. Se commiteó primero en `design/ref-7-rediseno` (`21bf926`), pero el código no llegó a `main` con los merges de `ref-7`; esta rama lo lleva.
+
+El usuario corrigió el reglamento: la cara de campo es `6` (centro interior) · `5` (centro exterior) · `4`-`1` (anillas negras) · `M`. **No existe el puntaje `X6`.** Se quitó el token de `@bal/shared` (`X6_TOKEN`, el set y los valores de `campo`), y con eso del teclado de WAFL y de la validación del servidor.
+
+**Decisiones:** el token inner de campo pasa a ser `6` y el desempate `['6', '5']`, igual que el 3D usa su centro (`11`) y el anillo siguiente (`10`). El criterio 2 del ranking (cantidad de inner) cuenta ahora los `6` de campo junto a las `X` y los `11`.
+**Deuda:** si en Mongo quedó algún puntaje de campo con `X6` cargado, `tokenValue` ahora lo rechaza y la tarjeta, las estadísticas y la publicación de ese torneo lanzan `INVALID_TOKEN`. No hay sistema de migraciones; si existe ese dato, hay que reescribir `X6` → `6` en esos puntajes antes de publicar.
+**Tests:** `domain.test.ts` y `scoring.test.ts` fijan el set nuevo, el inner, el desempate y el rechazo de `X6` en campo; se vieron fallar las 7 antes del cambio.
+
+---
+
+## 2026-11-10 · `REF7-12` — Verificación final, y cierre de `ref-7`
+
+**Autor:** Claude Opus 5.5 · **Estado:** parcial — quedan dos ítems que no puede hacer una sesión (ver abajo). En la rama `design/ref-7-p1`.
+
+**Qué se verificó:**
+- **`web-design-guidelines`** sobre landing, puerta, WAFA y WAFL. Sin `transition-all`, sin tres puntos, imágenes con dimensiones; los dos `outline: none` son sólo para el título que recibe foco por código. Se arreglaron cinco cosas: `touch-action: manipulation` en los controles (en iOS dos toques rápidos en la misma tecla del teclado se podían leer como zoom), un enlace para saltar al contenido en la landing, `text-wrap: balance` en los títulos, el escudo del pie con carga diferida y el `select` de temporada con color de texto propio. Se aceptan con nota: el latido de «En curso» anima `box-shadow` y el anillo transiciona el color del trazo (los dos están en la spec y se apagan con movimiento reducido). No se cuentan las reglas que chocan con decisiones documentadas: mayúsculas de título (el proyecto escribe en minúscula de oración, §6.8) y spinner al enviar (prohibido en scoring).
+- **360 px sin scroll horizontal** en 16 pantallas (portada, torneos, torneo en proceso, ranking, alta, puerta, ocho de WAFA y dos de WAFL), con nombres largos: el documento mide 360 en todas.
+- **`prefers-reduced-motion`**: el latido queda en una vuelta de 0,01 ms.
+- **Contraste**: `contraste.test.ts` en los dos temas. **Objetivos táctiles**: `objetivos-tactiles.spec.ts` en Chromium, Pixel 7 e iPhone 14. **Teclado**: los E2E de foco visible y del alta completa por teclado, más el salto al contenido.
+- **Antes y después**: seis pares en [`post/ref-7/antes-despues/`](post/ref-7/antes-despues/README.md).
+
+**Lo que falta, y por qué no lo hizo esta sesión:**
+- **`audit-website` contra el deploy**: hace falta la URL de un deploy con la rama (o producción, una vez desplegado `main`).
+- **Probar en un Android y un iPhone reales**, y mirar el contraste con el sol de frente.
+
+### Cierre de la serie `ref-7`
+
+Las trece tandas del plan: `REF7-1` a `REF7-11` completas, `REF7-12` parcial (lo de arriba) y `REF7-13` (recordar el último rol) fuera de esta ronda por la decisión 3. Además: el arreglo del anillo por patrulla (`REF7-8`), los textos cortos del indicador de sincronización y estos ajustes.
+
+**Lo que cambió de fondo**, más allá de la piel: las fuentes nunca habían cargado (`REF7-1`); los `h1` medían 16px porque `text-[var(--text-display)]` es un color para Tailwind 4 (`REF7-2`); el foco en claro y el borde de los controles estaban por debajo de WCAG (`REF7-2`); la landing ocultaba desbordes horizontales detrás de un `main` con scroll (`REF7-5`); y la portada no montaba contra la API real porque el detalle viene envuelto en `{ tournament }` (`REF7-6`). Todos con su test.
+
+**Queda abierto, fuera de `ref-7`:**
+- **La foto del hero pesa 2,2 MB** (commit «nueva portada»); la anterior estaba optimizada a 131 KB. Es lo primero que baja la landing. `scripts/imagenes.mjs` tiene un presupuesto para esto, pero la foto entró directo a `packages/ui/assets/` sin pasar por él.
+- La corrección de `X6` en juego de campo está en un commit local de otra sesión (`21bf926`, en `design/ref-7-rediseno`); hasta que entre, `DESIGN_SYSTEM.md` §6.1 sigue nombrando `X6`.
+- `medallaDe` (`@bal/shared`) ya no la usa ninguna pantalla.
+
+---
+
+## 2026-11-10 · `ref-7` — Textos cortos del indicador de sincronización
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`. **Consultado con el autor.**
+
+`syncLabel` pasa a los textos de `docs/post/ref-7/DISENO.md` §6: «Al día», «N por enviar», «Sin señal · N guardados» (y «Sin señal» sin pendientes) y «No se pudo enviar · <motivo>» (y «No se pudo enviar» sin motivo). Era la deuda de `REF7-10`: los largos —«Sin conexión · 3 cambios guardados en el celular»— truncaban la patrulla y el torneo del encabezado del blanco a 390px.
+
+**Decisiones:**
+- **El motivo del error se conserva.** Se agregó a propósito (la entrada que lo introdujo: «"Hay un problema con la sincronización" no le sirve a nadie») y el líder decide con él. Para que un motivo largo no desborde el encabezado, la píldora tiene un tope de `min(14rem, 45vw)` y el texto se trunca **a la vista**: completo queda en el DOM (lo lee el lector de pantalla, la píldora es `aria-live`) y en el `title`. El motivo también aparece entero al intentar cerrar el circuito.
+- Se pierde «en el celular» del estado sin señal; «guardados» dice lo mismo en menos lugar.
+- El indicador de conexión de WAFA (`IndicadorDeConexion`, «Con conexión / Sin conexión») es otro componente y no cambió.
+- Sólo cambian los textos: los estados y cuándo se pasa de uno a otro (`syncWorker`) no se tocaron.
+
+**Docs:** `OFFLINE_SYNC.md` §9 (tabla de estados, con la nota), `FUNCTIONAL.md` §7, `TESTING.md` (pasos del E2E offline) y `DESIGN_SYSTEM.md` §6.4 y §6.8.
+**Tests:** los seis de `syncLabel` en `offline.test.ts`, reescritos y vistos fallar (el del error sigue exigiendo el motivo). Los E2E que esperaban los textos viejos (`blanco-bloqueado`, `flujo-completo`, `offline-recarga`, `sesion-vencida`) esperan los nuevos.
+
+---
+
+## 2026-11-10 · `REF7-11` — Documentación
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+`docs/DESIGN_SYSTEM.md` al día con lo implementado en `ref-7`, con la nota de qué se corrigió y por qué en cada sección (como en `REF2-1` y `REF5-5`): §1 la banda `monte` y los anillos de fondo; §2.1 los once tokens nuevos y que el foco ya no es `--nock`; §2.4 `contraste.test.ts`; §3 la carga real de las fuentes (no existía) y la escala completa con los nombres de `tokens.css` (`--text-*`, no `--t-*`) y la trampa de `text-[var(--text-…)]`; §4 los radios con su nombre real (`--radius-*`) y las dos sombras (`--shadow-dock`, `--shadow-float`); §6 `UnitCard`, `SyncBadge`, `CircuitRing` y `TargetHeader` como quedaron, más una tabla §6.9 con los componentes nuevos; §7 la landing como documento, la PWA sin pie y la medida a 360×640; §8 el latido de «En curso»; §10 el foco con `--focus-ring`.
+
+**Decisiones:**
+- §6.1 dice todavía que campo usa `X6`: hay una corrección de dominio en curso en otra rama que lo saca (la entrada «Juego de campo sin `X6`»), y tocar esa línea acá le generaba un conflicto. Se actualiza con esa corrección.
+- La entrada que cierra la serie va con `REF7-12`, que es la que la cierra.
+
+**Tests:** el DoD se verificó con un script que compara cada token con valores en las tablas del documento contra `tokens.css` (los dos temas y `@theme`): 34 valores, ninguna contradicción.
+
+---
+
+## 2026-11-10 · `REF7-10` — WAFL: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+**Sólo piel y layout** de la pantalla de `FE-6` y del recorrido (`DISENO.md` §4.13, §4.14 y §5.5): no cambió nada del outbox, IndexedDB, `onToken`, el orden de carga, `vibrate` ni el bloqueo, y los tests que fijan eso siguen iguales y verdes.
+
+- **Encabezado del blanco** (`F-2`): el número a 56px en display, con la modalidad en su chip y «2 flechas · Jabalí · 1 de 6» al lado. El encabezado de la app dice «Patrulla N» y el nombre del torneo.
+- **`UnitCard`** (`F-3`): nombre a 20px, «UNIDAD A · TIRA 1º» con la estaca compacta en la misma línea, el total en display de 36px con `aria-live` y la etiqueta «TOTAL», casilleros de 48px en mono y el próximo a cargar marcado con 2px de `--nock-text`. La unidad activa también va en `--nock-text` (antes, el verde de botón).
+- **Teclado**: teclas de 64px de alto (decisión 6; `TAMAÑO_TECLA_PX` sigue en 56 como mínimo), cifra en display expandido de 26px, la `M` punteada, al tocar se achica y se enciende. El panel (superficie, `--shadow-dock` como token, «Continuar» y «Falta cargar» adentro) lo arma `TargetPage`.
+- **Recorrido** (`F-4`): el `AnilloDeRecorrido` de 120px con «N/M BLANCOS», girado al blanco de inicio, y sin el botón «Cerrar sesión» al final: queda el ícono del encabezado, que abre la misma confirmación (`CerrarSesion` con `soloAlConfirmar`).
+- Sin pie (`F-1`): ya estaba desde `REF7-4`.
+
+**Decisiones:**
+- **El `h1` del blanco es `sr-only` («Blanco 1») y el número grande va `aria-hidden`.** Los tests buscan «Blanco 1» como texto directo del elemento y un número solo no dice qué es; «Blanco» a 56px no entra al lado de la modalidad.
+- **Los casilleros miden 48 de alto y se angostan si no entran.** Medido a 360×640: con seis flechas de aire libre los casilleros de 48 bajaban de renglón y la unidad quedaba 63px debajo del teclado. No se tocan (son `span`), así que no tienen mínimo táctil.
+- Para que entre el teclado de 12 teclas (sala, aire libre) a 360×640, el panel tiene 8px de aire arriba y 12 abajo, y el encabezado del blanco 12 arriba. **Medido:** la primera unidad termina en 306px y el panel empieza en 323 (395 con el teclado de 3D); teclas de 64px; sin scroll horizontal.
+- `TargetPage` recibe `patrulla`, `torneo` y `totalDeBlancos` sólo para mostrar; `WaflApp` se los pasa del bundle.
+- «Unidad A · tira 1º»: A tira primero (`DOMAIN_WA.md`).
+- Los textos de `SyncBadge` no se tocaron (siguen siendo los de `syncLabel`).
+
+**Desvíos:** ninguno.
+**Deuda:** **el encabezado del blanco trunca el contexto y el título** («PATRULL…», «3ª fech…» en la captura a 390px, con «Sincronizado»): «← Blancos» y la píldora de sincronización se llevan casi todo el ancho. Sin conexión y con pendientes `syncLabel` es todavía más largo. Lo resolvería acortar los textos de `SyncBadge` a los de `DISENO.md` §6 («Al día», «N por enviar», «Sin señal · N guardados»), pero es un cambio de copy de la sincronización, no de piel: se consulta en `REF7-12`. *(Resuelto: ver «Textos cortos del indicador de sincronización».)*
+**Tests:** 7 casos nuevos de la pantalla del blanco y 2 del teclado en `keypad.test.tsx`, y 3 del recorrido en `wafl.test.tsx`, vistos fallar. El de «muestra la modalidad y las flechas» cambió de forma por diseño (la modalidad va en su chip). `rendimiento.test.tsx` ubica el total por `tabular-nums`, así que el total la lleva.
+
+---
+
+## 2026-11-10 · Corrección de `REF7-8` — el anillo por patrulla arrancaba un blanco corrido
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1`.
+
+En el detalle de un torneo en proceso, el `AnilloDeRecorrido` de cada patrulla recibía `startTargetIndex` directo como `inicio`. Pero `startTargetIndex` es el **número** del blanco de inicio (1-based, `min(1)` en el schema) y el anillo cuenta **posiciones** en la lista (0-based): una patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos. Ahora se pasa la posición del blanco de inicio en la lista. Lo encontré al leer el dominio para `REF7-10`; el test de componente no lo veía porque sus datos arrancaban en el 0.
+
+**Tests:** un caso nuevo en `landing.test.tsx` (patrulla que arranca en el 3 con dos blancos: completos los de las posiciones 2 y 3), visto fallar con el código anterior.
+
+---
+
+## 2026-11-10 · `REF7-9` — WAFA: cambios simples
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-p1` (PR #90).
+
+El inicio de WAFA de `DISENO.md` §5.4 (`W-1`): encabezado con `contexto="Administración"` y título «Inicio»; un solo primario («Crear torneo», con `IconoAgregar`) y tres accesos compactos en grilla —Arqueros, Temporadas, Ranking— con su ícono en `--nock-text`; los grupos por estado con `RotuloDeSeccion` y su cantidad, y el grupo vacío como tarjeta punteada que dice qué va a aparecer. Las otras ocho pantallas de WAFA también llevan `contexto="Administración"`. El ranking de WAFA perdió las medallas emoji, igual que la landing en `REF7-8`.
+
+**Decisiones:**
+- **Sin endpoints nuevos** (§5.4): el único dato de los accesos es «8 categorías» del Ranking, que sale de `BOW_CATEGORIES` y no pide nada. La cantidad de arqueros y la temporada activa piden una consulta, así que esos accesos van sólo con el nombre.
+- La `TarjetaDeTorneo` del inicio no lleva el anillo por patrulla: el listado de `/api/admin/tournaments` no trae el avance (§5.4: «si en el inicio no están, se muestra el pie normal»).
+- El ranking de WAFA (`CategoriaDelRanking`): puestos 1–3 en un círculo `--nock-soft`, cifras en mono, nombre de categoría a `text-h3`. Con esto `medallaDe` ya no la usa ninguna pantalla; queda en `@bal/shared` (y su test) hasta que se decida sacarla.
+- «Cerrar sesión» al final del inicio se mantiene: es la confirmación de dos toques, y `REF7-9` no la nombra.
+
+**Desvíos:** «`Screen` sin `Footer`» ya estaba hecho desde `REF7-4`.
+**Tests:** 5 casos nuevos en `wafa.test.tsx` (contexto, un primario y tres accesos con ícono, «8 categorías», el grupo como encabezado con su cantidad, el vacío punteado) y el de podio de `ranking-ui.test.tsx` reescrito, vistos fallar. El que fija el orden de los grupos ahora mira el comienzo del título, porque el rótulo lleva la cantidad adentro.
+
+---
+
+## 2026-11-09 · `REF7-8` — Landing: el resto de las páginas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.
+
+Piel de `DISENO.md` §5.2 en las páginas que no son la portada, sin cambiar contenido ni datos. **Torneos:** un grupo por estado (en curso primero) con `RotuloDeSeccion` y su cantidad, y la grilla de `TarjetaDeTorneo` a dos columnas en tablet y tres en escritorio. **Torneo:** en proceso, un `AnilloDeRecorrido` de 44px por patrulla, con su blanco de inicio arriba; títulos de sección con la escala (`text-h2`, `text-h3`) y cifras de los podios en mono. **Ranking:** las pestañas General/Femenino/Masculino con la activa sobre `--nock-soft` (antes, el verde pleno del botón primario), los puestos 1–3 en un círculo `--nock-soft`, las cifras en mono y el selector de temporada con borde `--line-strong`. **Tablas** (`Cabecera`/`Fila`, toda la landing): filas de 56px en escritorio y cabecera como rótulo en mono. **Alta:** campos de 52px con borde `--line-strong`, etiquetas a 600, la opción de sexo elegida sobre `--nock-soft` (con foco visible en la opción), el error con su ícono, el botón con `botonClases` y el formulario a 560px. **Tarjeta de puntajes:** las cajas de flecha en mono, con radio `md`.
+
+**Decisiones:**
+- **Las medallas emoji del ranking (🥇🥈🥉) se reemplazaron por el círculo `--nock-soft`.** Era una función con tests propios, pero §5.2 pide «sin oro/plata/bronce» (el amarillo y el naranja son colores de estaca, regla 8) y §1 evita los emoji. Los tres tests se reescribieron primero (el podio se marca, el cuarto no, el número va escrito) y se vieron fallar. `medallaDe` sigue en `@bal/shared` porque la usa el ranking de WAFA; se revisa en `REF7-9`.
+- El detalle del torneo no tiene pestañas hoy (§5.2 las nombra como «existentes»): no se inventaron.
+
+**Desvíos:** ninguno respecto del alcance.
+**Deuda:** el ranking de WAFA (`CategoriaDelRanking`) todavía usa las medallas → `REF7-9`.
+**Tests:** los tres de podios del ranking, reescritos y vistos fallar. El resto de la landing, sin cambios: 95 verdes.
+
+---
+
 ## 2026-11-09 · `REF7-7` — Puerta `/app` nueva
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `design/ref-7-rediseno`.

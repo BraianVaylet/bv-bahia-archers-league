@@ -29,6 +29,8 @@ const NUEVOS = [
   'IconoCalendario',
   'IconoLugar',
   'IconoInstalar',
+  // `FE-37`: el enlace al repositorio, en el pie, sale del sitio.
+  'IconoEnlaceExterno',
 ] as const;
 
 const exportados = ui as unknown as Record<string, Icono | undefined>;

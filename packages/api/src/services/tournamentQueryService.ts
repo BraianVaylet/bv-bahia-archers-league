@@ -9,7 +9,12 @@
  * **Las respuestas son las mismas, byte por byte**: esto movió código, no lo cambió.
  */
 
-import { distribucionDeModalidades, type TournamentStatus } from '@bal/shared';
+import {
+  distribucionDeModalidades,
+  hoyEnArgentina,
+  resultadosVisibles,
+  type TournamentStatus,
+} from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
@@ -40,18 +45,49 @@ export async function listadoPublico() {
   };
 }
 
+/** Cuántas próximas fechas muestra la landing como mucho: la portada usa tres, `/torneos` todas. */
+const MAX_PROXIMAS = 6;
+
+/**
+ * «Próximas fechas»: los torneos sin iniciar de hoy en adelante (`BE-28`, decisión 7 de la Fase 9).
+ *
+ * Es lo único de un torneo sin iniciar que se ve desde afuera, y es **la convocatoria**: cuándo,
+ * dónde anotarse, cuánto sale y qué se tira. Quién está anotado y cómo se arman las patrullas no:
+ * pueden cambiar hasta minutos antes de largar.
+ *
+ * «Hoy» es el día de Bahía Blanca, no el de UTC (`hoyEnArgentina`): a las 21 h de acá ya es mañana
+ * en UTC, y el torneo del día dejaría de figurar.
+ */
+export async function proximasFechas(ahora: Date = new Date()) {
+  const docs = await tournamentRepo.listProximos(hoyEnArgentina(ahora), MAX_PROXIMAS);
+
+  return {
+    tournaments: docs.map((t) => ({
+      id: t._id.toHexString(),
+      name: t.name,
+      date: t.date,
+      description: t.description,
+      // Validado `https:` al cargarlo (`RegistrationUrlSchema`). Torneos viejos: sin la clave.
+      registrationUrl: t.registrationUrl ?? null,
+      payment: t.payment,
+      targetCount: t.targets.length,
+      modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
+    })),
+  };
+}
+
 /**
  * El detalle público de un torneo. **Un torneo que no está publicado NUNCA expone
  * puntajes**: en proceso sólo salen la distribución de patrullas y el avance. Ver
  * `docs/FUNCTIONAL.md` §5.3.
  *
- * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar o completado sin publicar.
+ * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar, completado sin publicar, o
+ *   publicado pero archivado (`BE-26`, decisión 5: un archivado se oculta).
  */
 export async function detallePublico(id: ObjectId) {
   const torneo = await tournamentRepo.findById(id);
-  if (!torneo || torneo.status === 'sin_iniciar' || torneo.status === 'completado') {
-    throw notFound();
-  }
+  const visible = torneo !== null && (torneo.status === 'en_proceso' || resultadosVisibles(torneo));
+  if (!torneo || !visible) throw notFound();
 
   const [miembros, patrullas] = await Promise.all([
     tournamentRepo.listParticipants(torneo._id),
@@ -63,6 +99,8 @@ export async function detallePublico(id: ObjectId) {
     name: torneo.name,
     date: torneo.date,
     description: torneo.description,
+    // Ya validado `https:` al cargarlo (`RegistrationUrlSchema`): la landing lo usa como `href`.
+    registrationUrl: torneo.registrationUrl ?? null,
     status: torneo.status,
     // Cuánto sale entrar: lo que cualquiera quiere saber antes de anotarse, y que el club
     // publica igual en el grupo y en la puerta. Quién pagó NO sale de acá: eso es del club.
@@ -141,6 +179,8 @@ export async function listadoAdmin(filtro: FiltroDeTorneos = {}) {
       patrolCount: t.patrolCount,
       participantCount: t.participantCount,
       maxPossibleScore: t.maxPossibleScore,
+      // Archivado (`BE-26`): WAFA lo sigue mostrando, marcado, para poder desarchivarlo.
+      archived: Boolean(t.archivedAt),
       // La distribución se calcula acá y no en el cliente: el listado no manda los blancos, y
       // mandarlos para que el cliente los cuente sería enviar catorce objetos por torneo para
       // mostrar cuatro números.
@@ -161,11 +201,13 @@ export async function detalleAdmin(id: ObjectId) {
       name: doc.name,
       date: doc.date,
       description: doc.description,
+      registrationUrl: doc.registrationUrl ?? null,
       status: doc.status,
       payment: doc.payment,
       targets: doc.targets,
       maxPossibleScore: doc.maxPossibleScore,
       stakeMap: doc.stakeMap,
+      archived: Boolean(doc.archivedAt),
       patrolCount: doc.patrolCount,
       participantCount: doc.participantCount,
     },

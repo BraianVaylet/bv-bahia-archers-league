@@ -26,7 +26,7 @@ test('un blanco con puntajes queda bloqueado de verdad', async ({ browser, reque
   // Se carga el blanco 1 entero y se espera a que llegue al servidor: recién
   // ahí queda bloqueado de verdad.
   await cargarBlanco(page, 0, '3d');
-  await expect(page.getByTestId('sync-badge')).toContainText(/Sincronizado/i, { timeout: 60_000 });
+  await expect(page.getByTestId('sync-badge')).toContainText(/Al día/i, { timeout: 60_000 });
 
   // 1 · La API lo reporta como bloqueado.
   const { lockedTargets } = await api.get<{ lockedTargets: number[] }>(

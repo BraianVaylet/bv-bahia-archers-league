@@ -1,13 +1,21 @@
 /**
- * Editar los datos de un torneo que todavía no arrancó, o eliminarlo.
+ * Editar los datos de un torneo, o eliminarlo.
  *
- * Sólo mientras nadie tiró. Una vez iniciado, el recorrido está descargado en los celulares de
- * los líderes y cambiarlo dejaría la app y el papel diciendo cosas distintas.
+ * **Qué se puede editar lo decide `camposEditables`** de `@bal/shared` (`SH-11`, `FE-33`), la
+ * misma tabla con la que el servidor acepta o rechaza el pedido: sin iniciar, todo; en proceso,
+ * nombre, fecha y link (decisión 1); esperando publicación, nombre y fecha; publicado, nada. Si
+ * cada lado tuviera su regla, el formulario podría ofrecer un campo que el servidor rechaza.
+ *
+ * Eliminar sigue siendo sólo de un torneo que no arrancó (`puedeEliminar`).
  */
 
+import { camposEditables, puedeEliminar } from '@bal/shared';
 import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
+import { CampoDePago } from '../crear/CampoDePago.js';
+import { problemaDelLink } from '../wizard.js';
+import { cuerpoDeEdicion, faltaElMonto } from './cuerpoDeEdicion.js';
 import type { Torneo } from './useTorneo.js';
 
 export function EdicionDelTorneo({
@@ -32,12 +40,25 @@ export function EdicionDelTorneo({
    */
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
 
+  const editables = camposEditables(torneo.status);
+  // El formulario de acá edita nombre y fecha; sin al menos eso, no hay nada que ofrecer.
+  const sePuedeEditar = editables.has('name') && editables.has('date');
+  const editaLink = editables.has('registrationUrl');
+  const editaDescripcion = editables.has('description');
+  const editaPago = editables.has('payment');
+  const sePuedeEliminar = puedeEliminar(torneo.status);
+
+  const pagoActual = torneo.payment ?? { required: false, amount: 0 };
+  const problemaDeLink =
+    editando && editaLink ? problemaDelLink(editando.registrationUrl ?? '') : undefined;
+
   const guardarDatos = async () => {
     if (!editando) return;
     try {
+      // Sólo lo que el estado permite y cambió (`cuerpoDeEdicion`).
       await rpc.admin.tournaments[':id'].$patch({
         param: { id: torneo.id },
-        json: { name: editando.name.trim(), date: editando.date.slice(0, 10) },
+        json: cuerpoDeEdicion(torneo, editando),
       });
       setEditando(undefined);
       await onCambio();
@@ -64,10 +85,12 @@ export function EdicionDelTorneo({
     }
   };
 
+  if (!sePuedeEditar && !sePuedeEliminar) return null;
+
   return (
     <>
-      {torneo.status === 'sin_iniciar' && (
-        <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-2">
+        {sePuedeEditar && (
           <Button
             variante="secundario"
             className="flex-1"
@@ -75,7 +98,9 @@ export function EdicionDelTorneo({
           >
             {editando ? 'Cancelar edición' : 'Editar'}
           </Button>
+        )}
 
+        {sePuedeEliminar && (
           <Button
             variante="peligro"
             disabled={eliminando}
@@ -84,8 +109,8 @@ export function EdicionDelTorneo({
           >
             {confirmandoBorrado ? 'Confirmar borrado' : 'Eliminar'}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {confirmandoBorrado && (
         <p role="status" className="text-sm text-[var(--danger)]">
@@ -93,8 +118,8 @@ export function EdicionDelTorneo({
         </p>
       )}
 
-      {/* Sólo nombre, fecha y descripción. El recorrido tiene sus propias reglas —un blanco con
-          puntajes está bloqueado— y se edita desde su pantalla, no de refilón acá. */}
+      {/* Nombre, fecha y, si el estado lo deja, el link. El recorrido tiene sus propias reglas —un
+          blanco con puntajes está bloqueado— y se edita desde su pantalla, no de refilón acá. */}
       {editando && (
         <form
           onSubmit={(e) => {
@@ -117,8 +142,45 @@ export function EdicionDelTorneo({
             onChange={(e) => setEditando({ ...editando, date: e.target.value })}
             required
           />
+          {/* `FE-32`: lo que el servidor ya aceptaba y la ficha no ofrecía. */}
+          {editaDescripcion && (
+            <Field
+              label="Descripción"
+              value={editando.description ?? ''}
+              onChange={(e) => setEditando({ ...editando, description: e.target.value })}
+              placeholder="Opcional"
+            />
+          )}
+          {/* `FE-36`. Vaciarlo lo borra: el formulario de pre-inscripción cerró. */}
+          {editaLink && (
+            <Field
+              label="Link de pre-inscripción"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              value={editando.registrationUrl ?? ''}
+              onChange={(e) => setEditando({ ...editando, registrationUrl: e.target.value })}
+              placeholder="Opcional · https://…"
+              hint="Vacío, la landing no muestra el botón."
+              error={problemaDeLink}
+            />
+          )}
+          {editaPago && (
+            <CampoDePago
+              pago={editando.payment ?? pagoActual}
+              onCambio={(payment) => setEditando({ ...editando, payment })}
+            />
+          )}
 
-          <Button type="submit" ancho disabled={editando.name.trim().length < 3}>
+          <Button
+            type="submit"
+            ancho
+            disabled={
+              editando.name.trim().length < 3 ||
+              problemaDeLink !== undefined ||
+              faltaElMonto(editando)
+            }
+          >
             Guardar cambios
           </Button>
         </form>

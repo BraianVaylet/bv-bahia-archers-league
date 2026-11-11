@@ -443,6 +443,7 @@ El script de verificación y los archivos `.gz` que generó eran scratch, fuera 
 
 # Fase 7 — Mejoras · P2
 
+- `[ ] FE-40` Editor de estacas y distancias en WAFA (salió de `FE-32`, 2026-11-11). El backend ya lo acepta sin iniciar (`PATCH` con `stakeMap`/`distances`, `BE-24`), rearma si alguien cambia de estaca y conserva los pagos. Falta la pantalla: qué categoría tira desde qué estaca y a cuántos metros, en el wizard y en la ficha. **DoD:** test de UI, aviso de rearmado antes de guardar, sin colores de estaca fuera de las estacas (regla 8).
 - `[ ] FE-22` QR de acceso a patrulla (elimina la necesidad de mostrar el PIN — ver [`SECURITY.md`](SECURITY.md) §9).
 - `[ ] FE-23` Exportar y compartir podios (Web Share API + impresión).
 - `[ ] FE-24` Gráficos de evolución en la ficha de arquero (SVG puro, sin dependencias).
@@ -671,6 +672,190 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-09.)_
 
 ---
 
+# Fase 9 — Edición por estado, archivo, pre-inscripción y próximas fechas · P1
+
+> Pedido del 2026-11-10. WAFA: editar un torneo según su estado, corregir puntajes contra la planilla de papel antes de publicar, eliminar los sin iniciar, archivar los publicados; link de pre-inscripción. Las planillas impresas son las de FATARCO: no se generan desde la app. Landing: link al repositorio en el pie y sección «Próximas fechas».
+
+### Qué ya existe (relevado el 2026-11-10, no se vuelve a construir)
+
+| Pedido | Estado hoy |
+|---|---|
+| Eliminar un torneo `sin_iniciar` | **Hecho.** `DELETE /admin/tournaments/:id` (`tournamentEditService.removeTournament`, guarda de estado + audit `tournament.delete`) y botón de dos toques en `detalle/EdicionDelTorneo.tsx`. Sólo falta cubrirlo en el E2E de `TEST-4`. |
+| Editar `sin_iniciar` | **Parcial.** El backend (`PATCH /admin/tournaments/:id`) ya acepta nombre, fecha, descripción, pago, blancos y participantes (rearma patrullas). La UI sólo edita **nombre y fecha** (`EdicionDelTorneo.tsx`) y **participantes** (`EdicionDeParticipantes.tsx`). La redistribución manual de patrullas ya existe (`BE-15`/`FE-13`). Faltan en la UI: descripción, pago, blancos; y en el backend: `stakeMap` y `distances`. |
+| Editar `en_proceso` | **Backend sí, UI no.** El servicio acepta nombre, fecha, descripción, pago y blancos **sin puntajes**; la UI no muestra «Editar» fuera de `sin_iniciar`. |
+| Editar `completado` | **No.** `updateTournament` rechaza `completado` y `publicado` con `INVALID_STATE_TRANSITION`. |
+| Corregir puntajes desde WAFA | **No existe.** Hoy sólo escribe puntajes `/wafl/sync`. |
+| Archivar torneos | **No existe.** Lo más parecido es despublicar, que no es lo mismo (ver decisión 4). |
+
+### Decisiones — confirmadas el 2026-11-10
+
+Las siete, como estaban propuestas, **salvo la 5**: el autor eligió ocultar el torneo archivado de la landing en vez de mostrarlo con una marca.
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| 1 | En `en_proceso`, ¿sólo nombre y fecha, o se conserva lo que el backend ya permite (descripción, pago, link, blancos vírgenes)? | **Se conserva.** El pedido marca el mínimo; restringir rompería `REF2`/`FE-14` (editar blancos vírgenes con el torneo en marcha) sin que nadie lo haya pedido. |
+| 2 | «Sin publicar» = `completado`. ¿Se pueden corregir puntajes también en `en_proceso` o en `publicado`? | **Sólo en `completado`.** En `en_proceso` el líder todavía está anotando y una corrección del admin competiría con el outbox (last-write-wins) — el líder no la vería o la pisaría. En `publicado`, primero se **despublica** (ya existe, auditado), se corrige y se vuelve a publicar: el ranking se recalcula entero, sin delta. |
+| 3 | Una corrección del admin sobre una tarjeta ya firmada, ¿invalida la firma? | **No la borra, la marca.** La planilla de papel es la fuente de verdad y la firma del arquero está ahí. El puntaje guarda `correctedBy`/`correctedAt`, la firma queda con un aviso «corregida por el admin después de firmar» en WAFA, y el audit log guarda los tokens de antes y de después. |
+| 4 | Archivar vs. despublicar | **Archivar no cambia el estado**: el torneo sigue `publicado`, con sus resultados, pero `archivedAt != null` lo saca de `recalcularTemporada` (ranking de temporada y ficha del arquero). Desarchivar lo devuelve y recalcula. Despublicar, en cambio, lo vuelve a `completado` y oculta los resultados. |
+| 5 | ¿Un torneo archivado se sigue viendo en la landing? | **No, se oculta** (elección del autor; la propuesta era mostrarlo con «No suma al ranking»). Sale del listado público; su detalle, sus tarjetas de puntaje (`FE-31`) y su fila en el historial de la ficha de arquero responden como si no existiera (404 / ausente). En WAFA sigue visible, marcado como archivado, para poder desarchivarlo. |
+| 6 | «Completados y publicados» para archivar: ¿también `completado`? | **Sólo `publicado`.** Un `completado` todavía no está en el ranking, no hay nada que sacar. |
+| 7 | ¿Próximas fechas expone torneos `sin_iniciar`? Hoy `ESTADO_DE_TORNEO.sin_iniciar.publico` es `null` («un torneo que no arrancó no es noticia»). | **Sí, con lista blanca estricta**: nombre, fecha, descripción, link de pre-inscripción, monto de inscripción, cantidad de blancos y modalidades. **Nunca** participantes, patrullas, PIN ni usuarios. Filtro: `sin_iniciar` **y** fecha ≥ hoy en `America/Argentina/Buenos_Aires`. Cambia `FUNCTIONAL.md` §5.3 y §8 (columna «Visible en landing»). |
+
+---
+
+### `[x] SH-11` · Dominio: qué se puede editar en cada estado · **TDD**
+_(Hecho. `camposEditables(status)` sin el parámetro `{ archivado }` —no cambiaba ningún resultado—; los campos rechazados viajan en `CampoNoEditableError.campos` porque `DomainError` no tiene `details`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** una sola tabla de permisos por estado, que leen el servicio y la UI — hoy está repartida entre `tournamentEditService` (backend) y condiciones `status === 'sin_iniciar'` sueltas en tres componentes de WAFA.
+**Archivos:** `packages/shared/src/edicion.ts` (nuevo) + `tests/edicion.test.ts`, export en `index.ts`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.7 y §8 (actualizar primero la tabla de §8: columna «Quién escribe») · decisiones 1, 2 y 6
+**Contenido:** `camposEditables(status, { archivado }): ReadonlySet<CampoDeTorneo>` con `CampoDeTorneo = 'name' | 'date' | 'description' | 'registrationUrl' | 'payment' | 'targets' | 'archerIds' | 'stakeMap' | 'distances' | 'scores'`. Más `puedeEliminar(status)` (sólo `sin_iniciar`) y `puedeArchivar(status, archivado)` / `puedeDesarchivar(...)` (sólo `publicado`). Un campo pedido que no está en el set es un `DomainError` con `code: 'FIELD_NOT_EDITABLE'` y el campo en `details`.
+**DoD:**
+- Tabla completa: 4 estados × 10 campos, un test por celda que importa (no uno por estado).
+- `targets` en `en_proceso` está permitido **a nivel de campo**; la regla de «blanco con puntajes bloqueado» sigue en el servicio (necesita I/O) — el test lo documenta.
+- `scores` sólo en `completado`.
+- Cobertura 100% del módulo.
+
+### `[x] BE-24` · Edición por estado en el backend
+_(Hecho. Además de lo pedido: `UpdateTournamentSchema` exige blancos contiguos como al crear —editando se podía dejar un recorrido con huecos—, un mapa de estacas que no ubica a un inscripto da 400 en vez de un 500 del dominio, y si el mismo pedido cambia el recorrido y rearma, las patrullas arrancan sobre el recorrido nuevo. **Deuda:** rearmar recrea los participantes y pierde las marcas de pago (ya pasaba con `archerIds`; ahora también con `stakeMap`). Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** `updateTournament` aplica la tabla de `SH-11` en vez de su propia lógica; `completado` pasa a aceptar nombre y fecha.
+**Archivos:** `packages/api/src/services/tournamentEditService.ts`, `packages/shared/src/schemas.ts` (`UpdateTournamentSchema` + `stakeMap`, `distances`), tests del servicio
+**Referencia:** `SH-11` · [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.7
+**Contenido:**
+- Rechazo temprano: si el body trae un campo fuera de `camposEditables(torneo.status)` → `409 FIELD_NOT_EDITABLE` con el campo, **antes** de tocar nada (no aplicar los permitidos y descartar el resto en silencio).
+- `stakeMap`/`distances` sólo en `sin_iniciar`, y cambiar el `stakeMap` **re-snapshotea la estaca de cada participante** (y, si cambia la estaca de alguien, rearma patrullas como con `archerIds` — misma transacción).
+- `publicado` sigue sin aceptar nada salvo lo que pida `BE-26`.
+- Audit: `tournament.update` con la lista de campos cambiados (no los valores de `payment`).
+**DoD:** test por estado con un campo permitido y uno no permitido · `completado` acepta `{name, date}` y rechaza `{targets}` · el `updateIfStatus` sigue protegiendo la carrera de estado · `/security-review`.
+
+### `[x] FE-32` · WAFA: edición completa de un torneo sin iniciar
+_(Hecho **salvo el editor de estacas y distancias**, que pasa a `FE-40`: no existe ni en el wizard, el backend ya lo acepta (`BE-24`) y el mapa por defecto cubre el uso normal. Además, el backend conserva los pagos al rearmar y rearma si cambia la cantidad de blancos. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
+**Objetivo:** que todo lo que el backend acepta en `sin_iniciar` se pueda editar desde la ficha, reusando los pasos del wizard.
+**Archivos:** `packages/app/src/wafa/detalle/EdicionDelTorneo.tsx`, `packages/app/src/wafa/crear/{PasoDatos,PasoRecorrido}.tsx` (extraer lo reusable), `wafa/torneo.ts`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §6.3 y §6.7 · `SH-11`
+**Contenido:** «Editar» abre los mismos controles que el paso de datos (nombre, fecha, descripción, link de `BE-27`, pago, estacas/distancias) y el de recorrido (blancos: modalidad, flechas, descripción). Qué se muestra lo decide `camposEditables`, no un `status ===` en el JSX. Cambiar blancos o estacas muestra antes de guardar que **las patrullas y los PIN se rehacen** (igual que participantes hoy).
+**DoD:** test de UI por campo · `web-design-guidelines` sobre la pantalla · objetivos táctiles de 44px.
+
+### `[x] FE-33` · WAFA: editar nombre y fecha en proceso y esperando publicación
+_(Hecho. El formulario edita nombre, fecha y —si el estado lo deja— el link. Descripción y pago quedan para `FE-32`, que suma esos campos para todos los estados por la misma tabla. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
+**Objetivo:** el botón «Editar» deja de existir sólo para `sin_iniciar`.
+**Archivos:** `packages/app/src/wafa/detalle/EdicionDelTorneo.tsx`
+**Contenido:** mismo formulario que `FE-32`, filtrado por `camposEditables`: en `en_proceso` nombre, fecha, descripción, pago y link (decisión 1); en `completado` nombre y fecha. «Eliminar» sigue sólo en `sin_iniciar` (`puedeEliminar`). Un `409 FIELD_NOT_EDITABLE` o `INVALID_STATE_TRANSITION` (el torneo cambió de estado entre la carga y el guardado) se muestra tal cual y recarga la ficha.
+**DoD:** test de UI con los tres estados · en `publicado` no aparece «Editar».
+
+### `[x] BE-25` · Corrección de puntajes por el admin, contra la planilla de papel · **TDD** ⭐
+_(Hecho. La guarda de estado responde `FIELD_NOT_EDITABLE` vía `camposEditables` (no `INVALID_STATE_TRANSITION`, como decía el plan): una sola tabla. Además, `GET .../participants/:pid/scorecard` para `FE-34`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** con el torneo `completado`, el admin reemplaza las flechas de un participante en un blanco y el servidor recalcula todo, igual que si lo hubiera mandado el líder.
+**Archivos:** `packages/api/src/services/scoreCorrectionService.ts` (nuevo), `repositories/scoreRepo.ts`, `routes/admin.ts`, `db/types.ts` (`ScoreDoc.correctedBy/correctedAt`, `AuditAction` + `score.admin_correct`), `packages/shared/src/schemas.ts` (`ScoreCorrectionSchema`)
+**Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §6 (cómo `syncService` aplica un puntaje y actualiza los rollups por delta) · regla 1 de `CLAUDE.md` · decisiones 2 y 3
+**Contenido:**
+- `PUT /admin/tournaments/:id/participants/:participantId/scores/:targetIndex`, cuerpo `{ arrows: string[], reason: string }` con `.strict()`. **Nunca** acepta `total`.
+- Valida los tokens contra el set de la modalidad **de ese blanco** (leída del torneo en base) con `validateTargetScore` de `@bal/shared` — el mismo camino que el sync, no una copia.
+- Upsert del `ScoreDoc` (puede no existir: un blanco que el líder no anotó) y actualización por delta de los rollups del `ParticipantDoc` (`total`, `xCount`, `tenCount`, `mCount`, `targetsCompleted`, `normalizedPct`, `byModality`) **en la misma transacción**. Extraer de `syncService` la función que hace eso, si hoy está embebida, para que haya un solo lugar.
+- Guarda: torneo `completado` (con `updateIfStatus`-style o leyendo dentro de la transacción) → si no, `409 INVALID_STATE_TRANSITION`. Participante `ausente` → `409`.
+- Audit `score.admin_correct` con `before`/`after` (tokens), `reason`, `actorId`.
+- La firma no se toca (decisión 3); la vista de resultados de WAFA (`BE-16`) expone `correctedAt` por blanco.
+**DoD:**
+- Test que el `total` del body, si viniera, es rechazado por `.strict()`.
+- Test que `11` en un blanco de sala y `X` en uno 3D del **mismo** torneo se rechazan.
+- Test que corregir y volver a corregir al valor original deja los rollups idénticos a los de antes (sin residuos de delta).
+- Test que con el torneo `publicado` o `en_proceso` responde `409`.
+- `db:reconcile` sobre un torneo corregido da los mismos rollups.
+- `/security-review` (ruta nueva que escribe puntajes).
+
+### `[x] FE-34` · WAFA: pantalla de corrección de puntajes
+_(Hecho. El borrador de un blanco arranca vacío: se tipea lo que dice el papel, no se edita lo que dice la app. El DoD de «la vista previa de publicar refleja el total nuevo» sale solo: esa pantalla pide los resultados al montarse. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
+**Objetivo:** el admin, con la planilla de papel al lado, ve las flechas de un arquero blanco por blanco y corrige las que no coinciden.
+**Archivos:** `packages/app/src/wafa/pages/Corregir.tsx` (nueva, ruta `/wafa/torneos/:id/corregir`), acceso desde `Tournament.tsx` sólo si `camposEditables` incluye `scores`
+**Referencia:** `BE-25` · [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.1 (teclado de scoring, reusar)
+**Contenido:** elegir participante → tabla de blancos con flechas, subtotal y acumulado (en orden de blanco, para leerla fila contra fila con la planilla de FATARCO) → tocar un blanco abre el teclado de `FE-6` con el set de **esa** modalidad → motivo obligatorio → guardar. Los blancos ya corregidos se marcan. **Esto es WAFA en el escritorio, no WAFL en el predio**: acá sí se espera la respuesta del servidor (es una acción del admin con red, como publicar), pero sin spinner bloqueante: el botón pasa a «Guardando…» y el error se muestra en línea.
+**DoD:** test de UI · el teclado mantiene 56px · tras guardar, el podio de la vista previa de publicar (`FE-15`) refleja el total nuevo sin recargar a mano.
+
+### `[x] BE-26` · Archivar y desarchivar torneos publicados · **TDD** (ranking)
+_(Hecho. Qué suma al ranking es una sola consulta, `tournamentRepo.listQueSuman`; qué se ve en la landing, una sola regla, `resultadosVisibles` en `@bal/shared`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** sacar un torneo publicado del ranking de la temporada sin despublicarlo, de forma reversible.
+**Archivos:** `db/types.ts` (`TournamentDoc.archivedAt/archivedBy`, `AuditAction` + `tournament.archive`/`tournament.unarchive`), `db/indexes.ts`, `repositories/tournamentRepo.ts`, `services/publishService.ts` (o `tournamentStateService.ts`), `routes/admin.ts`, `routes/publico.ts`
+**Referencia:** decisiones 4, 5 y 6 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §8 (agregar el flag, no un estado nuevo) · [`TECHNICAL.md`](TECHNICAL.md) §2 (`tournaments`)
+**Contenido:**
+- `POST /admin/tournaments/:id/archive` y `/unarchive`, ambas con `{ reason }`. Sólo `publicado` (`puedeArchivar`).
+- La consulta de «publicados de la temporada» que alimenta `recalcularTemporada` (publicar, despublicar, `reconcileStandings`, `db:reconcile`) excluye `archivedAt != null` **en el repositorio**, en un solo lugar — si cada llamador filtrara por su cuenta, `db:reconcile` volvería a meter el torneo archivado.
+- Archivar/desarchivar recalcula la temporada entera en transacción (mismo patrón que publicar).
+- Endpoints públicos (decisión 5, **se oculta**): `listPublicos` excluye `archivedAt != null` en el repositorio; `detallePublico` y la tarjeta de puntajes (`tarjetaService`, `FE-31`) dan 404 como con un torneo sin publicar; el historial de torneos de la ficha de arquero (`rankingService.fichaDeArquero`) no lo lista. El ranking no lo cuenta (sale solo del recálculo). Los endpoints de admin sí lo devuelven, con `archived: true`.
+- Despublicar un torneo archivado: lo desarchiva en la misma operación (un `completado` archivado no tiene sentido).
+**DoD:** test que archivar baja `tournamentsPlayed` y cambia el `bestNAvgPct` del arquero afectado · desarchivar deja los standings idénticos a los de antes de archivar · `db:reconcile` respeta el archivo · `409` sobre `sin_iniciar`/`en_proceso`/`completado` · test que un archivado no sale en `/public/tournaments`, que su detalle y su tarjeta dan 404 y que no aparece en el historial de la ficha de arquero · `/security-review`.
+
+### `[x] FE-35` · WAFA: archivar y desarchivar
+_(Hecho. «Archivar»/«Desarchivar» en la pantalla de resultados de un publicado, al lado de «Despublicar», no en `ControlesDeEstado`: ahí ya vive la otra acción con motivo sobre un publicado. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
+**Archivos:** `packages/app/src/wafa/detalle/ControlesDeEstado.tsx`, `packages/app/src/wafa/pages/Home.tsx` (listado: filtro «Ver archivados», como el de arqueros)
+**Contenido:** «Archivar» / «Desarchivar» con motivo y dos toques, igual que despublicar; el texto de confirmar dice que el torneo **deja de verse en la landing y sale del ranking**. En el listado de WAFA los archivados quedan fuera por defecto y se ven con el filtro, marcados «Archivado» — chip con texto y token neutro, **sin color de estaca** (regla 8). La landing no cambia: el archivado ya no le llega (`BE-26`).
+**DoD:** test de UI · el chip tiene texto, no sólo color.
+
+### `[x] BE-27` · Link de pre-inscripción en el torneo
+_(Hecho. `RegistrationUrlSchema` exportado de `@bal/shared` para que el formulario de WAFA (`FE-36`) valide con el mismo esquema. `SECURITY.md` §16. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** un campo opcional para el link a un formulario o planilla externa donde los arqueros se pre-anotan.
+**Archivos:** `packages/shared/src/schemas.ts` (`CreateTournamentSchema`, `UpdateTournamentSchema`), `db/types.ts` (`TournamentDoc.registrationUrl: string | null`), `tournamentService.ts`, `tournamentQueryService.ts` (detalle admin y público)
+**Referencia:** [`SECURITY.md`](SECURITY.md) (agregar entrada: primer dato del admin que la landing renderiza como `href`)
+**Contenido:** `registrationUrl: z.url({ protocol: /^https$/ }).max(500).nullable().optional()` — **sólo `https:`**: un `javascript:` o `data:` en un `href` es XSS almacenado. Torneos viejos sin el campo → `null` al leer (claves ausentes, mismo cuidado que `BE-23`). Editable en `sin_iniciar` y `en_proceso` (`SH-11`).
+**DoD:** test que rechaza `javascript:alert(1)`, `http://…`, `data:…` y un string que no es URL · test que un torneo sin el campo se lee como `null` · `/security-review`.
+
+### `[x] FE-36` · Link de pre-inscripción: carga en WAFA y botón en la landing
+_(Hecho. El botón es un componente propio, `BotonPreinscripcion` en `landing/src/components/`, para que «Próximas fechas» (`FE-38`) lo reuse. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Archivos:** `packages/app/src/wafa/crear/PasoDatos.tsx`, `EdicionDelTorneo.tsx`, `packages/landing/src/pages/Tournaments.tsx` (detalle), sección de `FE-38`
+**Contenido:** campo «Link de pre-inscripción (opcional)» debajo de la descripción, con el error de Zod en español. En la landing, si existe: botón «Pre-inscribirme» con `target="_blank" rel="noopener noreferrer"` y el dominio visible al lado (que se vea a dónde lleva). Si no existe, no se renderiza nada — ni botón deshabilitado ni texto «sin link».
+**DoD:** test de UI con y sin link · 44px · el `href` que llega al DOM es el que validó el servidor (sin reconstruirlo en el cliente).
+
+### `[x] FE-37` · Pie de la landing: link al repositorio
+_(Hecho. «Código fuente en GitHub» va en la línea legal, a la derecha (abajo en el celular), con `IconoEnlaceExterno` (nuevo, en `iconos/navegacion.tsx`) y «(se abre en otra pestaña)» en texto oculto. `REPOSITORIO` se exporta de `Footer.tsx`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Archivos:** `packages/ui/src/Footer.tsx`, test en `packages/ui/src`
+**Contenido:** «Código fuente» en la línea legal (o en la columna de páginas), apuntando a `https://github.com/BraianVaylet/bv-bahia-archers-league`, `target="_blank" rel="noopener noreferrer"`, con un ícono de enlace externo de `iconos/` y texto (no sólo el logo de GitHub). La URL como constante exportada, no repetida en el JSX.
+**DoD:** test que el enlace existe con su nombre accesible · 44px · el pie sigue sin imprimirse.
+
+### `[x] BE-28` · Endpoint público de próximas fechas
+_(Hecho. `payment` sale entero (`{ required, amount }`), igual que en el detalle público, no sólo el monto: la landing tiene que poder decir «sin costo». «Hoy» lo calcula `hoyEnArgentina` de `@bal/shared`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Objetivo:** que la landing sepa qué torneos vienen, sin exponer nada de la organización interna.
+**Archivos:** `repositories/tournamentRepo.ts` (`listProximos`), `services/tournamentQueryService.ts`, `routes/publico.ts`, `db/indexes.ts` (reusa `ix_status_date` si alcanza)
+**Referencia:** decisión 7 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3 y §8 (actualizar primero) · [`SECURITY.md`](SECURITY.md) §11 (lista blanca pública)
+**Contenido:** `GET /api/public/tournaments/upcoming` → `sin_iniciar` con `date >= hoy` (inicio del día en `America/Argentina/Buenos_Aires`), orden ascendente, máximo 6. Proyección en el repositorio, no filtrado en el servicio: `name`, `date`, `description`, `registrationUrl`, `payment.amount` (si `required`), cantidad de blancos, modalidades. Pasa por `publicCache` como el resto. `detallePublico` sigue dando 404 para `sin_iniciar`.
+**DoD:** test que la respuesta no trae `participantCount`, patrullas, `stakeMap` ni ningún `_id` interno salvo el del torneo · un `sin_iniciar` con fecha de ayer no aparece · un `en_proceso` con fecha futura no aparece (ya está en «En curso») · `/security-review`.
+
+### `[x] FE-38` · Landing: sección «Próximas fechas»
+_(Hecho. En su propio archivo, `components/portada/ProximasFechas.tsx`, montado desde `Home.tsx` y `Tournaments.tsx`: `Secciones.tsx` no se tocó. `estados.ts` no se tocó: la sección no usa `ESTADO_DE_TORNEO`. Si el pedido falla, la sección no aparece. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+**Archivos:** `packages/landing/src/components/portada/Secciones.tsx` (o `ProximasFechas.tsx` nuevo), `packages/landing/src/pages/Tournaments.tsx` (grupo arriba del listado), `packages/landing/src/lib/portada.ts`, `packages/shared/src/estados.ts` (`sin_iniciar.publico: 'Próximamente'`)
+**Referencia:** `BE-28` · `BE-27`/`FE-36` (el botón de pre-inscripción vive acá) · [`post/ref-7/DISENO.md`](post/ref-7/DISENO.md) (estilo de la portada)
+**Contenido:** en la portada, entre el hero y «Cómo se juega» (o donde lo defina `frontend-design`), hasta 3 tarjetas: fecha grande, nombre, modalidades (`BarraDeModalidades`), inscripción y botón «Pre-inscribirme» si hay link. Sin próximos torneos, la sección no se renderiza (no un «no hay fechas»). En `/torneos`, el mismo bloque como primer grupo.
+**DoD:** test de UI con 0, 1 y 4 torneos (muestra 3 en portada) · fechas formateadas con `fechas.ts` · sin scroll horizontal a 360 px · `web-design-guidelines`.
+
+### `[x] FE-39` · Fix: el alta rápida del wizard no pide DNI ni sexo · P1
+_(Hecho. `AltaRapida` quedó como un botón que abre `FormularioDeArquero` (título `h3`, botón «Crear y sumar»); el cuerpo lo arma `aCuerpoDeArquero` en `padron/tipos.ts`, y los dos `POST /admin/archers` de WAFA —padrón y wizard— pasan por ella. El formulario pasó a `useId()` para el `select` de categoría y el grupo de radios de sexo: con ids fijos, dos instancias en la misma página se pisaban la asociación etiqueta-control. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
+> Pedido del 2026-11-10. Desde el padrón (`/wafa/arqueros`) el alta pide DNI y sexo (`FE-29`); desde el paso de participantes del wizard (botón «Arquero nuevo») no. Los arqueros creados ahí nacen incompletos y quedan fuera del ranking Femenino/Masculino hasta que alguien los complete a mano en el padrón.
+
+**Causa:** son dos formularios distintos. `AltaRapida`, dentro de `packages/app/src/wafa/components/SelectorDeArqueros.tsx`, es una copia anterior a `FE-29`: manda `{ firstName, lastName, category }` y nada más. El del padrón es `packages/app/src/wafa/padron/FormularioDeArquero.tsx`, y el armado del cuerpo (`sex: b.sex || null`, `dni: b.dni.trim() || null`) vive suelto en `guardar()` de `pages/Archers.tsx`.
+**Objetivo:** un solo formulario y una sola lógica de alta de arquero en WAFA. Afecta a los dos lugares donde se usa `SelectorDeArqueros`: crear torneo y editar participantes de un `sin_iniciar`.
+**Archivos:** `wafa/components/SelectorDeArqueros.tsx` (borrar `AltaRapida`), `wafa/padron/FormularioDeArquero.tsx`, `wafa/padron/tipos.ts`, `wafa/pages/Archers.tsx`, `wafa/wizard-ui.test.tsx`
+**Referencia:** `FE-29` · `BE-19` · decisión 6 de la Fase 8 (sexo y DNI opcionales: no se fuerza)
+**Contenido:**
+- Extraer el armado del cuerpo a una función pura de `padron/` (por ejemplo `aCuerpoDeArquero(borrador)` en `tipos.ts`) y usarla en los dos lados. Así `Archers.tsx` y el wizard no pueden volver a divergir.
+- El wizard monta `FormularioDeArquero` con `BORRADOR_VACIO`. `onGuardar` hace el `POST` con ese cuerpo y le pasa el arquero creado a `onCambio` (queda elegido, como hoy). `onCancelar` cierra el formulario.
+- `FormularioDeArquero` recibe el nivel de encabezado (o el título) por prop. En el padrón es un `h2`; dentro del paso del wizard tiene que ser un `h3`.
+- Revisar si el `<form>` queda anidado en otro. Hoy ni `TournamentCreate.tsx` ni los pasos de `crear/` usan `<form>`, pero si alguno lo agrega, un `<form>` adentro de otro es HTML inválido y el submit se va al de afuera.
+- El foco al abrirse (primer campo) y el error tipado del servidor (`ARCHER_DNI_DUPLICATE` → 409) salen solos del formulario reusado. Se verifica, no se reescribe.
+- Sexo y DNI siguen opcionales (decisión 6). El fix es que **se pidan**, no que sean obligatorios.
+**DoD:**
+- Test de UI del wizard, visto fallar primero: el alta desde «Arquero nuevo» muestra Sexo y DNI, y el body del `POST` llega con `sex` y `dni`.
+- Test que un DNI repetido desde el wizard muestra el mensaje del servidor sin perder lo ya cargado en el wizard.
+- `grep` sin coincidencias de `rpc.admin.archers.$post` fuera del punto único que use la función extraída.
+- El test del padrón (`FE-29`) sigue verde sin cambios de comportamiento.
+
+### `[x] TEST-4` · E2E de la fase
+_(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos bugs, corregidos con test de unidad: corregir a un arquero que ya firmó trababa la publicación (`BE-25`), y el selector de temporada del ranking de la landing desbordaba a 320 px. Ver `docs/BITACORA.md`, entrada del 2026-11-11.)_
+**Archivos:** `e2e/edicion-por-estado.spec.ts`, `e2e/correccion-y-archivo.spec.ts`, `e2e/proximas-fechas.spec.ts`
+**Referencia:** [`TESTING.md`](TESTING.md) (agregar la subsección)
+**DoD:** contra el stack real, como `TEST-1`:
+1. Crear torneo con link → aparece en «Próximas fechas» con el botón → editar blancos y estacas → eliminar → desaparece de la landing.
+2. Torneo completo → corregir una flecha desde WAFA → el total y el podio cambian → publicar → el ranking refleja el valor corregido → archivar → sale del ranking y desaparece de la landing (listado, detalle y tarjetas) → desarchivar → vuelve idéntico.
+3. Intentar corregir un puntaje con el torneo `publicado` → 409.
+
+---
+
 ## Orden recomendado de ejecución
 
 **Camino crítico** — lo que sostiene todo lo demás:
@@ -687,6 +872,11 @@ INF-1 → INF-2 → SH-1 → SH-2 → SH-3 → BE-1 → BE-2 → BE-5 → BE-8 �
 - `BE-12`, `BE-13`, `FE-17`..`FE-20` (landing) — después de `BE-11`.
 - `INF-3`, `INF-5` — en cualquier momento después de `INF-2`.
 - Fase 8 (`SH-8`..`TEST-3`) — independiente del resto, sobre un sistema ya en producción. Orden interno: `SH-8` → `SH-9` → `SH-10` → `BE-18` → `BE-19` → `BE-20` → `BE-22` → `BE-21` → `FE-27`/`FE-29`/`FE-30` → `FE-28` → `TEST-3`.
+- Fase 9 (`SH-11`..`TEST-4`) — decisiones confirmadas el 2026-11-10. Tres hilos independientes entre sí:
+  - Edición y corrección: `SH-11` → `BE-24` → `FE-32`/`FE-33` → `BE-25` → `FE-34`. `BE-25` es la tarea delicada de la fase (escribe puntajes por fuera del sync): se le da el tiempo de un ⭐.
+  - Archivo: `BE-26` → `FE-35` (necesita `SH-11` para `puedeArchivar`).
+  - Pre-inscripción y próximas fechas: `BE-27` → `BE-28` → `FE-36`/`FE-38`.
+  - Sueltas: `FE-37` en cualquier momento. `FE-39` (fix, no depende de ninguna decisión) **antes que `FE-32`**, porque `FE-32` reusa los pasos del wizard. `TEST-4` al final.
 
 **Cuatro tareas mandan sobre el resto:** `SH-3` (patrullas), `BE-10` (sync), `FE-2` (offline) y `FE-6` (teclado). Son las que definen si la app funciona el día del torneo. Se les da el tiempo que pidan y se cubren con tests antes de construir nada encima.
 

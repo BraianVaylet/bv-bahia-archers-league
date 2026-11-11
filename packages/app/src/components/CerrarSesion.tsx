@@ -35,6 +35,11 @@ export interface CerrarSesionProps {
    */
   readonly abierto?: boolean;
   readonly onAbiertoChange?: (abierto: boolean) => void;
+  /**
+   * Sin botón propio: sólo aparece la confirmación cuando la abre el ícono del encabezado
+   * (`REF7-10` / `F-4`). En el recorrido de WAFL el botón grande al final de la lista sobraba.
+   */
+  readonly soloAlConfirmar?: boolean;
 }
 
 export function CerrarSesion({
@@ -42,6 +47,7 @@ export function CerrarSesion({
   pendientes = 0,
   abierto,
   onAbiertoChange,
+  soloAlConfirmar,
 }: CerrarSesionProps) {
   const [propio, setPropio] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
@@ -73,6 +79,8 @@ export function CerrarSesion({
      */
     caja.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   }, [confirmando]);
+
+  if (soloAlConfirmar && !confirmando) return null;
 
   return (
     <div ref={caja} className="flex flex-col gap-2 pt-2 print:hidden">

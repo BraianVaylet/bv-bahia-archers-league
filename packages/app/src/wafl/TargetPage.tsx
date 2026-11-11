@@ -7,8 +7,7 @@
  * Ver `docs/FUNCTIONAL.md` §7.3 y `docs/OFFLINE_SYNC.md` §1.
  */
 
-import { SCORING } from '@bal/shared';
-import { useTituloDePagina } from '@bal/ui';
+import { ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import { useWakeLock } from '../lib/useWakeLock.js';
@@ -25,11 +24,25 @@ export interface TargetPageProps {
   readonly participants: readonly BundleParticipant[];
   readonly onContinuar: () => void;
   readonly onVolver: () => void;
+  /** Sólo para mostrar (`REF7-10`): la primera línea del encabezado, «Patrulla 1». */
+  readonly patrulla?: number;
+  /** Sólo para mostrar: el nombre del torneo, como título del encabezado. */
+  readonly torneo?: string;
+  /** Sólo para mostrar: cuántos blancos tiene el recorrido, para «1 de 6». */
+  readonly totalDeBlancos?: number;
 }
 
 const NADA = () => {};
 
-export function TargetPage({ target, participants, onContinuar, onVolver }: TargetPageProps) {
+export function TargetPage({
+  target,
+  participants,
+  onContinuar,
+  onVolver,
+  patrulla,
+  torneo,
+  totalDeBlancos,
+}: TargetPageProps) {
   useTituloDePagina(`Blanco ${target.index}`);
   // La pantalla no se apaga entre flecha y flecha. Sólo acá: ver `useWakeLock` y su test de alcance.
   useWakeLock();
@@ -159,22 +172,50 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
 
   const puedeContinuar = faltantes.length === 0;
 
+  // «2 flechas · Jabalí · 1 de 6» (`F-2`): lo que hay que leer al llegar al puesto.
+  const linea = [
+    `${target.arrows} ${target.arrows === 1 ? 'flecha' : 'flechas'}`,
+    target.description,
+    totalDeBlancos ? `${target.index} de ${totalDeBlancos}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <Pantalla>
-      <Encabezado onVolver={onVolver} textoVolver="Blancos">
+      <Encabezado
+        onVolver={onVolver}
+        textoVolver="Blancos"
+        {...(patrulla === undefined ? {} : { contexto: `Patrulla ${patrulla}` })}
+        {...(torneo === undefined ? {} : { titulo: torneo })}
+      >
         <SyncBadge />
       </Encabezado>
 
       <Screen>
-        <div className="flex items-baseline gap-3 pt-2">
-          <h1 className="font-display text-display font-bold">Blanco {target.index}</h1>
-          <p className="text-[var(--ink-muted)]">
-            {SCORING[target.modality].label} · {target.arrows}{' '}
-            {target.arrows === 1 ? 'flecha' : 'flechas'}
-          </p>
+        {/*
+          El encabezado del blanco (`REF7-10` / `F-2`, `DISENO.md` §5.5): el número grande, que es lo
+          primero que hay que leer, y al lado la modalidad en su chip y la línea. El «Blanco» va sólo
+          para el lector de pantalla: el número solo no dice qué es.
+        */}
+        <div className="flex items-center gap-4 pt-3">
+          {/*
+            El título real va para el lector de pantalla («Blanco 1»); a la vista, el número grande.
+            Un número solo no dice qué es, y «Blanco» en 56px no entra al lado de la modalidad.
+          */}
+          <h1 className="sr-only">Blanco {target.index}</h1>
+          <span
+            aria-hidden="true"
+            data-numero-del-blanco
+            className="font-display text-score font-extrabold leading-none"
+          >
+            {target.index}
+          </span>
+          <div className="flex flex-col items-start gap-1 min-w-0">
+            <ChipModalidad modality={target.modality} />
+            <p className="text-sm text-[var(--ink-muted)]">{linea}</p>
+          </div>
         </div>
-
-        {target.description && <p className="text-[var(--ink-muted)]">{target.description}</p>}
 
         {error && (
           <p role="alert" className="text-[var(--danger)] text-sm">
@@ -182,7 +223,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
           </p>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {participants.map((p) => {
             const score = porParticipante.get(p.id);
             const acciones = accionesDe.get(p.id);
@@ -207,7 +248,14 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
         </div>
       </Screen>
 
-      <div className="shrink-0 px-4 pb-4 flex flex-col gap-2">
+      {/*
+        El panel del teclado (`DISENO.md` §4.14): superficie, sombra `--shadow-dock` y «Continuar»
+        adentro, debajo de la grilla. Antes el botón flotaba aparte, con doble margen.
+      */}
+      <div
+        data-panel-teclado
+        className="shrink-0 flex flex-col gap-2 px-3 pt-2 pb-3 rounded-t-[var(--radius-lg)] border-t bg-[var(--surface)] shadow-[var(--shadow-dock)]"
+      >
         <ScoreKeypad
           modality={target.modality}
           bloqueado={firmados.has(seleccionado)}
@@ -216,7 +264,7 @@ export function TargetPage({ target, participants, onContinuar, onVolver }: Targ
           onToken={agregarFlecha}
         />
 
-        <div className="px-4 pb-4">
+        <div>
           <Button ancho disabled={!puedeContinuar} onClick={onContinuar}>
             Continuar
           </Button>

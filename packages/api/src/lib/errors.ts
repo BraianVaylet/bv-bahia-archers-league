@@ -18,6 +18,7 @@ export type ErrorCode =
   | 'INVALID_TOKEN'
   | 'INVALID_STATE_TRANSITION'
   | 'TARGET_LOCKED'
+  | 'FIELD_NOT_EDITABLE'
   | 'TOURNAMENT_HAS_SCORES'
   | 'ARCHER_IN_USE'
   | 'ARCHER_DNI_DUPLICATE'
@@ -39,6 +40,7 @@ const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   INVALID_TOKEN: 400,
   INVALID_STATE_TRANSITION: 409,
   TARGET_LOCKED: 409,
+  FIELD_NOT_EDITABLE: 409,
   TOURNAMENT_HAS_SCORES: 409,
   ARCHER_IN_USE: 409,
   ARCHER_DNI_DUPLICATE: 409,
@@ -62,6 +64,7 @@ const MENSAJES: Record<ErrorCode, string> = {
   INVALID_TOKEN: 'Ese puntaje no es válido para la modalidad de este blanco.',
   INVALID_STATE_TRANSITION: 'El torneo no está en un estado que permita esta acción.',
   TARGET_LOCKED: 'Este blanco ya tiene puntajes cargados y no se puede editar.',
+  FIELD_NOT_EDITABLE: 'Con el torneo en este estado no se pueden editar algunos de esos datos.',
   TOURNAMENT_HAS_SCORES: 'El torneo ya tiene puntajes cargados.',
   ARCHER_IN_USE: 'El arquero participó de un torneo. Archivalo en vez de eliminarlo.',
   ARCHER_DNI_DUPLICATE: 'Ya existe un arquero con ese DNI en esa categoría.',

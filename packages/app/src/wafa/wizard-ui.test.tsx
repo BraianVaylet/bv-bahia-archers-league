@@ -139,6 +139,28 @@ describe('paso 1 · datos', () => {
 
     expect(await screen.findByText(/Creá una antes de armar el torneo/)).toBeDefined();
   });
+
+  /** `FE-36`: el link de pre-inscripción, opcional. Si se escribe, tiene que ser `https:`. */
+  it('un link de pre-inscripción sin https no deja continuar, y lo dice en el campo', async () => {
+    renderWizard();
+    await screen.findByRole('option', { name: 'Liga 2026' });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: '3ª fecha' } });
+    fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-08-08' } });
+    fireEvent.change(screen.getByLabelText('Temporada'), { target: { value: 's1' } });
+
+    const link = screen.getByLabelText('Link de pre-inscripción');
+    fireEvent.change(link, { target: { value: 'http://forms.gle/x' } });
+
+    expect((screen.getByRole('button', { name: 'Continuar' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(link).toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.change(link, { target: { value: 'https://forms.gle/x' } });
+    expect((screen.getByRole('button', { name: 'Continuar' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
 });
 
 // ── Paso 2 ───────────────────────────────────────────────────────────────────
@@ -365,6 +387,88 @@ describe('paso 3 · participantes', () => {
       new RegExp(`${CATEGORY_INFO.recurvo.label}\\s*1`),
     );
   });
+
+  /*
+    `FE-39`: el alta rápida era una copia anterior a `FE-29` y mandaba sólo nombre,
+    apellido y categoría. Un arquero creado acá nacía sin sexo y quedaba afuera del
+    ranking Femenino/Masculino hasta que alguien lo completara en el padrón.
+  */
+  it('el alta desde el wizard pide sexo y DNI, y los manda', async () => {
+    rutas['POST /api/admin/archers'] = () => ({
+      status: 201,
+      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'razo' } },
+    });
+    await irAlTres();
+    await screen.findByText('Pérez, Juan');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Arquero nuevo' }));
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Luna' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Eva' } });
+    fireEvent.click(screen.getByLabelText('Femenino'));
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30.123.456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear y sumar' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
+    });
+    const alta = llamadas.find((l) => l.method === 'POST' && l.url === '/api/admin/archers');
+    expect(alta?.body).toEqual({
+      firstName: 'Eva',
+      lastName: 'Luna',
+      category: 'razo',
+      sex: 'femenino',
+      dni: '30123456',
+    });
+  });
+
+  it('sin sexo ni DNI igual crea: siguen siendo opcionales', async () => {
+    rutas['POST /api/admin/archers'] = () => ({
+      status: 201,
+      json: { archer: { id: 'nuevo', firstName: 'Eva', lastName: 'Luna', category: 'razo' } },
+    });
+    await irAlTres();
+    await screen.findByText('Pérez, Juan');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Arquero nuevo' }));
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Luna' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Eva' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear y sumar' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
+    });
+    const alta = llamadas.find((l) => l.method === 'POST' && l.url === '/api/admin/archers');
+    expect(alta?.body).toMatchObject({ sex: null, dni: null });
+  });
+
+  it('un DNI repetido muestra el error del servidor y no pierde a los elegidos', async () => {
+    rutas['POST /api/admin/archers'] = () => ({
+      status: 409,
+      json: {
+        error: { code: 'ARCHER_DNI_DUPLICATE', message: 'Ya hay un arquero con ese DNI.' },
+      },
+    });
+    await irAlTres();
+    await screen.findByText('Pérez, Juan');
+    fireEvent.click(screen.getByLabelText(/Pérez, Juan/));
+    expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Arquero nuevo' }));
+    fireEvent.change(screen.getByLabelText('Apellido'), { target: { value: 'Luna' } });
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Eva' } });
+    fireEvent.change(screen.getByLabelText('DNI'), { target: { value: '30123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear y sumar' }));
+
+    // Por el texto, no por `role="alert"`: con un solo elegido, el aviso de composición (no arma
+    // patrulla) también es un `alert`.
+    expect(await screen.findByText('Ya hay un arquero con ese DNI.')).toHaveAttribute(
+      'role',
+      'alert',
+    );
+    expect(screen.getByTestId('conteo-elegidos')).toHaveTextContent('1 arqueros elegidos');
+    // El formulario sigue abierto con lo tipeado, para corregir el DNI y reintentar.
+    expect(screen.getByLabelText('Apellido')).toHaveValue('Luna');
+  });
 });
 
 // ── Paso 4 ───────────────────────────────────────────────────────────────────
@@ -422,6 +526,8 @@ describe('paso 4 · revisión', () => {
       date: '2026-08-08',
       targets: [{ index: 1, modality: 'sala', arrows: 3, description: null }],
       archerIds: ['a1', 'a2', 'a3', 'a4'],
+      // Sin escribir nada en el campo, viaja como «sin link».
+      registrationUrl: null,
     });
   });
 

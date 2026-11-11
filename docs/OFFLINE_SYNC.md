@@ -392,10 +392,12 @@ Siempre visible en el encabezado de WAFL. Es lo que le da confianza al líder pa
 
 | Estado | Condición | Aspecto |
 |---|---|---|
-| `Sincronizado` | Outbox vacío y hubo conexión reciente | Verde, discreto |
-| `N pendientes` | Outbox con ops, hay conexión | Ámbar, con contador |
-| `Sin conexión · N pendientes` | `navigator.onLine === false` | Gris, con contador |
-| `Error de sincronización` | Ops en estado `conflict` | Rojo, con detalle al tocar |
+| `Al día` | Outbox vacío y hubo conexión reciente | Verde, discreto |
+| `N por enviar` | Outbox con ops, hay conexión | Ámbar, con contador |
+| `Sin señal · N guardados` | `navigator.onLine === false` | Gris, con contador |
+| `No se pudo enviar · <motivo>` | Ops en estado `conflict` | Rojo, con el motivo del servidor |
+
+> **Textos cortos desde `ref-7`** (los de `post/ref-7/DISENO.md` §6, consultado con el autor). Antes eran «Sincronizado», «N cambios sin sincronizar», «Sin conexión · N cambios guardados en el celular» y «Problema al sincronizar: <motivo>»: en el encabezado de WAFL, al lado de «← Blancos», truncaban la patrulla y el torneo a 390px. El motivo del error se conserva; si no entra, la píldora lo trunca a la vista y queda completo para el lector de pantalla y en el `title`.
 
 Al tocarlo se abre un panel con: última sincronización exitosa, cantidad de ops pendientes, errores si los hay, y un botón **Sincronizar ahora**.
 

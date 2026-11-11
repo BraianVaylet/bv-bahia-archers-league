@@ -18,7 +18,7 @@ import { DomainError, MISS_TOKEN, type Modality, X_TOKEN } from './domain.js';
 export interface TargetComputation {
   /** Puntaje del blanco. */
   readonly total: number;
-  /** Flechas en la zona interna: `X`, `X6` u `11` según la modalidad. */
+  /** Flechas en la zona interna: `X`, `6` (campo) u `11` según la modalidad. */
   readonly innerCount: number;
   /** Flechas `X`. Siempre 0 en campo y 3D, que no usan ese token. */
   readonly xCount: number;

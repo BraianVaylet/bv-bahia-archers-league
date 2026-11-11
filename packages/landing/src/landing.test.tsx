@@ -482,36 +482,39 @@ describe('RankingPage', () => {
         bestN,
       );
 
-    it('marca los tres primeros con su medalla', async () => {
+    /**
+     * **Sin oro, plata ni bronce** (`REF7-8`, `DISENO.md` §5.1-4 y §5.2): el amarillo y el
+     * naranja son colores de estaca, semántica reservada (regla 8), y la dirección visual evita
+     * los emoji. Los tres primeros van en un círculo `--nock-soft`, con su número.
+     */
+    it('marca los tres primeros sin medallas de color', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
-      expect(await screen.findByTestId('fila-Oro')).toHaveTextContent('🥇');
-      expect(screen.getByTestId('fila-Plata')).toHaveTextContent('🥈');
-      expect(screen.getByTestId('fila-Bronce')).toHaveTextContent('🥉');
+      for (const apellido of ['Oro', 'Plata', 'Bronce']) {
+        const fila = await screen.findByTestId(`fila-${apellido}`);
+        expect(fila.querySelector('[data-podio]')).not.toBeNull();
+        expect(fila.textContent).not.toMatch(/🥇|🥈|🥉/);
+      }
     });
 
-    // Del cuarto en adelante no hay medalla: inventar una donde no la hay sería
-    // decir algo que no pasó.
-    it('del cuarto en adelante no hay medalla', async () => {
+    // Del cuarto en adelante no se marca: inventar un podio donde no lo hay sería decir algo
+    // que no pasó.
+    it('del cuarto en adelante no se marca', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       await screen.findByTestId('fila-Oro');
-      expect(screen.getByTestId('fila-Cuarto').textContent).not.toMatch(/🥇|🥈|🥉/);
+      expect(screen.getByTestId('fila-Cuarto').querySelector('[data-podio]')).toBeNull();
     });
 
-    /**
-     * El emoji **no va solo**: el puesto en número está al lado y la medalla
-     * lleva su nombre para el lector de pantalla. Ver DESIGN_SYSTEM §10.
-     */
-    it('la medalla no es el único portador: el puesto va escrito', async () => {
+    /** El círculo no es el único portador: el puesto va escrito. Ver DESIGN_SYSTEM §10. */
+    it('el puesto va escrito', async () => {
       conPuestos();
       renderEn(<RankingPage />, '/ranking', '/ranking');
 
       const fila = await screen.findByTestId('fila-Oro');
-      expect(fila).toHaveTextContent('1');
-      expect(within(fila).getByLabelText(/primer puesto/i)).toBeDefined();
+      expect(fila.querySelector('[data-podio]')).toHaveTextContent('1');
     });
 
     /**
@@ -690,6 +693,43 @@ describe('TournamentPage', () => {
 
   const renderDetalle = () => renderEn(<TournamentPage />, '/torneos/t1', '/torneos/:id');
 
+  /**
+   * `startTargetIndex` es el **número** del blanco de inicio (1-based, como `targets[].index`) y el
+   * anillo cuenta posiciones en la lista (0-based). Pasarlo directo corría el avance un blanco: una
+   * patrulla que arrancó en el 3 y hizo dos aparecía con el 4 y el 5 completos.
+   */
+  it('el anillo de cada patrulla cuenta desde su blanco de inicio', async () => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({
+        json: {
+          tournament: detalle({
+            status: 'en_proceso',
+            targets: [1, 2, 3, 4, 5, 6].map((index) => ({ index, modality: 'campo', arrows: 3 })),
+            patrols: [
+              {
+                number: 1,
+                startTargetIndex: 3,
+                status: 'en_curso',
+                targetsCompleted: 2,
+                members: [
+                  { firstName: 'Juan', lastName: 'Pérez', category: 'razo', stake: 'azul' },
+                ],
+              },
+            ],
+          }),
+        },
+      }),
+    });
+    renderDetalle();
+
+    const patrulla = await screen.findByTestId('patrulla-1');
+    const completos = [...patrulla.querySelectorAll('[data-completo]')].map((s) =>
+      Number(s.getAttribute('data-segmento')),
+    );
+    // Blancos 3 y 4 → posiciones 2 y 3.
+    expect(completos).toEqual([2, 3]);
+  });
+
   it('muestra el podio de un torneo publicado', async () => {
     servidor({
       '/api/public/tournaments/t1': () => ({
@@ -844,6 +884,60 @@ describe('TournamentPage', () => {
       un control de mutación.
     */
     expect(miembro.className).toContain('flex-col');
+  });
+
+  /**
+   * `FE-36`: el botón al formulario de pre-inscripción, si el admin lo cargó.
+   *
+   * Sale del sitio: otra pestaña, sin `window.opener` ni referer, y el dominio a la vista para que
+   * se sepa adónde lleva antes de tocarlo.
+   */
+  describe('botón de pre-inscripción', () => {
+    it('con link, ofrece pre-inscribirse en otra pestaña y dice a qué sitio lleva', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: 'https://forms.gle/AbCdEf123' }) },
+        }),
+      });
+      renderDetalle();
+
+      const boton = await screen.findByRole('link', { name: /pre-inscribirme/i });
+      expect(boton).toHaveAttribute('href', 'https://forms.gle/AbCdEf123');
+      expect(boton).toHaveAttribute('target', '_blank');
+      expect(boton.getAttribute('rel')?.split(' ')).toEqual(
+        expect.arrayContaining(['noopener', 'noreferrer']),
+      );
+      expect(boton).toHaveAccessibleName(/otra pestaña/);
+      expect(screen.getByText('forms.gle')).toBeDefined();
+    });
+
+    it('sin link no muestra nada: ni botón apagado ni aviso', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: null }) },
+        }),
+      });
+      renderDetalle();
+      await screen.findByText('Estaca Azul');
+
+      expect(screen.queryByRole('link', { name: /pre-inscribirme/i })).toBeNull();
+    });
+
+    /**
+     * El servidor sólo guarda `https:` (`BE-27`). Si igual llegara otra cosa —una respuesta vieja en
+     * caché, un proxy—, la landing no la convierte en enlace: un `javascript:` en un `href` corre.
+     */
+    it('un link que no es https no se dibuja', async () => {
+      servidor({
+        '/api/public/tournaments/t1': () => ({
+          json: { tournament: detalle({ registrationUrl: 'javascript:alert(1)' }) },
+        }),
+      });
+      renderDetalle();
+      await screen.findByText('Estaca Azul');
+
+      expect(screen.queryByRole('link', { name: /pre-inscribirme/i })).toBeNull();
+    });
   });
 
   it('muestra la estaca con el nombre, no sólo el color', async () => {
@@ -1173,5 +1267,85 @@ describe('Encabezado', () => {
 
     expect(screen.getByRole('link', { name: 'Ranking' })).toBeDefined();
     expect(screen.getByRole('link', { name: 'Torneos' })).toBeDefined();
+  });
+});
+
+// ── FE-38 · Próximas fechas ──────────────────────────────────────────────────
+
+/**
+ * Los torneos que vienen, para que los arqueros sepan qué se juega pronto (`FE-38`,
+ * `FUNCTIONAL.md` §5.3). Sólo la convocatoria: fecha, nombre, qué se tira, cuánto sale y, si hay,
+ * el botón para pre-anotarse. Sale de `GET /api/public/tournaments/upcoming` (`BE-28`).
+ */
+describe('Próximas fechas', () => {
+  const proxima = (n: number, o: Record<string, unknown> = {}) => ({
+    id: `u${n}`,
+    name: `${n}ª fecha`,
+    date: `2026-12-0${n}T00:00:00.000Z`,
+    description: '',
+    registrationUrl: null,
+    payment: { required: true, amount: 15000 },
+    targetCount: 14,
+    modalities: [{ modality: '3d', count: 14, pct: 100 }],
+    ...o,
+  });
+  const conProximas = (tournaments: unknown[]) =>
+    servidor({ '/api/public/tournaments/upcoming': () => ({ json: { tournaments } }) });
+
+  const seccion = () => screen.findByRole('region', { name: 'Próximas fechas' });
+
+  it('la portada muestra las tres más cercanas', async () => {
+    conProximas([1, 2, 3, 4].map((n) => proxima(n)));
+    renderEn(<HomePage />);
+
+    const lista = within(await seccion()).getAllByRole('listitem');
+    expect(lista).toHaveLength(3);
+    expect(lista[0]).toHaveTextContent('1ª fecha');
+    expect(lista[2]).toHaveTextContent('3ª fecha');
+  });
+
+  it('cada tarjeta dice cuándo, qué se tira y cuánto sale', async () => {
+    conProximas([proxima(5, { payment: { required: false, amount: 0 } })]);
+    renderEn(<HomePage />);
+
+    const tarjeta = within(await seccion()).getByRole('listitem');
+    expect(tarjeta).toHaveTextContent('5');
+    expect(tarjeta).toHaveTextContent('dic');
+    expect(tarjeta).toHaveTextContent('14 blancos');
+    expect(tarjeta).toHaveTextContent('Sin costo');
+  });
+
+  it('con link, la tarjeta ofrece pre-inscribirse', async () => {
+    conProximas([proxima(1, { registrationUrl: 'https://forms.gle/AbCdEf123' })]);
+    renderEn(<HomePage />);
+
+    const boton = within(await seccion()).getByRole('link', { name: /pre-inscribirme/i });
+    expect(boton).toHaveAttribute('href', 'https://forms.gle/AbCdEf123');
+  });
+
+  /** Sin próximas fechas la sección no aparece: un «no hay fechas» en la portada no informa nada. */
+  it('sin próximas fechas, la sección no aparece', async () => {
+    conProximas([]);
+    renderEn(<HomePage />);
+    await waitFor(() => expect(llamadas).toContain('/api/public/tournaments/upcoming'));
+
+    expect(screen.queryByRole('region', { name: 'Próximas fechas' })).toBeNull();
+  });
+
+  /** Es un extra de la portada: si el pedido falla, se omite sin ensuciar el resto. */
+  it('si el pedido falla, la sección no aparece y no muestra error', async () => {
+    servidor({ '/api/public/tournaments/upcoming': () => ({ status: 500, json: {} }) });
+    renderEn(<HomePage />);
+    await waitFor(() => expect(llamadas).toContain('/api/public/tournaments/upcoming'));
+
+    expect(screen.queryByRole('region', { name: 'Próximas fechas' })).toBeNull();
+  });
+
+  it('/torneos las muestra todas, arriba del listado', async () => {
+    conProximas([1, 2, 3, 4].map((n) => proxima(n)));
+    servidor({ '/api/public/tournaments': () => ({ json: { tournaments: [] } }) });
+    renderEn(<TournamentsPage />, '/torneos', '/torneos');
+
+    expect(within(await seccion()).getAllByRole('listitem')).toHaveLength(4);
   });
 });

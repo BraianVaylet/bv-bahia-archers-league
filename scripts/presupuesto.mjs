@@ -42,7 +42,8 @@ const FRONTENDS = [
       // que volviera a colarse por un `import` que arrastre un barril, y nadie se enteraba.
       { nombre: 'pantalla de elegir rol', chunk: null, excluye: /^Waf[al]App-/, maxKb: 90 },
       { nombre: 'WAFL (líder de patrulla)', chunk: /^WaflApp-/, excluye: /^WafaApp-/, maxKb: 125 },
-      { nombre: 'WAFA (administrador)', chunk: /^WafaApp-/, excluye: /^WaflApp-/, maxKb: 135 },
+      // 140 desde `FE-34` (2026-11-11, decisión del autor): ver `docs/TECHNICAL.md` §5.
+      { nombre: 'WAFA (administrador)', chunk: /^WafaApp-/, excluye: /^WaflApp-/, maxKb: 140 },
     ],
   },
   {

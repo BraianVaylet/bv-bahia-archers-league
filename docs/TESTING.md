@@ -57,7 +57,7 @@ Por cada modalidad (`sala`, `aire_libre`, `campo`, `3d`):
 
 - Valor canónico de cada token del set.
 - `X` vale 10 y suma a `xCount` e `innerCount`.
-- `X6` vale 6 y suma a `innerCount` (campo).
+- En campo, `6` suma a `innerCount`; `X6` no existe y se rechaza.
 - `11` vale 11 y suma a `innerCount` (3D).
 - `M` vale 0 y suma a `mCount`.
 - `maxTargetScore` correcto para la cantidad de flechas default y para las personalizadas.
@@ -281,10 +281,10 @@ tests/e2e/flujo-completo.spec.ts
  9. En un contexto nuevo, el líder de la patrulla 1 entra con usuario y PIN
 10. ▶ context.setOffline(true)
 11. Carga los 14 blancos completos de sus arqueros, sin conexión
-12. Verifica que el indicador muestra "Sin conexión" con el contador de pendientes
+12. Verifica que el indicador muestra "Sin señal" (o "N por enviar") con el contador
 13. Recarga la página estando offline → los datos siguen ahí
 14. ▶ context.setOffline(false)
-15. Espera a que el indicador muestre "Sincronizado"
+15. Espera a que el indicador muestre "Al día"
 16. Verifica en la API que todos los scores llegaron y los totales coinciden
 17. Firma cada arquero de la patrulla
 18. Cierra el circuito
@@ -342,6 +342,35 @@ Caso 2 — el camino corto:
  2. El admin la rechaza desde la cola de aprobación
  3. No aparece en /admin/archers ni en /admin/archers?status=pendiente —lo mismo que consulta el wizard—
 ```
+
+### Fase 9 — edición por estado, corrección, archivo y próximas fechas (`TEST-4`)
+
+```
+e2e/fase-9.spec.ts
+
+Caso 1 — próximas fechas:
+ 1. Torneo sin iniciar, con fecha futura y link de pre-inscripción (por API)
+ 2. La landing lo muestra en «Próximas fechas», con «Pre-inscribirme» al link
+ 3. WAFA: «Editar recorrido» desde la ficha, agregar un blanco → aviso de rearmado → guardar
+ 4. WAFA: eliminar (dos toques)
+ 5. Un visitante nuevo ya no lo ve en «Próximas fechas»
+
+Caso 2 — corrección, publicación y archivo:
+ 1. Torneo completo por API: puntajes, firmas de los dos arqueros y cierre
+ 2. WAFA: «Corregir puntajes» → arquero → blanco 1 → teclado (10, 10) → motivo → guardar
+ 3. Se publica, aunque el arquero ya había firmado
+ 4. La tarjeta pública muestra las flechas corregidas
+ 5. Corregir con el torneo publicado → 409
+ 6. WAFA: archivar desde la pantalla de resultados, con motivo
+ 7. Sale del ranking de la temporada, del listado público y su detalle da error
+ 8. Desarchivar → vuelve al ranking y su detalle se ve
+```
+
+Dos cosas que este E2E encontró y quedaron corregidas, con su test de unidad:
+- **Corregir a un arquero que ya firmó trababa la publicación** (`SIGNATURE_MISMATCH`). Ver `BE-25` en la bitácora del 2026-11-11.
+- **A 320 px, el selector de temporada del ranking de la landing scrolleaba de costado** con una temporada de nombre largo: un `select` nativo toma el ancho de su opción más larga.
+
+Y una que **no es un bug**: el navegador que ya pidió `/api/public/tournaments/upcoming` sigue mostrando un torneo recién eliminado hasta que vence su `Cache-Control` (`publicCache`). El caso 1 lo verifica con un visitante nuevo.
 
 ---
 

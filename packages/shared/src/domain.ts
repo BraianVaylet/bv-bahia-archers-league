@@ -63,9 +63,6 @@ export const MISS_TOKEN = 'M';
 /** Anillo interno del 10 (sala y aire libre). Vale 10 y cuenta para desempate. */
 export const X_TOKEN = 'X';
 
-/** Inner-6 del juego de campo. Vale 6 y cuenta para desempate. Opcional. */
-export const X6_TOKEN = 'X6';
-
 /** Zona central del 3D. Vale 11 y cuenta para desempate. */
 export const ELEVEN_TOKEN = '11';
 

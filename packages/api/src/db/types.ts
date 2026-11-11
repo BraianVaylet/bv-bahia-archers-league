@@ -112,6 +112,11 @@ export interface TournamentDoc {
   name: string;
   date: Date;
   description: string;
+  /**
+   * Link a un formulario o planilla externa de pre-inscripción (`BE-27`), sólo `https:`.
+   * **Opcional en el tipo**: los torneos creados antes no tienen la clave. Se lee con `?? null`.
+   */
+  registrationUrl?: string | null;
   status: TournamentStatus;
 
   /**
@@ -134,6 +139,18 @@ export interface TournamentDoc {
   completedAt: Date | null;
   publishedAt: Date | null;
   publishedBy: ObjectId | null;
+  /**
+   * La última corrección de puntajes del admin (`BE-25`). Además de dato, es el ancla de la
+   * transacción: escribirlo condicionado a `completado` hace que una corrección y un «publicar»
+   * simultáneos choquen (`WriteConflict`) en vez de cruzarse. Opcional: los torneos viejos no lo tienen.
+   */
+  lastCorrectedAt?: Date;
+  /**
+   * Archivado (`BE-26`): sigue publicado, pero no suma al ranking de la temporada y no se ve en la
+   * landing. Opcional: los torneos anteriores no tienen la clave (`null` y ausente valen «no»).
+   */
+  archivedAt?: Date | null;
+  archivedBy?: ObjectId | null;
 }
 
 export interface PatrolDoc {
@@ -165,6 +182,13 @@ export interface SignatureDoc {
   scorecardHash: string;
   unlockedBy: ObjectId | null;
   unlockReason: string | null;
+  /**
+   * El admin corrigió el puntaje después de esta firma, contra la planilla de papel (`BE-25`).
+   * El hash se recalcula en la misma operación: lo que cambie **por fuera** de la corrección sigue
+   * sin coincidir y traba la publicación. Opcional: las firmas sin corrección no lo tienen.
+   */
+  correctedBy?: ObjectId | null;
+  correctedAt?: Date;
 }
 
 export interface ParticipantDoc {
@@ -231,6 +255,12 @@ export interface ScoreDoc {
   lastOpId: string;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Si el admin corrigió este blanco contra la planilla de papel (`BE-25`), quién y cuándo.
+   * **Opcional**: los puntajes que sólo anotó el líder no tienen la clave.
+   */
+  correctedBy?: ObjectId | null;
+  correctedAt?: Date;
 }
 
 // ── Sincronización ───────────────────────────────────────────────────────────
@@ -298,6 +328,10 @@ export type AuditAction =
   | 'tournament.create'
   | 'tournament.start'
   | 'tournament.delete'
+  | 'tournament.update'
+  | 'tournament.archive'
+  | 'tournament.unarchive'
+  | 'score.admin_correct'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'
   | 'patrol.pin.reveal'

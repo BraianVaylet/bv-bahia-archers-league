@@ -19,7 +19,7 @@ import { FilaDeArquero } from '../padron/FilaDeArquero.js';
 import { FilaPendiente } from '../padron/FilaPendiente.js';
 import { FiltrosDelPadron } from '../padron/FiltrosDelPadron.js';
 import { FormularioDeArquero } from '../padron/FormularioDeArquero.js';
-import { BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
+import { aCuerpoDeArquero, BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
 import { usePadron } from '../padron/usePadron.js';
 
 /** Por qué la lista está vacía: un padrón vacío y un filtro sin resultados no son lo mismo. */
@@ -54,13 +54,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
   };
 
   const guardar = async (b: Borrador) => {
-    const cuerpo = {
-      firstName: b.firstName,
-      lastName: b.lastName,
-      category: b.category,
-      sex: b.sex || null,
-      dni: b.dni.trim() || null,
-    };
+    const cuerpo = aCuerpoDeArquero(b);
     await (b.id
       ? rpc.admin.archers[':id'].$patch({ param: { id: b.id }, json: cuerpo })
       : rpc.admin.archers.$post({ json: cuerpo }));
@@ -81,7 +75,7 @@ export function ArchersPage({ onVolver }: { readonly onVolver: () => void }) {
 
   return (
     <Pantalla>
-      <Encabezado titulo="Arqueros" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Arqueros" onVolver={onVolver} />
 
       <Screen>
         {/* Arriba sólo el alta. La edición se abre en el lugar del arquero (ver la lista):

@@ -127,3 +127,14 @@ export function IconoInstalar(p: IconoProps) {
     </Svg>
   );
 }
+
+/** Un enlace que sale del sitio y abre otra pestaña: el repositorio en el pie (`FE-37`). */
+export function IconoEnlaceExterno(p: IconoProps) {
+  return (
+    <Svg {...p}>
+      <path d="M14 5h5v5" />
+      <path d="M19 5 11 13" />
+      <path d="M17 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4" />
+    </Svg>
+  );
+}

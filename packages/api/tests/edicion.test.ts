@@ -1,7 +1,14 @@
 import type { Db } from 'mongodb';
 import { ObjectId } from 'mongodb';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { participants, patrols, scores, standings, tournaments } from '../src/db/client.js';
+import {
+  auditLog,
+  participants,
+  patrols,
+  scores,
+  standings,
+  tournaments,
+} from '../src/db/client.js';
 import { seed } from '../src/db/seed.js';
 import { resetEnvCache } from '../src/env.js';
 import { resetRateLimits } from '../src/middleware/rateLimit.js';
@@ -561,5 +568,300 @@ describe('una sesión de patrulla no sobrevive a la vuelta atrás', () => {
     });
 
     expect(await scores().countDocuments({ tournamentId: torneo._id })).toBe(0);
+  });
+});
+
+// ── Edición por estado (BE-24) ───────────────────────────────────────────────
+
+interface RespuestaDeError {
+  error: { code: string; details?: { campos?: string[] } };
+}
+
+/**
+ * Qué se edita en cada estado lo decide `camposEditables` de `@bal/shared` (`SH-11`), no el
+ * servicio por su cuenta. Ver `docs/FUNCTIONAL.md` §6.7 y §8.
+ *
+ * Los estados avanzados se fuerzan en la base: lo que se prueba es la regla de edición, no el
+ * camino para llegar a cada estado (eso está en `ciclo.test.ts`).
+ */
+describe('editar un torneo según su estado', () => {
+  const forzarEstado = (status: 'completado' | 'publicado') =>
+    tournaments().updateOne({}, { $set: { status } });
+
+  it('esperando publicación acepta nombre y fecha', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await forzarEstado('completado');
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      name: '3ª fecha (corregida)',
+      date: '2026-08-09',
+    });
+
+    expect(res.status).toBe(200);
+    const doc = await tournaments().findOne({});
+    expect(doc?.name).toBe('3ª fecha (corregida)');
+    expect(doc?.date.toISOString().slice(0, 10)).toBe('2026-08-09');
+  });
+
+  it('esperando publicación rechaza los blancos, nombrando el campo', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await forzarEstado('completado');
+    const antes = await tournaments().findOne({});
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      targets: recorridoDeReferencia(),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as RespuestaDeError;
+    expect(body.error.code).toBe('FIELD_NOT_EDITABLE');
+    expect(body.error.details?.campos).toEqual(['targets']);
+    expect((await tournaments().findOne({}))?.targets).toEqual(antes?.targets);
+  });
+
+  /**
+   * **Se rechaza el pedido entero.** Guardar el nombre y descartar la descripción en silencio
+   * dejaría al admin creyendo que guardó las dos cosas.
+   */
+  it('un pedido con un campo de más no guarda ni los permitidos', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await forzarEstado('completado');
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      name: 'No debería quedar',
+      description: 'tampoco',
+    });
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as RespuestaDeError).error.details?.campos).toEqual(['description']);
+    expect((await tournaments().findOne({}))?.name).toBe('3ª fecha');
+  });
+
+  it('en proceso acepta descripción y pago (decisión 1)', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      description: 'Se larga 9:30',
+      payment: { required: true, amount: 5000 },
+    });
+
+    expect(res.status).toBe(200);
+    const doc = await tournaments().findOne({});
+    expect(doc?.description).toBe('Se larga 9:30');
+    expect(doc?.payment).toEqual({ required: true, amount: 5000 });
+  });
+
+  it('en proceso los participantes se rechazan con FIELD_NOT_EDITABLE', async () => {
+    const { c, tournamentId, archerIds } = await torneoArmado();
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      archerIds: archerIds.slice(1),
+    });
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as RespuestaDeError).error.code).toBe('FIELD_NOT_EDITABLE');
+  });
+
+  it('publicado no acepta ni el nombre', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await forzarEstado('publicado');
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, { name: 'Otro nombre' });
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as RespuestaDeError).error.details?.campos).toEqual(['name']);
+  });
+
+  /** Qué cambió, sí; con qué valores, no: el pago es plata y no tiene por qué estar en el log. */
+  it('deja en el audit log qué campos cambiaron, sin sus valores', async () => {
+    const { c, tournamentId } = await torneoArmado();
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      name: 'Fecha nueva',
+      payment: { required: true, amount: 7000 },
+    });
+
+    const registro = await auditLog().findOne({ action: 'tournament.update' });
+    expect(registro?.meta).toEqual({ campos: ['name', 'payment'] });
+    expect(JSON.stringify(registro?.meta)).not.toContain('7000');
+  });
+
+  it('rechaza blancos con índices no contiguos, como al crear', async () => {
+    const { c, tournamentId } = await torneoArmado();
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      targets: [
+        { index: 1, modality: 'sala', arrows: 3, description: null },
+        { index: 3, modality: 'sala', arrows: 3, description: null },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+/**
+ * Estacas y distancias, sólo sin iniciar (`BE-24`).
+ *
+ * La estaca de cada participante es un snapshot del `stakeMap` al armar el torneo, y las patrullas
+ * se arman agrupando por estaca. Cambiar el mapa sin re-snapshotear dejaría a un arquero tirando
+ * desde una estaca que el torneo ya no le asigna.
+ */
+describe('cambiar estacas y distancias de un torneo sin iniciar', () => {
+  const idsDePatrullas = async () =>
+    (await patrols().find().toArray()).map((p) => p._id.toHexString()).sort();
+
+  it('mover una categoría de estaca re-snapshotea la estaca y rearma las patrullas', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const antes = await idsDePatrullas();
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      stakeMap: {
+        roja: ['recurvo', 'compuesto', 'cazador', 'longbow'],
+        azul: ['razo', 'tradicional'],
+        amarilla: ['escuela'],
+        naranja: ['principiantes'],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    const longbows = await participants().find({ category: 'longbow' }).toArray();
+    expect(longbows.length).toBeGreaterThan(0);
+    expect(longbows.every((p) => p.stake === 'roja')).toBe(true);
+    expect((await tournaments().findOne({}))?.stakeMap.roja).toContain('longbow');
+    expect(await idsDePatrullas()).not.toEqual(antes);
+  });
+
+  /** Si nadie cambia de estaca, las patrullas y sus PIN se quedan: no hay que reimprimir nada. */
+  it('un cambio que no toca a ningún participante deja las patrullas como estaban', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const antes = await idsDePatrullas();
+
+    // `tradicional` no está en el torneo de prueba.
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      stakeMap: {
+        roja: ['recurvo', 'compuesto', 'cazador'],
+        azul: ['razo', 'longbow'],
+        amarilla: ['escuela', 'tradicional'],
+        naranja: ['principiantes'],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(await idsDePatrullas()).toEqual(antes);
+    expect((await tournaments().findOne({}))?.stakeMap.amarilla).toContain('tradicional');
+  });
+
+  it('un mapa que deja sin estaca a una categoría inscripta se rechaza, sin tocar nada', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const antes = await idsDePatrullas();
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      stakeMap: { roja: [], azul: [], amarilla: [], naranja: [] },
+    });
+
+    expect(res.status).toBe(400);
+    expect(await idsDePatrullas()).toEqual(antes);
+  });
+
+  it('guarda las distancias de cada estaca', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const distancias = { roja: 50, azul: 40, amarilla: 20, naranja: 15 };
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, { distances: distancias });
+
+    expect(res.status).toBe(200);
+    expect((await tournaments().findOne({}))?.distances).toEqual(distancias);
+  });
+
+  it('en proceso, estacas y distancias se rechazan', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      distances: { roja: 50, azul: 40, amarilla: 20, naranja: 15 },
+    });
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as RespuestaDeError).error.code).toBe('FIELD_NOT_EDITABLE');
+  });
+});
+
+/**
+ * Rearmar las patrullas recrea los participantes (`FE-32`). Lo que el club ya anotó de cada
+ * arquero —si pagó— no puede perderse por eso: el admin marca los pagos en la puerta, antes de
+ * largar, y un ajuste de último momento al recorrido o a la lista los borraba.
+ */
+describe('rearmar patrullas sin perder lo anotado', () => {
+  const pagos = async () =>
+    Object.fromEntries(
+      (await participants().find().toArray()).map((p) => [p.archerId.toHexString(), p.paid]),
+    );
+
+  it('cambiar los participantes conserva los pagos de los que siguen', async () => {
+    const { c, tournamentId, archerIds } = await torneoArmado();
+    const [pago, otro] = archerIds;
+    if (!pago || !otro) throw new Error('faltan arqueros');
+    await participants().updateOne({ archerId: new ObjectId(pago) }, { $set: { paid: true } });
+    const [nuevo] = await crearArqueros(c, [['tradicional', 1]], 100);
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      archerIds: [...archerIds, nuevo],
+    });
+
+    const despues = await pagos();
+    expect(despues[pago]).toBe(true);
+    expect(despues[otro]).toBe(false);
+    expect(despues[nuevo as string]).toBe(false);
+  });
+
+  it('mover una categoría de estaca conserva los pagos', async () => {
+    const { c, tournamentId, archerIds } = await torneoArmado();
+    const longbow = (await participants().findOne({ category: 'longbow' }))?.archerId;
+    if (!longbow) throw new Error('sin longbow');
+    await participants().updateOne({ archerId: longbow }, { $set: { paid: true } });
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, {
+      stakeMap: {
+        roja: ['recurvo', 'compuesto', 'cazador', 'longbow'],
+        azul: ['razo', 'tradicional'],
+        amarilla: ['escuela'],
+        naranja: ['principiantes'],
+      },
+    });
+
+    expect((await pagos())[longbow.toHexString()]).toBe(true);
+    expect(Object.keys(await pagos())).toHaveLength(archerIds.length);
+  });
+
+  /**
+   * El blanco de inicio de cada patrulla depende de cuántos blancos tiene el recorrido. Con menos
+   * blancos, una patrulla podía quedar arrancando en uno que ya no existe.
+   */
+  it('cambiar la cantidad de blancos rearma, y ninguna patrulla arranca fuera del recorrido', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const corto = recorridoDeReferencia().slice(0, 4);
+
+    const res = await c.patch(`/api/admin/tournaments/${tournamentId}`, { targets: corto });
+
+    expect(res.status).toBe(200);
+    const inicios = (await patrols().find().toArray()).map((p) => p.startTargetIndex);
+    expect(inicios.every((i) => i >= 1 && i <= corto.length)).toBe(true);
+  });
+
+  /** Cambiar sólo cómo es un blanco, sin cambiar cuántos son, no toca las patrullas ni sus PIN. */
+  it('cambiar un blanco sin cambiar la cantidad deja las patrullas como estaban', async () => {
+    const { c, tournamentId } = await torneoArmado();
+    const antes = (await patrols().find().toArray()).map((p) => p._id.toHexString()).sort();
+    const recorrido = recorridoDeReferencia().map((t) =>
+      t.index === 1 ? { ...t, description: 'Jabalí' } : t,
+    );
+
+    await c.patch(`/api/admin/tournaments/${tournamentId}`, { targets: recorrido });
+
+    const despues = (await patrols().find().toArray()).map((p) => p._id.toHexString()).sort();
+    expect(despues).toEqual(antes);
   });
 });

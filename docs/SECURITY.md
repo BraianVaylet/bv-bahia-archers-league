@@ -261,7 +261,7 @@ El log existe para contestar «quién hizo esto, cuándo y desde dónde». Cada 
 
 | Quién | Acciones |
 |---|---|
-| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/publish/unpublish/target_edit/participants_edit` · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
+| Admin | `admin.login` (sólo los correctos) · `tournament.create/start/unstart/delete/update/publish/unpublish/archive/unarchive/target_edit/participants_edit` (`update` con los campos cambiados, sin sus valores; `archive`/`unarchive` con el motivo) · `patrol.pin.reveal/regenerate`, `patrol.manual_edit` (redistribución) · `signature.unlock` · `score.admin_correct` (blanco, flechas de antes y de después, motivo y si el arquero ya había firmado; `BE-25`) · `payment.set` (con el estado resultante y el torneo) · `archer.create/update/archive/restore/delete/approve/reject` · `season.create/update/close/reopen` · `admin.password_recovered` |
 | Patrulla | `patrol.close` (con la IP de quien cerró) · `sync.forbidden` · `sync.conflict` |
 | Público | `archer.register_duplicate` |
 
@@ -310,6 +310,8 @@ PII mínima **por diseño**:
 - No hay cuentas de usuario para los arqueros.
 
 > **Ampliado el 2026-10-24.** `sexo` y `dni` se agregaron para el ranking por sexo (`SH-10`) y para poder deduplicar altas del autoregistro público (§15) sin depender de nombre y apellido, que no son únicos. Son **opcionales** —el padrón anterior no los tiene— y nunca se inventan. El `dni` **nunca sale de una ruta sin sesión**: sólo lo devuelven los endpoints de `/api/admin/*`. Los endpoints de `/api/public/*` (landing) exponen `sexo` —es lo que alimenta el ranking por sexo, que es público por diseño— pero no `dni` ni `registrationStatus`.
+
+> **Próximas fechas, 2026-11-10 (`BE-28`).** Es la primera vez que un torneo `sin_iniciar` sale por `/api/public/*`. Sale **sólo la convocatoria** —nombre, fecha, descripción, link de pre-inscripción (§16), inscripción, cantidad de blancos y modalidades— y la lista blanca está en la **proyección del repositorio** (`listProximos`), no en un filtro del servicio: participantes, patrullas, estacas, usuarios y PIN de patrulla no salen de la base. Un test compara la respuesta clave por clave.
 
 Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en producción se responden sin stack trace; se loguean con un `requestId` correlacionable.
 
@@ -412,3 +414,13 @@ Debe estar **completamente verde** antes de cada release. Cada ítem es un test 
 - **Rate limit propio (`REF6-6`).** Además de `RATE_LIMIT_PUBLIC` (por minuto), `RATE_LIMIT_REGISTER` (20 por hora y por IP, `scope: 'alta'`). Antes se había decidido no tener uno propio porque «el freno real es la cola de aprobación», pero la cola es un freno *humano*: cada alta basura es una fila que el admin tiene que revisar y descartar. Quien manda mil altas no contamina ningún torneo, pero sí le hace perder la tarde al admin. 20 por hora alcanza para el wifi del club el día de la inscripción.
 - **Campo trampa (*honeypot*).** El formulario lleva un `sitioWeb` oculto —fuera de pantalla, `aria-hidden`, `tabIndex={-1}`, `autoComplete="off"`—. Una persona no lo ve ni lo completa; un bot que llena todo lo que encuentra, sí. Si llega con contenido, el servidor responde **igual que si hubiera funcionado** (mismo `200`, `_id` inventado) y no guarda nada: un error le avisaría al bot que lo detectaron. No es una defensa contra alguien que lea el formulario, pero filtra el grueso del ruido automático.
 - **Sin caché.** `publicCache` (que agrega `Cache-Control`/`ETag` a `/api/public/*`) está escrito para GETs idempotentes; se lo acotó a no tocar un método que no sea `GET`, así una respuesta de creación nunca queda con cabeceras de caché que invitarían a un intermediario a servirla de nuevo.
+
+## 16. Link de pre-inscripción — un dato del admin que el sitio público usa como `href`
+
+`registrationUrl` del torneo (`BE-27`, `2026-11-10`): el link a un formulario o planilla externa donde los arqueros se pre-anotan. Lo carga el admin en WAFA y la landing lo dibuja como botón. Es **el primer dato que entra por un formulario y sale como enlace en el sitio público**; el resto de lo que carga el admin se renderiza como texto, que React escapa solo. Un `href`, no: React **no** bloquea un `javascript:` en un atributo.
+
+- **Sólo `https:`** (`RegistrationUrlSchema`, en `@bal/shared`). `javascript:` y `data:` serían XSS almacenado contra cada visitante de la landing; `http:` mandaría al arquero a cargar su DNI en un formulario sin cifrar. Se valida al guardar, en el servidor, con el mismo esquema que usa el cliente: lo que está en la base ya pasó el filtro, y el endpoint público lo devuelve tal cual.
+- **Tope de 500 caracteres**, para que no sirva de depósito de texto arbitrario.
+- **Quién lo carga es admin con sesión**: el riesgo no es un visitante anónimo sino una sesión de admin robada. La validación existe para que ni así se pueda usar la landing contra sus visitantes.
+- **La landing no lo reconstruye ni lo «arregla»**: lo usa tal cual llegó, con `target="_blank" rel="noopener noreferrer"` (`FE-36`), así el sitio externo no recibe `window.opener` ni la URL de la landing.
+- Los torneos creados antes no tienen la clave; se leen como `null` (sin botón).

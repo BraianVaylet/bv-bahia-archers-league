@@ -8,12 +8,34 @@
  */
 
 import { useCarga } from '@bal/cliente';
-import { ESTADO_DE_TORNEO, type ParteDeModalidad, type TournamentStatus } from '@bal/shared';
-import { TarjetaDeTorneo, useTituloDePagina } from '@bal/ui';
+import {
+  BOW_CATEGORIES,
+  ESTADO_DE_TORNEO,
+  type ParteDeModalidad,
+  type TournamentStatus,
+} from '@bal/shared';
+import {
+  type Icono,
+  IconoAgregar,
+  IconoArqueros,
+  IconoCalendario,
+  IconoPodio,
+  RotuloDeSeccion,
+  TarjetaDeTorneo,
+  useTituloDePagina,
+} from '@bal/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
-import { botonClases, Encabezado, EnlaceInterno, Pantalla, Screen } from '../../components/ui.js';
+import {
+  botonClases,
+  clasesDeTarjeta,
+  cn,
+  Encabezado,
+  EnlaceInterno,
+  Pantalla,
+  Screen,
+} from '../../components/ui.js';
 import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
 export interface TournamentRow {
@@ -27,6 +49,8 @@ export interface TournamentRow {
   readonly maxPossibleScore: number;
   /** Qué proporción del recorrido es de cada modalidad. La calcula el servidor. */
   readonly modalities?: readonly ParteDeModalidad[];
+  /** Archivado (`BE-26`): sigue publicado, pero no suma al ranking ni se ve en la landing. */
+  readonly archived?: boolean;
 }
 
 /**
@@ -37,6 +61,22 @@ export interface TournamentRow {
  * distintas para el mismo estado.
  */
 const ORDEN: readonly TournamentStatus[] = ['en_proceso', 'sin_iniciar', 'completado', 'publicado'];
+
+/**
+ * Los tres accesos del inicio, con su dato **si no hace falta pedir nada para tenerlo**
+ * (`DISENO.md` §5.4): no se agrega ningún endpoint para esto. Las categorías son del dominio; la
+ * cantidad de arqueros y la temporada activa piden una consulta, así que van sólo con el nombre.
+ */
+const ACCESOS: readonly { a: string; nombre: string; icono: Icono; dato?: string }[] = [
+  { a: '/wafa/arqueros', nombre: 'Arqueros', icono: IconoArqueros },
+  { a: '/wafa/temporadas', nombre: 'Temporadas', icono: IconoCalendario },
+  {
+    a: '/wafa/ranking',
+    nombre: 'Ranking',
+    icono: IconoPodio,
+    dato: `${BOW_CATEGORIES.length} categorías`,
+  },
+];
 
 /** Qué hay que hacer con un torneo que todavía no arrancó. */
 const ACCION_DEL_ADMIN: Partial<Record<TournamentStatus, string>> = {
@@ -50,6 +90,16 @@ function TarjetaTorneo({ torneo }: { readonly torneo: TournamentRow }) {
       href={`/wafa/torneos/${torneo.id}`}
       enlace={EnlaceInterno}
       accion={ACCION_DEL_ADMIN[torneo.status]}
+      // `FE-35`: un archivado lo dice con texto y un tono neutro; nada de colores de estaca (regla 8).
+      {...(torneo.archived
+        ? {
+            pie: (
+              <span className="inline-flex items-center rounded-full border px-2.5 h-7 text-sm text-[var(--ink-muted)]">
+                Archivado · no suma ni se ve en la landing
+              </span>
+            ),
+          }
+        : {})}
     />
   );
 }
@@ -65,34 +115,48 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
   );
   const torneos = carga.datos;
   const error = carga.error;
+  const [verArchivados, setVerArchivados] = useState(false);
+  const archivados = torneos?.filter((t) => t.archived).length ?? 0;
+  const hayArchivados = archivados > 0;
 
   return (
     <Pantalla>
-      <Encabezado titulo="WAFA" onCerrarSesion={() => setCerrando(true)} />
+      <Encabezado
+        contexto="Administración"
+        titulo="Inicio"
+        onCerrarSesion={() => setCerrando(true)}
+      />
 
       <Screen>
-        <nav className="pt-4 flex flex-col gap-2">
+        {/*
+          Un solo primario y tres accesos compactos (`REF7-9` / `W-1`). Antes eran cuatro botones de
+          52px —tres del mismo gris— que ocupaban media pantalla antes del primer torneo.
+        */}
+        <nav aria-label="Administración" className="pt-4 flex flex-col gap-2">
           <Link to="/wafa/torneos/nuevo" className={botonClases({ ancho: true })}>
+            <IconoAgregar />
             Crear torneo
           </Link>
-          <div className="flex gap-2">
-            <Link
-              to="/wafa/arqueros"
-              className={botonClases({ variante: 'secundario', ancho: true, className: 'flex-1' })}
-            >
-              Arqueros
-            </Link>
-            <Link
-              to="/wafa/temporadas"
-              className={botonClases({ variante: 'secundario', ancho: true, className: 'flex-1' })}
-            >
-              Temporadas
-            </Link>
+          <div className="grid grid-cols-3 gap-2">
+            {ACCESOS.map(({ a, nombre, icono: Icono, dato }) => (
+              <Link
+                key={a}
+                to={a}
+                className={cn(
+                  clasesDeTarjeta({ densidad: 'ninguna', enlace: true }),
+                  'min-h-[88px] p-3 flex flex-col justify-between gap-2',
+                )}
+              >
+                <Icono className="text-[var(--nock-text)]" />
+                <span className="flex flex-col">
+                  <span className="text-[15px] font-semibold leading-tight">{nombre}</span>
+                  {dato ? (
+                    <span className="font-mono text-[11px] text-[var(--ink-muted)]">{dato}</span>
+                  ) : null}
+                </span>
+              </Link>
+            ))}
           </div>
-
-          <Link to="/wafa/ranking" className={botonClases({ variante: 'secundario', ancho: true })}>
-            Ranking de la liga
-          </Link>
         </nav>
 
         {error && (
@@ -111,16 +175,33 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
           torneos.length > 0 &&
           ORDEN.map((status) => {
             const info = ESTADO_DE_TORNEO[status];
-            const delGrupo = torneos.filter((t) => t.status === status);
+            // `FE-35`: los archivados quedan fuera salvo que se pida verlos.
+            const delGrupo = torneos.filter(
+              (t) => t.status === status && (verArchivados || !t.archived),
+            );
+            const conFiltro = status === 'publicado' && hayArchivados;
 
             return (
-              <section key={status} className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
-                  {info.plural}
-                </h2>
+              <section key={status} className="flex flex-col gap-3">
+                <RotuloDeSeccion titulo={info.plural} cantidad={delGrupo.length} />
+
+                {conFiltro && (
+                  <label className="flex items-center gap-2 min-h-[44px] text-sm">
+                    <input
+                      type="checkbox"
+                      checked={verArchivados}
+                      onChange={(e) => setVerArchivados(e.target.checked)}
+                      className="w-5 h-5"
+                    />
+                    Ver archivados ({archivados})
+                  </label>
+                )}
 
                 {delGrupo.length === 0 ? (
-                  <p className="text-sm text-[var(--ink-muted)]">{info.vacio}</p>
+                  // Un grupo vacío dice qué va a aparecer, no sólo que no hay nada (§5.4).
+                  <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--line-strong)] px-4 py-3 text-sm text-[var(--ink-muted)]">
+                    {info.vacio}
+                  </p>
                 ) : (
                   delGrupo.map((t) => <TarjetaTorneo key={t.id} torneo={t} />)
                 )}

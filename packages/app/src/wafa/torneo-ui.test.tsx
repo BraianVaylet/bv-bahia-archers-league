@@ -345,6 +345,62 @@ describe('PublishPage', () => {
     });
   });
 
+  /**
+   * `FE-35`: archivar saca el torneo del ranking y de la landing sin despublicarlo (`BE-26`). Se
+   * dice exactamente eso antes de hacerlo, con motivo, como despublicar.
+   */
+  describe('archivar', () => {
+    const publicado = (archived: boolean) => {
+      servidor({
+        'GET /api/admin/tournaments/t1': () => ({
+          json: { tournament: { ...TORNEO, status: 'publicado', archived } },
+        }),
+        'POST /api/admin/tournaments/t1/archive': () => ({ json: { ok: true } }),
+        'POST /api/admin/tournaments/t1/unarchive': () => ({ json: { ok: true } }),
+      });
+      renderPantalla(PublishPage, '/wafa/torneos/t1/publicar');
+    };
+
+    it('dice qué pasa al archivar y exige un motivo', async () => {
+      publicado(false);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Archivar' }));
+
+      expect(screen.getByText(/sale del ranking/)).toBeDefined();
+      expect(screen.getByText(/deja de verse en la página pública/)).toBeDefined();
+      const confirmar = screen.getAllByRole('button', { name: 'Archivar' })[0] as HTMLButtonElement;
+      expect(confirmar.disabled).toBe(true);
+
+      fireEvent.change(screen.getByLabelText('Por qué lo archivás'), {
+        target: { value: 'Se suspendió por lluvia.' },
+      });
+      fireEvent.click(screen.getAllByRole('button', { name: 'Archivar' })[0] as HTMLElement);
+
+      await waitFor(() => {
+        const post = llamadas.find((l) => l.url.endsWith('/archive'));
+        expect(post?.body).toEqual({ reason: 'Se suspendió por lluvia.' });
+      });
+    });
+
+    it('un archivado lo dice, y ofrece desarchivar', async () => {
+      publicado(true);
+
+      expect(await screen.findByText(/Archivado/)).toBeDefined();
+      expect(screen.queryByRole('button', { name: 'Archivar' })).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Desarchivar' }));
+      fireEvent.change(screen.getByLabelText('Por qué lo desarchivás'), {
+        target: { value: 'Se decidió que cuente.' },
+      });
+      fireEvent.click(screen.getAllByRole('button', { name: 'Desarchivar' })[0] as HTMLElement);
+
+      await waitFor(() => {
+        const post = llamadas.find((l) => l.url.endsWith('/unarchive'));
+        expect(post?.body).toEqual({ reason: 'Se decidió que cuente.' });
+      });
+    });
+  });
+
   it('si el servidor rechaza publicar, lo dice', async () => {
     completado();
     servidor({
@@ -369,6 +425,33 @@ describe('PublishPage', () => {
   });
 });
 
+// ── FE-34 · Acceso a la corrección de puntajes ───────────────────────────────
+
+/** La corrección contra la planilla de papel sólo existe esperando publicación (decisión 2). */
+describe('acceso a corregir puntajes', () => {
+  it('esperando publicación, la ficha lleva a corregir puntajes', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'completado' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    const enlace = await screen.findByRole('link', { name: 'Corregir puntajes' });
+    expect(enlace).toHaveAttribute('href', '/wafa/torneos/t1/corregir');
+  });
+
+  it.each(['sin_iniciar', 'en_proceso', 'publicado'])('%s no lo ofrece', async (status) => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({ json: { tournament: { ...TORNEO, status } } }),
+    });
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('estado');
+
+    expect(screen.queryByRole('link', { name: 'Corregir puntajes' })).toBeNull();
+  });
+});
+
 // ── REF-5 · Editar y eliminar un torneo sin iniciar ──────────────────────────
 
 /**
@@ -386,12 +469,54 @@ describe('editar y eliminar el torneo', () => {
     renderPantalla(TournamentPage);
   };
 
-  it('con el torneo en proceso NO ofrece ni editar ni eliminar', async () => {
+  /**
+   * `FE-33`: qué se edita lo decide `camposEditables` (`SH-11`), no un `status === 'sin_iniciar'`
+   * en el JSX. En proceso se editan nombre, fecha y link (decisión 1); esperando publicación,
+   * nombre y fecha. Eliminar sigue siendo sólo de un torneo que no arrancó.
+   */
+  it('en proceso ofrece editar nombre, fecha y link, pero no eliminar', async () => {
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+    expect(screen.getByLabelText('Nombre')).toBeDefined();
+    expect(screen.getByLabelText('Fecha')).toBeDefined();
+    expect(screen.getByLabelText('Link de pre-inscripción')).toBeDefined();
+  });
+
+  it('esperando publicación edita nombre y fecha, sin el link', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'completado' } },
+      }),
+      'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
+    });
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    expect(screen.queryByLabelText('Link de pre-inscripción')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: '3ª fecha (bis)' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    // Sólo lo que el estado permite: el servidor rechaza el pedido entero si sobra algo.
+    const patch = llamadas.find((l) => l.method === 'PATCH');
+    expect(Object.keys(patch?.body as object).sort()).toEqual(['date', 'name']);
+  });
+
+  it('publicado no ofrece editar', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'publicado' } },
+      }),
+    });
     renderPantalla(TournamentPage);
     await screen.findByTestId('estado');
 
     expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
   });
 
   it('editar abre el formulario con lo que ya tiene cargado', async () => {
@@ -414,6 +539,78 @@ describe('editar y eliminar el torneo', () => {
     await waitFor(() => {
       const patch = llamadas.find((l) => l.method === 'PATCH');
       expect(patch?.body).toMatchObject({ name: 'Nombre nuevo' });
+    });
+  });
+
+  /** `FE-36`: el link de pre-inscripción se carga, se cambia y se borra desde la ficha. */
+  describe('link de pre-inscripción', () => {
+    const conLink = (registrationUrl: string | null) => {
+      servidor({
+        'GET /api/admin/tournaments/t1': () => ({
+          json: { tournament: { ...TORNEO, status: 'sin_iniciar', registrationUrl } },
+        }),
+        'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
+      });
+      renderPantalla(TournamentPage);
+    };
+
+    it('el formulario muestra el link que ya tiene', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+      expect(screen.getByLabelText('Link de pre-inscripción')).toHaveValue('https://forms.gle/x');
+    });
+
+    it('cargarlo lo manda en el PATCH', async () => {
+      conLink(null);
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), {
+        target: { value: ' https://forms.gle/nuevo ' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => {
+        const patch = llamadas.find((l) => l.method === 'PATCH');
+        expect(patch?.body).toMatchObject({ registrationUrl: 'https://forms.gle/nuevo' });
+      });
+    });
+
+    it('vaciar el campo lo borra (null)', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => {
+        const patch = llamadas.find((l) => l.method === 'PATCH');
+        expect(patch?.body).toMatchObject({ registrationUrl: null });
+      });
+    });
+
+    /** Si no cambió, no viaja: el audit log no anota un cambio que no hubo. */
+    it('sin tocarlo, el PATCH no lo manda', async () => {
+      conLink('https://forms.gle/x');
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Nombre nuevo' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+      await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+      const patch = llamadas.find((l) => l.method === 'PATCH');
+      expect(patch?.body).not.toHaveProperty('registrationUrl');
+    });
+
+    it('un link sin https no deja guardar', async () => {
+      conLink(null);
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+      fireEvent.change(screen.getByLabelText('Link de pre-inscripción'), {
+        target: { value: 'javascript:alert(1)' },
+      });
+
+      expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled();
+      expect(screen.getByLabelText('Link de pre-inscripción')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
     });
   });
 
@@ -441,6 +638,90 @@ describe('editar y eliminar el torneo', () => {
     await waitFor(() => {
       expect(llamadas.some((l) => l.method === 'DELETE')).toBe(true);
     });
+  });
+});
+
+// ── FE-32 · Edición completa de un torneo sin iniciar ────────────────────────
+
+/**
+ * Todo lo que el servidor acepta sin iniciar se edita desde la ficha (`FE-32`): además de nombre,
+ * fecha y link, la descripción, el pago y el recorrido. Qué se ofrece lo decide `camposEditables`.
+ */
+describe('edición completa sin iniciar', () => {
+  const conEstado = (status: string, extra: Record<string, unknown> = {}) => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: {
+          tournament: {
+            ...TORNEO,
+            status,
+            description: 'Se larga 9:30',
+            payment: { required: true, amount: 5000 },
+            ...extra,
+          },
+        },
+      }),
+      'PATCH /api/admin/tournaments/t1': () => ({ json: { tournament: TORNEO } }),
+    });
+    renderPantalla(TournamentPage);
+  };
+  const ultimoPatch = () => llamadas.filter((l) => l.method === 'PATCH').at(-1)?.body as object;
+
+  it('edita la descripción y el pago, y manda sólo lo que cambió', async () => {
+    conEstado('sin_iniciar');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByLabelText('Descripción')).toHaveValue('Se larga 9:30');
+    fireEvent.change(screen.getByLabelText('Monto por arquero'), { target: { value: '6000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    expect(ultimoPatch()).toMatchObject({ payment: { required: true, amount: 6000 } });
+    expect(ultimoPatch()).not.toHaveProperty('description');
+  });
+
+  it('dejar de cobrar manda el pago apagado y en cero', async () => {
+    conEstado('sin_iniciar');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    fireEvent.click(screen.getByLabelText('Este torneo cobra inscripción'));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    expect(ultimoPatch()).toMatchObject({ payment: { required: false, amount: 0 } });
+  });
+
+  it('esperando publicación no ofrece descripción ni pago', async () => {
+    conEstado('completado');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.queryByLabelText('Descripción')).toBeNull();
+    expect(screen.queryByLabelText('Este torneo cobra inscripción')).toBeNull();
+  });
+
+  /**
+   * El recorrido entero se rehace sólo sin iniciar: cambiar cuántos blancos hay rearma las
+   * patrullas y les cambia el PIN, y eso se dice antes de guardar.
+   */
+  it('edita el recorrido, avisa que agregar un blanco rearma las patrullas, y lo manda', async () => {
+    conEstado('sin_iniciar');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar recorrido' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar blanco' }));
+
+    expect(screen.getByText(/se rearman las patrullas/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar recorrido' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PATCH')).toBe(true));
+    const { targets } = ultimoPatch() as { targets: { index: number }[] };
+    expect(targets.map((t) => t.index)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('en proceso no ofrece rehacer el recorrido', async () => {
+    conEstado('en_proceso');
+    await screen.findByTestId('estado');
+
+    expect(screen.queryByRole('button', { name: 'Editar recorrido' })).toBeNull();
   });
 });
 

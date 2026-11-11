@@ -16,7 +16,6 @@ import {
   type Stake,
   type StakeMap,
   X_TOKEN,
-  X6_TOKEN,
 } from './domain.js';
 
 // ── Modalidades ──────────────────────────────────────────────────────────────
@@ -101,9 +100,11 @@ export const SCORING: Readonly<Record<Modality, ModalityConfig>> = {
     label: 'Campo',
     defaultArrows: 3,
     maxPerArrow: 6,
-    scoringSet: [X6_TOKEN, '6', '5', '4', '3', '2', '1', MISS_TOKEN],
+    // Cara de campo: 6 (centro interior, amarillo) · 5 (centro exterior,
+    // amarillo) · 4 a 1 (anillas negras) · M. No existe un «X6»: el centro
+    // ya es el 6, y es el que cuenta como inner y desempata primero.
+    scoringSet: ['6', '5', '4', '3', '2', '1', MISS_TOKEN],
     values: {
-      [X6_TOKEN]: 6,
       '6': 6,
       '5': 5,
       '4': 4,
@@ -112,8 +113,8 @@ export const SCORING: Readonly<Record<Modality, ModalityConfig>> = {
       '1': 1,
       [MISS_TOKEN]: 0,
     },
-    innerToken: X6_TOKEN,
-    tiebreakTokens: [X6_TOKEN, '6'],
+    innerToken: '6',
+    tiebreakTokens: ['6', '5'],
     hasX: false,
   },
 

@@ -26,7 +26,11 @@
 import cba from '../assets/cba.webp';
 import { cn } from './cn.js';
 import { type ComponenteDeEnlace, EnlaceNativo } from './enlace.js';
+import { IconoEnlaceExterno } from './iconos/navegacion.js';
 import { Logo } from './Logo.js';
+
+/** El código del proyecto, que es público (`FE-37`). Un solo lugar: el pie y sus tests lo leen. */
+export const REPOSITORIO = 'https://github.com/BraianVaylet/bv-bahia-archers-league';
 
 export interface FooterProps {
   readonly className?: string;
@@ -73,7 +77,15 @@ export function Footer({
             */}
             <span className="shrink-0 rounded-[var(--radius-sm)] bg-white p-1 flex items-center">
               {/* El `alt` no es decorativo: el nombre del club no está escrito al lado. */}
-              <img src={cba} alt="Círculo Bahiense de Arquería" width={36} height={36} />
+              {/* Al final de la página: no compite con la carga de lo que se ve arriba. */}
+              <img
+                src={cba}
+                alt="Círculo Bahiense de Arquería"
+                width={36}
+                height={36}
+                loading="lazy"
+                decoding="async"
+              />
             </span>
             <Logo size={44} className="shrink-0" />
           </span>
@@ -108,9 +120,26 @@ export function Footer({
         </nav>
       </div>
 
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-4 border-t flex flex-wrap justify-between gap-x-4 gap-y-1 text-[13px] text-[var(--ink-muted)]">
-        <span>Círculo Bahiense de Arquería · Bahía Blanca -- La Liga se reserva el derecho de admisión.</span>
-        {temporada ? <span className="font-mono">{temporada}</span> : null}
+      <div className="mx-auto w-full max-w-[1200px] px-4 py-2 border-t flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-[var(--ink-muted)]">
+        <span>Círculo Bahiense de Arquería · Bahía Blanca</span>
+        <span className="flex flex-wrap items-center gap-x-4">
+          {temporada ? <span className="font-mono">{temporada}</span> : null}
+          {/*
+            Sale del sitio: otra pestaña, sin `window.opener` ni referer para GitHub. Que abre otra
+            pestaña se anuncia en texto oculto: con lector de pantalla no se ve abrirse.
+            La línea legal pasa de `py-4` a `py-2`: el enlace ya trae sus 44px de alto.
+          */}
+          <a
+            href={REPOSITORIO}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 min-h-[44px] hover:text-[var(--nock-text)]"
+          >
+            Código fuente en GitHub
+            <IconoEnlaceExterno size={16} />
+            <span className="sr-only">(se abre en otra pestaña)</span>
+          </a>
+        </span>
       </div>
     </footer>
   );

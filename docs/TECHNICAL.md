@@ -199,7 +199,7 @@ Un arquero creado por el admin nace `registrationStatus: "aprobado"`. El autoreg
 
   // rollups denormalizados — actualizados por delta en la transacción del score
   total: 0,
-  innerCount: 0,                        // X + X6 + 11
+  innerCount: 0,                        // X + 6 (campo) + 11
   xCount: 0,
   tenCount: 0,
   mCount: 0,
@@ -369,10 +369,14 @@ Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve
 | `POST` | `/api/admin/tournaments` | Crea torneo + participantes + patrullas + credenciales (transacción) |
 | `GET` | `/api/admin/tournaments?status=&seasonId=` | Listado |
 | `GET` | `/api/admin/tournaments/:id` | Detalle + avance + resumen |
-| `PATCH` | `/api/admin/tournaments/:id` | Solo `sin_iniciar`, o blancos sin puntajes si `en_proceso` |
+| `PATCH` | `/api/admin/tournaments/:id` | Qué campos, según el estado: `camposEditables` de `@bal/shared` (`SH-11`/`BE-24`). Un campo de más → `409 FIELD_NOT_EDITABLE`. En `en_proceso`, los blancos con puntajes no se tocan (`TARGET_LOCKED`) |
+| `PUT` | `/api/admin/tournaments/:id/participants/:participantId/scores/:targetIndex` | Corrección del admin contra la planilla de papel (`BE-25`). Cuerpo `{ arrows, reason }`, `.strict()`: ningún total. Sólo `completado` (`FIELD_NOT_EDITABLE` si no). Valida contra la modalidad del blanco, escribe por el mismo camino que el sync (`escrituraDePuntaje`) y audita `score.admin_correct` con antes, después y motivo. La firma no se borra |
+| `GET` | `/api/admin/tournaments/:id/participants/:participantId/scorecard` | Tarjeta del arquero para el admin, en cualquier estado, con `corrected` (los blancos que el admin corrigió). Sin firma ni pago |
 | `POST` | `/api/admin/tournaments/:id/start` | `sin_iniciar` → `en_proceso` |
 | `POST` | `/api/admin/tournaments/:id/publish` | `completado` → `publicado` (transacción, materializa standings) |
-| `POST` | `/api/admin/tournaments/:id/unpublish` | Revierte. Auditado |
+| `POST` | `/api/admin/tournaments/:id/unpublish` | Revierte. Auditado. Si estaba archivado, lo desarchiva |
+| `POST` | `/api/admin/tournaments/:id/archive` | `{ reason }`. Sólo `publicado` no archivado (`BE-26`). Sigue publicado, pero sale del ranking de la temporada (recálculo en transacción) y de la landing. Auditado |
+| `POST` | `/api/admin/tournaments/:id/unarchive` | `{ reason }`. La vuelta: vuelve a sumar y a verse. Auditado |
 | `DELETE` | `/api/admin/tournaments/:id` | Solo `sin_iniciar` |
 
 ### 3.4 Admin — patrullas
@@ -424,7 +428,8 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
 |---|---|---|
 | `GET` | `/api/public/seasons` | Temporadas disponibles |
 | `GET` | `/api/public/rankings?seasonId=&mode=position\|best_two` | Ranking por categoría. `best_two` es el promedio de los dos mejores porcentajes |
-| `GET` | `/api/public/tournaments` | Publicados y en proceso |
+| `GET` | `/api/public/tournaments` | Publicados y en proceso. Sin los archivados (`BE-26`): su detalle, sus tarjetas y su fila en la ficha del arquero tampoco se ven (`resultadosVisibles`) |
+| `GET` | `/api/public/tournaments/upcoming` | Próximas fechas (`BE-28`): `sin_iniciar` con fecha de hoy (en Bahía Blanca) en adelante, el más cercano primero, hasta 6. Sólo la convocatoria: nombre, fecha, descripción, `registrationUrl`, `payment`, cantidad de blancos y modalidades |
 | `GET` | `/api/public/tournaments/:id` | Detalle. Sin puntajes si no está publicado |
 | `GET` | `/api/public/tournaments/:id/participants/:participantId` | Tarjeta de puntajes: cada flecha de cada blanco, con su valor. Sólo torneos **publicados**; 404 en cualquier otro caso (sin distinguir). Lista blanca: sin firma, pago, DNI ni `archerId`. `participantId` es el `id` de cada fila de `results` en el detalle del torneo |
 | `GET` | `/api/public/archers/:id` | Ficha histórica |
@@ -552,7 +557,7 @@ El encabezado decía «se verifican en CI», y sólo cuatro de estas filas se ve
 | Primera carga de WAFL en 3G simulado | < 2.5 s | — | **No se mide** |
 | JS que baja la pantalla de elegir rol (`/app/`) | < 90 KB gz | 82.8 | `scripts/presupuesto.mjs` en el CI. Era 105.5 y estaba en rojo: bajaba Zod sin usarlo (ver más abajo) |
 | JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 119.1 | `presupuesto.mjs` en el CI |
-| JS que baja WAFA (inicial + su chunk) | < 135 KB gz | 128.9 | `presupuesto.mjs` en el CI |
+| JS que baja WAFA (inicial + su chunk) | < 140 KB gz | 136.2 | `presupuesto.mjs` en el CI. **Era 135 hasta `FE-34`** (2026-11-11, decisión del autor): la corrección de puntajes trae el teclado de WAFL y dejó a WAFA en 136,2. Cargarla con `React.lazy` no sirvió —el bundler mueve el teclado a un chunk compartido y la que se pasaba era WAFL, 125,04— ni tampoco el wizard. WAFA es la app del admin, con wifi del club o computadora; el límite que cuida al predio es el de WAFL, que no cambia |
 | JS inicial de la landing | < 120 KB gz | 109.2 | `presupuesto.mjs` en el CI |
 | LCP de la landing | < 2.5 s | — | **No se mide** (la auditoría de Lighthouse sigue pendiente) |
 | `GET /api/public/rankings` p95 | < 200 ms | — | **No se mide** |
@@ -605,6 +610,7 @@ Los presupuestos de bundle los verifica `scripts/presupuesto.mjs` en CI. **Mide 
 | `INVALID_TOKEN` | 400 | Token no válido para la modalidad de ese blanco |
 | `INVALID_STATE_TRANSITION` | 409 | Ej. publicar un torneo que no está `completado` |
 | `TARGET_LOCKED` | 409 | Editar un blanco que ya tiene puntajes |
+| `FIELD_NOT_EDITABLE` | 409 | Editar un dato del torneo que su estado no permite (`camposEditables`, `SH-11`). `details.campos` lista todos los rechazados |
 | `ARCHER_IN_USE` | 409 | Eliminar un arquero que participó de un torneo |
 | `SIGNATURES_MISSING` | 409 | Cerrar el circuito sin todas las firmas |
 | `SIGNATURE_MISMATCH` | 409 | El puntaje cambió después de firmarse: lo devuelven el cierre del circuito y publicar |

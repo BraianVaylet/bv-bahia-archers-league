@@ -16,9 +16,20 @@ export interface Torneo {
   readonly name: string;
   readonly date: string;
   readonly status: TournamentStatus;
-  readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
+  readonly targets: readonly {
+    index: number;
+    modality: keyof typeof SCORING;
+    arrows: number;
+    /** Una seña del blanco («Jabalí»). Opcional: los tests y respuestas viejas no la traen. */
+    description?: string | null;
+  }[];
   readonly maxPossibleScore: number;
   readonly participantCount: number;
+  /** Link de pre-inscripción (`BE-27`). El servidor siempre lo manda; `null` = sin link. */
+  readonly registrationUrl?: string | null;
+  /** Lo que se edita en la ficha (`FE-32`). Opcionales por la misma razón. */
+  readonly description?: string;
+  readonly payment?: { readonly required: boolean; readonly amount: number };
 }
 
 interface DatosDelTorneo {

@@ -11,32 +11,27 @@
  */
 
 import { useCarga } from '@bal/cliente';
-import { BOW_CATEGORIES, type BowCategory, CATEGORY_INFO } from '@bal/shared';
 import { ChipCategoria } from '@bal/ui';
 import { useState } from 'react';
-import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
-import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
+import { Button, cn, Field } from '../../components/ui.js';
+import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
+import { FormularioDeArquero } from '../padron/FormularioDeArquero.js';
+import { aCuerpoDeArquero, BORRADOR_VACIO, type Borrador } from '../padron/tipos.js';
 import { type ArqueroElegible, avisoDeComposicion, conteoPorCategoria } from '../wizard.js';
 
+/**
+ * Alta de un arquero sin salir del wizard: mandar al admin al padrón y de vuelta le haría perder
+ * todo lo cargado.
+ *
+ * **Usa el mismo formulario y el mismo cuerpo que el padrón** (`FE-39`). Tenía su propia copia,
+ * anterior a `FE-29`, que no pedía sexo ni DNI: los arqueros creados acá nacían incompletos y
+ * quedaban afuera del ranking Femenino/Masculino.
+ *
+ * El error del servidor (un DNI repetido, por ejemplo) lo muestra el formulario, que queda abierto
+ * con lo tipeado. Los elegidos no se tocan hasta que el alta sale bien.
+ */
 function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => void }) {
   const [abierto, setAbierto] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [category, setCategory] = useState<BowCategory>('razo');
-  const [error, setError] = useState<string>();
-
-  const crear = async () => {
-    try {
-      const r = await cuerpo(rpc.admin.archers.$post({ json: { firstName, lastName, category } }));
-      onCreado(r.archer);
-      setFirstName('');
-      setLastName('');
-      setAbierto(false);
-      setError(undefined);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo crear el arquero.');
-    }
-  };
 
   if (!abierto) {
     return (
@@ -46,48 +41,20 @@ function AltaRapida({ onCreado }: { readonly onCreado: (a: ArqueroElegible) => v
     );
   }
 
+  const crear = async (b: Borrador) => {
+    const r = await cuerpo(rpc.admin.archers.$post({ json: aCuerpoDeArquero(b) }));
+    onCreado(r.archer);
+    setAbierto(false);
+  };
+
   return (
-    <div className={cn(clasesDeTarjeta(), 'flex flex-col gap-3')}>
-      {/* Se crea sin salir del wizard: mandar al admin al padrón y de vuelta le
-          haría perder todo lo cargado. */}
-      <h3 className="font-semibold">Arquero nuevo</h3>
-
-      <Field label="Apellido" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      <Field label="Nombre" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="categoria-nueva" className="text-sm font-medium">
-          Categoría
-        </label>
-        <select
-          id="categoria-nueva"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as BowCategory)}
-          className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
-        >
-          {BOW_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_INFO[c].label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {error && (
-        <p role="alert" className="text-sm text-[var(--danger)]">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-2">
-        <Button variante="secundario" onClick={() => setAbierto(false)}>
-          Cancelar
-        </Button>
-        <Button ancho disabled={!firstName.trim() || !lastName.trim()} onClick={() => void crear()}>
-          Crear y sumar
-        </Button>
-      </div>
-    </div>
+    <FormularioDeArquero
+      inicial={BORRADOR_VACIO}
+      onGuardar={crear}
+      onCancelar={() => setAbierto(false)}
+      nivelDeTitulo="h3"
+      textoDeGuardar="Crear y sumar"
+    />
   );
 }
 

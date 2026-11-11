@@ -15,6 +15,7 @@ import {
   SyncBatchSchema,
   SyncOpSchema,
   TargetConfigSchema,
+  UpdateTournamentSchema,
 } from '../src/index.js';
 
 /**
@@ -401,7 +402,7 @@ describe('SyncOpSchema', () => {
   // modalidad DEL BLANCO, que el servidor lee del torneo. Ver DOMAIN_WA.md §7.
   it('acepta cualquier token corto: la validación real es por modalidad, en el servidor', () => {
     expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['11', '8'] }).success).toBe(true);
-    expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['X6', '6'] }).success).toBe(true);
+    expect(SyncOpSchema.safeParse({ ...scoreOp, arrows: ['ZZ', '6'] }).success).toBe(true);
   });
 
   it('acota el largo de cada token, para que no sirva de vector', () => {
@@ -725,5 +726,54 @@ describe('CreateTournamentSchema · pago', () => {
       payment: { required: true, amount: 15000 },
     });
     expect(r.success && r.data.payment.amount).toBe(15000);
+  });
+});
+
+/**
+ * El link de pre-inscripción (`BE-27`).
+ *
+ * Lo carga el admin y la landing lo dibuja como `href` de un botón: es el primer dato que entra
+ * por WAFA y sale como enlace en el sitio público. **Sólo `https:`**: un `javascript:` en un `href`
+ * es XSS almacenado, un `data:` también, y un `http:` manda al arquero a un formulario sin cifrar.
+ */
+describe('link de pre-inscripción', () => {
+  const FORMULARIO = 'https://forms.gle/AbCdEf123';
+
+  it.each([
+    [
+      'CreateTournamentSchema',
+      (u: unknown) => CreateTournamentSchema.safeParse({ ...torneoValido, registrationUrl: u }),
+    ],
+    [
+      'UpdateTournamentSchema',
+      (u: unknown) => UpdateTournamentSchema.safeParse({ registrationUrl: u }),
+    ],
+  ] as const)('%s acepta un link https', (_, validar) => {
+    const r = validar(FORMULARIO);
+    expect(r.success && r.data.registrationUrl).toBe(FORMULARIO);
+  });
+
+  it.each([
+    ['javascript:', 'javascript:alert(1)'],
+    ['data:', 'data:text/html,<script>alert(1)</script>'],
+    ['http:', 'http://forms.gle/AbCdEf123'],
+    ['un texto que no es URL', 'anotate en el grupo'],
+    ['vacío', ''],
+    ['de más de 500 caracteres', `https://example.com/${'a'.repeat(500)}`],
+  ])('rechaza %s', (_, url) => {
+    expect(
+      CreateTournamentSchema.safeParse({ ...torneoValido, registrationUrl: url }).success,
+    ).toBe(false);
+    expect(UpdateTournamentSchema.safeParse({ registrationUrl: url }).success).toBe(false);
+  });
+
+  it('es opcional al crear', () => {
+    expect(CreateTournamentSchema.safeParse(torneoValido).success).toBe(true);
+  });
+
+  /** `null` al editar es «sacar el link»: el formulario de pre-inscripción cerró. */
+  it('al editar, null lo borra', () => {
+    const r = UpdateTournamentSchema.safeParse({ registrationUrl: null });
+    expect(r.success && r.data.registrationUrl).toBeNull();
   });
 });

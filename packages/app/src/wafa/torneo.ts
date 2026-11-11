@@ -148,7 +148,8 @@ export function avisosDePublicacion(
 ): AvisoDePublicacion[] {
   const avisos: AvisoDePublicacion[] = [];
 
-  if (status !== 'completado') {
+  // Un publicado no se «puede» publicar: ya lo está, y el error no corresponde.
+  if (status !== 'completado' && status !== 'publicado') {
     avisos.push({
       nivel: 'error',
       mensaje: 'Sólo se puede publicar un torneo completado, con todas las patrullas cerradas.',

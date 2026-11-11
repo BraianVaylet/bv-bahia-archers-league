@@ -18,6 +18,7 @@
 import { type ResumenDeTorneo, useTituloDePagina } from '@bal/ui';
 import portada from '@bal/ui/assets/portada.webp';
 import { type DetalleEnCurso, Hero } from '../components/portada/Hero.js';
+import { type ProximaFecha, ProximasFechas } from '../components/portada/ProximasFechas.js';
 import {
   RankingDeLaPortada,
   type RankingDeTemporada,
@@ -44,6 +45,7 @@ export function HomePage({
   useTituloDePagina('Resultados y ranking');
 
   const torneos = useRecurso<{ tournaments: ResumenDeTorneo[] }>('/tournaments');
+  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming');
   const temporadas = useTemporadas();
 
   const destacado = torneos.estado === 'listo' ? torneoDestacado(torneos.datos.tournaments) : null;
@@ -62,6 +64,8 @@ export function HomePage({
   return (
     <>
       <Hero foto={foto} temporada={activa} destacado={destacado} detalle={detalle} />
+      {/* `FE-38`: lo que viene, apenas debajo del hero. Sin próximas fechas no aparece. */}
+      <ProximasFechas proximas={proximas} enPortada />
       <ComoSeJuega />
       <SeccionTorneos torneos={torneos} />
       <RankingDeLaPortada

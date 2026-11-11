@@ -232,7 +232,8 @@ describe('HomePage', () => {
 
     await screen.findByTestId('torneo-ahora');
     const titulos = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(titulos[0]).toBe('En proceso');
+    // El rótulo lleva la cantidad adentro (`REF7-9`): «En proceso» + «1».
+    expect(titulos[0]).toMatch(/^En proceso/);
 
     const enlaces = screen.getAllByTestId(/^torneo-/).map((e) => e.getAttribute('data-testid'));
     expect(enlaces).toEqual(['torneo-ahora', 'torneo-viejo']);
@@ -295,6 +296,129 @@ describe('HomePage', () => {
     renderHome();
 
     expect(await screen.findByText('No hay ningún torneo corriendo.')).toBeDefined();
+  });
+
+  /**
+   * `FE-35`: un archivado no suma ni se ve en la landing (`BE-26`). En el inicio de WAFA queda
+   * fuera del grupo de publicados por defecto, y se ve con el filtro, marcado con texto.
+   */
+  describe('torneos archivados', () => {
+    const conArchivado = () =>
+      servidor({
+        'GET /api/admin/tournaments': () => ({
+          json: {
+            tournaments: [
+              torneo({ id: 'vigente', name: 'Vigente', status: 'publicado' }),
+              {
+                ...torneo({ id: 'archivado', name: 'Suspendido', status: 'publicado' }),
+                archived: true,
+              },
+            ],
+          },
+        }),
+      });
+
+    it('por defecto no aparece', async () => {
+      conArchivado();
+      renderHome();
+
+      await screen.findByTestId('torneo-vigente');
+      expect(screen.queryByTestId('torneo-archivado')).toBeNull();
+    });
+
+    it('con «Ver archivados» aparece, marcado como archivado', async () => {
+      conArchivado();
+      renderHome();
+      await screen.findByTestId('torneo-vigente');
+
+      fireEvent.click(screen.getByLabelText(/Ver archivados/));
+
+      const tarjeta = await screen.findByTestId('torneo-archivado');
+      expect(tarjeta).toHaveTextContent('Archivado');
+    });
+
+    it('sin archivados, no ofrece el filtro', async () => {
+      servidor({
+        'GET /api/admin/tournaments': () => ({
+          json: { tournaments: [torneo({ id: 'vigente', status: 'publicado' })] },
+        }),
+      });
+      renderHome();
+      await screen.findByTestId('torneo-vigente');
+
+      expect(screen.queryByLabelText(/Ver archivados/)).toBeNull();
+    });
+  });
+
+  /**
+   * El inicio nuevo (`REF7-9` / `W-1`, `DISENO.md` §5.4): un solo primario, tres accesos compactos y
+   * los grupos con su rótulo y su cantidad. Antes eran cuatro botones de 52px —tres del mismo gris—
+   * que ocupaban media pantalla antes del primer torneo.
+   */
+  it('dice dónde estás: administración', async () => {
+    servidor({ 'GET /api/admin/tournaments': () => ({ json: { tournaments: [] } }) });
+    renderHome();
+
+    expect(screen.getByRole('banner')).toHaveTextContent(/Administración/);
+    expect(screen.getByRole('banner')).toHaveTextContent(/Inicio/);
+  });
+
+  it('un solo primario, y tres accesos que dicen a dónde llevan', async () => {
+    servidor({ 'GET /api/admin/tournaments': () => ({ json: { tournaments: [] } }) });
+    renderHome();
+
+    const crear = screen.getByRole('link', { name: /Crear torneo/ });
+    expect(crear.className).toContain('bg-[var(--nock)]');
+
+    for (const [nombre, a] of [
+      [/^Arqueros/, '/wafa/arqueros'],
+      [/^Temporadas/, '/wafa/temporadas'],
+      [/^Ranking/, '/wafa/ranking'],
+    ] as const) {
+      const acceso = screen.getByRole('link', { name: nombre });
+      expect(acceso).toHaveAttribute('href', a);
+      expect(acceso.className).not.toContain('bg-[var(--nock)]');
+      expect(acceso.querySelector('svg')).toHaveAttribute('aria-hidden');
+    }
+  });
+
+  /** Sin endpoints nuevos: sólo los datos que no piden nada (las categorías son del dominio). */
+  it('el ranking dice cuántas categorías tiene, sin pedir nada', async () => {
+    servidor({ 'GET /api/admin/tournaments': () => ({ json: { tournaments: [] } }) });
+    renderHome();
+
+    expect(screen.getByRole('link', { name: /^Ranking/ })).toHaveTextContent('8 categorías');
+  });
+
+  it('cada grupo es un encabezado con su cantidad', async () => {
+    servidor({
+      'GET /api/admin/tournaments': () => ({
+        json: {
+          tournaments: [
+            torneo({ id: 'a', status: 'sin_iniciar' }),
+            torneo({ id: 'b', status: 'sin_iniciar' }),
+          ],
+        },
+      }),
+    });
+    renderHome();
+
+    const grupo = await screen.findByRole('heading', { name: /Sin iniciar/ });
+    expect(grupo).toHaveTextContent('2');
+  });
+
+  it('un grupo vacío dice qué va a aparecer, en una tarjeta punteada', async () => {
+    servidor({
+      'GET /api/admin/tournaments': () => ({
+        json: { tournaments: [torneo({ status: 'sin_iniciar' })] },
+      }),
+    });
+    renderHome();
+
+    const vacio = await screen.findByText(
+      'Cuando una patrulla cierre su circuito, el torneo aparece acá para publicar.',
+    );
+    expect(vacio.className).toContain('border-dashed');
   });
 
   it('sin torneos invita a crear el primero', async () => {

@@ -258,9 +258,31 @@ describe('problemaDelPaso', () => {
     const justo = { ...completo(), elegidos: [...varios('escuela', 2), ...varios('razo', 1)] };
     expect(problemaDelPaso(3, justo)).toBeUndefined();
   });
+
+  /**
+   * `FE-36`: el link de pre-inscripción es opcional, pero si se escribe tiene que ser `https:`.
+   * El servidor lo rechaza igual (`RegistrationUrlSchema`); decirlo acá evita perder el viaje.
+   */
+  it('el paso 1 frena un link de pre-inscripción que no es https, y deja pasar el vacío', () => {
+    expect(problemaDelPaso(1, { ...completo(), registrationUrl: 'http://forms.gle/x' })).toMatch(
+      /https/,
+    );
+    expect(
+      problemaDelPaso(1, { ...completo(), registrationUrl: 'https://forms.gle/x' }),
+    ).toBeUndefined();
+    expect(problemaDelPaso(1, { ...completo(), registrationUrl: '   ' })).toBeUndefined();
+  });
 });
 
 describe('cuerpoDeCreacion', () => {
+  it('manda el link de pre-inscripción recortado, o null si quedó vacío', () => {
+    const base = { ...borradorVacio(), seasonId: 's1', name: 'x', date: 'y' };
+    expect(
+      cuerpoDeCreacion({ ...base, registrationUrl: '  https://forms.gle/x  ' }).registrationUrl,
+    ).toBe('https://forms.gle/x');
+    expect(cuerpoDeCreacion({ ...base, registrationUrl: ' ' }).registrationUrl).toBeNull();
+  });
+
   it('manda lo que espera el backend, con los nombres recortados', () => {
     const b = {
       ...borradorVacio(),
@@ -277,6 +299,7 @@ describe('cuerpoDeCreacion', () => {
       name: '3ª fecha',
       date: '2026-08-08',
       description: '',
+      registrationUrl: null,
       payment: { required: false, amount: 0 },
       targets: [
         { index: 1, modality: 'sala', arrows: 3, description: null },

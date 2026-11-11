@@ -8,7 +8,7 @@
  * Ver `docs/FUNCTIONAL.md` §7.2.
  */
 
-import { ChipModalidad, useTituloDePagina } from '@bal/ui';
+import { AnilloDeRecorrido, ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useEffect, useState } from 'react';
 import { CerrarSesion } from '../components/CerrarSesion.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
@@ -95,12 +95,33 @@ export function CircuitPage({
       </Encabezado>
 
       <Screen>
-        <div className="pt-2">
-          <h1 className="font-display text-display font-bold">{bundle.tournament.name}</h1>
-          <p className="text-[var(--ink-muted)]">
-            {completos.size} de {bundle.tournament.targets.length} blancos · arrancás en el{' '}
-            {bundle.patrol.startTargetIndex}
-          </p>
+        {/*
+          El recorrido de un vistazo (`REF7-10`, `DISENO.md` §5.5 y §6.5): el anillo con los blancos
+          cargados, girado para que el de inicio quede arriba. `startTargetIndex` es el número del
+          blanco; el anillo cuenta posiciones en la lista.
+        */}
+        <div className="pt-4 flex items-center gap-4">
+          <AnilloDeRecorrido
+            total={bundle.tournament.targets.length}
+            completados={bundle.tournament.targets.flatMap((t, i) =>
+              completos.has(t.index) ? [i] : [],
+            )}
+            inicio={Math.max(
+              bundle.tournament.targets.findIndex(
+                (t) => t.index === bundle.patrol.startTargetIndex,
+              ),
+              0,
+            )}
+            tamaño={120}
+            conEtiqueta
+          />
+          <div className="min-w-0">
+            <h1 className="font-display text-h2">{bundle.tournament.name}</h1>
+            <p className="text-sm text-[var(--ink-muted)]">
+              {completos.size} de {bundle.tournament.targets.length} blancos · arrancás en el{' '}
+              {bundle.patrol.startTargetIndex}
+            </p>
+          </div>
         </div>
 
         {bundle.tournament.targets.length === 0 && (
@@ -172,6 +193,7 @@ export function CircuitPage({
             pendientes={pending}
             abierto={cerrando}
             onAbiertoChange={setCerrando}
+            soloAlConfirmar
           />
         )}
       </Screen>

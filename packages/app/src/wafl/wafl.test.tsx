@@ -135,6 +135,41 @@ describe('sesión', () => {
 
 // ── FE-5 · Circuito ──────────────────────────────────────────────────────────
 
+describe('CircuitPage · piel de REF7-10', () => {
+  /** §6.5 y §5.5: el recorrido como anillo, arriba de la lista. */
+  it('el recorrido arranca con su anillo de avance', async () => {
+    render(<CircuitPage bundle={bundle} onAbrirBlanco={vi.fn()} onResultados={vi.fn()} />);
+    expect(await screen.findByRole('img', { name: /de \d+ blancos cargados/ })).toBeInTheDocument();
+  });
+
+  /** `F-4`: cerrar sesión vive en el encabezado; al final de la lista sobraba. */
+  it('no hay un «Cerrar sesión» al final de la lista: sólo el del encabezado', async () => {
+    render(
+      <CircuitPage
+        bundle={bundle}
+        onAbrirBlanco={vi.fn()}
+        onResultados={vi.fn()}
+        onCerrarSesion={vi.fn()}
+      />,
+    );
+    await screen.findByRole('img', { name: /blancos cargados/ });
+    expect(screen.getAllByRole('button', { name: 'Cerrar sesión' })).toHaveLength(1);
+  });
+
+  it('el ícono del encabezado sigue abriendo la confirmación', async () => {
+    render(
+      <CircuitPage
+        bundle={bundle}
+        onAbrirBlanco={vi.fn()}
+        onResultados={vi.fn()}
+        onCerrarSesion={vi.fn()}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
+    expect(screen.getByRole('button', { name: 'Sí, cerrar sesión' })).toBeDefined();
+  });
+});
+
 describe('CircuitPage', () => {
   const renderCircuito = (onAbrir = vi.fn(), onResultados = vi.fn()) => {
     render(<CircuitPage bundle={bundle} onAbrirBlanco={onAbrir} onResultados={onResultados} />);

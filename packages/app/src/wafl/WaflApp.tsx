@@ -95,6 +95,9 @@ export function WaflApp() {
           participants={bundle.participants}
           onContinuar={alCircuito}
           onVolver={alCircuito}
+          patrulla={bundle.patrol.number}
+          torneo={bundle.tournament.name}
+          totalDeBlancos={bundle.tournament.targets.length}
         />
       );
 

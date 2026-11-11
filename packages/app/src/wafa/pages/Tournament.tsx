@@ -10,12 +10,13 @@
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { formatearFecha } from '@bal/shared';
+import { camposEditables, formatearFecha } from '@bal/shared';
 import { BadgeEstado, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { botonClases, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ControlesDeEstado } from '../detalle/ControlesDeEstado.js';
+import { EdicionDelRecorrido } from '../detalle/EdicionDelRecorrido.js';
 import { EdicionDelTorneo } from '../detalle/EdicionDelTorneo.js';
 import { EdicionDeParticipantes } from '../detalle/EdicionDeParticipantes.js';
 import { ParticipantesDelTorneo } from '../detalle/ParticipantesDelTorneo.js';
@@ -57,7 +58,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
 
   return (
     <Pantalla>
-      <Encabezado titulo="Torneo" onVolver={onVolver} />
+      <Encabezado contexto="Administración" titulo="Torneo" onVolver={onVolver} />
 
       <Screen>
         {error && (
@@ -92,6 +93,16 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
               >
                 Arqueros y pagos
               </Link>
+
+              {/* `FE-34`: contra la planilla de papel, sólo esperando publicación (`SH-11`). */}
+              {camposEditables(torneo.status).has('scores') && (
+                <Link
+                  to={`/wafa/torneos/${id}/corregir`}
+                  className={botonClases({ variante: 'secundario', ancho: true })}
+                >
+                  Corregir puntajes
+                </Link>
+              )}
 
               <ControlesDeEstado torneo={torneo} onCambio={alCambiar} onError={setErrorDeAccion} />
 
@@ -128,6 +139,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
             )}
 
             <RecorridoDelTorneo torneo={torneo} bloqueados={bloqueados} />
+            <EdicionDelRecorrido torneo={torneo} onCambio={alCambiar} onError={setErrorDeAccion} />
 
             {participantes.length > 0 && torneo.status !== 'sin_iniciar' && (
               <ParticipantesDelTorneo
