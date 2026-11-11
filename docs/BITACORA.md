@@ -14,6 +14,28 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `BE-25` — Corrección de puntajes por el admin, contra la planilla de papel
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-25-correccion-puntajes`.
+
+`PUT /api/admin/tournaments/:id/participants/:participantId/scores/:targetIndex` con `{ arrows, reason }`: el admin reemplaza las flechas de un arquero en un blanco cuando la app no coincide con la planilla de papel, y el servidor recalcula ese blanco y los totales del arquero. Sólo con el torneo esperando publicación. Más `GET .../participants/:participantId/scorecard`, la tarjeta del arquero en cualquier estado, con los blancos corregidos marcados, para la pantalla de `FE-34`.
+
+**Decisiones:**
+- **Un solo camino de escritura.** La parte del sync que armaba el documento y el delta de los rollups pasó a `services/escrituraDePuntaje.ts` (`escribirPuntaje`), y la usan el sync y la corrección. Antes de mover nada se corrió la suite del sync (128 tests) y se volvió a correr después, igual. Con dos copias, un arreglo en una no llegaba a la otra y los rollups —de donde salen podios y ranking— podían sumar distinto según quién anotó.
+- **La guarda de estado es `camposEditables` (`SH-11`)**, campo `scores`, y responde `FIELD_NOT_EDITABLE`, no `INVALID_STATE_TRANSITION` como decía el plan: una sola tabla, el mismo código que el resto de la edición por estado.
+- **Ancla contra un «publicar» simultáneo.** Dentro de la transacción se escribe el torneo condicionado a `completado` (`lastCorrectedAt`, campo nuevo). Si alguien publicó entre la lectura y la escritura, no matchea y se corta; si publica mientras la transacción corre, las dos tocan el mismo documento y una choca. Sin esto, una corrección podía caer sobre un torneo ya publicado sin recalcular el ranking.
+- **El participante se relee dentro de la transacción**: el delta de los rollups parte del total vigente, no del que se leyó antes.
+- **La firma no se borra** (decisión 3). El audit log `score.admin_correct` guarda el blanco, las flechas de antes y de después, el motivo y `despuesDeFirmar`.
+- **El puntaje queda marcado** (`correctedBy`/`correctedAt` en `ScoreDoc`, opcionales) y la marca sobrevive a correcciones posteriores. `lastOpId` es `admin:<id>:<ms>`, distinguible de un opId de WAFL.
+- Un arquero ausente da 409; un participante de otro torneo, 404 sin tocar nada.
+- Después de la transacción se recalcula el avance de la patrulla (`recalcularAvanceDePatrulla`, ahora exportada): un blanco que estaba vacío lo cambia.
+
+**Docs:** `TECHNICAL.md` (las dos rutas, y la fila del `PATCH` que seguía describiendo la regla vieja), `SECURITY.md` (acción `score.admin_correct` en la tabla del audit log). `FUNCTIONAL.md` §6.7 ya lo describía desde `SH-11`.
+
+**Tests:** 21 en `tests/correccion.test.ts` (reemplaza y recalcula; carga un blanco vacío y lo cuenta; ida y vuelta deja los rollups idénticos; audit log; la firma se conserva; total en el body, tokens de otra modalidad y cantidad de flechas rechazados; sin motivo; 409 en los otros tres estados sin tocar nada; participante ajeno, inexistente, blanco inexistente, ausente; sin sesión; tarjeta del admin), vistos fallar. Mutaciones: sin chequeo de torneo, delta de blancos mal, sin marcar la corrección y sin anotar la firma, todas detectadas. **Las dos guardas de estado se cubren entre sí**: sacando sólo una, la otra frena y los tests pasan; sacando las dos fallan los tres de estado. La carrera que cubre el ancla en particular no se reproduce en un test determinístico. `@bal/api` 588, `@bal/shared` 458, typecheck, Biome y `capas` verdes. **No se corrió `/security-review`**: repaso manual (autorización, `.strict()`, IDOR entre torneos, carrera con publicar, audit), anotado en el PR.
+
+---
+
 ## 2026-11-10 · `FE-38` — Landing: «Próximas fechas»
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/fe-38-proximas-fechas`.

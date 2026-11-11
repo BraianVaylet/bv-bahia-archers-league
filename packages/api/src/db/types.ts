@@ -139,6 +139,12 @@ export interface TournamentDoc {
   completedAt: Date | null;
   publishedAt: Date | null;
   publishedBy: ObjectId | null;
+  /**
+   * La última corrección de puntajes del admin (`BE-25`). Además de dato, es el ancla de la
+   * transacción: escribirlo condicionado a `completado` hace que una corrección y un «publicar»
+   * simultáneos choquen (`WriteConflict`) en vez de cruzarse. Opcional: los torneos viejos no lo tienen.
+   */
+  lastCorrectedAt?: Date;
 }
 
 export interface PatrolDoc {
@@ -236,6 +242,12 @@ export interface ScoreDoc {
   lastOpId: string;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Si el admin corrigió este blanco contra la planilla de papel (`BE-25`), quién y cuándo.
+   * **Opcional**: los puntajes que sólo anotó el líder no tienen la clave.
+   */
+  correctedBy?: ObjectId | null;
+  correctedAt?: Date;
 }
 
 // ── Sincronización ───────────────────────────────────────────────────────────
@@ -304,6 +316,7 @@ export type AuditAction =
   | 'tournament.start'
   | 'tournament.delete'
   | 'tournament.update'
+  | 'score.admin_correct'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'
   | 'patrol.pin.reveal'
