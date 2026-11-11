@@ -16,7 +16,7 @@ Formato: entradas nuevas **arriba**.
 
 ## 2026-11-11 · Dominio — la categoría `razo` pasa a llamarse `raso`
 
-**Autor:** Claude Opus 5.5 · **Estado:** completado, sin commitear. Pedido del autor, fuera del plan.
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `dominio/categoria-raso`. Pedido del autor, fuera del plan.
 
 La categoría barebow se escribe **Raso**. Cambia la etiqueta **y la clave** (`BOW_CATEGORIES`, `CATEGORY_INFO`, `DEFAULT_STAKE_MAP`, icono, color, tests, E2E y docs vigentes). Revierte la nota de [`DOMAIN_WA.md`](DOMAIN_WA.md) §3 que respetaba la grafía `razo`.
 
