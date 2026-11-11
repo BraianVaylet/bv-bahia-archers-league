@@ -10,7 +10,7 @@
  * Ver `docs/FUNCTIONAL.md` §6.7.
  */
 
-import { formatearFecha } from '@bal/shared';
+import { camposEditables, formatearFecha } from '@bal/shared';
 import { BadgeEstado, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -92,6 +92,16 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
               >
                 Arqueros y pagos
               </Link>
+
+              {/* `FE-34`: contra la planilla de papel, sólo esperando publicación (`SH-11`). */}
+              {camposEditables(torneo.status).has('scores') && (
+                <Link
+                  to={`/wafa/torneos/${id}/corregir`}
+                  className={botonClases({ variante: 'secundario', ancho: true })}
+                >
+                  Corregir puntajes
+                </Link>
+              )}
 
               <ControlesDeEstado torneo={torneo} onCambio={alCambiar} onError={setErrorDeAccion} />
 

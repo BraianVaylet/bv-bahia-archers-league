@@ -13,6 +13,7 @@ import { Screen } from '../components/ui.js';
 import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import { ArchersPage } from './pages/Archers.js';
 import { ChangePasswordPage } from './pages/ChangePassword.js';
+import { CorregirPage } from './pages/Corregir.js';
 import { HomePage } from './pages/Home.js';
 import { LoginPage } from './pages/Login.js';
 import { PatrolsPage } from './pages/Patrols.js';
@@ -83,6 +84,7 @@ export function WafaApp() {
       <Route path="/torneos/:id/patrullas" element={<PatrolsPage onVolver={alInicio} />} />
       <Route path="/torneos/:id/publicar" element={<PublishPage onVolver={alInicio} />} />
       <Route path="/torneos/:id/pagos" element={<PaymentsPage onVolver={alInicio} />} />
+      <Route path="/torneos/:id/corregir" element={<CorregirPage onVolver={alInicio} />} />
       <Route
         path="/password"
         element={

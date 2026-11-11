@@ -425,6 +425,33 @@ describe('PublishPage', () => {
   });
 });
 
+// ── FE-34 · Acceso a la corrección de puntajes ───────────────────────────────
+
+/** La corrección contra la planilla de papel sólo existe esperando publicación (decisión 2). */
+describe('acceso a corregir puntajes', () => {
+  it('esperando publicación, la ficha lleva a corregir puntajes', async () => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'completado' } },
+      }),
+    });
+    renderPantalla(TournamentPage);
+
+    const enlace = await screen.findByRole('link', { name: 'Corregir puntajes' });
+    expect(enlace).toHaveAttribute('href', '/wafa/torneos/t1/corregir');
+  });
+
+  it.each(['sin_iniciar', 'en_proceso', 'publicado'])('%s no lo ofrece', async (status) => {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({ json: { tournament: { ...TORNEO, status } } }),
+    });
+    renderPantalla(TournamentPage);
+    await screen.findByTestId('estado');
+
+    expect(screen.queryByRole('link', { name: 'Corregir puntajes' })).toBeNull();
+  });
+});
+
 // ── REF-5 · Editar y eliminar un torneo sin iniciar ──────────────────────────
 
 /**
