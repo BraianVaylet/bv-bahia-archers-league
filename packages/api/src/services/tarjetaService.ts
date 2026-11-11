@@ -8,7 +8,7 @@
  * Ver `docs/FUNCTIONAL.md` §5.3.
  */
 
-import { armarTarjetaDePuntajes } from '@bal/shared';
+import { armarTarjetaDePuntajes, resultadosVisibles } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
 import { notFound } from '../lib/errors.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
@@ -22,7 +22,8 @@ import * as tournamentRepo from '../repositories/tournamentRepo.js';
  */
 export async function tarjetaDeParticipante(tournamentId: ObjectId, participantId: ObjectId) {
   const torneo = await tournamentRepo.findById(tournamentId);
-  if (torneo?.status !== 'publicado') throw notFound();
+  // Publicado y no archivado (`BE-26`): la misma regla que el detalle y la ficha.
+  if (!torneo || !resultadosVisibles(torneo)) throw notFound();
 
   const participante = await scoreRepo.findParticipant(participantId);
   if (!participante?.tournamentId.equals(torneo._id) || participante.status !== 'activo') {

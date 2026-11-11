@@ -274,6 +274,10 @@ Transiciones inválidas rechazadas por el servidor con `409 INVALID_STATE_TRANSI
 
 **Qué campo se edita en qué estado** vive en un solo lugar, `camposEditables` de `@bal/shared` (`SH-11`, `2026-11-10`): lo leen el servicio que guarda y la pantalla que muestra el formulario, así no pueden decir cosas distintas. Un campo fuera de la tabla se rechaza con `FIELD_NOT_EDITABLE`. La regla de «un blanco con puntajes no se toca» es aparte, en el servicio: necesita mirar la base.
 
+### 8.3 Archivar un torneo publicado (`BE-26`, `2026-11-10`)
+
+**No es un estado nuevo, es una marca sobre `publicado`.** Un torneo archivado sigue publicado, pero **no suma al ranking de la temporada** y **no se ve en la landing**: ni en el listado, ni su detalle, ni sus tarjetas de puntaje, ni en el historial de la ficha de un arquero (decisión 5 de la Fase 9). En WAFA sigue visible, marcado. Se revierte: desarchivar lo devuelve y el ranking queda como estaba. Archivar y desarchivar piden motivo y quedan en el audit log. Despublicar un archivado lo desarchiva en la misma operación: un `completado` archivado no tiene sentido. Qué suma al ranking lo decide una sola consulta (`listQueSuman`), la misma para publicar, despublicar, archivar, desarchivar y `db:reconcile`.
+
 ### 8.1 Volver a `sin_iniciar` (`REF2-3`)
 
 Es la vuelta atrás de **un arranque por error**, y por eso su guarda es dura: sólo si el torneo no tiene **ni un solo puntaje**. Con un blanco anotado ya hay trabajo de una patrulla en el monte, y volver atrás lo dejaría colgando de un torneo que dice no haber empezado. Se responde `409 TOURNAMENT_HAS_SCORES`, con cuántos puntajes hay.

@@ -258,6 +258,23 @@ export const admin = new Hono()
     );
   })
 
+  /**
+   * Archivar / desarchivar un torneo publicado (`BE-26`): deja de sumar al ranking y se oculta de
+   * la landing, sin despublicarlo. Con motivo, como despublicar: queda en el audit log.
+   */
+  .post('/tournaments/:id/archive', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
+    return c.json(
+      await publishService.archive(toObjectId(c.req.param('id')), currentAdminId(c), reason),
+    );
+  })
+  .post('/tournaments/:id/unarchive', bodyValidado(MotivoSchema), async (c) => {
+    const { reason } = c.req.valid('json');
+    return c.json(
+      await publishService.unarchive(toObjectId(c.req.param('id')), currentAdminId(c), reason),
+    );
+  })
+
   .get('/tournaments/:id/patrols', consultaValidada(ListPatrolsQuery), async (c) => {
     const id = toObjectId(c.req.param('id'));
     const { conPins } = c.req.valid('query');

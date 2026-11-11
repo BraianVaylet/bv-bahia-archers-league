@@ -145,6 +145,12 @@ export interface TournamentDoc {
    * simultáneos choquen (`WriteConflict`) en vez de cruzarse. Opcional: los torneos viejos no lo tienen.
    */
   lastCorrectedAt?: Date;
+  /**
+   * Archivado (`BE-26`): sigue publicado, pero no suma al ranking de la temporada y no se ve en la
+   * landing. Opcional: los torneos anteriores no tienen la clave (`null` y ausente valen «no»).
+   */
+  archivedAt?: Date | null;
+  archivedBy?: ObjectId | null;
 }
 
 export interface PatrolDoc {
@@ -316,6 +322,8 @@ export type AuditAction =
   | 'tournament.start'
   | 'tournament.delete'
   | 'tournament.update'
+  | 'tournament.archive'
+  | 'tournament.unarchive'
   | 'score.admin_correct'
   | 'signature.unlock'
   | 'patrol.pin.regenerate'

@@ -374,7 +374,9 @@ Un DNI repetido **en la misma categoría** en `POST /api/admin/archers` devuelve
 | `GET` | `/api/admin/tournaments/:id/participants/:participantId/scorecard` | Tarjeta del arquero para el admin, en cualquier estado, con `corrected` (los blancos que el admin corrigió). Sin firma ni pago |
 | `POST` | `/api/admin/tournaments/:id/start` | `sin_iniciar` → `en_proceso` |
 | `POST` | `/api/admin/tournaments/:id/publish` | `completado` → `publicado` (transacción, materializa standings) |
-| `POST` | `/api/admin/tournaments/:id/unpublish` | Revierte. Auditado |
+| `POST` | `/api/admin/tournaments/:id/unpublish` | Revierte. Auditado. Si estaba archivado, lo desarchiva |
+| `POST` | `/api/admin/tournaments/:id/archive` | `{ reason }`. Sólo `publicado` no archivado (`BE-26`). Sigue publicado, pero sale del ranking de la temporada (recálculo en transacción) y de la landing. Auditado |
+| `POST` | `/api/admin/tournaments/:id/unarchive` | `{ reason }`. La vuelta: vuelve a sumar y a verse. Auditado |
 | `DELETE` | `/api/admin/tournaments/:id` | Solo `sin_iniciar` |
 
 ### 3.4 Admin — patrullas
@@ -426,7 +428,7 @@ Van bajo `/admin` y no en el endpoint público: quién pagó y quién no es info
 |---|---|---|
 | `GET` | `/api/public/seasons` | Temporadas disponibles |
 | `GET` | `/api/public/rankings?seasonId=&mode=position\|best_two` | Ranking por categoría. `best_two` es el promedio de los dos mejores porcentajes |
-| `GET` | `/api/public/tournaments` | Publicados y en proceso |
+| `GET` | `/api/public/tournaments` | Publicados y en proceso. Sin los archivados (`BE-26`): su detalle, sus tarjetas y su fila en la ficha del arquero tampoco se ven (`resultadosVisibles`) |
 | `GET` | `/api/public/tournaments/upcoming` | Próximas fechas (`BE-28`): `sin_iniciar` con fecha de hoy (en Bahía Blanca) en adelante, el más cercano primero, hasta 6. Sólo la convocatoria: nombre, fecha, descripción, `registrationUrl`, `payment`, cantidad de blancos y modalidades |
 | `GET` | `/api/public/tournaments/:id` | Detalle. Sin puntajes si no está publicado |
 | `GET` | `/api/public/tournaments/:id/participants/:participantId` | Tarjeta de puntajes: cada flecha de cada blanco, con su valor. Sólo torneos **publicados**; 404 en cualquier otro caso (sin distinguir). Lista blanca: sin firma, pago, DNI ni `archerId`. `participantId` es el `id` de cada fila de `results` en el detalle del torneo |

@@ -14,6 +14,26 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-10 · `BE-26` — Archivar y desarchivar torneos publicados
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-26-archivar-torneos`.
+
+`POST /api/admin/tournaments/:id/archive` y `/unarchive`, con motivo. Un torneo archivado **sigue publicado**, pero deja de sumar al ranking de la temporada (se recalcula entera en la transacción) y **se oculta de la landing**: listado, detalle, tarjetas de puntaje e historial de la ficha del arquero (decisión 5, tal como la eligió el autor). En WAFA sigue visible, con `archived: true` en el detalle y el listado. Desarchivar lo devuelve y el ranking queda idéntico.
+
+**Decisiones:**
+- **Una sola consulta decide qué suma al ranking**: `tournamentRepo.listQueSuman(seasonId?)` (publicados y no archivados). Antes publicar, despublicar y `reconcileStandings` armaban la lista cada uno a su manera, filtrando en memoria; un filtro que faltara en uno —el de archivados en `db:reconcile`— volvía a meter en el ranking un torneo sacado a propósito. Además, `reconcileStandings` usaba `list()`, que tiene `limit(200)`: con más de 200 torneos publicados, el recálculo de todas las temporadas se quedaba corto. `listQueSuman` no tiene límite.
+- **Una sola regla decide qué se ve**: `resultadosVisibles({ status, archivedAt })` en `@bal/shared/edicion.ts` (regla 2: es negocio, no I/O). La usan el detalle público, la tarjeta y la ficha; el listado público filtra lo mismo en la consulta.
+- **No es un estado nuevo**: `archivedAt`/`archivedBy` opcionales en `TournamentDoc`; `null` y la clave ausente valen «no archivado» (`$in: [null]` en Mongo los matchea a los dos).
+- **La escritura es condicional** (`marcarArchivado`): sólo si está publicado y en el estado opuesto. Dos toques seguidos en «Archivar» no archivan dos veces.
+- **Despublicar un archivado lo desarchiva** en la misma transición.
+- Publicar y despublicar leen los que suman **con la `session`**, así ven el cambio de estado de su propia transacción en vez de agregar o quitar el torneo a mano.
+
+**Docs:** `FUNCTIONAL.md` §8.3 nuevo, `TECHNICAL.md` (las dos rutas, despublicar, listado público), `SECURITY.md` (acciones del audit log).
+
+**Tests:** 16 en `tests/archivo.test.ts` (saca del ranking sin despublicar; desarchivar lo deja idéntico; `db:reconcile` lo respeta; audit log con motivo; 409 en los otros tres estados, dos veces, o desarchivar lo que no está; sin motivo; despublicar desarchiva; WAFA lo marca; sin sesión; listado, detalle, tarjeta e historial de la ficha lo ocultan; desarchivado vuelve a verse) y 5 de `resultadosVisibles` en `@bal/shared`, vistos fallar. Mutaciones, todas detectadas: `listQueSuman` sin el filtro, el listado público sin el filtro, despublicar sin desarchivar, el detalle y la ficha con la regla vieja. La de la ficha **no se detectaba** con el primer test: al archivar el único torneo el arquero perdía su ranking y la ficha daba 404 antes de llegar al historial; el test se rehízo para que conserve su lugar. `@bal/shared` 463 (100% de líneas y funciones), `@bal/api` 604, `@bal/app` 674, `@bal/landing` 112, typecheck, Biome y `capas` verdes.
+
+---
+
 ## 2026-11-10 · `BE-25` — Corrección de puntajes por el admin, contra la planilla de papel
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/be-25-correccion-puntajes`.

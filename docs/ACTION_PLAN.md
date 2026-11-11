@@ -766,7 +766,8 @@ _(Hecho. La guarda de estado responde `FIELD_NOT_EDITABLE` vía `camposEditables
 **Contenido:** elegir participante → tabla de blancos con flechas, subtotal y acumulado (en orden de blanco, para leerla fila contra fila con la planilla de FATARCO) → tocar un blanco abre el teclado de `FE-6` con el set de **esa** modalidad → motivo obligatorio → guardar. Los blancos ya corregidos se marcan. **Esto es WAFA en el escritorio, no WAFL en el predio**: acá sí se espera la respuesta del servidor (es una acción del admin con red, como publicar), pero sin spinner bloqueante: el botón pasa a «Guardando…» y el error se muestra en línea.
 **DoD:** test de UI · el teclado mantiene 56px · tras guardar, el podio de la vista previa de publicar (`FE-15`) refleja el total nuevo sin recargar a mano.
 
-### `[ ] BE-26` · Archivar y desarchivar torneos publicados · **TDD** (ranking)
+### `[x] BE-26` · Archivar y desarchivar torneos publicados · **TDD** (ranking)
+_(Hecho. Qué suma al ranking es una sola consulta, `tournamentRepo.listQueSuman`; qué se ve en la landing, una sola regla, `resultadosVisibles` en `@bal/shared`. Ver `docs/BITACORA.md`, entrada del 2026-11-10.)_
 **Objetivo:** sacar un torneo publicado del ranking de la temporada sin despublicarlo, de forma reversible.
 **Archivos:** `db/types.ts` (`TournamentDoc.archivedAt/archivedBy`, `AuditAction` + `tournament.archive`/`tournament.unarchive`), `db/indexes.ts`, `repositories/tournamentRepo.ts`, `services/publishService.ts` (o `tournamentStateService.ts`), `routes/admin.ts`, `routes/publico.ts`
 **Referencia:** decisiones 4, 5 y 6 · [`FUNCTIONAL.md`](FUNCTIONAL.md) §8 (agregar el flag, no un estado nuevo) · [`TECHNICAL.md`](TECHNICAL.md) §2 (`tournaments`)

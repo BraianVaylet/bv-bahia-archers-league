@@ -9,6 +9,7 @@ import {
   puedeArchivar,
   puedeDesarchivar,
   puedeEliminar,
+  resultadosVisibles,
 } from '../src/index';
 
 /**
@@ -149,6 +150,31 @@ describe('archivar y desarchivar', () => {
   it('un archivado que no está publicado no se desarchiva por esta vía', () => {
     expect(puedeDesarchivar('completado', true)).toBe(false);
   });
+});
+
+/**
+ * Si los resultados de un torneo se ven desde afuera (`BE-26`, decisión 5 de la Fase 9).
+ *
+ * Una sola regla para el detalle público, la tarjeta de puntajes y la ficha del arquero: si cada
+ * uno la escribiera a su manera, un archivado podía desaparecer del listado y seguir apareciendo
+ * en el historial de alguien.
+ */
+describe('resultadosVisibles', () => {
+  it('sólo un publicado que no está archivado', () => {
+    expect(resultadosVisibles({ status: 'publicado' })).toBe(true);
+    expect(resultadosVisibles({ status: 'publicado', archivedAt: null })).toBe(true);
+  });
+
+  it('un publicado archivado no se ve (decisión 5: se oculta)', () => {
+    expect(resultadosVisibles({ status: 'publicado', archivedAt: new Date() })).toBe(false);
+  });
+
+  it.each(['sin_iniciar', 'en_proceso', 'completado'] as const)(
+    'un torneo %s no tiene resultados oficiales',
+    (status) => {
+      expect(resultadosVisibles({ status })).toBe(false);
+    },
+  );
 });
 
 function capturar(fn: () => void): unknown {
