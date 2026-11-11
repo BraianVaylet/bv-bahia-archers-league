@@ -25,3 +25,6 @@ Thumbs.db
 .turbo/
 *.tsbuildinfo
 capturas/
+
+# Worktrees de Claude Code: repos propios, no van al repo
+.claude/worktrees/

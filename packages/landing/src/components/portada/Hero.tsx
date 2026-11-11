@@ -124,7 +124,7 @@ export function Hero({
           </h1>
 
           <p className="max-w-[480px] text-base leading-[1.55] text-[var(--monte-muted)] min-[760px]:text-lg min-[760px]:leading-[1.55]">
-            Torneos todo el año, recorridos dinamicos en el predio del Circulo Bahiense de Arquería. 
+            Torneos todo el año, recorridos dinamicos en el predio del Circulo Bahiense de Arquería.
             Seguí los resultados, los podios y el ranking de cada categoría.
           </p>
 

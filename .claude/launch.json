@@ -22,7 +22,17 @@
     {
       "name": "landing-wt",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "../bal-sh11", "--filter", "@bal/landing", "dev", "--", "--port", "5175", "--strictPort"],
+      "runtimeArgs": [
+        "-C",
+        "../bal-sh11",
+        "--filter",
+        "@bal/landing",
+        "dev",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
       "port": 5175
     }
   ]
