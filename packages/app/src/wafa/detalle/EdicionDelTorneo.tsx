@@ -14,7 +14,8 @@ import { useState } from 'react';
 import { Button, clasesDeTarjeta, cn, Field } from '../../components/ui.js';
 import { ApiError, rpc } from '../../lib/rpc.js';
 import { CampoDePago } from '../crear/CampoDePago.js';
-import { linkParaEnviar, problemaDelLink } from '../wizard.js';
+import { problemaDelLink } from '../wizard.js';
+import { cuerpoDeEdicion, faltaElMonto } from './cuerpoDeEdicion.js';
 import type { Torneo } from './useTorneo.js';
 
 export function EdicionDelTorneo({
@@ -47,37 +48,17 @@ export function EdicionDelTorneo({
   const editaPago = editables.has('payment');
   const sePuedeEliminar = puedeEliminar(torneo.status);
 
-  const linkActual = torneo.registrationUrl ?? null;
-  const descripcionActual = torneo.description ?? '';
   const pagoActual = torneo.payment ?? { required: false, amount: 0 };
   const problemaDeLink =
     editando && editaLink ? problemaDelLink(editando.registrationUrl ?? '') : undefined;
-  const pagoSinMonto =
-    editando !== undefined &&
-    editaPago &&
-    editando.payment?.required === true &&
-    !(editando.payment.amount > 0);
 
   const guardarDatos = async () => {
     if (!editando) return;
-    const link = linkParaEnviar(editando.registrationUrl ?? '');
-    const descripcion = (editando.description ?? '').trim();
-    const pago = editando.payment ?? pagoActual;
-    const pagoCambio = pago.required !== pagoActual.required || pago.amount !== pagoActual.amount;
     try {
+      // Sólo lo que el estado permite y cambió (`cuerpoDeEdicion`).
       await rpc.admin.tournaments[':id'].$patch({
         param: { id: torneo.id },
-        json: {
-          name: editando.name.trim(),
-          date: editando.date.slice(0, 10),
-          // Sólo si el estado lo permite y cambió: el servidor rechaza el pedido entero si sobra
-          // un campo, y el audit log no anota un cambio que no hubo (`BE-24`).
-          ...(editaLink && link !== linkActual ? { registrationUrl: link } : {}),
-          ...(editaDescripcion && descripcion !== descripcionActual.trim()
-            ? { description: descripcion }
-            : {}),
-          ...(editaPago && pagoCambio ? { payment: { ...pago } } : {}),
-        },
+        json: cuerpoDeEdicion(torneo, editando),
       });
       setEditando(undefined);
       await onCambio();
@@ -195,7 +176,9 @@ export function EdicionDelTorneo({
             type="submit"
             ancho
             disabled={
-              editando.name.trim().length < 3 || problemaDeLink !== undefined || pagoSinMonto
+              editando.name.trim().length < 3 ||
+              problemaDeLink !== undefined ||
+              faltaElMonto(editando)
             }
           >
             Guardar cambios
