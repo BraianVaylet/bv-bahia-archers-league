@@ -393,6 +393,21 @@ describe('RankingPage', () => {
     expect(screen.getByTestId('fila-Pérez')).toHaveTextContent('84.5%');
   });
 
+  // `N` es `LEAGUE_BEST_N` y lo manda el servidor: la columna no puede decir «N» literal
+  // ni un número fijo. Con 3, que no es el default de 2, se ve que lo lee.
+  it('la columna y la celda dicen el N vigente que manda el servidor', async () => {
+    conTemporada([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }], 3);
+    renderEn(<RankingPage />, '/ranking', '/ranking');
+
+    const cat = await screen.findByTestId('cat-raso');
+    expect(within(cat).getByRole('columnheader', { name: 'Mejor de 3' })).toBeInTheDocument();
+    // En móvil la fila es tarjeta y la etiqueta sale de `data-etiqueta` (`::before`).
+    const fila = screen.getByTestId('fila-Pérez');
+    expect(fila.querySelector('[data-etiqueta="Mejor de 3"]')).not.toBeNull();
+    expect(cat.querySelector('[data-etiqueta="Mejor de N"]')).toBeNull();
+    expect(cat).not.toHaveTextContent('Mejor de N');
+  });
+
   it('arranca en la primera temporada sin que haya que elegirla', async () => {
     conTemporada([{ category: 'raso', ranked: [arquero()], notYetEligible: [] }]);
     renderEn(<RankingPage />, '/ranking', '/ranking');

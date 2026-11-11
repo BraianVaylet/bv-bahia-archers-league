@@ -11,7 +11,7 @@
  * Ver `docs/FUNCTIONAL.md` §5.2 · `docs/DOMAIN_WA.md` §9.
  */
 
-import { type BowCategory, CATEGORY_INFO } from '@bal/shared';
+import { type BowCategory, CATEGORY_INFO, etiquetaDeMejorDeN } from '@bal/shared';
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -140,7 +140,14 @@ function Puesto({
   );
 }
 
-function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
+function FilaDeArquero({
+  entrada,
+  bestN,
+}: {
+  readonly entrada: Entrada;
+  /** `LEAGUE_BEST_N`, del servidor: la etiqueta nunca escribe el N a fuego. */
+  readonly bestN: number;
+}) {
   return (
     <Fila data-testid={`fila-${entrada.lastName}`}>
       {/*
@@ -158,7 +165,11 @@ function FilaDeArquero({ entrada }: { readonly entrada: Entrada }) {
           {entrada.lastName}, {entrada.firstName}
         </Link>
       </Celda>
-      <Celda etiqueta="Mejor de N" enLinea className="text-right font-mono font-semibold">
+      <Celda
+        etiqueta={etiquetaDeMejorDeN(bestN)}
+        enLinea
+        className="text-right font-mono font-semibold"
+      >
         {entrada.bestNAvgPct}%
       </Celda>
       {/*
@@ -281,12 +292,12 @@ export function RankingPage() {
                 <Cabecera>
                   <th className="py-1 pr-2 font-medium">#</th>
                   <th className="py-1 pr-2 font-medium">Arquero</th>
-                  <th className="py-1 pr-2 font-medium text-right">Mejor de N</th>
+                  <th className="py-1 pr-2 font-medium text-right">{etiquetaDeMejorDeN(bestN)}</th>
                   <th className="py-1 font-medium text-right">Mejor</th>
                 </Cabecera>
                 <Cuerpo>
                   {c[vista].ranked.map((e) => (
-                    <FilaDeArquero key={e.archerId} entrada={e} />
+                    <FilaDeArquero key={e.archerId} entrada={e} bestN={bestN} />
                   ))}
                 </Cuerpo>
               </Tabla>
