@@ -14,6 +14,7 @@ import { camposEditables, formatearFecha } from '@bal/shared';
 import { BadgeEstado, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { botonClases, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ControlesDeEstado } from '../detalle/ControlesDeEstado.js';
 import { EdicionDelRecorrido } from '../detalle/EdicionDelRecorrido.js';
@@ -67,7 +68,7 @@ export function TournamentPage({ onVolver }: { readonly onVolver: () => void }) 
           </p>
         )}
 
-        {torneo === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
+        {torneo === undefined && !error && <Cargando forma="detalle" texto="Cargando el torneo…" />}
 
         {torneo && (
           <>

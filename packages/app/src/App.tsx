@@ -17,6 +17,7 @@ import {
 } from '@bal/ui';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { Cargando } from './components/Cargando.js';
 import { InstalarApp } from './components/InstalarApp.js';
 import { NavegacionAccesible } from './components/NavegacionAccesible.js';
 import { RegistroDeVersion } from './components/registroDeVersion.js';
@@ -38,13 +39,14 @@ import { VolverALaLiga } from './components/VolverALaLiga.js';
 const WafaApp = lazy(() => import('./wafa/WafaApp.js').then((m) => ({ default: m.WafaApp })));
 const WaflApp = lazy(() => import('./wafl/WaflApp.js').then((m) => ({ default: m.WaflApp })));
 
-/** Lo que se ve mientras baja el chunk de la app elegida: casi nada, y en español. */
-function Cargando() {
+/**
+ * Lo que se ve mientras baja el chunk de la app elegida. Casi siempre sale de la caché del service
+ * worker y no se llega a ver nada: `Cargando` espera antes de mostrarse.
+ */
+function AbriendoLaApp() {
   return (
     <Screen>
-      <p role="status" className="pt-12 text-[var(--ink-muted)]">
-        Cargando…
-      </p>
+      <Cargando forma="pantalla" texto="Abriendo la app…" />
     </Screen>
   );
 }
@@ -146,7 +148,7 @@ export function App() {
       <IndicadorDeAmbiente />
       <BrowserRouter basename={BASENAME}>
         <NavegacionAccesible />
-        <Suspense fallback={<Cargando />}>
+        <Suspense fallback={<AbriendoLaApp />}>
           <Routes>
             <Route path="/" element={<Elegir />} />
             <Route path="/wafl/*" element={<WaflApp />} />

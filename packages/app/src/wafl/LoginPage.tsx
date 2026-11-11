@@ -190,7 +190,10 @@ export function LoginPage({ onEntro }: LoginPageProps) {
             className="min-h-[52px] px-4 text-base rounded-[var(--radius-md)] bg-[var(--surface)] border"
             required
           >
-            <option value="">Elegí el torneo</option>
+            {/* Un `<select>` no puede llevar adentro el indicador: lo dice su primera opción. */}
+            <option value="">
+              {torneos === undefined ? 'Buscando torneos en curso…' : 'Elegí el torneo'}
+            </option>
             {torneos?.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name} · {formatearFechaCorta(t.date)}
@@ -267,7 +270,8 @@ export function LoginPage({ onEntro }: LoginPageProps) {
         <Button
           type="submit"
           ancho
-          disabled={enviando || !tournamentId || !username || pin.length !== 6}
+          ocupado={enviando}
+          disabled={!tournamentId || !username || pin.length !== 6}
         >
           {enviando ? 'Descargando el recorrido…' : 'Entrar'}
         </Button>

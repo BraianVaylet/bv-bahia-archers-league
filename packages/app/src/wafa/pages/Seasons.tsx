@@ -12,6 +12,7 @@ import { useCarga } from '@bal/cliente';
 import { formatearRango } from '@bal/shared';
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, clasesDeTarjeta, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { FormularioDeTemporada } from '../temporadas/FormularioDeTemporada.js';
@@ -64,6 +65,8 @@ export function SeasonsPage({ onVolver }: { readonly onVolver: () => void }) {
             {error}
           </p>
         )}
+
+        {temporadas === undefined && !carga.error && <Cargando texto="Cargando las temporadas…" />}
 
         {temporadas?.length === 0 && (
           <p className="text-[var(--ink-muted)]">Todavía no hay temporadas.</p>

@@ -14,6 +14,7 @@ import { type BowCategory, formatearMonto } from '@bal/shared';
 import { ChipCategoria, useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 
@@ -72,7 +73,7 @@ export function PaymentsPanel({ tournamentId }: { readonly tournamentId: string 
         </p>
       )}
 
-      {resumen === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
+      {resumen === undefined && !error && <Cargando texto="Cargando los pagos…" />}
 
       {resumen && !resumen.payment.required && (
         <p className="text-[var(--ink-muted)]" data-testid="sin-inscripcion">

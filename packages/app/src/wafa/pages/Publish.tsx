@@ -16,6 +16,7 @@ import type { TournamentStatus } from '@bal/shared';
 import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { ApiError, conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { Archivar } from '../publicacion/Archivar.js';
@@ -98,6 +99,10 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
           </p>
         )}
 
+        {torneo === undefined && !carga.error && (
+          <Cargando forma="detalle" texto="Cargando el torneo…" />
+        )}
+
         {torneo && (
           <div className="pt-2">
             <h1 className="font-display text-display font-bold">{torneo.name}</h1>
@@ -154,7 +159,7 @@ export function PublishPage({ onVolver }: { readonly onVolver: () => void }) {
               <Button variante="secundario" onClick={() => setConfirmando(false)}>
                 Cancelar
               </Button>
-              <Button ancho disabled={publicando} onClick={() => void publicar()}>
+              <Button ancho ocupado={publicando} onClick={() => void publicar()}>
                 {publicando ? 'Publicando…' : 'Sí, publicar'}
               </Button>
             </div>

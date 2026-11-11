@@ -89,7 +89,7 @@ export function EdicionDelRecorrido({
         <Button variante="secundario" onClick={() => setBlancos(undefined)}>
           Cancelar
         </Button>
-        <Button ancho disabled={guardando} onClick={() => void guardar()}>
+        <Button ancho ocupado={guardando} onClick={() => void guardar()}>
           {guardando ? 'Guardando…' : 'Guardar recorrido'}
         </Button>
       </div>

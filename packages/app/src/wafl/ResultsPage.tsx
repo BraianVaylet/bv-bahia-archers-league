@@ -7,6 +7,7 @@
 
 import { useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { Cargando } from '../components/Cargando.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
 import { readScores, readSignatures } from '../offline/db.js';
@@ -141,7 +142,7 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
           primera flecha— sino la espera de una lectura local, que es de
           milisegundos salvo justo cuando no lo es.
         */}
-        {!leido && <p className="text-[var(--ink-muted)]">Leyendo los puntajes guardados…</p>}
+        {!leido && <Cargando texto="Leyendo los puntajes guardados…" />}
 
         <div className="flex flex-col gap-3">
           {leido &&

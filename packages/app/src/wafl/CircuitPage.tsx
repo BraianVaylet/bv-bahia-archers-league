@@ -10,6 +10,7 @@
 
 import { AnilloDeRecorrido, ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useEffect, useState } from 'react';
+import { Cargando } from '../components/Cargando.js';
 import { CerrarSesion } from '../components/CerrarSesion.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { BundleTarget, StoredBundle, StoredScore } from '../offline/db.js';
@@ -40,10 +41,15 @@ export function CircuitPage({
   useTituloDePagina('Recorrido');
   const [scores, setScores] = useState<StoredScore[]>([]);
   const [cerrando, setCerrando] = useState(false);
+  /** Si la primera lectura de IndexedDB terminó. Ver el `if (!leido)` de abajo. */
+  const [leido, setLeido] = useState(false);
   const { pending } = useSyncStatus();
 
   useEffect(() => {
-    void readScores().then(setScores);
+    void readScores().then((s) => {
+      setScores(s);
+      setLeido(true);
+    });
   }, []);
 
   const total = bundle.participants.length;
@@ -84,6 +90,25 @@ export function CircuitPage({
   // El `> 0` es por la misma razón: un torneo sin blancos daba `0 === 0`.
   const recorridoCompleto =
     bundle.tournament.targets.length > 0 && completos.size === bundle.tournament.targets.length;
+
+  /**
+   * **El avance no se pinta hasta haber leído.** Antes de la lectura no hay puntajes de dónde
+   * sacarlo, y el recorrido aparecía en «0 de 14» y saltaba al número real. La lectura es local y
+   * dura milisegundos: `Cargando` espera antes de mostrarse, así que en el caso normal no se ve.
+   * No es un indicador de guardado: acá no se guarda nada.
+   */
+  if (!leido) {
+    return (
+      <Pantalla>
+        <Encabezado titulo={`Patrulla ${bundle.patrol.number}`}>
+          <SyncBadge />
+        </Encabezado>
+        <Screen>
+          <Cargando texto="Leyendo el recorrido guardado…" />
+        </Screen>
+      </Pantalla>
+    );
+  }
 
   return (
     <Pantalla>

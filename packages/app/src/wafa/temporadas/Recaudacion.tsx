@@ -4,6 +4,7 @@
 
 import { formatearMonto } from '@bal/shared';
 import { useState } from 'react';
+import { Cargando } from '../../components/Cargando.js';
 import { cuerpo, rpc } from '../../lib/rpc.js';
 
 interface RecaudacionTemporada {
@@ -30,6 +31,7 @@ interface RecaudacionTemporada {
 export function Recaudacion({ seasonId }: { readonly seasonId: string }) {
   const [datos, setDatos] = useState<RecaudacionTemporada>();
   const [error, setError] = useState<string>();
+  const [abierto, setAbierto] = useState(false);
 
   const cargar = async () => {
     if (datos) return;
@@ -44,10 +46,19 @@ export function Recaudacion({ seasonId }: { readonly seasonId: string }) {
   };
 
   return (
-    <details className="pt-2 text-sm" onToggle={() => void cargar()}>
+    <details
+      className="pt-2 text-sm"
+      onToggle={(e) => {
+        setAbierto(e.currentTarget.open);
+        void cargar();
+      }}
+    >
       <summary className="min-h-[44px] flex items-center cursor-pointer text-[var(--ink-muted)]">
         Recaudación
       </summary>
+
+      {/* Sólo abierto: cerrado, la demora correría sin que nadie mire y al abrir no esperaría nada. */}
+      {abierto && !datos && !error && <Cargando forma="linea" texto="Cargando la recaudación…" />}
 
       {error && (
         <p role="alert" className="text-[var(--danger)]">

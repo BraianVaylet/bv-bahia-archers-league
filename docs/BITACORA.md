@@ -14,6 +14,24 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-11 · UI — un solo indicador de carga en WAFA y WAFL
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `ux/indicadores-carga`. Pedido del autor, fuera del plan; la propuesta se aprobó antes de implementar.
+
+Componente `Cargando` en `packages/app/src/components/` (no en `@bal/ui`: la landing no lo usa). Reemplaza el «Cargando…» suelto de cinco pantallas y cubre las seis que quedaban en blanco mientras llegaba la respuesta (Temporadas, Ranking, Publicar, Corregir y su tarjeta, Recaudación, el selector de arqueros). Formas `lista`, `detalle`, `linea` y `pantalla`. Los botones de acción toman `ocupado` en `Button`, que deshabilita el botón y pone `aria-busy`; el texto sigue diciendo qué pasa («Guardando…», «Publicando…»).
+
+**Decisiones:**
+- **250 ms de demora antes de mostrar nada.** El chunk de cada app sale de la caché del service worker y WAFL lee de IndexedDB: casi todas las cargas son instantáneas, y un indicador que aparece 40 ms es un parpadeo. La región `role="status"` existe desde el primer render, vacía, para que el lector de pantalla anuncie el texto cuando llega.
+- **El texto dice qué se carga** («Cargando el padrón…», «Revisando tu sesión…»). El esqueleto tiene la forma del contenido, va en `--surface-2` (ningún color de estaca) con `aria-hidden`, y su pulso es `motion-safe:animate-pulse`, de Tailwind: sin CSS propio, y con movimiento reducido no late.
+- **El recorrido de WAFL espera la lectura de IndexedDB.** Pintaba «0 de 14» y saltaba al número real. Usa el mismo componente con la misma demora, así que en el caso normal no se ve nada. **No es un indicador de guardado** (`OFFLINE_SYNC.md` §12): Blanco y teclado no se tocaron.
+- **Los `<select>`** (torneos en el login de WAFL, temporada en el asistente) no pueden llevar el componente adentro: su primera opción dice «Buscando torneos en curso…» o «Cargando las temporadas…» mientras va el pedido, sin mover el layout.
+
+**Presupuesto:** WAFL 124,26 KB gz (de 125), WAFA 137,36 KB (de 140). Sin dependencias nuevas.
+
+**Tests:** `cargando.test.tsx` (9: demora, región previa, texto, desmontaje sin temporizadores, esqueleto oculto, `motion-safe`, `Button ocupado`), visto fallar sin el módulo. En `wafl.test.tsx`, «no pinta un avance falso antes de leer», visto fallar contra el `CircuitPage` anterior. Suite completa: shared 463, cliente 64, ui 380, api 627, landing 114, app 732. Verificado en el navegador con la red demorada a mano: sesión, Inicio, Torneo, Arqueros y el login de WAFL, en claro y oscuro, a 375 px y en escritorio.
+
+---
+
 ## 2026-11-11 · Dominio — la categoría `razo` pasa a llamarse `raso`
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `dominio/categoria-raso`. Pedido del autor, fuera del plan.

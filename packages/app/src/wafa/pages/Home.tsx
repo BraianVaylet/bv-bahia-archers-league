@@ -26,6 +26,7 @@ import {
 } from '@bal/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Cargando } from '../../components/Cargando.js';
 import { CerrarSesion } from '../../components/CerrarSesion.js';
 import {
   botonClases,
@@ -165,7 +166,7 @@ export function HomePage({ onSalir }: { readonly onSalir: () => void }) {
           </p>
         )}
 
-        {torneos === undefined && !error && <p className="text-[var(--ink-muted)]">Cargando…</p>}
+        {torneos === undefined && !error && <Cargando texto="Cargando los torneos…" />}
 
         {torneos?.length === 0 && (
           <p className="text-[var(--ink-muted)]">Todavía no hay torneos. Empezá creando uno.</p>

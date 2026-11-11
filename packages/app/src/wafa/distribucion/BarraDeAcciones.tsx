@@ -46,7 +46,7 @@ export function BarraDeAcciones({
         <Button variante="secundario" disabled={sinGuardar} onClick={() => window.print()}>
           Imprimir
         </Button>
-        <Button ancho disabled={guardando || problema !== undefined} onClick={onGuardar}>
+        <Button ancho ocupado={guardando} disabled={problema !== undefined} onClick={onGuardar}>
           {guardando ? 'Guardando…' : 'Guardar patrullas'}
         </Button>
       </div>

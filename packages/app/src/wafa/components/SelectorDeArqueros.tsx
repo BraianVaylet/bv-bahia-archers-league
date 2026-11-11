@@ -13,6 +13,7 @@
 import { useCarga } from '@bal/cliente';
 import { ChipCategoria } from '@bal/ui';
 import { useState } from 'react';
+import { Cargando } from '../../components/Cargando.js';
 import { Button, cn, Field } from '../../components/ui.js';
 import { conSenal, cuerpo, rpc } from '../../lib/rpc.js';
 import { FormularioDeArquero } from '../padron/FormularioDeArquero.js';
@@ -161,6 +162,8 @@ export function SelectorDeArqueros({
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
       />
+
+      {padron === undefined && <Cargando texto="Cargando el padrón…" />}
 
       <ul className="flex flex-col gap-1.5">
         {padron?.map((a) => (

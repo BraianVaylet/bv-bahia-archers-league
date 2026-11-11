@@ -96,7 +96,8 @@ export function RecuperarPassword({ onVolver, onRecuperado }: RecuperarPasswordP
         <Button
           type="submit"
           ancho
-          disabled={enviando || !codigo || nuevo.length < MIN_PASSWORD_LENGTH}
+          ocupado={enviando}
+          disabled={!codigo || nuevo.length < MIN_PASSWORD_LENGTH}
         >
           {enviando ? 'Guardando…' : 'Guardar el password nuevo'}
         </Button>
