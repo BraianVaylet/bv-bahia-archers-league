@@ -223,6 +223,42 @@
 }
 
 /**
+ * **En desarrollo, el acento es fucsia.** La barra sola no alcanzaba para saber de un vistazo si se
+ * está en desarrollo o en la versión productiva; con el acento cambian todos los botones
+ * primarios, el teclado de scoring, los enlaces, el foco y la banda `monte`. Producción no cambia:
+ * sin `data-ambiente='development'` no aplica nada de esto.
+ *
+ * **Fucsia y no rojo ni naranja.** Esos son colores de estaca (regla 8), y el rojo además se
+ * confundía con `--danger`: «Guardar» y «Eliminar» se habrían visto iguales. El fucsia queda a más
+ * de 25° de las cuatro estacas y de `--danger`.
+ *
+ * Los mismos pares que el verde, con los mismos mínimos (`contraste.test.ts`): el botón primario y
+ * la tecla del inner llegan a AAA. En claro el fucsia es oscuro y la tinta blanca; en oscuro, al
+ * revés, como el verde.
+ *
+ * **Van después del tema oscuro, a propósito.** `[data-ambiente]` y `[data-theme]` pesan lo mismo:
+ * con los dos atributos gana el que está más abajo, y el bloque de los dos juntos corrige el
+ * oscuro.
+ */
+:root[data-ambiente='development'] {
+  --nock: #a50971;
+  --nock-ink: #ffffff;
+  --nock-text: #a50971;
+  --nock-soft: #fce3f4;
+  --focus-ring: #a50971;
+  --monte-accent: #ff6bce;
+}
+
+:root[data-ambiente='development'][data-theme='dark'] {
+  --nock: #ff6bce;
+  --nock-ink: #16170f;
+  --nock-text: #ff6bce;
+  --nock-soft: #3d1030;
+  --focus-ring: #ff6bce;
+  --monte-accent: #ff6bce;
+}
+
+/**
  * Colores de estaca. SEMÁNTICA RESERVADA.
  *
  * No se usan para nada más en toda la interfaz. Si aparece rojo en la pantalla,

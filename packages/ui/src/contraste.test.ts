@@ -23,27 +23,46 @@ const css = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8
   '',
 );
 
-type Tema = 'claro' | 'oscuro';
+/**
+ * Los dos temas, y cada uno **en desarrollo**: ahí el acento pasa de verde a fucsia, para que se
+ * vea de un vistazo que no es la versión productiva. El ambiente lo escribe en el `<html>` quien
+ * sirve el documento (`data-ambiente`, ver `IndicadorDeAmbiente`).
+ */
+const TEMAS = ['claro', 'oscuro', 'claro · desarrollo', 'oscuro · desarrollo'] as const;
+type Tema = (typeof TEMAS)[number];
+
+const DESARROLLO = "[data-ambiente='development']";
+const OSCURO = "[data-theme='dark']";
 
 /**
- * Los tokens de color de cada tema. El oscuro hereda lo que no redefine (las estacas, por ejemplo),
- * igual que en el navegador.
+ * Los tokens de color de cada tema. Cada uno hereda lo que no redefine (las estacas, por ejemplo),
+ * igual que en el navegador. En oscuro y desarrollo pisan, en ese orden, el bloque de desarrollo
+ * —que va después del oscuro y tiene su misma especificidad— y el de los dos atributos juntos.
  */
 function tokensPorTema(): Record<Tema, Record<string, string>> {
-  const claro: Record<string, string> = {};
-  const oscuro: Record<string, string> = {};
+  const bloques: Record<string, Record<string, string>> = {};
 
   for (const [, selector, cuerpo] of css.matchAll(
-    /(:root(?:\[data-theme='dark'\])?)\s*\{([^}]*)\}/g,
+    /(:root(?:\[data-ambiente='development'\])?(?:\[data-theme='dark'\])?)\s*\{([^}]*)\}/g,
   )) {
-    const destino = selector === ':root' ? claro : oscuro;
+    bloques[selector as string] ??= {};
+    const destino = bloques[selector as string] as Record<string, string>;
     for (const [, nombre, valor] of (cuerpo ?? '').matchAll(
       /--([a-z0-9-]+):\s*(#[0-9a-f]{6})\s*;/gi,
     )) {
       destino[nombre as string] = (valor as string).toLowerCase();
     }
   }
-  return { claro, oscuro: { ...claro, ...oscuro } };
+
+  const bloque = (sufijo: string) => bloques[`:root${sufijo}`] ?? {};
+  const claro = bloque('');
+  const oscuro = { ...claro, ...bloque(OSCURO) };
+  return {
+    claro,
+    oscuro,
+    'claro · desarrollo': { ...claro, ...bloque(DESARROLLO) },
+    'oscuro · desarrollo': { ...oscuro, ...bloque(DESARROLLO), ...bloque(DESARROLLO + OSCURO) },
+  };
 }
 
 function luminancia(hex: string): number {
@@ -108,15 +127,12 @@ const tokens = tokensPorTema();
 describe('contraste de los tokens (DISENO.md §2.3)', () => {
   const necesarios = [...new Set(PARES.flatMap((par) => par.slice(0, 2) as string[]))];
 
-  it.each(['claro', 'oscuro'] as const)(
-    'el tema %s define todos los tokens de la tabla',
-    (tema) => {
-      const faltan = necesarios.filter((t) => !tokens[tema][t]);
-      expect(faltan).toEqual([]);
-    },
-  );
+  it.each(TEMAS)('el tema %s define todos los tokens de la tabla', (tema) => {
+    const faltan = necesarios.filter((t) => !tokens[tema][t]);
+    expect(faltan).toEqual([]);
+  });
 
-  describe.each(['claro', 'oscuro'] as const)('tema %s', (tema) => {
+  describe.each(TEMAS)('tema %s', (tema) => {
     it.each(PARES.map(([a, b, min, uso]) => [`${a} / ${b} ≥ ${min} · ${uso}`, a, b, min] as const))(
       '%s',
       (_nombre, frente, fondo, minimo) => {
@@ -128,6 +144,105 @@ describe('contraste de los tokens (DISENO.md §2.3)', () => {
         );
       },
     );
+  });
+});
+
+// ── Acento de desarrollo ─────────────────────────────────────────────────────
+
+/**
+ * En desarrollo el acento es fucsia (pedido del autor, 2026-11-13): la barra «estás en modo
+ * desarrollo» sola no alcanzaba para saber de un vistazo en qué ambiente se está.
+ *
+ * Fucsia y no rojo ni naranja: esos son colores de estaca (regla 8 de `CLAUDE.md`), y el rojo
+ * además se confundía con `--danger`: en desarrollo, «Guardar» y «Eliminar» se verían iguales.
+ */
+describe('el acento en desarrollo', () => {
+  const ACENTO = ['nock', 'nock-ink', 'nock-text', 'nock-soft', 'focus-ring', 'monte-accent'];
+
+  /** Los valores de producción, que no cambian: lo que se compite se ve como siempre. */
+  const PRODUCCION = {
+    claro: {
+      nock: '#8fa800',
+      'nock-ink': '#0d0e05',
+      'nock-text': '#556500',
+      'nock-soft': '#eef4cc',
+      'focus-ring': '#556500',
+      'monte-accent': '#c6f000',
+    },
+    oscuro: {
+      nock: '#c6f000',
+      'nock-ink': '#16170f',
+      'nock-text': '#c6f000',
+      'nock-soft': '#2c3410',
+      'focus-ring': '#c6f000',
+      'monte-accent': '#c6f000',
+    },
+  } as const;
+
+  it.each(['claro', 'oscuro'] as const)('producción, tema %s, queda como estaba', (tema) => {
+    const actual = Object.fromEntries(ACENTO.map((t) => [t, tokens[tema][t]]));
+    expect(actual).toEqual(PRODUCCION[tema]);
+  });
+
+  it.each([
+    ['claro', 'claro · desarrollo'],
+    ['oscuro', 'oscuro · desarrollo'],
+  ] as const)('desarrollo cambia sólo el acento del tema %s', (prod, dev) => {
+    const cambiados = Object.keys(tokens[dev]).filter((t) => tokens[dev][t] !== tokens[prod][t]);
+    expect(
+      cambiados.every((t) => ACENTO.includes(t)),
+      cambiados.join(', '),
+    ).toBe(true);
+    expect(cambiados).toEqual(expect.arrayContaining(['nock', 'nock-text', 'focus-ring']));
+  });
+
+  /** Tono HSL en grados, para la regla 8. */
+  function tono(hex: string): number {
+    const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as [
+      number,
+      number,
+      number,
+    ];
+    const max = Math.max(r, g, b);
+    const d = max - Math.min(r, g, b);
+    if (d === 0) return 0;
+    const sector = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (sector * 60 + 360) % 360;
+  }
+  const distancia = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+
+  const ESTACAS = ['stake-roja', 'stake-azul', 'stake-amarilla', 'stake-naranja'];
+
+  describe.each(['claro · desarrollo', 'oscuro · desarrollo'] as const)('%s', (tema) => {
+    const color = (token: string) => tokens[tema][token] ?? '';
+
+    it.each(['nock', 'nock-text', 'nock-soft', 'focus-ring', 'monte-accent'])(
+      '--%s es fucsia',
+      (token) => {
+        expect(distancia(tono(color(token)), 320), `${token} ${color(token)}`).toBeLessThan(15);
+      },
+    );
+
+    // La misma vara que `paleta.test.ts`: a menos de 25° de una estaca, se confunde con ella.
+    it.each(['nock', 'nock-text', 'focus-ring', 'monte-accent'])(
+      '--%s no se confunde con una estaca ni con --danger',
+      (token) => {
+        for (const otro of [...ESTACAS, 'danger']) {
+          expect(
+            distancia(tono(color(token)), tono(color(otro))),
+            `${token} contra ${otro}`,
+          ).toBeGreaterThanOrEqual(25);
+        }
+      },
+    );
+  });
+
+  // Si el bloque de desarrollo fuera antes que el oscuro, en oscuro ganaría el verde.
+  it('el bloque de desarrollo va después del tema oscuro', () => {
+    const oscuro = css.indexOf(`:root${OSCURO} {`);
+    const desarrollo = css.search(/:root\[data-ambiente='development'\]\s*\{[^}]*--nock:/);
+    expect(oscuro).toBeGreaterThan(-1);
+    expect(desarrollo).toBeGreaterThan(oscuro);
   });
 });
 

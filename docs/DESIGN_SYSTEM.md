@@ -64,6 +64,21 @@ El negro no es negro puro: `#16170F` tiene una caída olivácea. Es el negro de 
 >
 > **Corregido en `REF7-2`:** el foco **ya estaba** por debajo: `#8FA800` sobre `#FBFAF5` da **2.59:1** y WCAG 2.4.11 pide 3:1. Desde `REF7-2` el foco usa `--focus-ring` (§10) y `--nock` queda sólo para la acción primaria.
 
+### 2.1.1 Acento de desarrollo
+
+**En desarrollo el acento es fucsia** (2026-11-13). La barra «estás en modo desarrollo» sola no alcanzaba para saber de un vistazo en qué ambiente se está; con el acento cambian los botones primarios, el teclado de scoring, los enlaces, el foco y la banda `monte`. **Producción no cambia.** Se activa con `data-ambiente='development'` en el `<html>`, que escribe quien sirve el documento (la API según su `NODE_ENV`, o el Vite de `pnpm dev`).
+
+| Token | Claro · desarrollo | Oscuro · desarrollo |
+|---|---|---|
+| `--nock` | `#A50971` | `#FF6BCE` |
+| `--nock-ink` | `#FFFFFF` | `#16170F` |
+| `--nock-text` | `#A50971` | `#FF6BCE` |
+| `--nock-soft` | `#FCE3F4` | `#3D1030` |
+| `--focus-ring` | `#A50971` | `#FF6BCE` |
+| `--monte-accent` | `#FF6BCE` | `#FF6BCE` |
+
+**Fucsia y no rojo ni naranja:** esos son colores de estaca (§2.2), y el rojo además se confunde con `--danger`. El fucsia queda a más de 25° de tono de las cuatro estacas y de `--danger`. Cumple los mismos pares de §2.4 que el verde, AAA en la tecla del inner incluido. En claro la tinta del botón primario es blanca, porque el fucsia que llega a AAA es oscuro. El logo no cambia: es la marca. Lo verifican `contraste.test.ts` y `accion-primaria.test.ts`.
+
 ### 2.2 Colores de estaca — reservados
 
 ```css
