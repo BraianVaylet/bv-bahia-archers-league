@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-13 · UI — en desarrollo, el acento es fucsia
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/acento-desarrollo`. Pedido del autor, fuera del plan.
+
+La barra «estás en modo desarrollo» sola no alcanzaba para distinguir los ambientes de un vistazo. En desarrollo, los seis tokens de acento (`--nock`, `--nock-ink`, `--nock-text`, `--nock-soft`, `--focus-ring`, `--monte-accent`) pasan de verde a fucsia, en los dos temas. Producción queda igual. Es sólo CSS, colgado del mismo `data-ambiente` del `<html>`: sin JS, sin parpadeo y sin red. Valores en `DESIGN_SYSTEM.md` §2.1.1.
+
+**Decisión: fucsia.** El autor pidió primero rojo y después `#f07100`. Los dos chocan con la regla 8: `#f07100` está a 3,6° de tono de `--stake-naranja` y se vería igual en el teclado de scoring, y el rojo es la estaca roja y además casi el mismo color que `--danger`, que habría dejado «Guardar» y «Eliminar» iguales en desarrollo. Consultado, el autor eligió fucsia (320°), que queda a más de 25° de las cuatro estacas y de `--danger`. Ninguno de los dos llegaba además a los contrastes (6,53:1 contra el 7:1 de la tecla del inner; 2,84:1 contra el 4,5:1 de los enlaces).
+
+**Cómo se respeta lo que ya estaba:** los mismos pares de `contraste.test.ts`, con los mismos mínimos, ahora en cuatro temas (claro y oscuro, en producción y en desarrollo). En claro, el fucsia que llega a AAA es oscuro, así que la tinta del botón primario pasa a blanca. Los bloques van después del tema oscuro, porque `[data-ambiente]` y `[data-theme]` pesan lo mismo; un test lo cuida.
+
+**Queda verde:** el logo (es la marca; `#c6f000` escrito en `Logo.tsx` y en los íconos) y la `meta theme-color`, que es el color de fondo, no el acento. El chip de `cazador` (`#8e2560`) es de una familia cercana al fucsia de desarrollo; es un chip chico y apagado, y en producción no cambia nada.
+
+**Tests:** en `contraste.test.ts`, que producción no cambia, que desarrollo sólo toca el acento, que cada token es fucsia y que ninguno está a menos de 25° de una estaca o de `--danger`; todos vistos fallar. `accion-primaria.test.ts` exige AAA también en los dos temas de desarrollo.
+
+---
+
 ## 2026-11-11 · UI — un solo indicador de carga en WAFA y WAFL
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `ux/indicadores-carga`. Pedido del autor, fuera del plan; la propuesta se aprobó antes de implementar.

@@ -44,8 +44,8 @@ function contraste(a: string, b: string): number {
 }
 
 /**
- * Los valores de un token, en orden de aparición: primero el del tema claro,
- * después el del oscuro.
+ * Los valores de un token, en orden de aparición: el del tema claro, el del oscuro y, después,
+ * los mismos dos en desarrollo, donde el acento es fucsia (ver `contraste.test.ts`).
  */
 function valoresDe(css: string, token: string): string[] {
   const encontrados = [...css.matchAll(new RegExp(`--${token}:\\s*(#[0-9a-f]{6})`, 'gi'))];
@@ -57,14 +57,16 @@ describe('la acción primaria', () => {
   const verdes = valoresDe(css, 'nock');
   const tintas = valoresDe(css, 'nock-ink');
 
-  it('define el par en los dos temas', () => {
-    expect(verdes).toHaveLength(2);
-    expect(tintas).toHaveLength(2);
+  it('define el par en los dos temas, en producción y en desarrollo', () => {
+    expect(verdes).toHaveLength(4);
+    expect(tintas).toHaveLength(4);
   });
 
   it.each([
     ['claro', 0],
     ['oscuro', 1],
+    ['claro, en desarrollo', 2],
+    ['oscuro, en desarrollo', 3],
   ])('en tema %s llega a AAA', (_tema, i) => {
     const verde = verdes[i] ?? '';
     const tinta = tintas[i] ?? '';
