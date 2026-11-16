@@ -14,6 +14,18 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-16 · Docs — README de presentación del proyecto
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `docs/readme-presentacion`. Pedido del autor, fuera del plan.
+
+El `README.md` pasa de nota técnica a presentación del producto: logo, badges de CI y mutación, enlace al sitio en vivo, el problema que resuelve, las tres apps con capturas, cómo se juega una fecha, el ciclo de vida del torneo, offline-first, seguridad, calidad, stack y arranque rápido. Cuatro diagramas en Mermaid (flujo de una fecha, máquina de estados, secuencia de sincronización y topología), que GitHub dibuja sin imágenes extra.
+
+**Decisiones:** las capturas viven en `docs/assets/readme/` en WebP (≈480 KB las diez), porque `capturas/` está en `.gitignore`. Las de la landing y la puerta se sacaron de producción con el Chromium de Playwright, igual que `scripts/imagenes.mjs`; las de WAFA y WAFL salen de `capturas/` (2026-11-09), elegidas entre las que no muestran la categoría con la grafía vieja `razo`. La portada usa `<picture>` para seguir el tema claro u oscuro de quien lee.
+
+**Deuda:** las capturas de WAFA y WAFL son de antes del cambio a `raso` y se rehacen a mano cuando cambie la UI. Producción todavía no tiene torneos publicados, así que no hay captura de ranking ni de resultados: conviene sumarla después de la primera fecha publicada.
+
+---
+
 ## 2026-11-13 · UI — en desarrollo, el acento es fucsia
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/acento-desarrollo`. Pedido del autor, fuera del plan.
