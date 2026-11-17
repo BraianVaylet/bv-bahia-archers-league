@@ -256,6 +256,17 @@ La UI las muestra de forma prominente, **pero no bloquea el guardado**: el admin
 
 Una vez el torneo pasa a `en_proceso`, las patrullas quedan **congeladas**.
 
+### 5.x Agregar o quitar arqueros con las patrullas ya armadas — `2026-11-17`
+
+Decisión 5 de la Fase 10: cambiar los inscriptos **no rearma** (`incorporarArqueros`, `SH-12`). Las patrullas existentes conservan número, blanco de inicio, unidades y la posición de cada arquero: son las que el admin ajustó y las que pueden estar impresas, con su PIN.
+
+- **Quien se baja** sale de su unidad. Una unidad vacía desaparece; las posiciones y etiquetas se re-derivan del orden (el compañero pasa a la izquierda, una `B` sola pasa a ser la `A`). Una patrulla que se vacía **no se borra**: se avisa (`PATROL_SIZE`) y la resuelve el admin, porque borrarla renumeraría a las demás.
+- **Quien llega**, en este orden: completa una unidad de uno de **su** categoría (`H2`); si no, entra como unidad `B` en una patrulla de una sola unidad; si no hay lugar, **abre una patrulla nueva** al final, en el primer blanco libre. Nunca más de dos unidades ni de cuatro arqueros.
+- **`H3` desde los dos lados:** un no senior va primero a una patrulla con algún senior; un senior va primero a una que quedó sin ninguno. Una patrulla vacía va última: ubicar ahí a alguien lo dejaría solo teniendo lugar en otra.
+- Lo que no se pueda cumplir **se devuelve como violación** (`validatePatrols`) para que el admin lo resuelva en el editor. Nunca se pierde un arquero en silencio. Determinista, como el armado.
+
+El rearmado completo (`buildPatrols`) queda para el armado inicial y para un «Rearmar patrullas» explícito (`FE-48`).
+
 ---
 
 ## 6. Credenciales de patrulla
