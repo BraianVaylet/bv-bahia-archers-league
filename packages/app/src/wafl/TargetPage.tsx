@@ -7,15 +7,17 @@
  * Ver `docs/FUNCTIONAL.md` §7.3 y `docs/OFFLINE_SYNC.md` §1.
  */
 
+import { type Modality, tokenValue } from '@bal/shared';
 import { ChipModalidad, useTituloDePagina } from '@bal/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import { useWakeLock } from '../lib/useWakeLock.js';
-import type { BundleParticipant, BundleTarget, StoredScore } from '../offline/db.js';
+import type { BundleParticipant, BundleTarget } from '../offline/db.js';
 import { readScore, readScoresDeBlanco, readSignatures } from '../offline/db.js';
 import { writeScore } from '../offline/outbox.js';
 import { nudge } from '../offline/syncWorker.js';
 import { ArrowRow } from './ArrowRow.js';
+import { aplicarBorrado, aplicarToque, type EstadoDeAnotacion } from './anotacion.js';
 import { ScoreKeypad } from './ScoreKeypad.js';
 import { SyncBadge } from './SyncBadge.js';
 
@@ -33,6 +35,14 @@ export interface TargetPageProps {
 }
 
 const NADA = () => {};
+const SIN_FLECHAS: readonly string[] = [];
+
+/**
+ * El acumulado que se ve mientras se anota: la suma de los valores de la modalidad, como el
+ * parcial que guarda `writeScore`. Sólo para mostrar; el total oficial lo deriva el servidor.
+ */
+const totalParcial = (modality: Modality, flechas: readonly string[]) =>
+  flechas.reduce((n, token) => n + tokenValue(modality, token), 0);
 
 export function TargetPage({
   target,
@@ -46,10 +56,35 @@ export function TargetPage({
   useTituloDePagina(`Blanco ${target.index}`);
   // La pantalla no se apaga entre flecha y flecha. Sólo acá: ver `useWakeLock` y su test de alcance.
   useWakeLock();
-  const [scores, setScores] = useState<StoredScore[]>([]);
   const [firmados, setFirmados] = useState<ReadonlySet<string>>(new Set());
-  const [seleccionado, setSeleccionado] = useState(participants[0]?.id ?? '');
   const [error, setError] = useState<string>();
+  /** Si la primera lectura de IndexedDB ya terminó. Antes, los totales no son «cero»: son «no sé». */
+  const [leido, setLeido] = useState(false);
+
+  /**
+   * **Lo que se ve sale del toque, no de releer la base** (`FE-45`).
+   *
+   * Antes cada toque esperaba 4-5 operaciones de IndexedDB para pintarse, y el paso al siguiente
+   * arquero ocurría al final de esa cadena: los toques del medio iban al arquero ya completo y se
+   * descartaban sin decir nada. Ahora el toque actualiza la pantalla y decide a quién va en el
+   * mismo instante; la escritura sigue en la cola, IndexedDB sigue siendo la fuente de verdad, y
+   * cuando la cola se vacía la pantalla se vuelve a leer de ahí.
+   *
+   * El `ref` es lo que leen los toques: dos toques seguidos llegan antes de que React repinte, y
+   * con el estado del render el segundo vería las flechas de antes del primero.
+   */
+  const [vista, setVista] = useState<EstadoDeAnotacion>(() => ({
+    flechas: new Map(),
+    seleccionado: participants[0]?.id ?? '',
+  }));
+  const vistaRef = useRef(vista);
+  const mostrar = useCallback((siguiente: EstadoDeAnotacion) => {
+    vistaRef.current = siguiente;
+    setVista(siguiente);
+  }, []);
+
+  /** Escrituras encoladas que todavía no terminaron. Con alguna en camino, la base está atrasada. */
+  const enCamino = useRef(0);
 
   // Toda la lectura sale de IndexedDB. Si no hay red, no cambia nada.
   const recargar = useCallback(async () => {
@@ -57,7 +92,6 @@ export function TargetPage({
       readScoresDeBlanco(target.index),
       readSignatures(),
     ]);
-    setScores(deEsteBlanco);
     // Si no cambió quién firmó, se conserva el mismo `Set`: uno nuevo en cada lectura cambiaría la
     // identidad de los callbacks de todas las filas y las repintaría (`REF6-14` / `P-7`).
     setFirmados((previo) => {
@@ -66,91 +100,119 @@ export function TargetPage({
         ? previo
         : ahora;
     });
-  }, [target.index]);
+
+    // Un toque llegó mientras se leía: lo leído no lo tiene. Lo trae la lectura de cuando la
+    // cola se vacíe; pisar ahora borraría de la pantalla una flecha que ya se tocó.
+    if (enCamino.current > 0) return;
+    mostrar({
+      ...vistaRef.current,
+      flechas: new Map(deEsteBlanco.map((s) => [s.participantId, s.arrows])),
+    });
+    setLeido(true);
+  }, [mostrar, target.index]);
 
   useEffect(() => {
     void recargar();
   }, [recargar]);
 
-  const porParticipante = useMemo(() => new Map(scores.map((s) => [s.participantId, s])), [scores]);
+  const { flechas, seleccionado } = vista;
+  const cuantasDe = (id: string) => flechas.get(id)?.length ?? 0;
 
-  const faltantes = participants.filter(
-    (p) => (porParticipante.get(p.id)?.arrows.length ?? 0) < target.arrows,
-  );
-
-  const actual = porParticipante.get(seleccionado);
-  const cargadas = actual?.arrows.length ?? 0;
+  const faltantes = participants.filter((p) => cuantasDe(p.id) < target.arrows);
+  const cargadas = cuantasDe(seleccionado);
 
   /**
    * Cola de escrituras.
    *
-   * Dos toques rápidos —que es exactamente cómo se anota con guantes— se
-   * disparan antes de que React re-renderice, así que leer las flechas del
-   * estado daría un valor obsoleto y el segundo toque pisaría al primero.
-   * Cada escritura se encadena y lee de IndexedDB, que es la fuente de verdad.
+   * Cada escritura se encadena y lee de IndexedDB, que es la fuente de verdad: dos toques
+   * seguidos no se pisan. Al vaciarse, la pantalla se relee de la base.
    */
   const cola = useRef<Promise<unknown>>(Promise.resolve());
 
-  const encolar = useCallback(<T,>(fn: () => Promise<T>): void => {
-    cola.current = cola.current.then(fn, fn);
-  }, []);
+  const encolar = useCallback(
+    (fn: () => Promise<void>): void => {
+      enCamino.current++;
+      const correr = async () => {
+        try {
+          await fn();
+        } finally {
+          enCamino.current--;
+          if (enCamino.current === 0) await recargar();
+        }
+      };
+      cola.current = cola.current.then(correr, correr);
+    },
+    [recargar],
+  );
+
+  const contexto = useMemo(
+    () => ({
+      participantes: participants.map((p) => p.id),
+      flechasPorBlanco: target.arrows,
+      firmados,
+    }),
+    [participants, target.arrows, firmados],
+  );
 
   const agregarFlecha = useCallback(
     (token: string) => {
-      // Firmado no se toca: la firma guarda un hash del puntaje del momento, y
-      // editarlo después hace que el servidor rechace el cierre.
-      if (!seleccionado || firmados.has(seleccionado)) return;
+      // Firmado no se toca (`aplicarToque` lo rechaza): la firma guarda un hash del puntaje del
+      // momento, y editarlo después hace que el servidor rechace el cierre. Completo, tampoco: el
+      // teclado ya lo dice («Ya cargaste las N flechas»).
+      const r = aplicarToque(vistaRef.current, token, contexto);
+      if (!r.ok) return;
+      mostrar(r.estado);
 
+      const { destinatario } = r;
       encolar(async () => {
-        // Se lee de la base, no del estado de React: es lo que hace que dos
-        // toques seguidos no se pisen.
-        const previo = await readScore(seleccionado, target.index);
+        // Se lee de la base, no de la pantalla: es la fuente de verdad.
+        const previo = await readScore(destinatario, target.index);
         const siguientes = [...(previo?.arrows ?? []), token];
-        if (siguientes.length > target.arrows) return;
 
-        const r = await writeScore(seleccionado, target.index, siguientes);
-        if (!r.ok) {
-          setError(r.message);
+        // La base tenía flechas que la pantalla no había visto. No se escribe y **se dice**: un
+        // toque que desaparece sin aviso es justo lo que no puede pasar.
+        if (siguientes.length > target.arrows) {
+          const quien = participants.find((p) => p.id === destinatario);
+          setError(
+            `${quien?.lastName ?? 'Ese arquero'} ya tiene las ${target.arrows} flechas de este blanco.`,
+          );
+          return;
+        }
+
+        const w = await writeScore(destinatario, target.index, siguientes);
+        if (!w.ok) {
+          setError(w.message);
           return;
         }
 
         setError(undefined);
-        await recargar();
-
-        // De fondo. El puntaje ya está guardado.
-        nudge();
-
-        // Al completar un arquero, pasa solo al siguiente que falte.
-        if (siguientes.length === target.arrows) {
-          const deEsteBlanco = new Map(
-            (await readScoresDeBlanco(target.index)).map((s) => [s.participantId, s]),
-          );
-
-          const siguiente = participants.find(
-            (p) =>
-              p.id !== seleccionado && (deEsteBlanco.get(p.id)?.arrows.length ?? 0) < target.arrows,
-          );
-          if (siguiente) setSeleccionado(siguiente.id);
-        }
+        // De fondo, y sólo si hay algo que mandar: un blanco a medias no encola nada.
+        if (siguientes.length === target.arrows) nudge();
       });
     },
-    [encolar, firmados, participants, recargar, seleccionado, target.arrows, target.index],
+    [contexto, encolar, mostrar, participants, target.arrows, target.index],
   );
 
   const borrarUltima = useCallback(
     (participantId: string) => {
       if (firmados.has(participantId)) return;
+      if ((vistaRef.current.flechas.get(participantId)?.length ?? 0) === 0) return;
+      mostrar(aplicarBorrado(vistaRef.current, participantId));
 
       encolar(async () => {
         const score = await readScore(participantId, target.index);
         if (!score || score.arrows.length === 0) return;
 
         await writeScore(participantId, target.index, score.arrows.slice(0, -1));
-        await recargar();
         nudge();
       });
     },
-    [encolar, firmados, recargar, target.index],
+    [encolar, firmados, mostrar, target.index],
+  );
+
+  const seleccionar = useCallback(
+    (participantId: string) => mostrar({ ...vistaRef.current, seleccionado: participantId }),
+    [mostrar],
   );
 
   /**
@@ -164,10 +226,10 @@ export function TargetPage({
       new Map(
         participants.map((p) => [
           p.id,
-          { seleccionar: () => setSeleccionado(p.id), borrar: () => borrarUltima(p.id) },
+          { seleccionar: () => seleccionar(p.id), borrar: () => borrarUltima(p.id) },
         ]),
       ),
-    [participants, borrarUltima],
+    [participants, borrarUltima, seleccionar],
   );
 
   const puedeContinuar = faltantes.length === 0;
@@ -225,7 +287,7 @@ export function TargetPage({
 
         <div className="flex flex-col gap-3">
           {participants.map((p) => {
-            const score = porParticipante.get(p.id);
+            const deEste = flechas.get(p.id) ?? SIN_FLECHAS;
             const acciones = accionesDe.get(p.id);
             return (
               <ArrowRow
@@ -235,8 +297,8 @@ export function TargetPage({
                 stake={p.stake}
                 unit={p.unit}
                 modality={target.modality}
-                arrows={score?.arrows ?? []}
-                total={score?.total ?? 0}
+                arrows={deEste}
+                total={totalParcial(target.modality, deEste)}
                 arrowsPerTarget={target.arrows}
                 seleccionado={p.id === seleccionado}
                 onSelect={acciones?.seleccionar ?? NADA}
@@ -254,6 +316,8 @@ export function TargetPage({
       */}
       <div
         data-panel-teclado
+        // Mientras se leen los puntajes guardados, lo que muestra la pantalla todavía no es real.
+        aria-busy={!leido}
         className="shrink-0 flex flex-col gap-2 px-3 pt-2 pb-3 rounded-t-[var(--radius-lg)] border-t bg-[var(--surface)] shadow-[var(--shadow-dock)]"
       >
         <ScoreKeypad

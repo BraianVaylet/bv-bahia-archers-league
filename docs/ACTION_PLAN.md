@@ -856,6 +856,134 @@ _(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos 
 
 ---
 
+# Fase 10 — Ajustes de la prueba 1 · P0 / P1
+
+> Devolución de la primera prueba en el predio, 2026-11-16. Cinco frentes: la landing no mostró el torneo en curso, la tarjeta de los torneos, el doble toque de «Finalizar torneo», toques perdidos en el teclado y el editor de patrullas. **Las cinco decisiones de abajo quedaron confirmadas el 2026-11-16, como estaban propuestas.**
+
+### Qué ya existe (relevado el 2026-11-16)
+
+| Pedido | Estado hoy |
+|---|---|
+| ¿Cuántos torneos muestra cada sección de la landing? | **Portada:** «Próximas fechas» hasta 3 (`PROXIMAS_EN_PORTADA`); «Torneos» hasta 3, los en curso primero y después del más nuevo al más viejo (`torneosDeLaPortada`). **`/torneos`:** todas las próximas que mande la API (tope 6, `MAX_PROXIMAS`) y todos los en curso y publicados no archivados (tope 200, `listPublicos`). |
+| ¿Cuál va sobre el banner? | **Ya es el en curso**: `torneoDestacado` toma el primer `en_proceso` (el de fecha más nueva si hay varios); si no hay, el último `publicado`. La regla está bien; el problema es otro (ver `FE-41`). |
+| Torneo en curso que no aparece | El backend lo lista (`listPublicos` incluye `en_proceso`) y el detalle público lo sirve. Pero: **(a)** `useRecurso` pide una sola vez al montar —sin refresco por foco ni por intervalo—, así que quien tenía la landing abierta desde antes de largar nunca lo ve; **(b)** `/api/public/*` sale con `max-age=60, stale-while-revalidate=300` (`routes/publico.ts:25`): hasta 6 minutos de dato viejo. Falta confirmar contra producción cuál de las dos fue. |
+| «2 blancos · 3 arqueros» | `TarjetaDeTorneo` (`@bal/ui`, compartida con WAFA) y `TarjetaDeProxima` (`ProximasFechas.tsx`) arman el texto número-primero. «Próximas fechas» no muestra inscriptos: la decisión 7 de la Fase 9 los excluye de la lista blanca. |
+| Página de un torneo `sin_iniciar` | **No existe.** `detallePublico` da 404 salvo `en_proceso` o resultados visibles (decisión 7 de la Fase 9: «nunca participantes ni patrullas»). |
+| Doble toque en «Finalizar torneo» | **Es el diseño, mal comunicado.** `requestClose` rechaza con `PENDING_OPS` mientras el outbox tenga ops (`OFFLINE_SYNC.md` §5.5). La última firma se acaba de encolar, así que el primer toque **siempre** choca, muestra «Falta sincronizar…» y empuja el sync; el segundo, ya con el outbox vacío, cierra. |
+| Toques que se pierden en el teclado | Tres causas en el código (ver `FE-45`): sin `touch-action: manipulation`, carrera en el paso automático al siguiente arquero, y una cadena de 4-5 lecturas/escrituras de IndexedDB por toque antes de repintar. |
+| Mover un arquero a otra patrulla | Botones «A la 2», «A la 3»… sin cantidad (`distribucion/TarjetaDePatrulla.tsx:197`). |
+| Crear una patrulla en el editor | **No se puede.** El editor sólo mueve y elimina; `PlannedPatrolSchema` exige `id` en cada patrulla, así que el servidor tampoco acepta una nueva. |
+| Agregar un arquero con las patrullas ya ajustadas | **Se pierde el ajuste.** Editar participantes vuelve a correr `buildPatrols` desde cero (`tournamentEditService.ts:397`): reordena todo y crea patrullas nuevas (PIN y usuario nuevos, aunque estén impresos). |
+
+### Decisiones — confirmadas el 2026-11-16
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| 1 | Página de próxima fecha con inscriptos, patrullas y gráficos: **revierte la decisión 7 de la Fase 9**. ¿Qué se muestra? | Nombre, apellido y categoría de cada inscripto; patrullas con sus miembros y blanco de inicio; tortas de modalidades y categorías; aviso «Inscripción abierta: las patrullas pueden cambiar hasta el día del torneo». **Nunca** DNI, pago, PIN, usuario ni estado de patrulla. Cambia `FUNCTIONAL.md` §5.3 y §8. |
+| 2 | El formato «Blancos 2 · Arqueros 3», ¿también en WAFA? | **Sí**: la tarjeta es una sola (`@bal/ui`); dos formatos para el mismo dato confunden. |
+| 3 | «Acomodar textos en los box de torneos»: ¿qué se ve mal? | `FE-42` revisa las tarjetas a 320/360/760/1280 px y corrige lo que se corte o desalinee. Si el autor manda captura del caso puntual, se suma al DoD. |
+| 4 | Finalizar: ¿sólo cambiar el texto, o que cierre solo? | **Que cierre solo.** Un toque: si hay pendientes, el botón pasa a «Sincronizando N cambios…» y el cierre se encola apenas el outbox queda vacío. §5.5 sigue valiendo: el `close` nunca se encola con ops pendientes. |
+| 5 | Agregar/quitar arqueros con patrullas existentes: ¿incremental siempre, o sólo si el admin las tocó a mano? | **Siempre incremental** después del primer armado: conserva el orden, los ids y los PIN impresos. El rearmado completo queda como acción explícita («Rearmar patrullas», con confirmación). |
+
+### Hilo A — Landing
+
+### `[ ] FE-41` · El torneo en curso aparece sin recargar · P0
+**Archivos:** `packages/cliente/src/useCarga.ts` (o `useRecurso` de la landing), `packages/landing/src/pages/Home.tsx`, `packages/api/src/routes/publico.ts`
+**Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3
+1. **Diagnóstico primero:** logs de Railway de `GET /api/public/tournaments` durante la prueba y audit `tournament.start`: ¿la API ya lo devolvía y el cliente no volvió a pedir, o hubo otra causa?
+2. Refresco de la portada y del listado al volver el foco (`visibilitychange`) y cada 60 s mientras la página esté visible.
+3. Bajar la caché de `/tournaments` y `/tournaments/:id` (propuesta: `max-age=15, stale-while-revalidate=30`); el `ETag` mantiene barato el 304.
+**DoD:** test de UI: con la portada abierta, el listado pasa de «sin en curso» a «en curso» al recuperar el foco y el hero muestra la tarjeta en vivo; test del middleware con los headers nuevos; E2E: largar un torneo desde WAFA con la landing abierta → aparece en el hero en ≤ 75 s sin recargar.
+
+### `[ ] FE-42` · Tarjetas de torneo: rótulo primero y textos acomodados · P1
+**Archivos:** `packages/ui/src/TarjetaDeTorneo.tsx`, `packages/landing/src/components/portada/ProximasFechas.tsx`
+- «Blancos 2 · Arqueros 3 · Patrullas 4» en vez de «2 blancos · 3 arqueros» (decisión 2).
+- En «Próximas fechas»: «Blancos 6 · Inscriptos 12 · Inscripción $ 15.000» (necesita `BE-29`).
+- Ajuste de textos según la decisión 3.
+**DoD:** tests de componente actualizados; sin scroll horizontal ni cortes a 320 px; captura a 360 y 1280 px en claro y oscuro.
+
+### `[ ] BE-29` · Detalle público de un torneo sin iniciar · P1
+**Archivos:** `packages/api/src/services/tournamentQueryService.ts`, `routes/publico.ts`, `repositories/tournamentRepo.ts`
+- `proximasFechas` suma `participantCount`.
+- `detallePublico` acepta `sin_iniciar` con fecha ≥ hoy: lista blanca de la decisión 1.
+**DoD:** tests de servicio: la respuesta no trae DNI, pago, PIN, usuario ni `archerId`; un `sin_iniciar` con fecha pasada o archivado da 404; `/security-review`.
+
+### `[ ] FE-43` · Landing: página de la próxima fecha · P1
+**Archivos:** `packages/landing/src/pages/Tournaments.tsx`, `ProximasFechas.tsx`
+- La tarjeta de «Próximas fechas» enlaza a `/torneos/:id`.
+- Misma estructura que la del torneo: estado arriba («Inscripción abierta»), datos, botón de pre-inscripción, inscriptos, patrullas y las tortas (`De qué está hecho`).
+**DoD:** test de página con un `sin_iniciar`; el badge de estado es explícito; sin podio ni puntajes; sin scroll horizontal a 360 px.
+
+### Hilo B — WAFL: cerrar el circuito
+
+### `[ ] FE-44` · «Finalizar torneo» en un solo toque · P0
+**Archivos:** `packages/app/src/wafl/ResultsPage.tsx`, `packages/app/src/offline/outbox.ts`, `syncWorker.ts`
+**Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §5.5
+- Al tocar con pendientes: el botón queda en «Sincronizando N cambios…» (deshabilitado) y se suscribe al estado del sync; cuando el outbox llega a 0, llama a `requestClose` solo.
+- Sin señal o con rechazo del servidor: el aviso de hoy (`motivoDelPendiente`) y el botón vuelve a «Reintentar finalizar».
+- Texto de ayuda bajo el botón cuando hay pendientes: «Primero se envían los puntajes y las firmas; el torneo se finaliza solo al terminar».
+**DoD:** test: firmar al último y tocar «Finalizar» **una vez** → cuando el outbox se vacía se encola el `close` y se llama a `onCerrado`; test sin red: no cierra, muestra el motivo, conserva todo; test de que el `close` nunca se encola con ops pendientes (§5.5 intacto).
+
+### Hilo C — WAFL: teclado ⭐
+
+### `[~] FE-45` · Toques rápidos que no se pierden · P0 ⭐
+_(Hecho en código y tests; **falta la prueba con guantes en un Android y un iPhone**. Sin caché del bundle ni `nudge` diferido: ver `docs/BITACORA.md`, entrada del 2026-11-16.)_
+**Archivos:** `packages/app/src/wafl/ScoreKeypad.tsx`, `TargetPage.tsx`, `packages/app/src/offline/outbox.ts`, `rendimiento.test.tsx`
+**Referencia:** [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) §6.1 · [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §12
+Causas encontradas en el código, a confirmar en un celular real (preguntar modelo y navegador de la prueba):
+1. **Sin `touch-action: manipulation`** en las teclas: dos toques rápidos sobre la misma tecla («10», «10») el navegador los puede tomar como doble toque de zoom y descartar el segundo `click` (iOS Safari, sobre todo).
+2. **Carrera al pasar al siguiente arquero:** `agregarFlecha` captura `seleccionado` del render. Al completar un arquero, el cambio al siguiente recién ocurre al final de la tarea encolada (después de tres lecturas de IndexedDB); los toques de ese intervalo quedan encolados para el arquero ya completo, chocan con `siguientes.length > target.arrows` y **se descartan en silencio**. En el mismo intervalo el teclado aparece deshabilitado («Ya cargaste las N flechas»).
+3. **Latencia por toque:** cada uno hace `readScore` + `readBundle` (el bundle entero, clonado) + transacción de escritura + `readScoresDeBlanco` + `readSignatures`, y recién ahí repinta; además `nudge` dispara un `flush` que compite por IndexedDB. Se siente lento y el líder vuelve a tocar.
+Arreglo:
+- `touch-action: manipulation` en el teclado.
+- El destinatario se resuelve **dentro** de la cola (ref con el seleccionado vigente; el avance al siguiente se decide en la cola, no en el cierre del render). Un toque que sobra va al siguiente arquero que falte; si no falta ninguno, se avisa, no se descarta mudo.
+- Las flechas tocadas se ven al instante (estado optimista local) mientras la cola escribe; IndexedDB sigue siendo la fuente de verdad y el estado se reconcilia al leer.
+- `readBundle` en memoria durante el blanco; `nudge` con espera de ~500 ms desde el último toque.
+- Regla 4 intacta: ningún `fetch` en el camino.
+**DoD:** test: 8 toques sin esperas para dos arqueros de 4 flechas → 4 y 4, en orden, sin pérdidas; test: la misma tecla dos veces seguidas → dos flechas; test: el teclado no queda deshabilitado durante el paso al siguiente; `rendimiento.test.tsx` mide toque → repintado; prueba manual con guantes en un Android y un iPhone, 3 blancos seguidos.
+
+### Hilo D — WAFA: editor de patrullas
+
+### `[ ] FE-46` · Mover a otra patrulla: con la cantidad a la vista · P1
+**Archivos:** `packages/app/src/wafa/distribucion/TarjetaDePatrulla.tsx`
+- «A la 2 · 3 arqueros»; si tiene 4, se marca «llena» (se puede mover igual: `problemaDelBorrador` frena el guardado, como hoy).
+**DoD:** test de UI con las cantidades; botón de 44 px.
+
+### `[ ] BE-30` · Crear patrullas desde la redistribución · P1
+**Archivos:** `packages/shared/src/schemas.ts` (`PlannedPatrolSchema`), `packages/api/src/services/` (distribución de patrullas), `repositories/patrolRepo.ts`
+- Una patrulla sin `id` en `PUT /tournaments/:id/patrols` es nueva: el servidor le crea usuario y PIN. Sólo en `sin_iniciar`.
+**DoD:** tests: patrulla nueva sale con usuario y PIN propios; las existentes conservan los suyos; un `id` ajeno al torneo → 400; Zod `.strict()`; audit; `/security-review`.
+
+### `[ ] FE-47` · Editor: «Nueva patrulla» · P1
+**Archivos:** `packages/app/src/wafa/patrullas.ts`, `distribucion/TarjetaDePatrulla.tsx`, `BarraDeAcciones.tsx`
+- Entre los destinos de «Mover» aparece «A una nueva»; y un botón «Agregar patrulla» en la barra. Una patrulla vacía no se guarda (`problemaDelBorrador`).
+**DoD:** tests puros de `patrullas.ts` (crear, mover a la nueva, eliminar y volver a crear) y test de UI.
+
+### `[ ] SH-12` · Dominio: incorporar y quitar arqueros sin rearmar · **TDD**
+**Archivos:** `packages/shared/src/patrolling.ts`
+- `incorporarArqueros(patrullasActuales, nuevos, quitados, stakeMap, blancos)`: conserva patrullas, orden e ids; quita a los que se bajan; ubica a cada nuevo en una patrulla de su estaca con lugar, respetando `H3` y el máximo de 4; si no hay, abre una patrulla nueva. Devuelve las violaciones que queden para que el admin las resuelva a mano.
+**DoD:** tests vistos fallar primero: agregar uno no mueve a nadie más; quitar uno no mueve a nadie más; un no senior que quedaría solo se reporta; estaca sin lugar → patrulla nueva.
+
+### `[ ] BE-31` · Editar participantes conserva las patrullas · P1
+**Archivos:** `packages/api/src/services/tournamentEditService.ts`
+- Editar participantes usa `incorporarArqueros` (decisión 5); `buildPatrols` sólo en el armado inicial y en «Rearmar patrullas» explícito.
+**DoD:** test de servicio: con patrullas ajustadas a mano, agregar un arquero deja a los demás donde estaban, con el mismo PIN; audit.
+
+### `[ ] FE-48` · WAFA: aviso y «Rearmar patrullas» · P1
+**Archivos:** `packages/app/src/wafa/detalle/EdicionDeParticipantes.tsx`, `pages/Patrols.tsx`
+- Al guardar participantes: «Se agregaron N arqueros a patrullas existentes» y, si quedan violaciones, link directo al editor.
+- Botón «Rearmar patrullas» con confirmación de dos toques: avisa que cambian los PIN.
+**DoD:** test de UI de ambos flujos.
+
+### `[ ] TEST-5` · E2E de la fase
+**Archivos:** `e2e/fase-10.spec.ts`
+1. Landing abierta → WAFA larga el torneo → aparece en el hero sin recargar.
+2. WAFL: anotar un blanco a toques rápidos → todas las flechas → firmar → «Finalizar» una vez → cerrado.
+3. WAFA: ajustar patrullas a mano → crear una nueva → agregar un arquero al torneo → los ajustes siguen.
+4. Landing: una próxima fecha muestra inscriptos y patrullas, sin DNI ni PIN.
+
+---
+
 ## Orden recomendado de ejecución
 
 **Camino crítico** — lo que sostiene todo lo demás:
@@ -877,6 +1005,11 @@ INF-1 → INF-2 → SH-1 → SH-2 → SH-3 → BE-1 → BE-2 → BE-5 → BE-8 �
   - Archivo: `BE-26` → `FE-35` (necesita `SH-11` para `puedeArchivar`).
   - Pre-inscripción y próximas fechas: `BE-27` → `BE-28` → `FE-36`/`FE-38`.
   - Sueltas: `FE-37` en cualquier momento. `FE-39` (fix, no depende de ninguna decisión) **antes que `FE-32`**, porque `FE-32` reusa los pasos del wizard. `TEST-4` al final.
+
+- Fase 10 (`FE-41`..`TEST-5`) — decisiones confirmadas el 2026-11-16. **Antes del próximo torneo:** `FE-45` (teclado) y `FE-44` (finalizar), los dos de WAFL. Después, hilos independientes:
+  - Landing: `FE-41` → `FE-42` → `BE-29` → `FE-43`. `BE-29` actualiza `FUNCTIONAL.md` §5.3 y §8 (decisión 1).
+  - Patrullas: `FE-46` (suelta) · `BE-30` → `FE-47` · `SH-12` → `BE-31` → `FE-48`.
+  - `TEST-5` al final.
 
 **Cuatro tareas mandan sobre el resto:** `SH-3` (patrullas), `BE-10` (sync), `FE-2` (offline) y `FE-6` (teclado). Son las que definen si la app funciona el día del torneo. Se les da el tiempo que pidan y se cubren con tests antes de construir nada encima.
 
