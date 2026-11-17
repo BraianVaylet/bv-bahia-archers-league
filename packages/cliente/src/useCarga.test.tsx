@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, crearCliente, useCarga, useRecurso } from './index.js';
 
 /**
@@ -440,6 +440,104 @@ describe('useRecurso', () => {
 
     await waitFor(() => expect(result.current).toEqual({ estado: 'error', mensaje: 'Roto.' }));
     vi.unstubAllGlobals();
+  });
+
+  describe('refresco (`FE-41`)', () => {
+    /** Un `fetch` que responde un contador: cada pedido trae un dato distinto. */
+    function contador() {
+      let n = 0;
+      const pedido = vi.fn(async () => {
+        n++;
+        return new Response(JSON.stringify({ n }));
+      });
+      vi.stubGlobal('fetch', pedido);
+      return pedido;
+    }
+
+    const pestaña = (estado: 'visible' | 'hidden') => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: estado });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+
+    afterEach(() => {
+      // Este archivo no desmonta entre tests: un hook con refresco seguiría pidiendo en el siguiente.
+      cleanup();
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+      vi.unstubAllGlobals();
+    });
+
+    it('con refresco, al volver a la pestaña vuelve a pedir sin pasar por «cargando»', async () => {
+      contador();
+      const estados: string[] = [];
+      const { result } = renderHook(() => {
+        const r = useRecurso<{ n: number }>(clienteDePrueba, '/x', { refrescarCadaMs: 60_000 });
+        estados.push(r.estado);
+        return r;
+      });
+      await waitFor(() => expect(result.current).toEqual({ estado: 'listo', datos: { n: 1 } }));
+      estados.length = 0;
+
+      pestaña('hidden');
+      pestaña('visible');
+
+      await waitFor(() => expect(result.current).toEqual({ estado: 'listo', datos: { n: 2 } }));
+      expect(estados).not.toContain('cargando');
+    });
+
+    it('con refresco, vuelve a pedir cada tanto mientras la pestaña se ve', async () => {
+      const pedido = contador();
+      renderHook(() => useRecurso(clienteDePrueba, '/x', { refrescarCadaMs: 20 }));
+
+      await waitFor(() => expect(pedido.mock.calls.length).toBeGreaterThanOrEqual(3));
+    });
+
+    it('con la pestaña oculta no pide: nadie está mirando', async () => {
+      const pedido = contador();
+      renderHook(() => useRecurso(clienteDePrueba, '/x', { refrescarCadaMs: 20 }));
+      await waitFor(() => expect(pedido).toHaveBeenCalledTimes(1));
+
+      pestaña('hidden');
+      const antes = pedido.mock.calls.length;
+      await new Promise((r) => setTimeout(r, 120));
+
+      expect(pedido.mock.calls.length).toBe(antes);
+    });
+
+    it('sin refresco pide una sola vez, aunque se vuelva a la pestaña', async () => {
+      const pedido = contador();
+      renderHook(() => useRecurso(clienteDePrueba, '/x'));
+      await waitFor(() => expect(pedido).toHaveBeenCalledTimes(1));
+
+      pestaña('visible');
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(pedido).toHaveBeenCalledTimes(1);
+    });
+
+    it('con la ruta en `null` no refresca nada', async () => {
+      const pedido = contador();
+      renderHook(() => useRecurso(clienteDePrueba, null, { refrescarCadaMs: 20 }));
+
+      pestaña('visible');
+      await new Promise((r) => setTimeout(r, 80));
+
+      expect(pedido).not.toHaveBeenCalled();
+    });
+
+    it('al desmontar deja de refrescar', async () => {
+      const pedido = contador();
+      const { unmount } = renderHook(() =>
+        useRecurso(clienteDePrueba, '/x', { refrescarCadaMs: 20 }),
+      );
+      await waitFor(() => expect(pedido).toHaveBeenCalledTimes(1));
+
+      unmount();
+      const antes = pedido.mock.calls.length;
+      pestaña('visible');
+      await new Promise((r) => setTimeout(r, 80));
+
+      expect(pedido.mock.calls.length).toBe(antes);
+    });
   });
 
   it('con `null` no pide nada: la ruta todavía no se conoce', () => {

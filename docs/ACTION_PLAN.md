@@ -887,7 +887,8 @@ _(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos 
 
 ### Hilo A — Landing
 
-### `[ ] FE-41` · El torneo en curso aparece sin recargar · P0
+### `[~] FE-41` · El torneo en curso aparece sin recargar · P0
+_(Hecho en código y tests; **falta el E2E** (largar desde WAFA con la landing abierta), que queda en `TEST-5` caso 1. El diagnóstico contra los logs de producción no se hizo: el arreglo cubre las dos causas. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/cliente/src/useCarga.ts` (o `useRecurso` de la landing), `packages/landing/src/pages/Home.tsx`, `packages/api/src/routes/publico.ts`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3
 1. **Diagnóstico primero:** logs de Railway de `GET /api/public/tournaments` durante la prueba y audit `tournament.start`: ¿la API ya lo devolvía y el cliente no volvió a pedir, o hubo otra causa?

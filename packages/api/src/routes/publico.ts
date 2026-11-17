@@ -23,6 +23,13 @@ const RankingQuery = z.strictObject({
 
 export const publico = new Hono()
   .use('*', publicCache({ maxAge: 60 }))
+  /*
+    Los torneos cambian **mientras se juega**: se larga uno, avanzan las patrullas. Con 60 s de
+    frescura y 300 de `stale-while-revalidate`, un navegador podía mostrar hasta seis minutos un
+    listado sin el torneo recién largado (`FE-41`, prueba 1). 15 + 30: el `ETag` mantiene barato
+    el 304. El ranking y las temporadas sólo cambian al publicar y se quedan en 60.
+  */
+  .use('/tournaments/*', publicCache({ maxAge: 15, staleWhileRevalidate: 30 }))
 
   /**
    * Autoregistro público (`BE-20`, `docs/SECURITY.md` §15).

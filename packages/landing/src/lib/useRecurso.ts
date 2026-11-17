@@ -6,11 +6,26 @@
  * pintada mostraría «no hay nada» a alguien cuyos datos están en camino.
  */
 
-import { type Recurso, useRecurso as useRecursoCompartido } from '@bal/cliente';
+import {
+  type OpcionesDeRecurso,
+  type Recurso,
+  useRecurso as useRecursoCompartido,
+} from '@bal/cliente';
 import { cliente } from './api.js';
 
 export type { Recurso };
 
-export function useRecurso<T>(path: string | null): Recurso<T> {
-  return useRecursoCompartido<T>(cliente, path);
+/**
+ * Cada cuánto se vuelve a pedir lo que cambia mientras alguien mira (`FE-41`): el listado de
+ * torneos (uno que larga) y el avance de uno en curso. Con la pestaña visible, y apenas se vuelve
+ * a ella. No menos: el wifi del club es una sola IP para el rate limit público, que comparte con
+ * el ingreso de WAFL.
+ */
+export const REFRESCO_EN_VIVO_MS = 60_000;
+
+/** Las próximas fechas cambian poco, pero un torneo que larga sale de esa lista. */
+export const REFRESCO_LENTO_MS = 5 * 60_000;
+
+export function useRecurso<T>(path: string | null, opciones?: OpcionesDeRecurso): Recurso<T> {
+  return useRecursoCompartido<T>(cliente, path, opciones);
 }

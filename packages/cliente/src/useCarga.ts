@@ -166,6 +166,40 @@ export type Recurso<T> =
   | { readonly estado: 'listo'; readonly datos: T }
   | { readonly estado: 'error'; readonly mensaje: string };
 
+export interface OpcionesDeRecurso {
+  /**
+   * Vuelve a pedir **en silencio** —sin pasar por «cargando», sin mostrar un fallo— cada tantos
+   * milisegundos mientras la pestaña se ve, y apenas se vuelve a ella. Para lo que cambia mientras
+   * alguien mira: un torneo que larga, el avance de las patrullas (`FE-41`). Sin esto se pide una
+   * sola vez, que es lo correcto para casi todo lo demás.
+   *
+   * Con la pestaña oculta no pide: nadie está mirando, y el wifi del club es una sola IP para el
+   * rate limit público.
+   */
+  readonly refrescarCadaMs?: number;
+}
+
+/**
+ * El refresco de `OpcionesDeRecurso.refrescarCadaMs`. Con `cadaMs` en `undefined` no hace nada.
+ */
+function useRefresco(recargar: Carga<unknown>['recargar'], cadaMs: number | undefined): void {
+  useEffect(() => {
+    if (cadaMs === undefined) return;
+
+    const visible = () => document.visibilityState === 'visible';
+    const refrescar = () => {
+      if (visible()) void recargar({ silencioso: true });
+    };
+
+    const intervalo = setInterval(refrescar, cadaMs);
+    document.addEventListener('visibilitychange', refrescar);
+    return () => {
+      clearInterval(intervalo);
+      document.removeEventListener('visibilitychange', refrescar);
+    };
+  }, [recargar, cadaMs]);
+}
+
 /**
  * Una lectura de sólo lectura, con los tres estados **explícitos**. Sin `cargando`, la primera
  * pintada mostraría «no hay nada» a alguien cuyos datos están en camino, que es el error más fácil
@@ -176,11 +210,15 @@ export type Recurso<T> =
 export function useRecurso<T>(
   cliente: { readonly get: <R>(path: string, signal?: AbortSignal) => Promise<R> },
   path: string | null,
+  opciones: OpcionesDeRecurso = {},
 ): Recurso<T> {
-  const { datos, error } = useCarga<T>(
+  const { datos, error, recargar } = useCarga<T>(
     (signal) => (path === null ? new Promise<T>(() => {}) : cliente.get<T>(path, signal)),
     [cliente, path],
   );
+
+  // Sin ruta no hay nada que refrescar: la espera de `null` nunca resuelve.
+  useRefresco(recargar, path === null ? undefined : opciones.refrescarCadaMs);
 
   if (error !== undefined) return { estado: 'error', mensaje: error };
   if (datos === undefined) return { estado: 'cargando' };

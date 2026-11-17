@@ -1,6 +1,7 @@
 import type { CommandStartedEvent } from 'mongodb';
 import { ObjectId } from 'mongodb';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createApp } from '../src/app.js';
 import { getClient, getDb, tournaments } from '../src/db/client.js';
 import type { TournamentDoc } from '../src/db/types.js';
 import { resetEnvCache } from '../src/env.js';
@@ -112,5 +113,53 @@ describe('GET /api/public/tournaments', () => {
     expect(Object.keys(projection ?? {}).sort()).toEqual(
       ['date', 'name', 'participantCount', 'status', 'targets'].sort(),
     );
+  });
+});
+
+/**
+ * Cuánto puede quedar viejo lo que ve la landing (`FE-41`).
+ *
+ * En la prueba 1 el torneo en curso no aparecía en la landing. Una de las dos causas: todo
+ * `/api/public/*` salía con `max-age=60, stale-while-revalidate=300`, así que un navegador podía
+ * mostrar hasta seis minutos un listado sin el torneo recién largado. Lo de los torneos cambia
+ * mientras se juega; el ranking y las temporadas, sólo al publicar.
+ */
+describe('caché de las respuestas públicas', () => {
+  const VIVO = 'public, max-age=15, stale-while-revalidate=30';
+  const ESTABLE = 'public, max-age=60, stale-while-revalidate=300';
+
+  it('el listado de torneos se puede cachear poco: cambia mientras se juega', async () => {
+    const res = await cliente().get('/api/public/tournaments');
+    expect(res.headers.get('cache-control')).toBe(VIVO);
+  });
+
+  it('el detalle de un torneo en curso, igual: es el avance en vivo', async () => {
+    const t = torneo('en_proceso');
+    await tournaments().insertOne(t);
+
+    const res = await cliente().get(`/api/public/tournaments/${t._id.toHexString()}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe(VIVO);
+  });
+
+  it('las próximas fechas, igual', async () => {
+    const res = await cliente().get('/api/public/tournaments/upcoming');
+    expect(res.headers.get('cache-control')).toBe(VIVO);
+  });
+
+  it('las temporadas siguen como antes: sólo cambian al publicar', async () => {
+    const res = await cliente().get('/api/public/seasons');
+    expect(res.headers.get('cache-control')).toBe(ESTABLE);
+  });
+
+  it('el ETag sigue: un pedido repetido responde 304 sin cuerpo', async () => {
+    const primero = await cliente().get('/api/public/tournaments');
+    const etag = primero.headers.get('etag');
+    expect(etag).toBeTruthy();
+
+    const segundo = await createApp().request('http://localhost/api/public/tournaments', {
+      headers: { 'if-none-match': etag as string },
+    });
+    expect(segundo.status).toBe(304);
   });
 });

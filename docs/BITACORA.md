@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `FE-41` — Landing: el torneo en curso aparece sin recargar
+
+**Autor:** Claude Opus 5.5 · **Estado:** hecho en código y tests, en la rama `landing/en-curso-sin-recargar`. Falta el E2E (`TEST-5`, caso 1).
+
+En la prueba 1 el torneo en curso no se veía en la landing. La regla del hero estaba bien (`torneoDestacado` ya prioriza el en curso); fallaba que lo viera quien ya tenía la página abierta. Dos causas, las dos arregladas:
+- **La landing pedía todo una sola vez.** `useRecurso` (de `@bal/cliente`) suma la opción `refrescarCadaMs`: vuelve a pedir **en silencio** —sin «cargando», sin mostrar un fallo— cada tanto con la pestaña visible, y apenas se vuelve a ella. Por defecto no refresca.
+- **La caché pública.** `/api/public/*` salía con `max-age=60, stale-while-revalidate=300`: hasta seis minutos de listado viejo. `/api/public/tournaments*` pasa a 15 + 30; el resto (ranking, temporadas, arqueros) sigue en 60, porque sólo cambia al publicar. La caché más específica gana: `publicCache` no pisa un `Cache-Control` ya puesto.
+
+**Qué refresca y cada cuánto:** listado de torneos y detalle en curso de la portada, cada 60 s; el listado de `/torneos`, igual; próximas fechas, cada 5 min (un torneo que larga sale de esa lista); el detalle de `/torneos/:id`, sólo si está en curso (uno publicado ya es definitivo). **No menos de 60 s a propósito:** el rate limit público es de 120 por minuto **por IP**, y el wifi del club es una sola IP que comparte con el ingreso de WAFL. Con 30 personas mirando la portada son unas 60 por minuto en el peor caso, y con la pestaña oculta no se pide nada.
+
+**Desvío:** el plan pedía primero el diagnóstico contra los logs de Railway, para saber cuál de las dos causas fue. No se hizo: el arreglo cubre las dos y saberlo no cambiaba qué hacer.
+
+**Verificado:** tests vistos fallar primero en los tres paquetes —el hook (6: refresca al volver a la pestaña sin pasar por «cargando», por intervalo, nada con la pestaña oculta, nada sin la opción, nada con ruta `null`, nada al desmontar), la portada (el torneo que larga aparece en el hero al volver a la pestaña; el avance se actualiza), el detalle (en curso refresca, publicado no) y la API (15 + 30 en torneos, 60 en temporadas, el 304 sigue). `pnpm -r test` verde en los seis paquetes; presupuestos en verde (landing 117,05/120). No se probó en el navegador: la landing necesita la API con Mongo, y lo que se vería es exactamente lo que cubren los tests y el E2E pendiente.
+
+---
+
 ## 2026-11-17 · `FE-44` — WAFL: «Finalizar torneo» en un solo toque
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafl/finalizar-un-toque` (sobre `wafl/teclado-toques-rapidos`, que trae la Fase 10 del plan).

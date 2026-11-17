@@ -31,7 +31,12 @@ import {
 } from '../components/portada/Secciones.js';
 import { torneoDestacado } from '../lib/portada.js';
 import { temporadaActiva, useTemporadas } from '../lib/temporada.js';
-import { type Recurso, useRecurso } from '../lib/useRecurso.js';
+import {
+  REFRESCO_EN_VIVO_MS,
+  REFRESCO_LENTO_MS,
+  type Recurso,
+  useRecurso,
+} from '../lib/useRecurso.js';
 
 export function HomePage({
   foto = portada,
@@ -44,8 +49,13 @@ export function HomePage({
 }) {
   useTituloDePagina('Resultados y ranking');
 
-  const torneos = useRecurso<{ tournaments: ResumenDeTorneo[] }>('/tournaments');
-  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming');
+  // `FE-41`: un torneo que larga con la portada abierta tiene que aparecer sin recargar.
+  const torneos = useRecurso<{ tournaments: ResumenDeTorneo[] }>('/tournaments', {
+    refrescarCadaMs: REFRESCO_EN_VIVO_MS,
+  });
+  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming', {
+    refrescarCadaMs: REFRESCO_LENTO_MS,
+  });
   const temporadas = useTemporadas();
 
   const destacado = torneos.estado === 'listo' ? torneoDestacado(torneos.datos.tournaments) : null;
@@ -54,6 +64,7 @@ export function HomePage({
   // El detalle público viene envuelto en `tournament`, como lo lee la página del torneo.
   const detalleCrudo = useRecurso<{ tournament: DetalleEnCurso }>(
     destacado?.status === 'en_proceso' ? `/tournaments/${destacado.id}` : null,
+    { refrescarCadaMs: REFRESCO_EN_VIVO_MS },
   );
   const detalle: Recurso<DetalleEnCurso> =
     detalleCrudo.estado === 'listo'
