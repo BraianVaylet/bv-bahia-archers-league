@@ -208,6 +208,64 @@ describe('HomePage · portada nueva', () => {
     ).toBeInTheDocument();
   });
 
+  /*
+    `FE-41`, devolución de la prueba 1: «mientras el torneo se ejecutaba no se veía en la landing».
+    Quien tenía la portada abierta desde antes de largar no lo veía nunca: la portada pedía el
+    listado una sola vez. Ahora lo vuelve a pedir al volver a la pestaña (y cada minuto mientras se
+    ve), en silencio: lo que ya se ve no pasa por «cargando».
+  */
+  it('un torneo que larga con la portada abierta aparece al volver a la pestaña, sin recargar', async () => {
+    let largo = false;
+    conDatos({
+      '/api/public/tournaments': () =>
+        listado(
+          largo
+            ? [torneo(), torneo({ id: 'c1', name: detalle.name, status: 'en_proceso' })]
+            : [torneo()],
+        ),
+      '/api/public/tournaments/c1': () => ({ json: { tournament: detalle } }),
+    });
+    renderEn(<HomePage />);
+    expect(await screen.findByTestId('tarjeta-destacada')).toHaveAttribute('href', '/torneos/p1');
+
+    // El admin largó el torneo desde WAFA. El que mira vuelve a la pestaña.
+    largo = true;
+    fireEvent(document, new Event('visibilitychange'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('tarjeta-destacada')).toHaveAttribute('href', '/torneos/c1'),
+    );
+    expect(screen.getByTestId('tarjeta-destacada')).toHaveTextContent('En curso');
+  });
+
+  it('el avance del torneo en curso también se actualiza al volver a la pestaña', async () => {
+    let completados = 0;
+    conDatos({
+      '/api/public/tournaments': () =>
+        listado([torneo({ id: 'c1', name: detalle.name, status: 'en_proceso' })]),
+      '/api/public/tournaments/c1': () => ({
+        json: {
+          tournament: {
+            ...detalle,
+            patrols: [{ ...detalle.patrols[0], targetsCompleted: completados }],
+          },
+        },
+      }),
+    });
+    renderEn(<HomePage />);
+    const tarjeta = await screen.findByTestId('tarjeta-destacada');
+    expect(
+      await within(tarjeta).findByRole('img', { name: '0 de 6 blancos cargados' }),
+    ).toBeDefined();
+
+    completados = 4;
+    fireEvent(document, new Event('visibilitychange'));
+
+    expect(
+      await within(tarjeta).findByRole('img', { name: '4 de 6 blancos cargados' }),
+    ).toBeDefined();
+  });
+
   it('sin torneo en curso, la tarjeta es la última fecha publicada', async () => {
     conDatos();
     renderEn(<HomePage />);
@@ -707,6 +765,27 @@ describe('TournamentPage', () => {
   });
 
   const renderDetalle = () => renderEn(<TournamentPage />, '/torneos/t1', '/torneos/:id');
+
+  // `FE-41`: el detalle de uno en curso se mantiene al día; el de uno publicado ya es definitivo.
+  it.each([
+    ['en curso, vuelve a pedirlo al volver a la pestaña', 'en_proceso', 2],
+    ['publicado, no lo vuelve a pedir', 'publicado', 1],
+  ])('un torneo %s', async (_nombre, status, pedidos) => {
+    servidor({
+      '/api/public/tournaments/t1': () => ({ json: { tournament: detalle({ status }) } }),
+    });
+    renderDetalle();
+    await screen.findByRole('heading', { level: 1 });
+    const delDetalle = () => llamadas.filter((u) => u === '/api/public/tournaments/t1').length;
+    expect(delDetalle()).toBe(1);
+    // Saber que está en curso es un render más: recién ahí se engancha el refresco.
+    await new Promise((r) => setTimeout(r, 20));
+
+    fireEvent(document, new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(delDetalle()).toBe(pedidos);
+  });
 
   /**
    * `startTargetIndex` es el **número** del blanco de inicio (1-based, como `targets[].index`) y el

@@ -33,6 +33,10 @@ export const publicCache = (options: CacheOptions): MiddlewareHandler => {
     // intermediario, que es exactamente lo que no tiene que pasar.
     if (c.req.method !== 'GET' || c.res.status !== 200) return;
 
+    // Una caché más específica ya decidió (`FE-41`): la de los torneos, que cambian mientras se
+    // juega, va montada adentro de la general y corre antes que ella a la vuelta.
+    if (c.res.headers.has('Cache-Control')) return;
+
     const cuerpo = await c.res.clone().text();
     const etag = `W/"${createHash('sha256').update(cuerpo).digest('base64url').slice(0, 27)}"`;
 

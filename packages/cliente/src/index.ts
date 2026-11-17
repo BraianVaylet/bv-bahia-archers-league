@@ -14,6 +14,7 @@ export {
 export {
   type Carga,
   type OpcionesDeCarga,
+  type OpcionesDeRecurso,
   type Recurso,
   useCarga,
   useRecurso,

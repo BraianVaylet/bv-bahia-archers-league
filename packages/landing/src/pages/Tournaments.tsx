@@ -32,6 +32,7 @@ import {
   TarjetaDeTorneo,
   useTituloDePagina,
 } from '@bal/ui';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BotonPreinscripcion } from '../components/BotonPreinscripcion.js';
 import { type ProximaFecha, ProximasFechas } from '../components/portada/ProximasFechas.js';
@@ -48,7 +49,7 @@ import {
   StakeChip,
   Tabla,
 } from '../components/ui.js';
-import { useRecurso } from '../lib/useRecurso.js';
+import { REFRESCO_EN_VIVO_MS, REFRESCO_LENTO_MS, useRecurso } from '../lib/useRecurso.js';
 
 interface TorneoResumen {
   readonly id: string;
@@ -112,8 +113,13 @@ const ESTADOS_PUBLICOS: readonly TournamentStatus[] = ['en_proceso', 'publicado'
 
 export function TournamentsPage() {
   useTituloDePagina('Torneos');
-  const torneos = useRecurso<{ tournaments: TorneoResumen[] }>('/tournaments');
-  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming');
+  // `FE-41`: el listado se mantiene al día mientras se mira; ver `REFRESCO_EN_VIVO_MS`.
+  const torneos = useRecurso<{ tournaments: TorneoResumen[] }>('/tournaments', {
+    refrescarCadaMs: REFRESCO_EN_VIVO_MS,
+  });
+  const proximas = useRecurso<{ tournaments: ProximaFecha[] }>('/tournaments/upcoming', {
+    refrescarCadaMs: REFRESCO_LENTO_MS,
+  });
 
   return (
     <Screen>
@@ -255,7 +261,14 @@ function Podios({
 
 export function TournamentPage() {
   const { id = '' } = useParams();
-  const torneo = useRecurso<{ tournament: TorneoDetalle }>(`/tournaments/${id}`);
+  // Sólo uno en curso cambia mientras se mira: un publicado ya es definitivo.
+  const [enCurso, setEnCurso] = useState(false);
+  const torneo = useRecurso<{ tournament: TorneoDetalle }>(
+    `/tournaments/${id}`,
+    enCurso ? { refrescarCadaMs: REFRESCO_EN_VIVO_MS } : undefined,
+  );
+  const estado = torneo.estado === 'listo' ? torneo.datos.tournament.status : undefined;
+  useEffect(() => setEnCurso(estado === 'en_proceso'), [estado]);
   useTituloDePagina(torneo.estado === 'listo' ? torneo.datos.tournament.name : 'Torneo');
 
   if (torneo.estado === 'cargando') {
