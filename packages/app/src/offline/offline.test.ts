@@ -266,6 +266,35 @@ describe('flush', () => {
     expect(getSyncState().status).toBe('synced');
   });
 
+  /*
+    `FE-44`: «Finalizar» espera a que se envíe todo, y necesita saber cuándo un envío **falló**
+    para dejar de decir «Sincronizando…» y mostrar el motivo. Con el celular «online» pero sin
+    salida real (el wifi del club sin internet), el estado sigue en `pending` igual que mientras
+    envía: sin un contador, las dos cosas se ven idénticas.
+  */
+  it('cuenta los envíos que fallaron por red, y un envío que sale no los suma', async () => {
+    await writeScore(P1, 1, ['11', '8']);
+    const antes = getSyncState().intentosFallidos;
+
+    configureSync({
+      post: async () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    expect(await flush()).toBe(false);
+    expect(getSyncState().intentosFallidos).toBe(antes + 1);
+
+    configureSync({
+      post: async (ops) => ({
+        results: ops.map((o) => ({ opId: o.opId as string, status: 'applied' as const })),
+        patrol: { status: 'en_curso', targetsCompleted: 1 },
+        serverTime: new Date().toISOString(),
+      }),
+    });
+    expect(await flush()).toBe(true);
+    expect(getSyncState().intentosFallidos).toBe(antes + 1);
+  });
+
   it('trata `duplicate` y `superseded` como resueltas: salen del outbox', async () => {
     await writeScore(P1, 1, ['11', '8']);
     await writeScore(P2, 1, ['10', '5']);
@@ -811,7 +840,7 @@ describe('clearAll', () => {
  * guardados.
  */
 describe('syncLabel', () => {
-  const base = { pending: 0, lastSyncAt: null, lastError: null } as const;
+  const base = { pending: 0, lastSyncAt: null, lastError: null, intentosFallidos: 0 } as const;
 
   it('al día no dice nada más', () => {
     expect(syncLabel({ ...base, status: 'synced' })).toBe('Al día');
@@ -904,7 +933,12 @@ describe('mensajes en singular', () => {
   });
 
   it('sin señal, un solo cambio guardado, y ninguno', () => {
-    const base = { lastSyncAt: null, lastError: null, status: 'offline' } as const;
+    const base = {
+      lastSyncAt: null,
+      lastError: null,
+      status: 'offline',
+      intentosFallidos: 0,
+    } as const;
 
     expect(syncLabel({ ...base, pending: 1 })).toBe('Sin señal · 1 guardado');
     expect(syncLabel({ ...base, pending: 0 })).toBe('Sin señal');

@@ -25,6 +25,13 @@ export interface SyncState {
   readonly pending: number;
   readonly lastSyncAt: number | null;
   readonly lastError: string | null;
+  /**
+   * Cuántos envíos fallaron y quedaron para reintentar (red caída, 5xx, 401, una respuesta sin el
+   * resultado de alguna op). Sólo sube. Con el celular «online» pero sin salida real —el wifi del
+   * club sin internet—, el estado sigue en `pending` igual que mientras envía: esto es lo que
+   * distingue «enviando» de «falló» para quien espera un envío (`FE-44`, «Finalizar»).
+   */
+  readonly intentosFallidos: number;
 }
 
 type Listener = (estado: SyncState) => void;
@@ -33,7 +40,15 @@ const LOTE = 50;
 const INTERVALO_MS = 30_000;
 const BACKOFF_MAX_MS = 60_000;
 
-let estado: SyncState = { status: 'synced', pending: 0, lastSyncAt: null, lastError: null };
+const INICIAL: SyncState = {
+  status: 'synced',
+  pending: 0,
+  lastSyncAt: null,
+  lastError: null,
+  intentosFallidos: 0,
+};
+
+let estado: SyncState = INICIAL;
 let listeners: Listener[] = [];
 let corriendo = false;
 let reintentoEn: ReturnType<typeof setTimeout> | undefined;
@@ -488,7 +503,9 @@ async function marcarIntentos(lote: OutboxOp[], error: unknown): Promise<void> {
   }
 }
 
+/** Un envío falló y queda para después: se cuenta (ver `intentosFallidos`) y se agenda. */
 function programarReintento(lote: OutboxOp[]): void {
+  emitir({ intentosFallidos: estado.intentosFallidos + 1 });
   const intentos = Math.max(...lote.map((o) => o.attempts), 0);
   clearTimeout(reintentoEn);
   reintentoEn = setTimeout(() => void flush(), esperaDe(intentos));
@@ -545,7 +562,7 @@ export function startSyncWorker(): () => void {
 
 /** Sólo para tests. */
 export function resetSyncWorker(): void {
-  estado = { status: 'synced', pending: 0, lastSyncAt: null, lastError: null };
+  estado = INICIAL;
   listeners = [];
   corriendo = false;
   clearTimeout(reintentoEn);

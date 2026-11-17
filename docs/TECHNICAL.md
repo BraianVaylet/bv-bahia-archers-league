@@ -556,7 +556,7 @@ El encabezado decía «se verifican en CI», y sólo cuatro de estas filas se ve
 | Navegar entre blancos | < 100 ms | — | **No se mide** |
 | Primera carga de WAFL en 3G simulado | < 2.5 s | — | **No se mide** |
 | JS que baja la pantalla de elegir rol (`/app/`) | < 90 KB gz | 82.8 | `scripts/presupuesto.mjs` en el CI. Era 105.5 y estaba en rojo: bajaba Zod sin usarlo (ver más abajo) |
-| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 119.1 | `presupuesto.mjs` en el CI |
+| JS que baja WAFL (inicial + su chunk) | **< 125 KB** gz | 102.4 | `presupuesto.mjs` en el CI. Llegó a 125,5 con `FE-44`; desde ahí resultados, firma y cierre van en un chunk aparte que se **precarga apenas arranca WAFL** (con la señal del arranque, no al final del recorrido) y que el service worker también precachea |
 | JS que baja WAFA (inicial + su chunk) | < 140 KB gz | 136.2 | `presupuesto.mjs` en el CI. **Era 135 hasta `FE-34`** (2026-11-11, decisión del autor): la corrección de puntajes trae el teclado de WAFL y dejó a WAFA en 136,2. Cargarla con `React.lazy` no sirvió —el bundler mueve el teclado a un chunk compartido y la que se pasaba era WAFL, 125,04— ni tampoco el wizard. WAFA es la app del admin, con wifi del club o computadora; el límite que cuida al predio es el de WAFL, que no cambia |
 | JS inicial de la landing | < 120 KB gz | 109.2 | `presupuesto.mjs` en el CI |
 | LCP de la landing | < 2.5 s | — | **No se mide** (la auditoría de Lighthouse sigue pendiente) |
