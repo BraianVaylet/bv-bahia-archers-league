@@ -14,7 +14,7 @@ import {
   type Unit,
   validatePatrols,
 } from '@bal/shared';
-import type { ObjectId } from 'mongodb';
+import type { ClientSession, ObjectId } from 'mongodb';
 import { iniciarSesion } from '../db/sesion.js';
 import { env } from '../env.js';
 import { liberarCuenta } from '../lib/bloqueoDeIngreso.js';
@@ -25,7 +25,7 @@ import * as auditRepo from '../repositories/auditRepo.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
-import { conTransaccion } from './tournamentService.js';
+import { conTransaccion, patrullaNueva } from './tournamentService.js';
 
 export interface PatrolView {
   readonly id: string;
@@ -290,8 +290,17 @@ export async function redistribute(
     });
   }
 
+  // Una patrulla mencionada dos veces recibiría dos números y dos listas de arqueros.
+  const ids = input.patrols.flatMap((p) => (p.id === undefined ? [] : [p.id]));
+  if (new Set(ids).size !== ids.length) {
+    throw new AppError('VALIDATION_ERROR', {
+      message: 'Hay una patrulla repetida en la distribución.',
+    });
+  }
+
   for (const p of input.patrols) {
-    if (!porPatrullaId.has(p.id)) {
+    // Sin `id` es una patrulla nueva (`BE-30`): no tiene que existir.
+    if (p.id !== undefined && !porPatrullaId.has(p.id)) {
       throw new AppError('VALIDATION_ERROR', {
         message: `La patrulla ${p.number} no existe en este torneo.`,
       });
@@ -330,8 +339,24 @@ export async function redistribute(
    * parche. Una patrulla que no está en ella es una que el admin eliminó, y ya
    * se verificó arriba que ningún arquero quedó sin patrulla.
    */
-  const mencionadas = new Set(input.patrols.map((p) => p.id));
+  const mencionadas = new Set(ids);
   const aBorrar = patrullas.filter((p) => !mencionadas.has(p._id.toHexString()));
+
+  /**
+   * Las nuevas (`BE-30`), con usuario y PIN propios. Se generan **antes** de la transacción, como
+   * en el armado inicial: hashear con argon2id tarda, y no hace falta tener locks mientras tanto.
+   */
+  const ahora = new Date();
+  const nuevas = new Map(
+    await Promise.all(
+      input.patrols
+        .filter((p) => p.id === undefined)
+        .map(
+          async (p) =>
+            [p, await patrullaNueva(tournamentId, p.number, p.startTargetIndex, ahora)] as const,
+        ),
+    ),
+  );
 
   await conTransaccion(async (session) => {
     await patrolRepo.removeMany(
@@ -339,7 +364,10 @@ export async function redistribute(
       session,
     );
 
+    // Primero se renumeran las que ya estaban; recién después se insertan las nuevas. El número y
+    // el usuario son únicos por torneo: insertar antes chocaría con una que todavía no se movió.
     for (const planeada of input.patrols) {
+      if (planeada.id === undefined) continue;
       // biome-ignore lint/style/noNonNullAssertion: verificado arriba
       const patrulla = porPatrullaId.get(planeada.id)!;
       await patrolRepo.setStartTargetIndex(patrulla._id, planeada.startTargetIndex, session);
@@ -348,24 +376,36 @@ export async function redistribute(
       if (patrulla.number !== planeada.number) {
         await patrolRepo.setNumber(patrulla._id, planeada.number, session);
       }
+    }
 
-      for (const unidad of planeada.units) {
-        for (const [i, participantId] of unidad.members.entries()) {
-          // biome-ignore lint/style/noNonNullAssertion: verificado arriba
-          const miembro = porId.get(participantId)!;
-          await tournamentRepo.reassignParticipant(
-            miembro._id,
-            {
-              patrolId: patrulla._id,
-              unit: unidad.label,
-              // La posición sale del ORDEN dentro de la unidad, no de lo que
-              // mande el cliente: es un dato derivado, no una opinión.
-              position: i === 0 ? 'izquierda' : 'derecha',
-            },
-            session,
-          );
-        }
-      }
+    await tournamentRepo.insertPatrols([...nuevas.values()], session);
+
+    for (const planeada of input.patrols) {
+      const patrulla =
+        planeada.id === undefined
+          ? // biome-ignore lint/style/noNonNullAssertion: armada arriba para cada una sin `id`
+            nuevas.get(planeada)!
+          : // biome-ignore lint/style/noNonNullAssertion: verificado arriba
+            porPatrullaId.get(planeada.id)!;
+
+      await asignarMiembros(patrulla._id, planeada.units, porId, session);
+    }
+
+    /*
+      La cuenta del torneo, que muestra la tarjeta de WAFA. Hasta `BE-30` no se actualizaba al
+      eliminar patrullas (`REF3-1`). Con la guarda de estado: si el torneo arrancó mientras tanto,
+      la transacción entera vuelve atrás.
+    */
+    const actualizado = await tournamentRepo.updateIfStatus(
+      tournamentId,
+      'sin_iniciar',
+      { patrolCount: input.patrols.length },
+      session,
+    );
+    if (!actualizado) {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'Las patrullas sólo se pueden reacomodar mientras el torneo no arrancó.',
+      });
     }
   });
 
@@ -377,9 +417,40 @@ export async function redistribute(
     action: 'patrol.manual_edit',
     entity: 'tournament',
     entityId: tournamentId,
-    meta: { patrols: input.patrols.length, violations: violations.length },
+    meta: {
+      patrols: input.patrols.length,
+      created: nuevas.size,
+      removed: aBorrar.length,
+      violations: violations.length,
+    },
     ip,
   });
+}
+
+/** Pone a cada arquero de las unidades planeadas en su patrulla, unidad y posición. */
+async function asignarMiembros(
+  patrolId: ObjectId,
+  unidades: PatrolDistributionInput['patrols'][number]['units'],
+  porId: ReadonlyMap<string, { readonly _id: ObjectId }>,
+  session: ClientSession,
+): Promise<void> {
+  for (const unidad of unidades) {
+    for (const [i, participantId] of unidad.members.entries()) {
+      // biome-ignore lint/style/noNonNullAssertion: verificado en `redistribute`
+      const miembro = porId.get(participantId)!;
+      await tournamentRepo.reassignParticipant(
+        miembro._id,
+        {
+          patrolId,
+          unit: unidad.label,
+          // La posición sale del ORDEN dentro de la unidad, no de lo que
+          // mande el cliente: es un dato derivado, no una opinión.
+          position: i === 0 ? 'izquierda' : 'derecha',
+        },
+        session,
+      );
+    }
+  }
 }
 
 /** Verifica las restricciones `H1`..`H4` sobre la distribución actual. */

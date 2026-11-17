@@ -171,10 +171,42 @@ export function aParticipantInput(arqueros: readonly ArcherDoc[]): ParticipantIn
 }
 
 /**
- * Convierte el plan del dominio en documentos, generando las credenciales.
+ * El documento de una patrulla nueva, con su usuario y un PIN propio. El PIN se guarda
+ * **hasheado** (para verificarlo en el login) y **cifrado** (para que el admin pueda volver a
+ * mostrarlo). Ver `docs/SECURITY.md` §9.
  *
- * El PIN se guarda **hasheado** (para verificarlo en el login) y **cifrado**
- * (para que el admin pueda volver a mostrarlo). Ver `docs/SECURITY.md` §9.
+ * Lo usan el armado inicial y la redistribución cuando el admin crea una (`BE-30`): es **un solo
+ * lugar** donde se generan credenciales de patrulla.
+ */
+export async function patrullaNueva(
+  tournamentId: ObjectId,
+  numero: number,
+  startTargetIndex: number,
+  ahora: Date,
+): Promise<PatrolDoc> {
+  const pin = generatePin(6);
+  return {
+    _id: new ObjectId(),
+    tournamentId,
+    number: numero,
+    startTargetIndex,
+    username: `patrulla${numero}`,
+    pinHash: await hashSecret(pin),
+    pinEnc: encryptPin(pin, env().PIN_ENC_KEY),
+    pinUpdatedAt: ahora,
+    status: 'pendiente',
+    failedAttempts: 0,
+    lockedUntil: null,
+    targetsCompleted: 0,
+    closedAt: null,
+    manualOverride: false,
+    createdAt: ahora,
+    updatedAt: ahora,
+  };
+}
+
+/**
+ * Convierte el plan del dominio en documentos, generando las credenciales (`patrullaNueva`).
  *
  * Corre fuera de la transacción a propósito: hashear seis PIN con argon2id
  * tarda cientos de milisegundos y mantener la transacción abierta ese tiempo
@@ -185,32 +217,18 @@ export async function materializar(
   tournamentId: ObjectId,
   ahora: Date,
 ): Promise<{ patrolDocs: PatrolDoc[]; participantDocs: ParticipantDoc[] }> {
-  const cfg = env();
   const patrolDocs: PatrolDoc[] = [];
   const participantDocs: ParticipantDoc[] = [];
 
   for (const patrulla of plan.patrols) {
-    const patrolId = new ObjectId();
-    const pin = generatePin(6);
-
-    patrolDocs.push({
-      _id: patrolId,
+    const doc = await patrullaNueva(
       tournamentId,
-      number: patrulla.number,
-      startTargetIndex: patrulla.startTargetIndex,
-      username: `patrulla${patrulla.number}`,
-      pinHash: await hashSecret(pin),
-      pinEnc: encryptPin(pin, cfg.PIN_ENC_KEY),
-      pinUpdatedAt: ahora,
-      status: 'pendiente',
-      failedAttempts: 0,
-      lockedUntil: null,
-      targetsCompleted: 0,
-      closedAt: null,
-      manualOverride: false,
-      createdAt: ahora,
-      updatedAt: ahora,
-    });
+      patrulla.number,
+      patrulla.startTargetIndex,
+      ahora,
+    );
+    const patrolId = doc._id;
+    patrolDocs.push(doc);
 
     for (const unidad of patrulla.units) {
       for (const miembro of unidad.members) {

@@ -1,6 +1,6 @@
 import type { Db } from 'mongodb';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { participants, patrols } from '../src/db/client.js';
+import { participants, patrols, tournaments } from '../src/db/client.js';
 import { seed } from '../src/db/seed.js';
 import { resetEnvCache } from '../src/env.js';
 import { resetRateLimits } from '../src/middleware/rateLimit.js';
@@ -135,6 +135,23 @@ async function distribucionVaciando(vaciar: number) {
 }
 
 describe('eliminar una patrulla', () => {
+  /*
+    Bug previo, encontrado en `BE-30`: eliminar una patrulla no actualizaba `patrolCount`, que es
+    lo que muestra la tarjeta del torneo en WAFA.
+  */
+  it('el torneo cuenta una patrulla menos', async () => {
+    const { c, tournamentId } = await torneoConPatrullas();
+    const antes = await patrols().countDocuments();
+
+    const res = await c.put(
+      `/api/admin/tournaments/${tournamentId}/patrols`,
+      await distribucionVaciando(antes),
+    );
+    expect(res.status).toBe(200);
+
+    expect((await tournaments().findOne({}))?.patrolCount).toBe(antes - 1);
+  });
+
   /**
    * **El caso exacto del reporte.**
    *
