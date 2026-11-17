@@ -965,7 +965,8 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 - Entre los destinos de «Mover» aparece «A una nueva»; y un botón «Agregar patrulla» en la barra. Una patrulla vacía no se guarda (`problemaDelBorrador`).
 **DoD:** tests puros de `patrullas.ts` (crear, mover a la nueva, eliminar y volver a crear) y test de UI.
 
-### `[ ] SH-12` · Dominio: incorporar y quitar arqueros sin rearmar · **TDD**
+### `[x] SH-12` · Dominio: incorporar y quitar arqueros sin rearmar · **TDD**
+_(Hecho. Ver `docs/DOMAIN_WA.md` §5.x y `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/shared/src/patrolling.ts`
 - `incorporarArqueros(patrullasActuales, nuevos, quitados, stakeMap, blancos)`: conserva patrullas, orden e ids; quita a los que se bajan; ubica a cada nuevo en una patrulla de su estaca con lugar, respetando `H3` y el máximo de 4; si no hay, abre una patrulla nueva. Devuelve las violaciones que queden para que el admin las resuelva a mano.
 **DoD:** tests vistos fallar primero: agregar uno no mueve a nadie más; quitar uno no mueve a nadie más; un no senior que quedaría solo se reporta; estaca sin lugar → patrulla nueva.

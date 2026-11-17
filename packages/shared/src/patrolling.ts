@@ -371,6 +371,156 @@ export function buildPatrols(
   };
 }
 
+// ── Incorporar sin rearmar (`SH-12`) ─────────────────────────────────────────
+
+/** Quiénes entran y quiénes se van de un torneo cuyas patrullas ya están armadas. */
+export interface CambioDeInscriptos {
+  readonly nuevos: readonly ParticipantInput[];
+  /** `archerId` de los que se bajan. */
+  readonly quitados: readonly string[];
+}
+
+export interface Incorporacion {
+  readonly patrols: readonly PlannedPatrol[];
+  /** Lo que quedó sin cumplir: el admin lo resuelve a mano en el editor. */
+  readonly violations: readonly PatrolViolation[];
+}
+
+const miembrosDe = (p: PlannedPatrol): readonly PlannedMember[] =>
+  p.units.flatMap((u) => u.members);
+
+/** Suma un arquero a una patrulla: completa una unidad de su categoría, o abre la `B`. */
+function sumarA(patrulla: PlannedPatrol, arquero: ParticipantInput, stake: Stake): PlannedPatrol {
+  const incompleta = patrulla.units.findIndex(
+    (u) => u.members.length === 1 && u.category === arquero.category,
+  );
+  if (incompleta !== -1) {
+    return {
+      ...patrulla,
+      units: patrulla.units.map((u, i) =>
+        i === incompleta
+          ? { ...u, members: [...u.members, { ...arquero, stake, position: posicion(1) }] }
+          : u,
+      ),
+    };
+  }
+  return {
+    ...patrulla,
+    units: [
+      ...patrulla.units,
+      {
+        label: etiqueta(patrulla.units.length),
+        category: arquero.category,
+        stake,
+        members: [{ ...arquero, stake, position: posicion(0) }],
+      },
+    ],
+  };
+}
+
+/** Si el arquero entra en la patrulla sin romper el tamaño ni las dos unidades por patrulla. */
+function tieneLugar(patrulla: PlannedPatrol, arquero: ParticipantInput): boolean {
+  // Con dos unidades de hasta dos, la regla de abajo ya topea en 4: esta guarda no decide nunca
+  // (la mutación lo confirma: sus dos mutantes son equivalentes). Queda por si llega una patrulla
+  // editada a mano con una forma que el armado no produce.
+  if (miembrosDe(patrulla).length >= MAX_PATROL_SIZE) return false;
+  const completaUna = patrulla.units.some(
+    (u) => u.members.length === 1 && u.category === arquero.category,
+  );
+  return completaUna || patrulla.units.length < 2;
+}
+
+/**
+ * A qué patrulla va un arquero que llega, o `-1` si no entra en ninguna.
+ *
+ * `H3` desde los dos lados. Uno no senior (`escuela`, `principiantes`) busca primero una patrulla
+ * con algún senior: ponerlo en una que no tiene ninguno la dejaría 100% no senior teniendo otra
+ * opción. Un senior busca primero una patrulla que **no tiene** ningún senior —quedó así por una
+ * baja— y la arregla.
+ */
+function elegirDestino(patrullas: readonly PlannedPatrol[], arquero: ParticipantInput): number {
+  const conLugar = (p: PlannedPatrol) => tieneLugar(p, arquero);
+  const tieneSenior = (p: PlannedPatrol) => miembrosDe(p).some((m) => !isEscuela(m.category));
+  const llegaSenior = !isEscuela(arquero.category);
+
+  const conGente = (p: PlannedPatrol) => miembrosDe(p).length > 0;
+
+  // Una patrulla vacía (quedó así por bajas) va última: ubicar ahí a alguien lo deja solo
+  // teniendo lugar en otra. Encontrado por la mutación.
+  const preferida = patrullas.findIndex(
+    (p) => conLugar(p) && conGente(p) && tieneSenior(p) !== llegaSenior,
+  );
+  if (preferida !== -1) return preferida;
+  const otraConGente = patrullas.findIndex((p) => conLugar(p) && conGente(p));
+  return otraConGente !== -1 ? otraConGente : patrullas.findIndex(conLugar);
+}
+
+/** El primer blanco que no usa ninguna patrulla como inicio, o el 1 si están todos tomados. */
+function primerBlancoLibre(patrullas: readonly PlannedPatrol[], targetCount: number): number {
+  const usados = new Set(patrullas.map((p) => p.startTargetIndex));
+  for (let b = 1; b <= targetCount; b++) if (!usados.has(b)) return b;
+  return 1;
+}
+
+/**
+ * Saca a los que se bajan. Una unidad que queda vacía desaparece; las posiciones y las etiquetas se
+ * vuelven a derivar del orden —son datos derivados—, así que sólo cambia de lugar quien compartía
+ * unidad con el que se fue (pasa a la izquierda) o una `B` que queda sola (pasa a ser la `A`). La
+ * patrulla queda aunque se vacíe: borrarla renumeraría a las demás, con credenciales impresas.
+ */
+function quitar(patrulla: PlannedPatrol, quitados: ReadonlySet<string>): PlannedPatrol {
+  const units = patrulla.units
+    .map((u) => ({ ...u, members: u.members.filter((m) => !quitados.has(m.archerId)) }))
+    .filter((u) => u.members.length > 0)
+    .map((u, i) => ({
+      ...u,
+      label: etiqueta(i),
+      members: u.members.map((m, j) => ({ ...m, position: posicion(j) })),
+    }));
+  return { ...patrulla, units };
+}
+
+/**
+ * Incorpora y quita arqueros **sin rearmar** las patrullas (`SH-12`, decisión 5 de la Fase 10).
+ *
+ * Las patrullas existentes conservan su número, su blanco de inicio, sus unidades y la posición de
+ * cada arquero: son las que el admin ajustó a mano y las que pueden estar impresas, con su PIN.
+ */
+export function incorporarArqueros(
+  actuales: readonly PlannedPatrol[],
+  cambio: CambioDeInscriptos,
+  stakeMap: StakeMap = DEFAULT_STAKE_MAP,
+  targetCount = 1,
+): Incorporacion {
+  const quitados = new Set(cambio.quitados);
+  let patrullas = actuales.map((p) => quitar(p, quitados));
+
+  for (const arquero of [...cambio.nuevos].sort(compararParticipantes)) {
+    const stake = stakeForCategory(arquero.category, stakeMap);
+    const destino = elegirDestino(patrullas, arquero);
+
+    patrullas =
+      destino === -1
+        ? // Sin lugar: una patrulla nueva al final. **Nunca se pierde un arquero en silencio**;
+          // si queda de uno, `validatePatrols` lo avisa y el admin lo resuelve en el editor.
+          [
+            ...patrullas,
+            sumarA(
+              {
+                number: patrullas.length + 1,
+                startTargetIndex: primerBlancoLibre(patrullas, targetCount),
+                units: [],
+              },
+              arquero,
+              stake,
+            ),
+          ]
+        : patrullas.map((p, i) => (i === destino ? sumarA(p, arquero, stake) : p));
+  }
+
+  return { patrols: patrullas, violations: validatePatrols(patrullas, stakeMap) };
+}
+
 /**
  * Mínimo de patrullas de dos alcanzable con estas unidades.
  *
