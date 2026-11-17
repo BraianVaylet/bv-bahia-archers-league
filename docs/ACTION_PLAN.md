@@ -896,7 +896,8 @@ _(Hecho en código y tests; **falta el E2E** (largar desde WAFA con la landing a
 3. Bajar la caché de `/tournaments` y `/tournaments/:id` (propuesta: `max-age=15, stale-while-revalidate=30`); el `ETag` mantiene barato el 304.
 **DoD:** test de UI: con la portada abierta, el listado pasa de «sin en curso» a «en curso» al recuperar el foco y el hero muestra la tarjeta en vivo; test del middleware con los headers nuevos; E2E: largar un torneo desde WAFA con la landing abierta → aparece en el hero en ≤ 75 s sin recargar.
 
-### `[ ] FE-42` · Tarjetas de torneo: rótulo primero y textos acomodados · P1
+### `[x] FE-42` · Tarjetas de torneo: rótulo primero y textos acomodados · P1
+_(Hecho. Se adelantó de `BE-29` la parte de `participantCount` en próximas fechas. Revisado sólo en tema oscuro. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/ui/src/TarjetaDeTorneo.tsx`, `packages/landing/src/components/portada/ProximasFechas.tsx`
 - «Blancos 2 · Arqueros 3 · Patrullas 4» en vez de «2 blancos · 3 arqueros» (decisión 2).
 - En «Próximas fechas»: «Blancos 6 · Inscriptos 12 · Inscripción $ 15.000» (necesita `BE-29`).
@@ -905,7 +906,7 @@ _(Hecho en código y tests; **falta el E2E** (largar desde WAFA con la landing a
 
 ### `[ ] BE-29` · Detalle público de un torneo sin iniciar · P1
 **Archivos:** `packages/api/src/services/tournamentQueryService.ts`, `routes/publico.ts`, `repositories/tournamentRepo.ts`
-- `proximasFechas` suma `participantCount`.
+- ~~`proximasFechas` suma `participantCount`.~~ Hecho en `FE-42`.
 - `detallePublico` acepta `sin_iniciar` con fecha ≥ hoy: lista blanca de la decisión 1.
 **DoD:** tests de servicio: la respuesta no trae DNI, pago, PIN, usuario ni `archerId`; un `sin_iniciar` con fecha pasada o archivado da 404; `/security-review`.
 

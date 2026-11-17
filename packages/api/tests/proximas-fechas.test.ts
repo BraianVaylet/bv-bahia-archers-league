@@ -115,6 +115,8 @@ describe('GET /api/public/tournaments/upcoming', () => {
       registrationUrl: 'https://forms.gle/AbCdEf123',
       payment: { required: true, amount: 5000 },
       targetCount: 3,
+      // `FE-42`, decisión 1 de la Fase 10: cuántos se anotaron. El número, nunca quiénes.
+      participantCount: 11,
       // El mismo formato que el listado público, para que la landing reuse la barra.
       modalities: distribucionDeModalidades(['sala', '3d', '3d']),
     });

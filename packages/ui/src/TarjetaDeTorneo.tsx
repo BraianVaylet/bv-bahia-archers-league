@@ -14,6 +14,7 @@ import { formatearFechaCorta, type TournamentStatus } from '@bal/shared';
 import type { ReactNode } from 'react';
 import { BarraDeModalidades, type ParteDeLaBarra } from './BarraDeModalidades.js';
 import { BadgeEstado } from './Chips.js';
+import { Cifras } from './Cifras.js';
 import { cn } from './cn.js';
 import { type ComponenteDeEnlace, EnlaceNativo } from './enlace.js';
 import { IconoFlecha } from './iconos/navegacion.js';
@@ -59,13 +60,6 @@ export function TarjetaDeTorneo({
   enlace: Enlace = EnlaceNativo,
   className,
 }: TarjetaDeTorneoProps) {
-  const tamaño = [
-    `${torneo.targetCount} blancos`,
-    `${torneo.participantCount} arqueros`,
-    torneo.patrolCount === undefined ? null : `${torneo.patrolCount} patrullas`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
   const textoDelPie = accion ?? ACCION_POR_ESTADO[torneo.status];
 
   return (
@@ -87,7 +81,17 @@ export function TarjetaDeTorneo({
 
       <div>
         <h3 className="text-h3">{torneo.name}</h3>
-        <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{tamaño}</p>
+        {/* `FE-42`: rótulo primero, el número al final. Ver `Cifras`. */}
+        <Cifras
+          className="mt-0.5"
+          cifras={[
+            { rotulo: 'Blancos', valor: torneo.targetCount },
+            { rotulo: 'Arqueros', valor: torneo.participantCount },
+            torneo.patrolCount === undefined
+              ? null
+              : { rotulo: 'Patrullas', valor: torneo.patrolCount },
+          ]}
+        />
       </div>
 
       <BarraDeModalidades modalidades={torneo.modalities ?? []} />

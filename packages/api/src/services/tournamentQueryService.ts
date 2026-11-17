@@ -71,6 +71,9 @@ export async function proximasFechas(ahora: Date = new Date()) {
       registrationUrl: t.registrationUrl ?? null,
       payment: t.payment,
       targetCount: t.targets.length,
+      // Cuántos se anotaron hasta ahora: la decisión 1 de la Fase 10 abre la inscripción a la
+      // vista. El número; quiénes, recién en el detalle (`BE-29`).
+      participantCount: t.participantCount,
       modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
     })),
   };

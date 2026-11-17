@@ -141,7 +141,14 @@ export function marcarArchivado(
 /** Lo que «Próximas fechas» lee de cada torneo: la convocatoria, nada de la organización interna. */
 export type TorneoProximo = Pick<
   TournamentDoc,
-  '_id' | 'name' | 'date' | 'description' | 'registrationUrl' | 'payment' | 'targets'
+  | '_id'
+  | 'name'
+  | 'date'
+  | 'description'
+  | 'registrationUrl'
+  | 'payment'
+  | 'targets'
+  | 'participantCount'
 >;
 
 /**
@@ -162,6 +169,8 @@ export function listProximos(desde: Date, limite: number): Promise<TorneoProximo
           registrationUrl: 1,
           payment: 1,
           targets: 1,
+          // Cuántos, nunca quiénes (`FE-42`, decisión 1 de la Fase 10).
+          participantCount: 1,
         },
       },
     )

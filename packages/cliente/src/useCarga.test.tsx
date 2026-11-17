@@ -524,6 +524,32 @@ describe('useRecurso', () => {
       expect(pedido).not.toHaveBeenCalled();
     });
 
+    /*
+      Encontrado al revisar `FE-42` en el navegador: si la página abrió sin señal —en el predio es
+      lo normal—, el error quedaba para siempre. El refresco traía los datos, pero en silencio no
+      borra un error, y el error se mostraba antes que los datos.
+    */
+    it('si abrió con error y el refresco trae datos, muestra los datos', async () => {
+      let falla = true;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          falla
+            ? Promise.reject(new TypeError('Failed to fetch'))
+            : new Response(JSON.stringify({ n: 1 })),
+        ),
+      );
+      const { result } = renderHook(() =>
+        useRecurso<{ n: number }>(clienteDePrueba, '/x', { refrescarCadaMs: 60_000 }),
+      );
+      await waitFor(() => expect(result.current.estado).toBe('error'));
+
+      falla = false;
+      pestaña('visible');
+
+      await waitFor(() => expect(result.current).toEqual({ estado: 'listo', datos: { n: 1 } }));
+    });
+
     it('al desmontar deja de refrescar', async () => {
       const pedido = contador();
       const { unmount } = renderHook(() =>

@@ -728,7 +728,7 @@ describe('TournamentsPage', () => {
     renderEn(<TournamentsPage />, '/torneos', '/torneos');
 
     expect(await screen.findByTestId('torneo-t1')).toHaveTextContent('3ª fecha');
-    expect(screen.getByTestId('torneo-t1')).toHaveTextContent('14 blancos · 20 arqueros');
+    expect(screen.getByTestId('torneo-t1')).toHaveTextContent('Blancos 14 · Arqueros 20');
   });
 
   it('sin torneos publicados lo dice', async () => {
@@ -1380,6 +1380,7 @@ describe('Próximas fechas', () => {
     registrationUrl: null,
     payment: { required: true, amount: 15000 },
     targetCount: 14,
+    participantCount: 9,
     modalities: [{ modality: '3d', count: 14, pct: 100 }],
     ...o,
   });
@@ -1405,8 +1406,25 @@ describe('Próximas fechas', () => {
     const tarjeta = within(await seccion()).getByRole('listitem');
     expect(tarjeta).toHaveTextContent('5');
     expect(tarjeta).toHaveTextContent('dic');
-    expect(tarjeta).toHaveTextContent('14 blancos');
-    expect(tarjeta).toHaveTextContent('Sin costo');
+    // `FE-42`: rótulo primero, y cuántos se anotaron hasta ahora (decisión 1 de la Fase 10).
+    expect(tarjeta).toHaveTextContent('Blancos 14 · Inscriptos 9 · Sin costo');
+  });
+
+  it('con costo, el monto va al final como las otras cifras', async () => {
+    conProximas([proxima(5)]);
+    renderEn(<HomePage />);
+
+    const tarjeta = within(await seccion()).getByRole('listitem');
+    expect(tarjeta).toHaveTextContent(/Blancos 14 · Inscriptos 9 · Inscripción \$\s?15\.000/);
+  });
+
+  it('una respuesta vieja sin inscriptos no rompe la tarjeta: no los menciona', async () => {
+    conProximas([proxima(5, { participantCount: undefined })]);
+    renderEn(<HomePage />);
+
+    const tarjeta = within(await seccion()).getByRole('listitem');
+    expect(tarjeta).toHaveTextContent('Blancos 14');
+    expect(tarjeta).not.toHaveTextContent('Inscriptos');
   });
 
   it('con link, la tarjeta ofrece pre-inscribirse', async () => {

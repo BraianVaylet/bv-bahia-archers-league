@@ -38,7 +38,15 @@ export function bloqueDeFecha(
   };
 }
 
-/** «Inscripción $ 15.000» o «Sin costo»: no es lo mismo que no saberlo. */
-export function textoDeInscripcion(pago: { required: boolean; amount: number }): string {
-  return pago.required ? `Inscripción ${formatearMonto(pago.amount)}` : 'Sin costo';
+/**
+ * «Inscripción $ 15.000» o «Sin costo»: no es lo mismo que no saberlo. Como cifra de la tarjeta
+ * (`FE-42`): el rótulo primero y el monto al final, igual que «Blancos 6».
+ */
+export function cifraDeInscripcion(pago: { required: boolean; amount: number }): {
+  rotulo?: string;
+  valor: string;
+} {
+  return pago.required
+    ? { rotulo: 'Inscripción', valor: formatearMonto(pago.amount) }
+    : { valor: 'Sin costo' };
 }
