@@ -961,7 +961,8 @@ _(Hecho. De paso, `patrolCount` ahora se actualiza también al eliminar. Ver `do
 - Una patrulla sin `id` en `PUT /tournaments/:id/patrols` es nueva: el servidor le crea usuario y PIN. Sólo en `sin_iniciar`.
 **DoD:** tests: patrulla nueva sale con usuario y PIN propios; las existentes conservan los suyos; un `id` ajeno al torneo → 400; Zod `.strict()`; audit; `/security-review`.
 
-### `[ ] FE-47` · Editor: «Nueva patrulla» · P1
+### `[x] FE-47` · Editor: «Nueva patrulla» · P1
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/app/src/wafa/patrullas.ts`, `distribucion/TarjetaDePatrulla.tsx`, `BarraDeAcciones.tsx`
 - Entre los destinos de «Mover» aparece «A una nueva»; y un botón «Agregar patrulla» en la barra. Una patrulla vacía no se guarda (`problemaDelBorrador`).
 **DoD:** tests puros de `patrullas.ts` (crear, mover a la nueva, eliminar y volver a crear) y test de UI.

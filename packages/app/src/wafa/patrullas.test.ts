@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agregarPatrulla,
   borradorDe,
   cambiarInicio,
   cuerpoDeDistribucion,
   eliminarPatrulla,
   type MiembroVista,
   moverArquero,
+  moverAUnaNueva,
   moverEnPatrulla,
   type PatrullaVista,
   problemaDelBorrador,
@@ -507,5 +509,98 @@ describe('cuerpoDeDistribucion identifica por id', () => {
     // El id sigue siendo el de la patrulla original, aunque su número cambió.
     expect(cuerpo.patrols.map((p) => p.id)).toEqual(['x1', 'x3']);
     expect(cuerpo.patrols.map((p) => p.number)).toEqual([1, 2]);
+  });
+});
+
+// ── FE-47 · Nueva patrulla ───────────────────────────────────────────────────
+
+/*
+  Devolución de la prueba 1: «que permita moverlos a una patrulla existente o crear una nueva (si
+  se borra alguna no hay forma de crear una nueva)». El servidor crea usuario y PIN a una patrulla
+  que llega sin `id` (`BE-30`).
+*/
+describe('agregarPatrulla', () => {
+  it('agrega una vacía al final, sin id y con el número siguiente', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+
+    const con = agregarPatrulla(b, 6);
+
+    expect(con).toHaveLength(3);
+    expect(con[2]).toMatchObject({ id: undefined, numero: 3, miembros: [] });
+    // No muta el borrador recibido.
+    expect(b).toHaveLength(2);
+  });
+
+  it('arranca en el primer blanco que no usa nadie', () => {
+    // `patrulla(n)` arranca en el blanco n: la 1 y la 2 ocupan el 1 y el 2.
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+
+    expect(agregarPatrulla(b, 6)[2]?.startTargetIndex).toBe(3);
+  });
+
+  it('si todos los blancos están ocupados, arranca en el 1', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, [miembro(), miembro()]),
+    ]);
+
+    expect(agregarPatrulla(b, 2)[2]?.startTargetIndex).toBe(1);
+  });
+
+  it('eliminar una y crear otra: la nueva no hereda el id de la que se fue', () => {
+    const b = borradorDe([
+      patrulla(1, [miembro(), miembro()]),
+      patrulla(2, []),
+      patrulla(3, [miembro(), miembro()]),
+    ]);
+
+    const despues = agregarPatrulla(eliminarPatrulla(b, 2), 6);
+
+    expect(despues.map((p) => [p.numero, p.id])).toEqual([
+      [1, 'x1'],
+      [2, 'x3'],
+      [3, undefined],
+    ]);
+  });
+});
+
+describe('moverAUnaNueva', () => {
+  it('crea la patrulla y le pasa el arquero', () => {
+    const pérez = miembro({ id: 'perez' });
+    const b = borradorDe([patrulla(1, [pérez, miembro()]), patrulla(2, [miembro(), miembro()])]);
+
+    const despues = moverAUnaNueva(b, 'perez', 6);
+
+    expect(despues).toHaveLength(3);
+    expect(despues[2]?.miembros.map((m) => m.id)).toEqual(['perez']);
+    expect(despues[0]?.miembros.some((m) => m.id === 'perez')).toBe(false);
+  });
+
+  it('un arquero que no está no crea nada', () => {
+    const b = borradorDe([patrulla(1, [miembro(), miembro()])]);
+
+    expect(moverAUnaNueva(b, 'nadie', 6)).toHaveLength(1);
+  });
+});
+
+describe('cuerpoDeDistribucion con una patrulla nueva', () => {
+  it('la nueva va sin id: así la crea el servidor', () => {
+    const b = moverAUnaNueva(
+      borradorDe([patrulla(1, [miembro({ id: 'a' }), miembro({ id: 'b' }), miembro({ id: 'c' })])]),
+      'c',
+      6,
+    );
+
+    const [vieja, nueva] = cuerpoDeDistribucion(b).patrols;
+
+    expect(vieja?.id).toBe('x1');
+    expect(nueva).not.toHaveProperty('id');
+    expect(nueva).toMatchObject({ number: 2, units: [{ label: 'A', members: ['c'] }] });
   });
 });

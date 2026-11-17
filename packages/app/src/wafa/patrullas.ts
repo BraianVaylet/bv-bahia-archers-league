@@ -52,8 +52,11 @@ export interface Borrador {
    * identifica nada. El servidor mapea por acá; mapeando por número, los
    * arqueros de la vieja patrulla 3 terminaban en el documento de la 2, con el
    * PIN de la 2. Ver `BITACORA.md`, entrada de `REF3-1`.
+   *
+   * `undefined` en una patrulla **nueva** (`FE-47`): todavía no existe en el
+   * servidor, que le crea usuario y PIN al guardar (`BE-30`).
    */
-  readonly id: string;
+  readonly id: string | undefined;
   readonly numero: number;
   readonly startTargetIndex: number;
   /** En orden. La unidad y la posición se derivan de acá. */
@@ -172,6 +175,33 @@ export function eliminarPatrulla(borrador: readonly Borrador[], numero: number):
   if (!objetivo || objetivo.miembros.length > 0) return [...borrador];
 
   return borrador.filter((p) => p.numero !== numero).map((p, i) => ({ ...p, numero: i + 1 }));
+}
+
+/**
+ * Agrega una patrulla vacía al final (`FE-47`). Sin `id`: el servidor le crea usuario y PIN al
+ * guardar. Arranca en el primer blanco que no usa nadie —dos patrullas en el mismo blanco es una
+ * violación—, o en el 1 si están todos ocupados. Vacía no se puede guardar: `problemaDelBorrador`
+ * pide moverle a alguien o eliminarla.
+ */
+export function agregarPatrulla(borrador: readonly Borrador[], totalDeBlancos: number): Borrador[] {
+  const usados = new Set(borrador.map((p) => p.startTargetIndex));
+  const libre = Array.from({ length: totalDeBlancos }, (_, i) => i + 1).find((b) => !usados.has(b));
+
+  return [
+    ...borrador,
+    { id: undefined, numero: borrador.length + 1, startTargetIndex: libre ?? 1, miembros: [] },
+  ];
+}
+
+/** Crea una patrulla nueva y le pasa el arquero (`FE-47`). Un arquero que no está no crea nada. */
+export function moverAUnaNueva(
+  borrador: readonly Borrador[],
+  participantId: string,
+  totalDeBlancos: number,
+): Borrador[] {
+  if (!borrador.some((p) => p.miembros.some((m) => m.id === participantId))) return [...borrador];
+  const con = agregarPatrulla(borrador, totalDeBlancos);
+  return moverArquero(con, participantId, con.length);
 }
 
 /** Cambia el blanco desde el que arranca una patrulla. */
@@ -304,8 +334,9 @@ export function cuerpoDeDistribucion(borrador: readonly Borrador[]) {
        */
       .filter((p) => p.miembros.length > 0)
       .map((p) => ({
-        // El id, no el número: el número lo renumera eliminar una patrulla.
-        id: p.id,
+        // El id, no el número: el número lo renumera eliminar una patrulla. Sin id es una nueva,
+        // y así la crea el servidor (`BE-30`): la clave no va, ni siquiera en `undefined`.
+        ...(p.id === undefined ? {} : { id: p.id }),
         number: p.numero,
         startTargetIndex: p.startTargetIndex,
         units: unidadesDe(p.miembros).map((u) => ({
