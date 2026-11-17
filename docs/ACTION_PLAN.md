@@ -904,7 +904,8 @@ _(Hecho. Se adelantó de `BE-29` la parte de `participantCount` en próximas fec
 - Ajuste de textos según la decisión 3.
 **DoD:** tests de componente actualizados; sin scroll horizontal ni cortes a 320 px; captura a 360 y 1280 px en claro y oscuro.
 
-### `[ ] BE-29` · Detalle público de un torneo sin iniciar · P1
+### `[x] BE-29` · Detalle público de un torneo sin iniciar · P1
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/api/src/services/tournamentQueryService.ts`, `routes/publico.ts`, `repositories/tournamentRepo.ts`
 - ~~`proximasFechas` suma `participantCount`.~~ Hecho en `FE-42`.
 - `detallePublico` acepta `sin_iniciar` con fecha ≥ hoy: lista blanca de la decisión 1.

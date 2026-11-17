@@ -313,6 +313,8 @@ PII mínima **por diseño**:
 
 > **Próximas fechas, 2026-11-10 (`BE-28`).** Es la primera vez que un torneo `sin_iniciar` sale por `/api/public/*`. Sale **sólo la convocatoria** —nombre, fecha, descripción, link de pre-inscripción (§16), inscripción, cantidad de blancos y modalidades— y la lista blanca está en la **proyección del repositorio** (`listProximos`), no en un filtro del servicio: participantes, patrullas, estacas, usuarios y PIN de patrulla no salen de la base. Un test compara la respuesta clave por clave.
 
+> **Ficha de una próxima fecha, 2026-11-17 (`BE-29`, decisión 1 de la Fase 10).** Revierte en parte lo anterior: el listado suma **cuántos** se anotaron (`participantCount`, en la misma proyección) y cada próxima fecha tiene ficha en `GET /api/public/tournaments/:id`, con **quiénes** van y cómo quedan las patrullas. Lista blanca: de cada patrulla, número, blanco de inicio y miembros; de cada miembro, **nombre, apellido y categoría**. **No** salen DNI, quién pagó, PIN, usuario ni estado de patrulla, estaca, unidad ni `archerId`. Acá la lista blanca es el **mapeo explícito del servicio** (`proximaFechaPublica`): los documentos de participante se leen enteros, pero sólo se copian esas tres claves. Los tests comparan las claves exactas de la ficha, de cada patrulla y de cada miembro, y buscan en el cuerpo crudo que no aparezcan `username`, `pin`, `dni`, `archerId`, `paid`, `stake` ni `unit`. Una sin iniciar con fecha pasada responde 404.
+
 Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en producción se responden sin stack trace; se loguean con un `requestId` correlacionable.
 
 ---

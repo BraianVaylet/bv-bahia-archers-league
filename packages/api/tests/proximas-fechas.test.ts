@@ -144,12 +144,27 @@ describe('GET /api/public/tournaments/upcoming', () => {
     expect(await proximas()).toEqual([]);
   });
 
-  /** Un torneo sin iniciar sigue sin tener ficha pública: sólo sale en este listado. */
-  it('el detalle público de un sin iniciar sigue dando 404', async () => {
-    const doc = torneo('3ª fecha', enDias(5));
+  /*
+    Desde `BE-29` (decisión 1 de la Fase 10, que revierte la 7 de la Fase 9) una próxima fecha tiene
+    ficha pública: ver `ciclo.test.ts`, «próxima fecha». Una sin iniciar con fecha pasada, no: no se
+    va a jugar, y tampoco sale en este listado.
+  */
+  it('el detalle de un sin iniciar con fecha pasada da 404', async () => {
+    const doc = torneo('Se suspendió', enDias(-1));
     await tournaments().insertOne(doc);
 
     const res = await cliente().get(`/api/public/tournaments/${doc._id.toHexString()}`);
     expect(res.status).toBe(404);
+  });
+
+  it('el detalle de una próxima fecha sí se ve, aunque todavía no tenga inscriptos', async () => {
+    const doc = torneo('3ª fecha', enDias(5));
+    await tournaments().insertOne(doc);
+
+    const res = await cliente().get(`/api/public/tournaments/${doc._id.toHexString()}`);
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { tournament: { patrols: unknown[] } }).tournament.patrols,
+    ).toEqual([]);
   });
 });
