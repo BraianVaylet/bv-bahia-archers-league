@@ -184,7 +184,7 @@ Alta de temporadas con nombre, fecha de inicio y fin. Una temporada activa por v
 ### 6.6 Patrullas (de un torneo)
 Vista de todas las patrullas: composición, unidades `A`/`B`, posición izquierda/derecha, estaca, blanco de inicio y credenciales.
 
-- **Mientras el torneo está `sin_iniciar`:** el admin puede reacomodar arqueros entre patrullas y unidades. Un validador en vivo muestra qué reglas se estarían violando (ver `DOMAIN_WA.md` §5). **Avisa pero no bloquea**: el admin puede tener motivos válidos, y la excepción queda registrada.
+- **Mientras el torneo está `sin_iniciar`:** el admin puede reacomodar arqueros entre patrullas y unidades, eliminar patrullas y **crear nuevas** (`BE-30`: una patrulla nueva sale con su usuario y un PIN propio; las que ya estaban conservan el suyo). Un validador en vivo muestra qué reglas se estarían violando (ver `DOMAIN_WA.md` §5). **Avisa pero no bloquea**: el admin puede tener motivos válidos, y la excepción queda registrada.
 - **Credenciales:** usuario y PIN visibles, con botón para **regenerar** el PIN y opción de mostrar un **QR** para que el líder entre sin tipear.
 - Una vez el torneo pasa a `en_proceso`, las patrullas quedan congeladas.
 

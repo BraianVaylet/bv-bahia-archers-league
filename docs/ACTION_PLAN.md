@@ -955,7 +955,8 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 - «A la 2 · 3 arqueros»; si tiene 4, se marca «llena» (se puede mover igual: `problemaDelBorrador` frena el guardado, como hoy).
 **DoD:** test de UI con las cantidades; botón de 44 px.
 
-### `[ ] BE-30` · Crear patrullas desde la redistribución · P1
+### `[x] BE-30` · Crear patrullas desde la redistribución · P1
+_(Hecho. De paso, `patrolCount` ahora se actualiza también al eliminar. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/shared/src/schemas.ts` (`PlannedPatrolSchema`), `packages/api/src/services/` (distribución de patrullas), `repositories/patrolRepo.ts`
 - Una patrulla sin `id` en `PUT /tournaments/:id/patrols` es nueva: el servidor le crea usuario y PIN. Sólo en `sin_iniciar`.
 **DoD:** tests: patrulla nueva sale con usuario y PIN propios; las existentes conservan los suyos; un `id` ajeno al torneo → 400; Zod `.strict()`; audit; `/security-review`.
