@@ -311,8 +311,11 @@ const PlannedPatrolSchema = z.strictObject({
    * arqueros de la vieja patrulla 3 terminaban en el documento de la 2, con el
    * PIN de la 2 —que puede estar impreso—. El número es un dato editable; la
    * identidad es el id.
+   *
+   * **Sin `id`, es una patrulla nueva** (`BE-30`): el servidor le crea usuario y
+   * PIN. Antes, una patrulla eliminada no se podía volver a crear.
    */
-  id: ObjectIdSchema,
+  id: ObjectIdSchema.optional(),
   number: z.number().int().min(1).max(MAX_PARTICIPANTS),
   startTargetIndex: z.number().int().min(1).max(MAX_TARGETS),
   /** Una patrulla tiene una o dos unidades: `A` y `B`. */

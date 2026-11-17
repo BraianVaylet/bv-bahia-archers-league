@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `BE-30` — Crear patrullas desde la redistribución
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/crear-patrullas`. La pantalla es `FE-47`.
+
+Devolución de la prueba 1: «si se borra alguna patrulla no hay forma de crear una nueva». En `PUT /admin/tournaments/:id/patrols`, una patrulla **sin `id`** es nueva: el servidor le crea usuario (`patrulla` + número) y PIN. Sólo sin iniciar, como toda la redistribución.
+
+- **Un solo lugar genera credenciales de patrulla:** `patrullaNueva`, en `tournamentService`, que ahora usan el armado inicial y la redistribución. Se llama **antes** de la transacción, como en el armado: argon2id tarda y no hace falta tener locks mientras tanto.
+- **Orden dentro de la transacción:** se borran las eliminadas, se renumeran las que estaban y recién después se insertan las nuevas. El número y el usuario son únicos por torneo (`uk_torneo_numero`, `uk_torneo_usuario`): insertar antes chocaría con una que todavía no se movió.
+- Una patrulla mencionada dos veces en la distribución da 400.
+- La auditoría (`patrol.manual_edit`) suma `created` y `removed`.
+
+**Bug previo arreglado:** eliminar una patrulla (`REF3-1`) **no actualizaba `patrolCount`**, que es lo que muestra la tarjeta del torneo en WAFA. Ahora se escribe en la misma transacción, con `updateIfStatus('sin_iniciar')`: si el torneo arrancó mientras tanto, todo vuelve atrás. Test visto fallar («expected 4 to be 3»).
+
+**Tests:** `patrullas-crear.test.ts` (6: usuario y PIN propios y arqueros en la nueva, las existentes conservan su PIN, la cuenta, la auditoría, repetida → 400, en marcha → 409) y el de la cuenta al eliminar en `patrullas-eliminar.test.ts`. `pnpm -r test` verde. `redistribute` pasó el límite de complejidad de Biome y la reasignación de arqueros salió a `asignarMiembros`.
+
+---
+
 ## 2026-11-17 · `FE-46` — WAFA: mover a otra patrulla, con la cantidad a la vista
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafa/mover-con-cantidad`.
