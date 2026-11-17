@@ -47,21 +47,48 @@ export function useFinalizar({ participantes, onCerrado, onFirmaRechazada }: Opc
    * medio—, se repite al terminar: descartarlo dejaría la pantalla esperando un aviso que ya pasó.
    */
   const corriendo = useRef(false);
-  const otraVez = useRef(false);
 
-  const intentar = useCallback(async (): Promise<void> => {
+  /**
+   * Si la pantalla sigue montada. Un intento en camino que termina después de salir —el líder tocó
+   * «Blancos» mientras se enviaba— **no cierra**: cerrar el circuito es una decisión que se toma
+   * mirando esta pantalla. Lo encontró un test intermitente: el intento de un test encolaba el
+   * `close` en la base del siguiente.
+   */
+  const montada = useRef(true);
+  useEffect(() => {
+    montada.current = true;
+    return () => {
+      montada.current = false;
+    };
+  }, []);
+
+  /** El pedido que llegó mientras corría otro; `trabar` gana si alguno lo pidió. */
+  const otraVez = useRef<{ trabar: boolean } | null>(null);
+
+  /**
+   * Pide el cierre. Si todavía falta enviar algo, sigue esperando; con `trabar` —el último envío
+   * falló—, además muestra el motivo y «Reintentar».
+   *
+   * **Lo que decide es el outbox, no el estado del sync worker.** El `pending` que emite puede
+   * estar atrasado (escribir una firma no lo refresca), así que nunca se cierra ni se deja de
+   * cerrar por ese número: se le pregunta a `requestClose`, que cuenta el outbox de verdad.
+   */
+  const intentar = useCallback(async (trabar: boolean): Promise<void> => {
     if (corriendo.current) {
-      otraVez.current = true;
+      otraVez.current = { trabar: trabar || (otraVez.current?.trabar ?? false) };
       return;
     }
     corriendo.current = true;
 
+    let pedido: { trabar: boolean } | null = { trabar };
     try {
-      do {
-        otraVez.current = false;
+      while (pedido) {
+        const { trabar: conMotivo } = pedido;
+        otraVez.current = null;
 
         // Una firma rechazada no es una firma: cerrar así sería que el servidor rechace el cierre.
         const rechazadas = (await readSignatures()).filter((f) => f.syncState === 'conflict');
+        if (!montada.current) return;
         if (rechazadas.length > 0) {
           const nombres = rechazadas
             .map(
@@ -86,11 +113,14 @@ export function useFinalizar({ participantes, onCerrado, onFirmaRechazada }: Opc
         }
 
         setEstado((previo) =>
-          previo.fase === 'trabado'
-            ? { ...previo, pendientes: r.pending }
-            : { fase: 'enviando', pendientes: r.pending },
+          conMotivo
+            ? { fase: 'trabado', pendientes: r.pending, motivo: r.message }
+            : previo.fase === 'trabado'
+              ? { ...previo, pendientes: r.pending }
+              : { fase: 'enviando', pendientes: r.pending },
         );
-      } while (otraVez.current);
+        pedido = otraVez.current;
+      }
     } finally {
       corriendo.current = false;
     }
@@ -114,37 +144,27 @@ export function useFinalizar({ participantes, onCerrado, onFirmaRechazada }: Opc
       const fallosAntes = fallosVistos.current;
       fallosVistos.current = sync.intentosFallidos;
 
-      if (sync.pending === 0) {
-        void intentar();
-        return;
-      }
-
+      // El fallo se mira **antes** que `pending`: si llega con un `pending: 0` atrasado y se lo
+      // tomara como «ya está», el fallo quedaría contado sin mostrarse nunca. Lo encontró un test
+      // intermitente.
       const fallo =
         sync.status === 'offline' || sync.status === 'error' || sync.intentosFallidos > fallosAntes;
 
-      if (!fallo) {
-        setEstado((previo) =>
-          previo.fase === 'enviando' ? { ...previo, pendientes: sync.pending } : previo,
-        );
+      if (fallo || sync.pending === 0) {
+        void intentar(fallo);
         return;
       }
 
-      // `requestClose` con pendientes no encola nada: devuelve el motivo, dicho para el líder.
-      void requestClose().then((r) => {
-        if (r.ok) return; // Inalcanzable con pendientes; si pasara, la próxima vuelta lo resuelve.
-        setEstado((previo) =>
-          previo.fase === 'quieto'
-            ? previo
-            : { fase: 'trabado', pendientes: r.pending, motivo: r.message },
-        );
-      });
+      setEstado((previo) =>
+        previo.fase === 'enviando' ? { ...previo, pendientes: sync.pending } : previo,
+      );
     });
   }, [esperando, intentar]);
 
   /** El toque de «Finalizar torneo». */
   const finalizar = useCallback(() => {
     fallosVistos.current = getSyncState().intentosFallidos;
-    void intentar().then(() => nudge());
+    void intentar(false).then(() => nudge());
   }, [intentar]);
 
   /** El toque de «Reintentar»: vuelve a empujar el envío. La espera sigue. */

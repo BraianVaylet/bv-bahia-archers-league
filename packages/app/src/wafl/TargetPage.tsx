@@ -85,9 +85,17 @@ export function TargetPage({
 
   /** Escrituras encoladas que todavía no terminaron. Con alguna en camino, la base está atrasada. */
   const enCamino = useRef(0);
+  /**
+   * Sube con cada toque o borrado. Una lectura que empezó antes del último toque está vieja aunque
+   * termine después: la lectura inicial, lanzada al abrir el blanco, podía llegar **después** de la
+   * relectura que sigue al primer toque y borrar esa flecha de la pantalla. Lo encontró un test
+   * intermitente (`FE-44`).
+   */
+  const version = useRef(0);
 
   // Toda la lectura sale de IndexedDB. Si no hay red, no cambia nada.
   const recargar = useCallback(async () => {
+    const desde = version.current;
     const [deEsteBlanco, firmas] = await Promise.all([
       readScoresDeBlanco(target.index),
       readSignatures(),
@@ -103,7 +111,8 @@ export function TargetPage({
 
     // Un toque llegó mientras se leía: lo leído no lo tiene. Lo trae la lectura de cuando la
     // cola se vacíe; pisar ahora borraría de la pantalla una flecha que ya se tocó.
-    if (enCamino.current > 0) return;
+    // Y si hubo un toque después de empezar a leer, esta lectura ya no es la última.
+    if (enCamino.current > 0 || version.current !== desde) return;
     mostrar({
       ...vistaRef.current,
       flechas: new Map(deEsteBlanco.map((s) => [s.participantId, s.arrows])),
@@ -132,6 +141,7 @@ export function TargetPage({
   const encolar = useCallback(
     (fn: () => Promise<void>): void => {
       enCamino.current++;
+      version.current++;
       const correr = async () => {
         try {
           await fn();

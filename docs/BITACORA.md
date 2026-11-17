@@ -29,6 +29,10 @@ En la prueba 1 cada patrulla tuvo que tocar «Finalizar» dos veces. `requestClo
 
 **Verificado:** 6 tests nuevos (`finalizar.test.tsx`), vistos fallar primero; 753 tests de `@bal/app` verdes. En Chromium real, PWA sin API: el toque pasa a «Reintentar ahora» con el motivo; con un servidor simulado que acepta, «Sincronizando 4 cambios…» y después «Torneo finalizado», con el `close` como última op enviada.
 
+**Lo que encontró el CI del PR (#121):**
+- **Presupuesto de WAFL: 125,5 KB gz, tope 125.** FE-45 lo había dejado en 124,92. El tope de WAFL es el que cuida el predio y no se sube. Resultados, firma y cierre pasan a un chunk propio (`React.lazy` en `WaflApp`) que se **precarga apenas arranca la app**: con la señal del arranque queda en memoria, además de precacheado por el service worker, así que al final del recorrido, sin señal, no se espera a la red. WAFL baja a 102,4; la pantalla de rol queda en 88,6/90 y WAFA en 138,96/140 (el bundler reacomoda lo compartido).
+- **Dos intermitencias, y las dos eran bugs.** (1) En `useFinalizar`, un intento en camino seguía después de desmontar la pantalla y podía encolar el `close` —en el celular, si el líder tocaba «Blancos» mientras se enviaba—; ahora no cierra si la pantalla ya no está. Y el fallo de envío se evalúa antes que el `pending` emitido, que puede estar atrasado. (2) En `TargetPage` (de `FE-45`), si se tocaba una tecla al instante de abrir el blanco, la lectura inicial de IndexedDB podía llegar después de la relectura del toque y borrar esa flecha de la pantalla (la base quedaba bien). Se descarta toda lectura que empezó antes del último toque. 30 corridas seguidas de los tests de WAFL sin fallas.
+
 ---
 
 ## 2026-11-16 · `FE-45` — WAFL: toques rápidos que no se pierden

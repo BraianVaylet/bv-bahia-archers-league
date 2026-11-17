@@ -9,16 +9,28 @@
  */
 
 import { useTituloDePagina } from '@bal/ui';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Cargando } from '../components/Cargando.js';
 import { useSalidaBloqueada } from '../components/useSalidaBloqueada.js';
 import { A_LA_LANDING } from '../components/VolverALaLiga.js';
 import type { BundleTarget, StoredBundle } from '../offline/db.js';
 import { startSyncWorker } from '../offline/syncWorker.js';
 import { CircuitPage } from './CircuitPage.js';
 import { LoginPage } from './LoginPage.js';
-import { ResultsPage } from './ResultsPage.js';
 import { logout } from './sesion.js';
 import { TargetPage } from './TargetPage.js';
+
+/**
+ * Resultados, firma y cierre: en su propio chunk, **precargado apenas arranca la app**.
+ *
+ * Es lo último del recorrido y no hace falta para empezar a anotar, así que no entra en la
+ * descarga inicial de WAFL (presupuesto de 125 KB gz, `docs/TECHNICAL.md` §5). Pero se pide
+ * enseguida, de fondo, con la señal del arranque: al final del recorrido, en el monte y sin
+ * señal, ya está en memoria —además de precacheado por el service worker—. Nunca se espera a
+ * la red para firmar.
+ */
+const cargarResultados = () => import('./ResultsPage.js');
+const ResultsPage = lazy(() => cargarResultados().then((m) => ({ default: m.ResultsPage })));
 
 type Vista =
   | { readonly nombre: 'circuito' }
@@ -67,6 +79,12 @@ export function WaflApp() {
    */
   useEffect(() => startSyncWorker(), []);
 
+  // La precarga de resultados y firma: ver `cargarResultados`. Si falla (sin red y sin service
+  // worker), el `lazy` lo vuelve a pedir al abrir la pantalla.
+  useEffect(() => {
+    cargarResultados().catch(() => {});
+  }, []);
+
   /**
    * **Con sesión, Atrás no saca de la app.**
    *
@@ -103,11 +121,13 @@ export function WaflApp() {
 
     case 'resultados':
       return (
-        <ResultsPage
-          bundle={bundle}
-          onVolver={alCircuito}
-          onCerrado={() => setVista({ nombre: 'cerrado' })}
-        />
+        <Suspense fallback={<Cargando texto="Abriendo los resultados…" />}>
+          <ResultsPage
+            bundle={bundle}
+            onVolver={alCircuito}
+            onCerrado={() => setVista({ nombre: 'cerrado' })}
+          />
+        </Suspense>
       );
 
     case 'cerrado':
