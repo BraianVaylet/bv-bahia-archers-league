@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatrolsPage } from './pages/Patrols.js';
@@ -697,5 +697,78 @@ describe('el código de acceso de cada patrulla', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copiar el PIN de la patrulla 2' }));
 
     await waitFor(() => expect(copiado).toEqual([pin]));
+  });
+});
+
+// ── FE-47 · Nueva patrulla ───────────────────────────────────────────────────
+
+/*
+  Devolución de la prueba 1: «que permita moverlos a una patrulla existente o crear una nueva (si
+  se borra alguna no hay forma de crear una nueva)».
+*/
+describe('crear una patrulla', () => {
+  it('«Agregar patrulla» suma una vacía, que no se puede guardar así', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar patrulla' }));
+
+    expect(screen.getByTestId('patrulla-3')).toBeDefined();
+    expect(
+      (screen.getByRole('button', { name: 'Guardar patrullas' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.getByText(/La patrulla 3 no tiene arqueros/)).toBeDefined();
+    // Recién creada, todavía no tiene credencial: el servidor se la da al guardar.
+    expect(within(screen.getByTestId('patrulla-3')).queryByText(/patrulla3/)).toBeNull();
+  });
+
+  it('al mover, «A una nueva» crea la patrulla con ese arquero, y se guarda sin id', async () => {
+    rutas['PUT /api/admin/tournaments/t1/patrols'] = () => ({
+      json: { patrols: PATRULLAS, violations: [] },
+    });
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
+    fireEvent.click(screen.getByRole('button', { name: /^A una nueva/ }));
+    expect(screen.getByTestId('patrulla-3').textContent).toMatch(/Pérez/);
+
+    // Con uno solo no se guarda (mínimo dos): se le suma Gómez, y la 1 queda vacía y se elimina.
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Gómez a otra patrulla' }));
+    fireEvent.click(screen.getByRole('button', { name: /^A la 3/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la patrulla 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar patrullas' }));
+
+    await waitFor(() => expect(llamadas.some((l) => l.method === 'PUT')).toBe(true));
+    const cuerpo = llamadas.find((l) => l.method === 'PUT')?.body as {
+      patrols: { id?: string; number: number; units: { members: string[] }[] }[];
+    };
+    // La 2 de antes pasó a ser la 1 (con su id); la nueva es la 2, sin id, con Pérez y Gómez.
+    expect(cuerpo.patrols.map((p) => [p.number, p.id])).toEqual([
+      [1, 'x2'],
+      [2, undefined],
+    ]);
+    expect(cuerpo.patrols[1]).not.toHaveProperty('id');
+    expect(cuerpo.patrols[1]?.units.flatMap((u) => u.members).sort()).toEqual(['a', 'b']);
+  });
+
+  /*
+    Bug previo, encontrado en `FE-47`: la credencial de cada tarjeta se buscaba **por número**. Al
+    eliminar una patrulla las demás se renumeran, y la tarjeta mostraba el PIN de otra.
+  */
+  it('después de renumerar, cada tarjeta muestra la credencial de su patrulla', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-1');
+
+    // Se vacía la 1 en la 2 y se elimina: la 2 (PIN 117744) pasa a ser la 1.
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Pérez a otra patrulla' }));
+    fireEvent.click(screen.getByRole('button', { name: /^A la 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mover a Gómez a otra patrulla' }));
+    fireEvent.click(screen.getByRole('button', { name: /^A la 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la patrulla 1' }));
+
+    const unica = screen.getByTestId('patrulla-1');
+    expect(unica.textContent).toMatch(/117744/);
+    expect(unica.textContent).not.toMatch(/481902/);
   });
 });

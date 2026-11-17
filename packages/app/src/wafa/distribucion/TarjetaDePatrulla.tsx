@@ -10,6 +10,7 @@ import {
   cambiarInicio,
   eliminarPatrulla,
   moverArquero,
+  moverAUnaNueva,
   moverEnPatrulla,
   type PatrullaVista,
   unidadesDe,
@@ -221,6 +222,16 @@ export function TarjetaDePatrulla({
                         </span>
                       </Button>
                     ))}
+                  {/* `FE-47`: o a una patrulla nueva, que se crea con este arquero. */}
+                  <Button
+                    variante="secundario"
+                    onClick={() => {
+                      editar(moverAUnaNueva(borrador, moviendo, torneo?.targets.length ?? 1));
+                      setMoviendo(undefined);
+                    }}
+                  >
+                    A una nueva
+                  </Button>
                 </div>
               )}
             </li>

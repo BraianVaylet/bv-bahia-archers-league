@@ -44,6 +44,24 @@ Decisión 5 de la Fase 10: agregar o quitar arqueros con las patrullas ya armada
 Resultado: en el código nuevo, 123 mutantes muertos y 2 vivos, los dos equivalentes (una guarda de tamaño que la regla de dos unidades ya cubre; quedó documentada). `patrolling.ts` entero, ~90%, sobre un umbral de 70. 19 tests en `incorporar.test.ts`; `@bal/shared` 482 verdes.
 
 **CI del PR: «Auditoría de dependencias» falló por un aviso nuevo, ajeno al cambio.** `GHSA-fc5q-39xc-vjpf`: picomatch `<=4.0.7`, ReDoS, severidad alta, **sin versión parcheada**; afecta a `main` igual. **Por decisión del autor (2026-11-17)** se ignora ese aviso puntual en `pnpm audit` (`pnpm.auditConfig.ignoreGhsas`), con el motivo en `SECURITY.md` §12: picomatch sólo corre en el build y los tests (Vite), no llega al navegador ni a la API, y sólo procesa los globs de nuestra configuración. Se saca de la lista cuando salga el parche. **Hallazgo aparte:** las versiones nuevas de pnpm ya no leen el campo `pnpm` de `package.json`; el CI usa la 9.15.0 fijada y ahí sí, pero al subir de versión el override de `shell-quote` y esta excepción tienen que pasar a `pnpm-workspace.yaml`.
+
+---
+
+## 2026-11-17 · `FE-47` — WAFA: crear una patrulla desde el editor
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafa/nueva-patrulla` (sobre `api/crear-patrullas`, #128).
+
+Devolución de la prueba 1: «que permita moverlos a una patrulla existente o crear una nueva». Usa `BE-30`.
+
+- **«A una nueva»** entre los destinos de «Mover»: crea la patrulla con ese arquero (`moverAUnaNueva`). Y un botón **«Agregar patrulla»** abajo de las tarjetas (`agregarPatrulla`).
+- La nueva va **sin `id`** en el borrador y en el cuerpo del `PUT` (la clave no va, ni en `undefined`), y así la crea el servidor. Arranca en el primer blanco que no usa nadie. Vacía o con uno solo no se guarda: lo frena `problemaDelBorrador`, como a cualquier otra.
+
+**Bug previo arreglado:** la credencial de cada tarjeta se buscaba **por número** (`Patrols.tsx`). Al eliminar una patrulla las demás se renumeran, y la tarjeta mostraba la credencial de otra —o ninguna—. Ahora se busca por `id`; una nueva no tiene credencial hasta que se guarda. Test visto fallar.
+
+**Verificado:** 7 tests puros y 3 de pantalla, vistos fallar primero. `pnpm -r test` verde (2555). **WAFA 139,33 de 140**: queda 0,67 KB de margen. No se probó en el navegador (WAFA necesita sesión y API).
+
+---
+
 ## 2026-11-17 · `BE-30` — Crear patrullas desde la redistribución
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/crear-patrullas`. La pantalla es `FE-47`.
