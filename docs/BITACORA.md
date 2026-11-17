@@ -14,6 +14,16 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `FE-46` — WAFA: mover a otra patrulla, con la cantidad a la vista
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafa/mover-con-cantidad`.
+
+Devolución de la prueba 1: «que al mover un arquero a una nueva patrulla te diga cuántos hay». Los destinos pasan de «A la 2» a «A la 2 · 3 arqueros» («1 arquero», «sin arqueros», o «llena» con cuatro). **Llena no se bloquea:** el editor sigue avisando y no frenando, y `problemaDelBorrador` impide guardar una patrulla de cinco, como siempre.
+
+**Verificado:** 2 tests de UI vistos fallar primero (cantidad y singular tras mover; «llena» elegible). `@bal/app` 755 verdes; presupuestos en verde, **WAFA 139,12 de 140**. No se probó en el navegador: WAFA necesita sesión y API; lo que cambia es el texto de un botón, que cubre el test.
+
+---
+
 ## 2026-11-17 · `FE-43` — Landing: página de la próxima fecha
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `landing/pagina-proxima-fecha` (sobre `landing/tarjetas-rotulo-primero`, que ya trae `BE-29`).

@@ -2,6 +2,7 @@
  * Una patrulla del borrador: su inicio, sus unidades, a quién se mueve adónde y su credencial.
  */
 
+import { MAX_PATROL_SIZE } from '@bal/shared';
 import { ChipCategoria, IconoBajar, IconoEliminar, IconoMover, IconoSubir } from '@bal/ui';
 import { Button, clasesDeTarjeta, cn, StakeChip } from '../../components/ui.js';
 import {
@@ -15,6 +16,13 @@ import {
 } from '../patrullas.js';
 import { BotonDeFila } from './BotonDeFila.js';
 import { Credencial } from './Credencial.js';
+
+/** «2 arqueros», «1 arquero», «sin arqueros» o «llena»: lo que tiene la patrulla de destino. */
+function cantidadEnDestino(cantidad: number): string {
+  if (cantidad >= MAX_PATROL_SIZE) return 'llena';
+  if (cantidad === 0) return 'sin arqueros';
+  return `${cantidad} ${cantidad === 1 ? 'arquero' : 'arqueros'}`;
+}
 
 /** Índice de un arquero dentro de su patrulla, para saber si está en un extremo. */
 function indiceEnPatrulla(p: Borrador, participantId: string): number {
@@ -205,6 +213,12 @@ export function TarjetaDePatrulla({
                         }}
                       >
                         A la {otra.numero}
+                        {/* `FE-46`: cuántos tiene, para no tener que bajar a mirarla. Llena no
+                            bloquea: `problemaDelBorrador` frena el guardado, como siempre. */}
+                        <span className="font-normal text-[var(--ink-muted)]">
+                          {' · '}
+                          {cantidadEnDestino(otra.miembros.length)}
+                        </span>
                       </Button>
                     ))}
                 </div>
