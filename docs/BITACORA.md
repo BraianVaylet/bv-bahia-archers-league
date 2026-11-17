@@ -27,6 +27,8 @@ Decisión 5 de la Fase 10: agregar o quitar arqueros con las patrullas ya armada
 
 Resultado: en el código nuevo, 123 mutantes muertos y 2 vivos, los dos equivalentes (una guarda de tamaño que la regla de dos unidades ya cubre; quedó documentada). `patrolling.ts` entero, ~90%, sobre un umbral de 70. 19 tests en `incorporar.test.ts`; `@bal/shared` 482 verdes.
 
+**CI del PR: «Auditoría de dependencias» falló por un aviso nuevo, ajeno al cambio.** `GHSA-fc5q-39xc-vjpf`: picomatch `<=4.0.7`, ReDoS, severidad alta, **sin versión parcheada**; afecta a `main` igual. **Por decisión del autor (2026-11-17)** se ignora ese aviso puntual en `pnpm audit` (`pnpm.auditConfig.ignoreGhsas`), con el motivo en `SECURITY.md` §12: picomatch sólo corre en el build y los tests (Vite), no llega al navegador ni a la API, y sólo procesa los globs de nuestra configuración. Se saca de la lista cuando salga el parche. **Hallazgo aparte:** las versiones nuevas de pnpm ya no leen el campo `pnpm` de `package.json`; el CI usa la 9.15.0 fijada y ahí sí, pero al subir de versión el override de `shell-quote` y esta excepción tienen que pasar a `pnpm-workspace.yaml`.
+
 ---
 
 ## 2026-11-17 · `FE-46` — WAFA: mover a otra patrulla, con la cantidad a la vista
