@@ -916,7 +916,8 @@ _(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos 
 
 ### Hilo B — WAFL: cerrar el circuito
 
-### `[ ] FE-44` · «Finalizar torneo» en un solo toque · P0
+### `[x] FE-44` · «Finalizar torneo» en un solo toque · P0
+_(Hecho. La espera vive en `wafl/useFinalizar.ts`; el sync worker suma `intentosFallidos` para distinguir «enviando» de «falló». Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/app/src/wafl/ResultsPage.tsx`, `packages/app/src/offline/outbox.ts`, `syncWorker.ts`
 **Referencia:** [`OFFLINE_SYNC.md`](OFFLINE_SYNC.md) §5.5
 - Al tocar con pendientes: el botón queda en «Sincronizando N cambios…» (deshabilitado) y se suscribe al estado del sync; cuando el outbox llega a 0, llama a `requestClose` solo.

@@ -11,10 +11,11 @@ import { Cargando } from '../components/Cargando.js';
 import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../components/ui.js';
 import type { StoredBundle, StoredScore, StoredSignature } from '../offline/db.js';
 import { readScores, readSignatures } from '../offline/db.js';
-import { requestClose, writeSignature } from '../offline/outbox.js';
+import { writeSignature } from '../offline/outbox.js';
 import { nudge } from '../offline/syncWorker.js';
 import { SignaturePad } from './SignaturePad.js';
 import { SyncBadge } from './SyncBadge.js';
+import { useFinalizar } from './useFinalizar.js';
 
 export interface ResultsPageProps {
   readonly bundle: StoredBundle;
@@ -81,20 +82,28 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
     nudge();
   };
 
-  const cerrar = async () => {
-    const r = await requestClose();
-    if (!r.ok) {
-      // Sin señal no se puede cerrar, pero los puntajes YA están guardados:
-      // se dice explícitamente para que nadie crea que perdió el trabajo.
-      setAviso(r.message);
-      nudge();
-      return;
-    }
+  /*
+    Un solo toque (`FE-44`): si falta enviar algo, el botón pasa a «Sincronizando N cambios…» y el
+    torneo se finaliza solo cuando termina. Sin señal, el motivo —que dice que los puntajes ya están
+    guardados en el celular, para que nadie crea que perdió el trabajo— y «Reintentar».
+  */
+  const {
+    estado: finalizacion,
+    finalizar,
+    reintentar,
+  } = useFinalizar({
+    participantes: bundle.participants,
+    onCerrado: () => {
+      setAviso(undefined);
+      onCerrado();
+    },
+    onFirmaRechazada: (texto) => {
+      setAviso(texto);
+      void recargar();
+    },
+  });
 
-    setAviso(undefined);
-    nudge();
-    onCerrado();
-  };
+  const avisoVisible = finalizacion.fase === 'trabado' ? finalizacion.motivo : aviso;
 
   if (firmando) {
     const quien = resumen.find((r) => r.id === firmando);
@@ -123,9 +132,9 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
       <Screen>
         <h1 className="pt-2 font-display text-display font-bold">Resultados</h1>
 
-        {aviso && (
+        {avisoVisible && (
           <p role="alert" className="text-[var(--warn)] text-sm">
-            {aviso}
+            {avisoVisible}
           </p>
         )}
 
@@ -199,11 +208,37 @@ export function ResultsPage({ bundle, onVolver, onCerrado }: ResultsPageProps) {
       </Screen>
 
       <div className="shrink-0 px-4 py-4 bg-[var(--bg)] border-t">
-        <Button ancho disabled={faltanFirmas.length > 0} onClick={() => void cerrar()}>
-          Finalizar torneo
-        </Button>
+        {finalizacion.fase === 'quieto' && (
+          <Button ancho disabled={faltanFirmas.length > 0} onClick={finalizar}>
+            Finalizar torneo
+          </Button>
+        )}
 
-        {faltanFirmas.length > 0 && (
+        {/* No es un spinner de guardado: lo guardado ya está en el celular. Es el envío, que
+            el cierre necesita (§5.5), y el botón dice cuánto falta. */}
+        {finalizacion.fase === 'enviando' && (
+          <Button ancho disabled>
+            Sincronizando {finalizacion.pendientes}{' '}
+            {finalizacion.pendientes === 1 ? 'cambio' : 'cambios'}…
+          </Button>
+        )}
+
+        {finalizacion.fase === 'trabado' && (
+          <Button ancho onClick={reintentar}>
+            Reintentar ahora
+          </Button>
+        )}
+
+        {finalizacion.fase !== 'quieto' && (
+          <p className="pt-2 text-sm text-[var(--ink-muted)] text-center">
+            Primero se envían los puntajes y las firmas.{' '}
+            {finalizacion.fase === 'trabado'
+              ? 'El torneo se finaliza solo apenas haya señal.'
+              : 'El torneo se finaliza solo al terminar.'}
+          </p>
+        )}
+
+        {finalizacion.fase === 'quieto' && faltanFirmas.length > 0 && (
           <p className="pt-2 text-sm text-[var(--ink-muted)] text-center">
             Faltan las firmas de {faltanFirmas.map((r) => r.lastName).join(', ')}.
           </p>

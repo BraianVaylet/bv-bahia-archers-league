@@ -14,6 +14,23 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `FE-44` — WAFL: «Finalizar torneo» en un solo toque
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafl/finalizar-un-toque` (sobre `wafl/teclado-toques-rapidos`, que trae la Fase 10 del plan).
+
+En la prueba 1 cada patrulla tuvo que tocar «Finalizar» dos veces. `requestClose` rechaza con el outbox no vacío (§5.5), y al terminar de firmar la última firma recién se encoló: el primer toque chocaba **siempre**, mostraba «Falta sincronizar…» y empujaba el envío; el segundo cerraba. `OFFLINE_SYNC.md` §5.5 ya pedía lo correcto —«la UI muestra "Sincronizando N cambios…" y encola el cierre recién cuando termina»— y la UI nunca lo implementó. **No cambia ninguna decisión de diseño**: se implementa la que estaba.
+
+**Qué cambió:**
+- Un toque. Con pendientes, el botón pasa a «Sincronizando N cambios…» (deshabilitado) y, cuando el outbox llega a 0, el cierre se encola solo (`wafl/useFinalizar.ts`). El `close` sigue sin encolarse jamás con ops pendientes.
+- Si el envío falla, el motivo de siempre (`motivoDelPendiente`, que dice que los puntajes ya están guardados en el celular) y «Reintentar ahora». **La espera sigue**: si vuelve la señal —evento `online`, intervalo, backoff—, finaliza sin otro toque.
+- Si el servidor rechaza una firma mientras se envía, no se finaliza: la pantalla relee las firmas, Pérez vuelve a tener «Firmar» y el aviso lo nombra. Cerrar así era que el servidor rechazara el cierre.
+
+**Decisión: `intentosFallidos` en el estado del sync worker.** Con el celular «online» pero sin salida real (el wifi del club sin internet), un envío fallido deja el estado en `pending`, igual que mientras envía: no había forma de distinguir «enviando» de «falló». Se suma un contador que sube en cada reintento agendado. No cambia lo que muestra la píldora de sincronización. La línea base se toma **al tocar**, antes de empujar el envío: el test encontró que, tomándola al suscribirse, el primer fallo sin señal ya había pasado y la pantalla se quedaba en «Sincronizando…».
+
+**Verificado:** 6 tests nuevos (`finalizar.test.tsx`), vistos fallar primero; 753 tests de `@bal/app` verdes. En Chromium real, PWA sin API: el toque pasa a «Reintentar ahora» con el motivo; con un servidor simulado que acepta, «Sincronizando 4 cambios…» y después «Torneo finalizado», con el `close` como última op enviada.
+
+---
+
 ## 2026-11-16 · `FE-45` — WAFL: toques rápidos que no se pierden
 
 **Autor:** Claude Opus 5.5 · **Estado:** hecho en código y tests, en la rama `wafl/teclado-toques-rapidos`. Falta la prueba en celulares reales.
