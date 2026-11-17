@@ -181,27 +181,43 @@ describe('TargetPage al anotar', () => {
  * de tiempos que falla por una máquina lenta enseña a ignorarlo.
  */
 describe('registrar una flecha, medido', () => {
-  it('toca, guarda en IndexedDB y se ve, en milisegundos', async () => {
+  /*
+    Desde `FE-45` son dos tiempos distintos: **se ve** en el mismo toque (la pantalla no espera a
+    IndexedDB) y **queda guardado** cuando termina la cola. Antes eran uno solo, y el líder veía la
+    flecha recién al final de la escritura.
+  */
+  it('toca, se ve y queda guardado en IndexedDB, en milisegundos', async () => {
     montar(2);
     await screen.findByText('Blanco 2');
+    await hastaQue(
+      () => document.querySelector('[data-panel-teclado]')?.getAttribute('aria-busy') === 'false',
+    );
 
-    const tiempos: number[] = [];
+    const enVerse: number[] = [];
+    const enGuardarse: number[] = [];
     for (let i = 1; i <= 6; i++) {
       const inicio = performance.now();
       fireEvent.click(screen.getByRole('button', { name: 'Puntaje 9' }));
-      await hastaQue(() => totalDe('Pérez') === String(9 * i));
-      tiempos.push(performance.now() - inicio);
+      expect(totalDe('Pérez')).toBe(String(9 * i));
+      enVerse.push(performance.now() - inicio);
+
+      for (;;) {
+        if ((await readScore(P1, 2))?.arrows.length === i) break;
+        if (performance.now() - inicio > 2_000) throw new Error('la flecha no se guardó');
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      enGuardarse.push(performance.now() - inicio);
     }
 
-    expect((await readScore(P1, 2))?.arrows).toHaveLength(6);
-
-    const ordenados = [...tiempos].sort((a, b) => a - b);
-    const mediana = ordenados[Math.floor(ordenados.length / 2)] ?? Number.POSITIVE_INFINITY;
+    const mediana = (tiempos: number[]) =>
+      [...tiempos].sort((a, b) => a - b)[Math.floor(tiempos.length / 2)] ??
+      Number.POSITIVE_INFINITY;
     console.info(
-      `registrar una flecha (jsdom): mediana ${mediana.toFixed(1)} ms, máx ${Math.max(...tiempos).toFixed(1)} ms`,
+      `registrar una flecha (jsdom): se ve en ${mediana(enVerse).toFixed(1)} ms, se guarda en ${mediana(enGuardarse).toFixed(1)} ms (medianas)`,
     );
 
-    expect(mediana).toBeLessThan(150);
+    expect(mediana(enVerse)).toBeLessThan(150);
+    expect(mediana(enGuardarse)).toBeLessThan(150);
   });
 });
 

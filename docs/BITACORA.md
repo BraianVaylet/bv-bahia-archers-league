@@ -14,6 +14,43 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-16 · `FE-45` — WAFL: toques rápidos que no se pierden
+
+**Autor:** Claude Opus 5.5 · **Estado:** hecho en código y tests, en la rama `wafl/teclado-toques-rapidos`. Falta la prueba en celulares reales.
+
+El test nuevo (`toques-rapidos.test.tsx`) reprodujo el bug de la prueba 1 antes de tocar nada: seis toques seguidos en un blanco de 2 flechas dejaban a Pérez completo y a Gómez y Díaz **sin ninguna flecha**. El paso al siguiente arquero ocurría al final de la escritura en IndexedDB; los toques del medio iban al arquero ya completo y `TargetPage` los descartaba sin aviso.
+
+**Qué cambió:**
+- El toque decide a quién va y qué se ve **en el mismo instante** (`wafl/anotacion.ts`, funciones puras). La pantalla ya no espera a IndexedDB: se pinta del toque y, cuando la cola de escrituras se vacía, se relee de la base, que sigue siendo la fuente de verdad. Ningún `fetch` en el camino (regla 4).
+- Si la base tiene flechas que la pantalla no vio, el toque no se escribe y **se avisa** («Pérez ya tiene las 2 flechas…»). Ya no hay descarte mudo.
+- `touch-action: manipulation` en cada tecla: dos toques rápidos sobre la misma tecla ya no se pueden tomar como doble toque de zoom.
+- El panel del teclado lleva `aria-busy` mientras se leen los puntajes guardados.
+
+**Desvíos del plan:**
+- **Sin caché del bundle en memoria.** Con la pantalla pintada desde el toque, la cadena de IndexedDB ya no está en el camino de lo que se ve, y un bundle cacheado agrega invalidaciones (`saveBundle`, `clearAll`, cambio de torneo) que pueden mostrar un recorrido viejo. No vale el riesgo.
+- **Sin `nudge` diferido.** `flush` ya tiene su guarda de una sola corrida a la vez. En su lugar, `nudge` sólo se llama cuando la escritura completa un blanco, que es lo único que encola una op: un blanco a medias no tiene nada que mandar.
+
+**Medido:** en jsdom, mediana de 23 ms hasta verse y 26 ms hasta guardarse (antes eran un solo número, hasta verse **después** de guardar). En Chromium real, con la PWA sin red y un bundle inyectado: seis clicks seguidos quedaron 2 + 2 + 2 en IndexedDB, cada uno en su arquero, con tres ops en el outbox.
+
+**Pendiente:** la prueba con guantes en un Android y un iPhone (DoD de `FE-45`). `touch-action` no se puede probar en jsdom más allá de que esté puesto.
+
+---
+
+## 2026-11-16 · Fase 10 — plan de ajustes de la prueba 1
+
+**Autor:** Claude Opus 5.5 · **Estado:** planificado, sin código. Tareas `FE-41`..`FE-48`, `BE-29`..`BE-31`, `SH-12`, `TEST-5` en [`ACTION_PLAN.md`](ACTION_PLAN.md).
+
+Devolución de la primera prueba en el predio. El relevamiento encontró que el banner **ya** prioriza el torneo en curso: lo que falló es que la landing no vuelve a pedir datos (sin refresco por foco ni intervalo) y que `/api/public/*` cachea hasta 6 minutos. El doble toque de «Finalizar» es el diseño de `OFFLINE_SYNC.md` §5.5 mal comunicado: la última firma recién encolada hace chocar siempre el primer toque. En el teclado aparecieron tres causas de toques perdidos: sin `touch-action: manipulation`, carrera en el paso automático al siguiente arquero (los toques del intervalo se descartan en silencio) y 4-5 operaciones de IndexedDB por toque antes de repintar.
+
+**Decisiones confirmadas por el autor:**
+1. **Revierte la decisión 7 de la Fase 9:** una próxima fecha tiene página pública con inscriptos (nombre, apellido, categoría), patrullas y tortas, con el aviso de que las patrullas pueden cambiar. Nunca DNI, pago, PIN, usuario ni estado de patrulla. `FUNCTIONAL.md` §5.3 y §8 se actualizan en `BE-29`.
+2. El formato «Blancos 2 · Arqueros 3» rige también en WAFA: la tarjeta es una sola.
+3. «Acomodar textos» se resuelve con una revisión a 320/360/760/1280 px en `FE-42`.
+4. «Finalizar» cierra solo cuando el outbox se vacía. §5.5 no cambia: el `close` nunca se encola con ops pendientes.
+5. Agregar o quitar arqueros **nunca rearma** las patrullas: se incorporan a las existentes conservando ids y PIN impresos. El rearmado completo pasa a ser una acción explícita con confirmación.
+
+---
+
 ## 2026-11-13 · UI — en desarrollo, el acento es fucsia
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `feat/acento-desarrollo`. Pedido del autor, fuera del plan.

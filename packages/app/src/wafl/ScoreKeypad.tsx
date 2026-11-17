@@ -163,7 +163,15 @@ function Tecla({ token, inner, disabled, onPress }: TeclaProps) {
       aria-label={esMiss ? 'Miss, flecha sin puntaje' : `Puntaje ${token}`}
       // 56px es el PISO (`TAMAÑO_TECLA_PX`): la tecla mide 64 de alto (decisión 6 de `ref-7`) y se
       // estira a lo ancho de la grilla. Cuanto más grande, menos se erra con guantes.
-      style={{ minWidth: TAMAÑO_TECLA_PX, minHeight: TAMAÑO_TECLA_PX }}
+      //
+      // `touch-action: manipulation` (`FE-45`): sin esto, dos toques rápidos sobre la misma tecla
+      // («10», «10») el navegador los puede tomar como doble toque para hacer zoom y tragarse el
+      // segundo `click` —iOS Safari, sobre todo—. Es la causa clásica de «toqué y no anotó».
+      style={{
+        minWidth: TAMAÑO_TECLA_PX,
+        minHeight: TAMAÑO_TECLA_PX,
+        touchAction: 'manipulation',
+      }}
       className={cn(
         'w-full h-16 rounded-[var(--radius-md)] border',
         'font-display text-[26px] font-bold',

@@ -263,9 +263,9 @@ describe('TargetPage', () => {
       expect((await readScore(P1, 1))?.arrows).toHaveLength(2);
     });
 
-    // El cambio de arquero ocurre dentro de la cola de escrituras, así que hay
-    // que esperar a que el teclado vuelva a aceptar: tocarlo antes sería tocar
-    // un botón deshabilitado y el test dependería del tiempo.
+    // Desde `FE-45` el cambio de arquero ocurre en el mismo toque (ver
+    // `toques-rapidos.test.tsx`); acá se espera igual, para probar el paso sin
+    // depender de eso.
     const tecla = () => screen.getByRole('button', { name: 'Puntaje 10' }) as HTMLButtonElement;
     await waitFor(() => {
       expect(tecla().disabled).toBe(false);
