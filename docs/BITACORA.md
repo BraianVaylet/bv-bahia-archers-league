@@ -14,6 +14,20 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `SH-12` — Dominio: incorporar y quitar arqueros sin rearmar
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `dominio/incorporar-arqueros`. Lo usa `BE-31`.
+
+Decisión 5 de la Fase 10: agregar o quitar arqueros con las patrullas ya armadas **no rearma**. `incorporarArqueros(actuales, { nuevos, quitados }, stakeMap, blancos)` conserva las patrullas tal cual y devuelve las violaciones que queden. Las reglas, en `DOMAIN_WA.md` §5.x.
+
+**TDD por ciclos, y la mutación como segunda opinión.** Los primeros ciclos (agregar no mueve a nadie, quitar no mueve a nadie, sin lugar abre una patrulla nueva, `H3`) fallaron por la razón correcta antes de implementar. Después, Stryker sobre `patrolling.ts` dejó 24 mutantes vivos en el código nuevo, y no eran ruido:
+- Ningún test miraba **cómo** quedaban las unidades, sólo los tamaños: completar una unidad, no meter a uno como tercero de un par, no completar una unidad de otra categoría ni abrir una tercera unidad, quitar una unidad entera (la `B` pasa a `A`), el último blanco como inicio.
+- **Dos comportamientos que faltaban**, cada uno con su test visto fallar: un senior que llega ahora va primero a una patrulla que quedó 100% no senior (antes, a la primera con lugar); y **una patrulla vacía va última** (antes, si era la primera de la lista, el arquero nuevo quedaba solo ahí teniendo lugar en otra). Y con todas las demás llenas, reusa la vacía —que conserva número y PIN— antes que abrir otra.
+- Tres tests que pasaron de entrada se comprobaron mutando el código a mano; el de `H2` no detectaba nada y se reescribió con un caso que sí lo ejercita.
+
+Resultado: en el código nuevo, 123 mutantes muertos y 2 vivos, los dos equivalentes (una guarda de tamaño que la regla de dos unidades ya cubre; quedó documentada). `patrolling.ts` entero, ~90%, sobre un umbral de 70. 19 tests en `incorporar.test.ts`; `@bal/shared` 482 verdes.
+
+**CI del PR: «Auditoría de dependencias» falló por un aviso nuevo, ajeno al cambio.** `GHSA-fc5q-39xc-vjpf`: picomatch `<=4.0.7`, ReDoS, severidad alta, **sin versión parcheada**; afecta a `main` igual. **Por decisión del autor (2026-11-17)** se ignora ese aviso puntual en `pnpm audit` (`pnpm.auditConfig.ignoreGhsas`), con el motivo en `SECURITY.md` §12: picomatch sólo corre en el build y los tests (Vite), no llega al navegador ni a la API, y sólo procesa los globs de nuestra configuración. Se saca de la lista cuando salga el parche. **Hallazgo aparte:** las versiones nuevas de pnpm ya no leen el campo `pnpm` de `package.json`; el CI usa la 9.15.0 fijada y ahí sí, pero al subir de versión el override de `shell-quote` y esta excepción tienen que pasar a `pnpm-workspace.yaml`.
 ## 2026-11-17 · `BE-30` — Crear patrullas desde la redistribución
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/crear-patrullas`. La pantalla es `FE-47`.

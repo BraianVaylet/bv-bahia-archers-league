@@ -323,6 +323,8 @@ Los logs **nunca** contienen tokens, hashes, PINs ni passwords. Los errores en p
 
 - Lockfile fijo, `pnpm install --frozen-lockfile` en CI.
 - `pnpm audit` en cada PR. Vulnerabilidades **críticas o altas bloquean el merge**.
+- **Avisos ignorados** (`pnpm.auditConfig.ignoreGhsas` en `package.json`), cada uno con su motivo. Se revisan cuando sale una versión con el arreglo, y entonces se actualiza y se saca de la lista:
+  - `GHSA-fc5q-39xc-vjpf` (2026-11-17) — picomatch `<=4.0.7`, ReDoS con extglobs repetidos. **No hay versión parcheada** (la última es la 4.0.7). Entra sólo por Vite y sus herramientas (`@tailwindcss/vite`, Vitest, Stryker): corre en el build y en los tests, **no llega al navegador ni a la API** (`pnpm why picomatch --prod` no lo muestra en `@bal/api`). El ReDoS exige que un atacante controle el patrón glob, y acá sólo se procesan los globs de nuestra propia configuración.
 - **Sin secretos en el repositorio.** `.env` en `.gitignore`; `.env.example` con valores de ejemplo, nunca reales.
 - Escaneo con `aikido:scan` sobre el código generado (SAST + detección de secretos).
 - Dockerfile: imagen slim, corre como usuario **no root**, sin herramientas de build en la imagen final.
