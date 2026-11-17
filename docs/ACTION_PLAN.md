@@ -972,7 +972,8 @@ _(Hecho. Ver `docs/DOMAIN_WA.md` §5.x y `docs/BITACORA.md`, entrada del 2026-11
 - `incorporarArqueros(patrullasActuales, nuevos, quitados, stakeMap, blancos)`: conserva patrullas, orden e ids; quita a los que se bajan; ubica a cada nuevo en una patrulla de su estaca con lugar, respetando `H3` y el máximo de 4; si no hay, abre una patrulla nueva. Devuelve las violaciones que queden para que el admin las resuelva a mano.
 **DoD:** tests vistos fallar primero: agregar uno no mueve a nadie más; quitar uno no mueve a nadie más; un no senior que quedaría solo se reporta; estaca sin lugar → patrulla nueva.
 
-### `[ ] BE-31` · Editar participantes conserva las patrullas · P1
+### `[x] BE-31` · Editar participantes conserva las patrullas · P1
+_(Hecho, con el endpoint de «Rearmar patrullas» para `FE-48`. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/api/src/services/tournamentEditService.ts`
 - Editar participantes usa `incorporarArqueros` (decisión 5); `buildPatrols` sólo en el armado inicial y en «Rearmar patrullas» explícito.
 **DoD:** test de servicio: con patrullas ajustadas a mano, agregar un arquero deja a los demás donde estaban, con el mismo PIN; audit.

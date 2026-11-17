@@ -291,7 +291,9 @@ Es la vuelta atrás de **un arranque por error**, y por eso su guarda es dura: s
 
 ### 8.2 Cambiar los participantes
 
-Sólo con el torneo `sin_iniciar`, y **rearma las patrullas**: las patrullas se derivan de la lista de arqueros y de las restricciones `H1`-`H4`, así que agregar a alguien sin rehacerlas daría una patrulla de cinco o una 100% escuela. Los PIN cambian, porque las patrullas son nuevas.
+Sólo con el torneo `sin_iniciar`. ~~Rearma las patrullas; los PIN cambian, porque las patrullas son nuevas.~~ **Desde `2026-11-17` no rearma** (decisión 5 de la Fase 10, `BE-31`): quien se baja sale de su patrulla y quien entra se incorpora a una existente —o a una nueva, si no hay lugar— sin mover a nadie más (`DOMAIN_WA.md` §5.x). Las patrullas, sus PIN impresos y lo que el admin ajustó a mano se conservan; lo que no cumpla `H1`-`H4` se avisa en el editor. Cambiar estacas o la cantidad de blancos sí rearma, porque cambia la estructura.
+
+**Rearmar patrullas** (`POST /admin/tournaments/:id/patrols/rebuild`) es ahora una acción explícita: vuelve a correr el armado sobre los inscriptos, con **PIN nuevos**, y conserva los pagos.
 
 Con el torneo en marcha se rechaza con `409`: las patrullas ya están en el monte con su planilla impresa, y rearmarlas desde el escritorio dejaría al líder mirando una lista que no coincide con la gente que tiene al lado.
 
