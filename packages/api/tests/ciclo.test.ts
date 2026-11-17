@@ -741,11 +741,96 @@ describe('endpoints públicos', () => {
     expect(crudo).not.toMatch(/pinHash|pinEnc/);
   });
 
-  it('un torneo sin iniciar no es visible desde afuera', async () => {
+  // `BE-29` lo abre sólo de hoy en adelante: uno sin iniciar con fecha pasada no se va a jugar.
+  it('un torneo sin iniciar con fecha pasada no es visible desde afuera', async () => {
     const c = await admin();
-    const { tournamentId } = await torneoNuevo(c);
+    const { tournamentId } = await torneoNuevo(c); // 2026-08-08
 
     expect((await cliente().get(`/api/public/tournaments/${tournamentId}`)).status).toBe(404);
+  });
+
+  /**
+   * La página de una próxima fecha (`BE-29`, decisión 1 de la Fase 10: revierte la 7 de la Fase 9).
+   *
+   * Lo que se ve es **la convocatoria y quién va**: nombre, apellido y categoría de cada inscripto,
+   * y cómo quedan las patrullas hasta ahora. **Lista blanca**: cada clave está nombrada acá, para que
+   * una clave nueva del documento no pueda filtrarse. Nada de usuario ni estado de patrulla (no se
+   * entra a WAFL a un torneo sin iniciar), ni estaca, unidad, DNI, pago, PIN o `archerId`.
+   */
+  describe('próxima fecha', () => {
+    /** Una fecha `YYYY-MM-DD` dentro de `dias` días: los tests no pueden depender del calendario. */
+    const enDias = (dias: number) =>
+      new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10);
+
+    async function proxima() {
+      const c = await admin();
+      const { seasonId, archerIds } = await torneoNuevo(c, [['raso', 2]]);
+      const id = await otroTorneoEn(c, seasonId, archerIds, {
+        date: enDias(10),
+        payment: { required: true, amount: 15_000 },
+      });
+      return id;
+    }
+
+    it('se ve, con la lista blanca exacta y sin resultados', async () => {
+      const id = await proxima();
+
+      const res = await cliente().get(`/api/public/tournaments/${id}`);
+      expect(res.status).toBe(200);
+      const { tournament } = (await res.json()) as { tournament: Record<string, unknown> };
+
+      expect(Object.keys(tournament).sort()).toEqual(
+        [
+          'date',
+          'description',
+          'id',
+          'maxPossibleScore',
+          'name',
+          'patrols',
+          'payment',
+          'registrationUrl',
+          'status',
+          'targets',
+        ].sort(),
+      );
+      expect(tournament.status).toBe('sin_iniciar');
+
+      const patrullas = tournament.patrols as Record<string, unknown>[];
+      expect(patrullas.length).toBeGreaterThan(0);
+      for (const p of patrullas) {
+        expect(Object.keys(p).sort()).toEqual(['members', 'number', 'startTargetIndex']);
+        for (const m of p.members as Record<string, unknown>[]) {
+          expect(Object.keys(m).sort()).toEqual(['category', 'firstName', 'lastName']);
+        }
+      }
+      expect(patrullas.flatMap((p) => p.members as unknown[])).toHaveLength(2);
+    });
+
+    it('no expone usuario, PIN, DNI, pagos ni ids del padrón', async () => {
+      const id = await proxima();
+
+      const res = await cliente().get(`/api/public/tournaments/${id}`);
+      // Un 404 no expone nada: el chequeo vale sólo sobre la respuesta de verdad.
+      expect(res.status).toBe(200);
+      const crudo = await res.text();
+
+      expect(crudo).not.toMatch(/"username"|patrulla\d/);
+      expect(crudo).not.toMatch(/"pin"|pinHash|pinEnc/i);
+      expect(crudo).not.toMatch(/"dni"|"archerId"|"paid"|"stake"|"unit"/);
+    });
+
+    it('un torneo en proceso sigue igual: con usuario y avance para WAFL', async () => {
+      const c = await admin();
+      const { tournamentId } = await torneoNuevo(c);
+      await c.post(`/api/admin/tournaments/${tournamentId}/start`);
+
+      const body = (await (
+        await cliente().get(`/api/public/tournaments/${tournamentId}`)
+      ).json()) as { tournament: { patrols: Record<string, unknown>[] } };
+
+      expect(body.tournament.patrols[0]).toHaveProperty('username');
+      expect(body.tournament.patrols[0]).toHaveProperty('targetsCompleted');
+    });
   });
 
   // El admin sí tiene que poder mirar los puntajes de un torneo completado: es
