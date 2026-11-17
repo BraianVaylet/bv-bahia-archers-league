@@ -220,7 +220,13 @@ export function useRecurso<T>(
   // Sin ruta no hay nada que refrescar: la espera de `null` nunca resuelve.
   useRefresco(recargar, path === null ? undefined : opciones.refrescarCadaMs);
 
+  /*
+    Los datos antes que el error. Acá conviven sólo en un caso: la primera carga falló y un refresco
+    silencioso (que no borra errores) trajo datos después —la página abrió sin señal, que en el
+    predio es lo normal—. Cambiar de ruta descarta los dos, así que no puede ser un dato de otro
+    recurso. Encontrado en `FE-42`.
+  */
+  if (datos !== undefined) return { estado: 'listo', datos };
   if (error !== undefined) return { estado: 'error', mensaje: error };
-  if (datos === undefined) return { estado: 'cargando' };
-  return { estado: 'listo', datos };
+  return { estado: 'cargando' };
 }

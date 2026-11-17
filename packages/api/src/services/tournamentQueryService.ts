@@ -16,6 +16,7 @@ import {
   type TournamentStatus,
 } from '@bal/shared';
 import type { ObjectId } from 'mongodb';
+import type { TournamentDoc } from '../db/types.js';
 import { notFound } from '../lib/errors.js';
 import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
@@ -71,6 +72,9 @@ export async function proximasFechas(ahora: Date = new Date()) {
       registrationUrl: t.registrationUrl ?? null,
       payment: t.payment,
       targetCount: t.targets.length,
+      // Cuántos se anotaron hasta ahora: la decisión 1 de la Fase 10 abre la inscripción a la
+      // vista. El número; quiénes, recién en el detalle (`BE-29`).
+      participantCount: t.participantCount,
       modalities: distribucionDeModalidades(t.targets.map((b) => b.modality)),
     })),
   };
@@ -81,11 +85,18 @@ export async function proximasFechas(ahora: Date = new Date()) {
  * puntajes**: en proceso sólo salen la distribución de patrullas y el avance. Ver
  * `docs/FUNCTIONAL.md` §5.3.
  *
- * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar, completado sin publicar, o
- *   publicado pero archivado (`BE-26`, decisión 5: un archivado se oculta).
+ * Un torneo **sin iniciar** de hoy en adelante es una próxima fecha (`BE-29`) y tiene su propia
+ * lista blanca: ver `proximaFechaPublica`.
+ *
+ * @throws {AppError} `NOT_FOUND` si no existe, está sin iniciar con fecha pasada, completado sin
+ *   publicar, o publicado pero archivado (`BE-26`, decisión 5: un archivado se oculta).
  */
-export async function detallePublico(id: ObjectId) {
+export async function detallePublico(id: ObjectId, ahora: Date = new Date()) {
   const torneo = await tournamentRepo.findById(id);
+  if (torneo?.status === 'sin_iniciar' && torneo.date >= hoyEnArgentina(ahora)) {
+    return proximaFechaPublica(torneo);
+  }
+
   const visible = torneo !== null && (torneo.status === 'en_proceso' || resultadosVisibles(torneo));
   if (!torneo || !visible) throw notFound();
 
@@ -151,6 +162,43 @@ export async function detallePublico(id: ObjectId) {
           tenCount: m.tenCount,
           mCount: m.mCount,
         })),
+    },
+  };
+}
+
+/**
+ * La página pública de una próxima fecha (`BE-29`, decisión 1 de la Fase 10, que revierte la 7 de
+ * la Fase 9): la convocatoria **y quién va**.
+ *
+ * **Lista blanca más corta que la de un torneo en curso.** De cada patrulla, el número, el blanco
+ * de inicio y sus miembros; de cada miembro, nombre, apellido y categoría. **Nada de usuario ni
+ * estado de patrulla** —todavía no se entra a WAFL—, ni avance, estaca, unidad, DNI, pago, PIN o
+ * `archerId`. Las patrullas pueden cambiar hasta el día del torneo: la landing lo dice.
+ */
+async function proximaFechaPublica(torneo: TournamentDoc) {
+  const [miembros, patrullas] = await Promise.all([
+    tournamentRepo.listParticipants(torneo._id),
+    patrolRepo.listByTournament(torneo._id),
+  ]);
+
+  return {
+    tournament: {
+      id: torneo._id.toHexString(),
+      name: torneo.name,
+      date: torneo.date,
+      description: torneo.description,
+      registrationUrl: torneo.registrationUrl ?? null,
+      status: torneo.status,
+      payment: torneo.payment,
+      targets: torneo.targets,
+      maxPossibleScore: torneo.maxPossibleScore,
+      patrols: patrullas.map((p) => ({
+        number: p.number,
+        startTargetIndex: p.startTargetIndex,
+        members: miembros
+          .filter((m) => m.patrolId.equals(p._id))
+          .map((m) => ({ firstName: m.firstName, lastName: m.lastName, category: m.category })),
+      })),
     },
   };
 }

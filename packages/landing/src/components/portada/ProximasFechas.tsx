@@ -13,8 +13,8 @@
  * Vive en su propio archivo, y no en `Secciones.tsx`, para no tocar las secciones que ya existen.
  */
 
-import { BarraDeModalidades, clasesDeTarjeta, cn, RotuloDeSeccion } from '@bal/ui';
-import { bloqueDeFecha, proximasDeLaPortada, textoDeInscripcion } from '../../lib/proximas.js';
+import { BarraDeModalidades, Cifras, clasesDeTarjeta, cn, RotuloDeSeccion } from '@bal/ui';
+import { bloqueDeFecha, cifraDeInscripcion, proximasDeLaPortada } from '../../lib/proximas.js';
 import type { Recurso } from '../../lib/useRecurso.js';
 import { BotonPreinscripcion } from '../BotonPreinscripcion.js';
 import { CONTENEDOR, TituloDeSeccion } from './Secciones.js';
@@ -28,6 +28,8 @@ export interface ProximaFecha {
   readonly registrationUrl: string | null;
   readonly payment: { readonly required: boolean; readonly amount: number };
   readonly targetCount: number;
+  /** Cuántos se anotaron hasta ahora. Nunca quiénes (`FE-42`). */
+  readonly participantCount?: number;
   readonly modalities: readonly {
     readonly modality: Parameters<typeof BarraDeModalidades>[0]['modalidades'][number]['modality'];
     readonly count: number;
@@ -57,9 +59,17 @@ function TarjetaDeProxima({ torneo }: { readonly torneo: ProximaFecha }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <h3 className="text-h3 leading-tight">{torneo.name}</h3>
-        <p className="text-sm text-[var(--ink-muted)]">
-          {torneo.targetCount} blancos · {textoDeInscripcion(torneo.payment)}
-        </p>
+        {/* `FE-42`: rótulo primero; y cuántos se anotaron hasta ahora (decisión 1 de la Fase 10).
+            Una respuesta vieja en caché no trae `participantCount`: entonces no se menciona. */}
+        <Cifras
+          cifras={[
+            { rotulo: 'Blancos', valor: torneo.targetCount },
+            torneo.participantCount === undefined
+              ? null
+              : { rotulo: 'Inscriptos', valor: torneo.participantCount },
+            cifraDeInscripcion(torneo.payment),
+          ]}
+        />
         {torneo.modalities.length > 0 ? (
           <BarraDeModalidades modalidades={torneo.modalities} />
         ) : null}

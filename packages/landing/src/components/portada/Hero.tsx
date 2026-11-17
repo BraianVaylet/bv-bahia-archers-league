@@ -115,9 +115,14 @@ export function Hero({
             {año ? `Temporada ${año} · Bahía Blanca` : 'Bahía Blanca'}
           </p>
 
+          {/*
+            `clamp`, no 40px fijos (`FE-42`): a 320px «Bahía Blanca.» —que va con `&nbsp;`— mide 329
+            y la columna 288, y el `overflow-wrap: anywhere` de la página partía «Blanc / a.». Hasta
+            34px entra; desde ~380px vuelve a ser 40.
+          */}
           <h1
             id="titular"
-            className="font-display my-4 text-[40px] leading-[0.95] font-extrabold tracking-[-0.02em] min-[760px]:text-hero"
+            className="font-display my-4 text-[clamp(32px,10.5vw,40px)] leading-[0.95] font-extrabold tracking-[-0.02em] min-[760px]:text-hero"
           >
             La liga de <em className="not-italic text-[var(--monte-accent)]">arquería</em> de
             Bahía&nbsp;Blanca.

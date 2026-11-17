@@ -45,6 +45,7 @@ export {
   ChipModalidad,
   type ChipProps,
 } from './Chips.js';
+export { type Cifra, Cifras, type CifrasProps } from './Cifras.js';
 export { cn } from './cn.js';
 export {
   type AplicacionDestino,

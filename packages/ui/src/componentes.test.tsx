@@ -209,16 +209,26 @@ describe('TarjetaDeTorneo', () => {
     expect(within(tarjeta).getByRole('heading', { name: '3ª fecha' })).toBeInTheDocument();
   });
 
-  it('dice qué tan grande es, y las patrullas sólo si el dato está', () => {
+  /*
+    `FE-42`, devolución de la prueba 1: el rótulo primero y el número al final —«Blancos 6», no
+    «6 blancos»—. Se lee como una ficha: qué es, cuánto. Y de paso no hay plural que acertar:
+    «1 blancos» ya no puede pasar.
+  */
+  it('dice qué tan grande es, rótulo primero, y las patrullas sólo si el dato está', () => {
     render(<TarjetaDeTorneo torneo={torneo} href="/x" publico />);
-    expect(screen.getByTestId('torneo-t1')).toHaveTextContent('6 blancos · 8 arqueros');
-    expect(screen.getByTestId('torneo-t1')).not.toHaveTextContent('patrullas');
+    expect(screen.getByTestId('torneo-t1')).toHaveTextContent('Blancos 6 · Arqueros 8');
+    expect(screen.getByTestId('torneo-t1')).not.toHaveTextContent('Patrullas');
 
     cleanup();
     render(<TarjetaDeTorneo torneo={{ ...torneo, patrolCount: 3 }} href="/x" />);
     expect(screen.getByTestId('torneo-t1')).toHaveTextContent(
-      '6 blancos · 8 arqueros · 3 patrullas',
+      'Blancos 6 · Arqueros 8 · Patrullas 3',
     );
+  });
+
+  it('con un solo blanco no inventa un plural', () => {
+    render(<TarjetaDeTorneo torneo={{ ...torneo, targetCount: 1 }} href="/x" />);
+    expect(screen.getByTestId('torneo-t1')).toHaveTextContent('Blancos 1');
   });
 
   it('lleva el estado del público o el del admin', () => {

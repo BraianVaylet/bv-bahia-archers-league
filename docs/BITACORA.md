@@ -14,6 +14,34 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `BE-29` — Ficha pública de una próxima fecha
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/detalle-proxima-fecha` (sobre `landing/tarjetas-rotulo-primero`, #123).
+
+Decisión 1 de la Fase 10, que revierte la 7 de la Fase 9: una próxima fecha (`sin_iniciar`, de hoy en adelante en Bahía Blanca) responde en `GET /api/public/tournaments/:id` con la convocatoria **y quién va**. `participantCount` en el listado ya había salido en `FE-42`.
+
+**Lista blanca propia, más corta que la de un torneo en curso** (`proximaFechaPublica`): de cada patrulla, número, blanco de inicio y miembros; de cada miembro, nombre, apellido y categoría. Sin usuario ni estado de patrulla —todavía no se entra a WAFL—, ni avance, estaca, unidad, DNI, pago, PIN o `archerId`. La lista blanca es el mapeo explícito del servicio, no la proyección: un participante se lee entero y se copian tres claves. `SECURITY.md` §11 y `FUNCTIONAL.md` §5.3 y §8 actualizados.
+
+**Tests:** en `ciclo.test.ts`, la ficha con las claves exactas (de la ficha, de cada patrulla y de cada miembro) y el cuerpo crudo sin `username`, `pin`, `dni`, `archerId`, `paid`, `stake` ni `unit` —ese test exige primero un 200: con un 404 pasaba en vacío—. Un torneo en proceso sigue mandando usuario y avance para WAFL. Dos tests fijaban la decisión vieja («un sin iniciar no es visible», «sigue dando 404»): pasan a probar la fecha pasada, que sigue en 404, y se suma la ficha de una próxima fecha sin inscriptos. `pnpm -r test` verde.
+
+---
+
+## 2026-11-17 · `FE-42` — Tarjetas de torneo: rótulo primero, y dos textos que se cortaban
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `landing/tarjetas-rotulo-primero`.
+
+Devolución de la prueba 1: «Blancos 2 · Arqueros 3», no «2 blancos · 3 arqueros». Las cifras de las tarjetas pasan a un componente de `@bal/ui`, `Cifras`: el rótulo primero y el número resaltado al final. Cada par va junto (`whitespace-nowrap`), así que en una tarjeta angosta el renglón se corta **entre** cifras y nunca entre «Inscripción» y su monto. De paso, «1 blancos» ya no puede pasar. Por la decisión 2 rige también en WAFA: la tarjeta es una sola.
+
+**Próximas fechas suma los inscriptos** («Blancos 14 · Inscriptos 12 · Inscripción $ 15.000»). Para eso `GET /api/public/tournaments/upcoming` suma `participantCount`, que estaba en `BE-29` y se adelantó: es el número, nunca quiénes (decisión 1). La proyección del repositorio sigue siendo la lista blanca, y su test nombra la clave nueva. Una respuesta vieja en caché sin el dato no lo menciona.
+
+**Revisión a 320/360/760/1280 (decisión 3):** las tarjetas no desbordan en ningún ancho. Aparecieron dos cosas:
+- **El título del hero se partía a 320 px en «Blanc / a.».** «Bahía Blanca.» va con `&nbsp;` y a 40 px mide 329 contra 288 de columna; el `overflow-wrap: anywhere` de la página lo cortaba adentro de la palabra. Pasa a `clamp(32px, 10.5vw, 40px)`: 33,6 a 320 y 40 desde ~380.
+- **El refresco de `FE-41` no salía de un error.** Si la landing abrió sin señal —en el predio, lo normal—, mostraba «No se pudo conectar» para siempre: el refresco traía los datos, pero en silencio no borra el error, y `useRecurso` mostraba el error antes que los datos. Ahora los datos ganan; los dos sólo conviven en ese caso, porque cambiar de ruta descarta ambos. Test nuevo en `@bal/cliente`, visto fallar primero.
+
+**Verificado:** tests vistos fallar primero (tarjeta, próximas fechas, lista blanca de la API, recuperación del error). `pnpm -r test` verde en los seis paquetes (2532); presupuestos en verde. **WAFA queda en 139,06 de 140**: el próximo cambio que le sume 1 KB va a fallar el CI. Revisión visual en Chromium con datos simulados, **sólo en tema oscuro**.
+
+---
+
 ## 2026-11-17 · `FE-41` — Landing: el torneo en curso aparece sin recargar
 
 **Autor:** Claude Opus 5.5 · **Estado:** hecho en código y tests, en la rama `landing/en-curso-sin-recargar`. Falta el E2E (`TEST-5`, caso 1).

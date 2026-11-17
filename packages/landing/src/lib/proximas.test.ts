@@ -1,6 +1,6 @@
 import { formatearMonto } from '@bal/shared';
 import { describe, expect, it } from 'vitest';
-import { bloqueDeFecha, proximasDeLaPortada, textoDeInscripcion } from './proximas.js';
+import { bloqueDeFecha, cifraDeInscripcion, proximasDeLaPortada } from './proximas.js';
 
 /**
  * Lo que «Próximas fechas» decide antes de dibujar (`FE-38`). Funciones puras: los componentes
@@ -36,15 +36,16 @@ describe('bloqueDeFecha', () => {
   });
 });
 
-describe('textoDeInscripcion', () => {
+describe('cifraDeInscripcion', () => {
   it('con inscripción, el monto', () => {
-    expect(textoDeInscripcion({ required: true, amount: 15000 })).toBe(
-      `Inscripción ${formatearMonto(15000)}`,
-    );
+    expect(cifraDeInscripcion({ required: true, amount: 15000 })).toEqual({
+      rotulo: 'Inscripción',
+      valor: formatearMonto(15000),
+    });
   });
 
   /** «Sin costo» y «no se sabe» no son lo mismo: por eso el endpoint manda `payment` entero. */
   it('sin inscripción, lo dice', () => {
-    expect(textoDeInscripcion({ required: false, amount: 0 })).toBe('Sin costo');
+    expect(cifraDeInscripcion({ required: false, amount: 0 })).toEqual({ valor: 'Sin costo' });
   });
 });
