@@ -101,12 +101,21 @@ describe('BadgeEstado', () => {
   });
 
   /**
-   * Un torneo que todavía no arrancó **no es noticia para el visitante**. Se
-   * devuelve `null` en vez de inventarle un texto público.
+   * Un torneo **completado sin publicar** no es noticia para el visitante: sus resultados todavía
+   * los revisa el admin. Se devuelve `null` en vez de inventarle un texto público.
    */
   it('no muestra en público un estado que no es público', () => {
-    const { container } = render(<BadgeEstado status="sin_iniciar" publico />);
+    const { container } = render(<BadgeEstado status="completado" publico />);
     expect(container.firstChild).toBeNull();
+  });
+
+  /*
+    `FE-43` (decisión 1 de la Fase 10): uno sin iniciar sí es noticia —es una próxima fecha con
+    página propia—, y la devolución pedía «aclarar el estado del torneo».
+  */
+  it('uno sin iniciar, en público, es «Inscripción abierta»', () => {
+    render(<BadgeEstado status="sin_iniciar" publico />);
+    expect(screen.getByTestId('estado-torneo')).toHaveTextContent('Inscripción abierta');
   });
 });
 

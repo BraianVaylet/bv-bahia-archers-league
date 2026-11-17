@@ -17,6 +17,7 @@ import { BarraDeModalidades, Cifras, clasesDeTarjeta, cn, RotuloDeSeccion } from
 import { bloqueDeFecha, cifraDeInscripcion, proximasDeLaPortada } from '../../lib/proximas.js';
 import type { Recurso } from '../../lib/useRecurso.js';
 import { BotonPreinscripcion } from '../BotonPreinscripcion.js';
+import { EnlaceInterno } from '../ui.js';
 import { CONTENEDOR, TituloDeSeccion } from './Secciones.js';
 
 /** Lo que manda `GET /api/public/tournaments/upcoming`. */
@@ -58,7 +59,15 @@ function TarjetaDeProxima({ torneo }: { readonly torneo: ProximaFecha }) {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h3 className="text-h3 leading-tight">{torneo.name}</h3>
+        {/* `FE-43`: el nombre lleva a la página de la próxima fecha, con inscriptos y patrullas. */}
+        <h3 className="text-h3 leading-tight">
+          <EnlaceInterno
+            href={`/torneos/${torneo.id}`}
+            className="underline-offset-4 hover:underline"
+          >
+            {torneo.name}
+          </EnlaceInterno>
+        </h3>
         {/* `FE-42`: rótulo primero; y cuántos se anotaron hasta ahora (decisión 1 de la Fase 10).
             Una respuesta vieja en caché no trae `participantCount`: entonces no se menciona. */}
         <Cifras
