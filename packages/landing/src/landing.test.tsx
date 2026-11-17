@@ -766,6 +766,114 @@ describe('TournamentPage', () => {
 
   const renderDetalle = () => renderEn(<TournamentPage />, '/torneos/t1', '/torneos/:id');
 
+  /*
+    `FE-43`, devolución de la prueba 1: «en los próximos torneos mostrar una página similar a la de
+    torneos con el listado de inscriptos hasta el momento, las patrullas y los gráficos. Aclarar el
+    estado del torneo». La API (`BE-29`) manda de cada miembro sólo nombre, apellido y categoría, y
+    de cada patrulla el número y el blanco de inicio: ni avance ni estaca.
+  */
+  describe('una próxima fecha', () => {
+    const proxima = (o: Record<string, unknown> = {}) => ({
+      id: 't1',
+      name: '4ª fecha · Nocturno',
+      date: '2026-12-05',
+      description: 'Se larga 20:30.',
+      registrationUrl: 'https://forms.gle/AbCdEf123',
+      status: 'sin_iniciar',
+      payment: { required: true, amount: 15000 },
+      targets: [
+        { index: 1, modality: '3d', arrows: 2 },
+        { index: 2, modality: 'sala', arrows: 3 },
+        { index: 3, modality: 'campo', arrows: 3 },
+      ],
+      maxPossibleScore: 82,
+      patrols: [
+        {
+          number: 1,
+          startTargetIndex: 3,
+          members: [
+            { firstName: 'Juan', lastName: 'Pérez', category: 'raso' },
+            { firstName: 'Ana', lastName: 'Gómez', category: 'recurvo' },
+          ],
+        },
+        {
+          number: 2,
+          startTargetIndex: 1,
+          members: [{ firstName: 'Luis', lastName: 'Díaz', category: 'raso' }],
+        },
+      ],
+      ...o,
+    });
+    const conProxima = (o: Record<string, unknown> = {}) =>
+      servidor({ '/api/public/tournaments/t1': () => ({ json: { tournament: proxima(o) } }) });
+
+    it('dice claramente el estado: inscripción abierta, y que las patrullas pueden cambiar', async () => {
+      conProxima();
+      renderDetalle();
+
+      expect(await screen.findByTestId('estado-torneo')).toHaveTextContent('Inscripción abierta');
+      expect(screen.getByTestId('aviso-proxima')).toHaveTextContent(
+        /las patrullas pueden cambiar/i,
+      );
+      // No es un torneo en curso, ni tiene resultados.
+      expect(screen.queryByTestId('aviso-en-curso')).toBeNull();
+      expect(screen.queryByText(/podio/i)).toBeNull();
+    });
+
+    it('lista a los inscriptos hasta el momento, con su categoría, por apellido', async () => {
+      conProxima();
+      renderDetalle();
+
+      const inscriptos = await screen.findByRole('region', { name: /Inscriptos/ });
+      expect(within(inscriptos).getByRole('heading')).toHaveTextContent('Inscriptos 3');
+      const filas = within(inscriptos)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent);
+      expect(filas).toEqual([
+        `Díaz, Luis${CATEGORY_INFO.raso.label}`,
+        `Gómez, Ana${CATEGORY_INFO.recurvo.label}`,
+        `Pérez, Juan${CATEGORY_INFO.raso.label}`,
+      ]);
+    });
+
+    it('las patrullas dicen desde qué blanco arrancan, sin avance', async () => {
+      conProxima();
+      renderDetalle();
+
+      const patrulla = await screen.findByTestId('patrulla-1');
+      expect(patrulla).toHaveTextContent('Arranca en el blanco 3');
+      expect(patrulla).not.toHaveTextContent(/de \d+ blancos/);
+      expect(patrulla).toHaveTextContent('Pérez, Juan');
+    });
+
+    it('las tortas van en presente: el torneo todavía no se jugó', async () => {
+      conProxima();
+      renderDetalle();
+
+      expect(
+        await screen.findByRole('heading', { level: 2, name: 'De qué está hecho' }),
+      ).toBeDefined();
+    });
+
+    it('sin inscriptos todavía, lo dice en vez de mostrar listas vacías', async () => {
+      conProxima({ patrols: [] });
+      renderDetalle();
+
+      expect(await screen.findByText('Todavía no hay inscriptos.')).toBeDefined();
+      expect(screen.queryByRole('heading', { name: 'Patrullas' })).toBeNull();
+    });
+
+    it('ofrece pre-inscribirse', async () => {
+      conProxima();
+      renderDetalle();
+
+      expect(await screen.findByRole('link', { name: /Pre-inscribirme/ })).toHaveAttribute(
+        'href',
+        'https://forms.gle/AbCdEf123',
+      );
+    });
+  });
+
   // `FE-41`: el detalle de uno en curso se mantiene al día; el de uno publicado ya es definitivo.
   it.each([
     ['en curso, vuelve a pedirlo al volver a la pestaña', 'en_proceso', 2],
@@ -1425,6 +1533,18 @@ describe('Próximas fechas', () => {
     const tarjeta = within(await seccion()).getByRole('listitem');
     expect(tarjeta).toHaveTextContent('Blancos 14');
     expect(tarjeta).not.toHaveTextContent('Inscriptos');
+  });
+
+  // `FE-43`: de la tarjeta se entra a la página de la próxima fecha (inscriptos y patrullas).
+  it('el nombre de la próxima fecha lleva a su página', async () => {
+    conProximas([proxima(1)]);
+    renderEn(<HomePage />);
+
+    const tarjeta = within(await seccion()).getByRole('listitem');
+    expect(within(tarjeta).getByRole('link', { name: '1ª fecha' })).toHaveAttribute(
+      'href',
+      '/torneos/u1',
+    );
   });
 
   it('con link, la tarjeta ofrece pre-inscribirse', async () => {

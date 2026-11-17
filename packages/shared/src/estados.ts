@@ -29,7 +29,9 @@ export interface EstadoDeTorneoInfo {
   readonly vacio: string;
   /**
    * Lo que ve el visitante en la landing. `null` cuando ese estado **no se
-   * muestra en público**: un torneo que todavía no arrancó no es noticia.
+   * muestra en público**: un completado todavía lo revisa el admin. Uno sin
+   * iniciar sí es noticia desde `FE-43` (decisión 1 de la Fase 10): es una
+   * próxima fecha, con página propia.
    */
   readonly publico: string | null;
   /**
@@ -52,7 +54,7 @@ export const ESTADO_DE_TORNEO: Readonly<Record<TournamentStatus, EstadoDeTorneoI
     label: 'Sin iniciar',
     plural: 'Sin iniciar',
     vacio: 'No hay torneos preparados.',
-    publico: null,
+    publico: 'Inscripción abierta',
     color: 'var(--ink-muted)',
   },
   en_proceso: {

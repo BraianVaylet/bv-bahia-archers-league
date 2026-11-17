@@ -123,7 +123,7 @@ export interface BadgeEstadoProps extends ChipProps {
  * `prefers-reduced-motion` (bloque global de `tokens.css`).
  *
  * Devuelve `null` cuando el estado **no se muestra en público** y se pidió la
- * versión pública: un torneo sin iniciar no es noticia para el visitante.
+ * versión pública: un completado sin publicar no es noticia para el visitante.
  */
 export function BadgeEstado({ status, publico, compacto, sobreMonte }: BadgeEstadoProps) {
   const info = ESTADO_DE_TORNEO[status];

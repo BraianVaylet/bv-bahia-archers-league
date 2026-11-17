@@ -91,16 +91,20 @@ interface TorneoDetalle {
   readonly payment: { readonly required: boolean; readonly amount: number };
   readonly targets: readonly { index: number; modality: keyof typeof SCORING; arrows: number }[];
   readonly maxPossibleScore: number;
+  /**
+   * De una próxima fecha (`BE-29`) no vienen ni el estado ni el avance de la patrulla, ni la estaca
+   * de cada miembro: la lista blanca es nombre, apellido y categoría.
+   */
   readonly patrols: readonly {
     number: number;
     startTargetIndex: number;
-    status: TournamentStatus;
-    targetsCompleted: number;
+    status?: TournamentStatus;
+    targetsCompleted?: number;
     members: readonly {
       firstName: string;
       lastName: string;
       category: BowCategory;
-      stake: string;
+      stake?: string;
     }[];
   }[];
   readonly results?: readonly Resultado[];
@@ -291,7 +295,10 @@ export function TournamentPage() {
   }
 
   const t = torneo.datos.tournament;
-  const enProceso = t.status !== 'publicado';
+  const enProceso = t.status === 'en_proceso' || t.status === 'completado';
+  // `FE-43`: una próxima fecha (`BE-29`). Inscriptos y patrullas, sin avance ni resultados.
+  const proxima = t.status === 'sin_iniciar';
+  const inscriptos = t.patrols.flatMap((p) => p.members);
 
   return (
     <Screen>
@@ -329,37 +336,53 @@ export function TournamentPage() {
         </p>
       )}
 
+      {proxima && (
+        <p
+          className="rounded-[var(--radius-md)] border p-3 text-sm text-[var(--ink-muted)]"
+          data-testid="aviso-proxima"
+        >
+          La inscripción sigue abierta: la lista y las patrullas pueden cambiar hasta el día del
+          torneo.
+        </p>
+      )}
+
       {t.results && <Podios torneoId={t.id} resultados={t.results} />}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-display text-h2">Patrullas</h2>
+      {proxima && <Inscriptos inscriptos={inscriptos} />}
 
-        <ul className="flex flex-col gap-2">
-          {t.patrols.map((p) => (
-            <li key={p.number} className={clasesDeTarjeta()} data-testid={`patrulla-${p.number}`}>
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold">Patrulla {p.number}</span>
-                <span className="flex items-center gap-2 text-sm text-[var(--ink-muted)] tabular-nums">
-                  {p.targetsCompleted} de {t.targets.length} blancos
-                  {/* El avance de un vistazo, con el dato real (§6.5): sólo en curso. */}
-                  {t.status === 'en_proceso' ? (
-                    <AnilloDeRecorrido
-                      total={t.targets.length}
-                      completados={p.targetsCompleted}
-                      // `startTargetIndex` es el número del blanco (1-based); el anillo
-                      // cuenta posiciones en la lista.
-                      inicio={Math.max(
-                        t.targets.findIndex((b) => b.index === p.startTargetIndex),
-                        0,
-                      )}
-                      tamaño={44}
-                    />
-                  ) : null}
-                </span>
-              </div>
+      {inscriptos.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-display text-h2">Patrullas</h2>
 
-              <ul className="pt-1 flex flex-col gap-1 text-sm">
-                {/*
+          <ul className="flex flex-col gap-2">
+            {t.patrols.map((p) => (
+              <li key={p.number} className={clasesDeTarjeta()} data-testid={`patrulla-${p.number}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">Patrulla {p.number}</span>
+                  <span className="flex items-center gap-2 text-sm text-[var(--ink-muted)] tabular-nums">
+                    {/* Una próxima fecha no tiene avance: se dice desde dónde arranca. */}
+                    {p.targetsCompleted === undefined
+                      ? `Arranca en el blanco ${p.startTargetIndex}`
+                      : `${p.targetsCompleted} de ${t.targets.length} blancos`}
+                    {/* El avance de un vistazo, con el dato real (§6.5): sólo en curso. */}
+                    {t.status === 'en_proceso' ? (
+                      <AnilloDeRecorrido
+                        total={t.targets.length}
+                        completados={p.targetsCompleted ?? 0}
+                        // `startTargetIndex` es el número del blanco (1-based); el anillo
+                        // cuenta posiciones en la lista.
+                        inicio={Math.max(
+                          t.targets.findIndex((b) => b.index === p.startTargetIndex),
+                          0,
+                        )}
+                        tamaño={44}
+                      />
+                    ) : null}
+                  </span>
+                </div>
+
+                <ul className="pt-1 flex flex-col gap-1 text-sm">
+                  {/*
                   **Dos filas, no una.**
 
                   Nombre, categoría y estaca en línea no entran en un celular:
@@ -372,24 +395,25 @@ export function TournamentPage() {
                   «Tradicional» más un nombre completo más el chip sigue sin
                   entrar a 320 px.
                 */}
-                {p.members.map((m) => (
-                  <li key={`${m.lastName}-${m.firstName}`} className="flex flex-col gap-0.5">
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <span className="min-w-0 truncate">
-                        {m.lastName}, {m.firstName}
-                      </span>
-                      <span className="text-[var(--ink-muted)] shrink-0">
-                        {CATEGORY_INFO[m.category].label}
-                      </span>
-                    </div>
-                    <StakeChip stake={m.stake} compacto />
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      </section>
+                  {p.members.map((m) => (
+                    <li key={`${m.lastName}-${m.firstName}`} className="flex flex-col gap-0.5">
+                      <div className="flex items-baseline gap-2 min-w-0">
+                        <span className="min-w-0 truncate">
+                          {m.lastName}, {m.firstName}
+                        </span>
+                        <span className="text-[var(--ink-muted)] shrink-0">
+                          {CATEGORY_INFO[m.category].label}
+                        </span>
+                      </div>
+                      {m.stake ? <StakeChip stake={m.stake} compacto /> : null}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <DiagramaDelRecorrido targets={t.targets} />
 
@@ -422,7 +446,10 @@ function DeQueEstuvoHecho({ torneo }: { readonly torneo: TorneoDetalle }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-display text-h2">De qué estuvo hecho</h2>
+      {/* En presente si todavía no se jugó (`FE-43`). */}
+      <h2 className="font-display text-h2">
+        {torneo.status === 'publicado' ? 'De qué estuvo hecho' : 'De qué está hecho'}
+      </h2>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <GraficoDeTorta
@@ -467,6 +494,50 @@ function DeQueEstuvoHecho({ torneo }: { readonly torneo: TorneoDetalle }) {
  * palabras distintas. `BadgeEstado` devuelve `null` para los estados que no se
  * muestran en público, que es lo que hacía este `if (!info)`.
  */
+/**
+ * Quiénes se anotaron hasta ahora en una próxima fecha (`FE-43`), por apellido, con su categoría.
+ * Sale de las patrullas: es donde la API (`BE-29`) manda a cada inscripto.
+ */
+function Inscriptos({
+  inscriptos,
+}: {
+  readonly inscriptos: readonly { firstName: string; lastName: string; category: BowCategory }[];
+}) {
+  const orden = [...inscriptos].sort(
+    (a, b) =>
+      a.lastName.localeCompare(b.lastName, 'es') || a.firstName.localeCompare(b.firstName, 'es'),
+  );
+
+  return (
+    <section aria-labelledby="inscriptos" className="flex flex-col gap-2">
+      <h2 id="inscriptos" className="font-display text-h2">
+        Inscriptos <span className="tabular-nums">{inscriptos.length}</span>
+      </h2>
+      {orden.length === 0 ? (
+        <p className="text-[var(--ink-muted)]">Todavía no hay inscriptos.</p>
+      ) : (
+        <ul className={clasesDeTarjeta({ densidad: 'ninguna' })}>
+          {orden.map((m) => (
+            <li
+              key={`${m.lastName}-${m.firstName}`}
+              className="flex items-baseline justify-between gap-3 px-4 py-2 border-b last:border-b-0"
+            >
+              {/* Sin `truncate`: saber quién se anotó es para lo que se mira esta lista. Un
+                  nombre largo baja de renglón en vez de cortarse en «María V…». */}
+              <span className="min-w-0 break-words">
+                {m.lastName}, {m.firstName}
+              </span>
+              <span className="shrink-0 text-sm text-[var(--ink-muted)]">
+                {CATEGORY_INFO[m.category].label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function EstadoChip({ status }: { readonly status: TournamentStatus }) {
   return <BadgeEstado status={status} publico />;
 }

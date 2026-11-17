@@ -24,6 +24,23 @@ Devolución de la prueba 1: «que al mover un arquero a una nueva patrulla te di
 
 ---
 
+## 2026-11-17 · `FE-43` — Landing: página de la próxima fecha
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `landing/pagina-proxima-fecha` (sobre `landing/tarjetas-rotulo-primero`, que ya trae `BE-29`).
+
+Devolución de la prueba 1: «en los próximos torneos mostrar una página similar a la de torneos con el listado de inscriptos hasta el momento, las patrullas y los gráficos. Aclarar el estado del torneo». Usa la ficha de `BE-29`.
+
+- **El estado, claro.** `ESTADO_DE_TORNEO.sin_iniciar.publico` pasa de `null` a «Inscripción abierta» (`@bal/shared`): un sin iniciar ya es noticia —es una próxima fecha con página—. El único estado sin texto público queda siendo `completado`. Un aviso agrega que la lista y las patrullas pueden cambiar hasta el día del torneo.
+- **Inscriptos** con su categoría, por apellido y con la cantidad en el título. Salen de las patrullas, que es donde la API manda a cada uno. **Sin `truncate`**: a 360 px «Fernández Larrañaga, María V…» escondía justamente lo que se viene a ver; un nombre largo baja de renglón.
+- **Patrullas** con «Arranca en el blanco N» en lugar del avance; sin estaca, que la ficha no manda. Sin inscriptos todavía, lo dice y no muestra la sección de patrullas vacía.
+- **«De qué está hecho»**, en presente si no se publicó (en curso también: todavía se está jugando).
+- La tarjeta de **Próximas fechas** enlaza a la página desde el nombre: el botón de pre-inscripción ya es un enlace adentro de la tarjeta, así que la tarjeta entera no puede serlo.
+- De paso: el aviso «se está corriendo ahora» se mostraba para cualquier estado no publicado; ahora sólo en curso o esperando publicación.
+
+**Verificado:** 8 tests nuevos, vistos fallar primero (página: estado, inscriptos ordenados, patrullas sin avance, título en presente, sin inscriptos, pre-inscripción; enlace desde la tarjeta; badge). `pnpm -r test` verde (2544); presupuestos en verde (landing 117,51/120). En Chromium con datos simulados, de la tarjeta a la página por navegación de la SPA, a 360 px sin scroll horizontal ni nombres cortados. Sólo tema oscuro.
+
+---
+
 ## 2026-11-17 · `BE-29` — Ficha pública de una próxima fecha
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/detalle-proxima-fecha` (sobre `landing/tarjetas-rotulo-primero`, #123).

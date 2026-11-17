@@ -911,7 +911,8 @@ _(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 - `detallePublico` acepta `sin_iniciar` con fecha ≥ hoy: lista blanca de la decisión 1.
 **DoD:** tests de servicio: la respuesta no trae DNI, pago, PIN, usuario ni `archerId`; un `sin_iniciar` con fecha pasada o archivado da 404; `/security-review`.
 
-### `[ ] FE-43` · Landing: página de la próxima fecha · P1
+### `[x] FE-43` · Landing: página de la próxima fecha · P1
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/landing/src/pages/Tournaments.tsx`, `ProximasFechas.tsx`
 - La tarjeta de «Próximas fechas» enlaza a `/torneos/:id`.
 - Misma estructura que la del torneo: estado arriba («Inscripción abierta»), datos, botón de pre-inscripción, inscriptos, patrullas y las tortas (`De qué está hecho`).
