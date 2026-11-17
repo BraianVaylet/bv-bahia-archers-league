@@ -948,7 +948,8 @@ Arreglo:
 
 ### Hilo D — WAFA: editor de patrullas
 
-### `[ ] FE-46` · Mover a otra patrulla: con la cantidad a la vista · P1
+### `[x] FE-46` · Mover a otra patrulla: con la cantidad a la vista · P1
+_(Hecho. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/app/src/wafa/distribucion/TarjetaDePatrulla.tsx`
 - «A la 2 · 3 arqueros»; si tiene 4, se marca «llena» (se puede mover igual: `problemaDelBorrador` frena el guardado, como hoy).
 **DoD:** test de UI con las cantidades; botón de 44 px.
