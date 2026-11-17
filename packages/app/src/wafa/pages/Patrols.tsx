@@ -15,11 +15,11 @@ import { useTituloDePagina } from '@bal/ui';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Cargando } from '../../components/Cargando.js';
-import { clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
+import { Button, clasesDeTarjeta, cn, Encabezado, Pantalla, Screen } from '../../components/ui.js';
 import { BarraDeAcciones } from '../distribucion/BarraDeAcciones.js';
 import { TarjetaDePatrulla } from '../distribucion/TarjetaDePatrulla.js';
 import { usePatrullas } from '../distribucion/usePatrullas.js';
-import { textoDeViolacion } from '../patrullas.js';
+import { agregarPatrulla, textoDeViolacion } from '../patrullas.js';
 
 export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
   useTituloDePagina('Patrullas');
@@ -78,7 +78,14 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
             <TarjetaDePatrulla
               key={patrulla.numero}
               patrulla={patrulla}
-              original={p.patrullas?.find((x) => x.number === patrulla.numero)}
+              // Por id, no por número: al eliminar una, las demás se renumeran y la tarjeta
+              // mostraba la credencial de otra patrulla. Una nueva no tiene id ni credencial
+              // hasta que se guarda (`FE-47`).
+              original={
+                patrulla.id === undefined
+                  ? undefined
+                  : p.patrullas?.find((x) => x.id === patrulla.id)
+              }
               borrador={p.borrador}
               torneo={p.torneo}
               editable={editable}
@@ -89,6 +96,16 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
             />
           ))}
         </div>
+
+        {/* `FE-47`: si se eliminó una, o hace falta otra, se crea. Vacía no se guarda. */}
+        {editable && p.borrador.length > 0 && (
+          <Button
+            variante="secundario"
+            onClick={() => p.editar(agregarPatrulla(p.borrador, p.torneo?.targets.length ?? 1))}
+          >
+            Agregar patrulla
+          </Button>
+        )}
       </Screen>
 
       {editable && (
