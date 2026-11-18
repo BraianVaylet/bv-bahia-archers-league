@@ -26,6 +26,7 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
   const { id = '' } = useParams();
   const p = usePatrullas(id);
   const [moviendo, setMoviendo] = useState<string>();
+  const [confirmandoRearmado, setConfirmandoRearmado] = useState(false);
 
   const editable = p.torneo?.status === 'sin_iniciar';
 
@@ -105,6 +106,42 @@ export function PatrolsPage({ onVolver }: { readonly onVolver: () => void }) {
           >
             Agregar patrulla
           </Button>
+        )}
+
+        {/*
+          `FE-48`: rearmar todo desde cero es explícito desde que editar participantes no rearma
+          (`BE-31`). Dos toques, como borrar un torneo: sin `confirm()` ni modal.
+        */}
+        {editable && p.borrador.length > 0 && (
+          <div className="flex flex-col gap-2 pt-2 print:hidden">
+            {confirmandoRearmado && (
+              <p role="alert" className="text-sm text-[var(--warn)]">
+                Se arman todas las patrullas de nuevo y cambian los PIN: si ya imprimiste las
+                planillas, hay que reimprimirlas. Los cambios sin guardar se pierden.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variante="secundario"
+                disabled={p.guardando}
+                onClick={() => {
+                  if (!confirmandoRearmado) {
+                    setConfirmandoRearmado(true);
+                    return;
+                  }
+                  setConfirmandoRearmado(false);
+                  void p.rearmar();
+                }}
+              >
+                {confirmandoRearmado ? 'Confirmar: rearmar' : 'Rearmar patrullas'}
+              </Button>
+              {confirmandoRearmado && (
+                <Button variante="secundario" onClick={() => setConfirmandoRearmado(false)}>
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </div>
         )}
       </Screen>
 

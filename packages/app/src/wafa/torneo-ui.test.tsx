@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublishPage } from './pages/Publish.js';
@@ -984,5 +984,73 @@ describe('refresco del seguimiento', () => {
     await pasan30s();
 
     expect(resultados()).toBe(antes);
+  });
+});
+
+// ── FE-48 · Editar participantes ya no rearma ────────────────────────────────
+
+/*
+  Desde `BE-31` cambiar los participantes **no rearma** las patrullas: quien entra se suma a una con
+  lugar y quien sale deja la suya, sin mover a nadie más ni cambiar ningún PIN. El aviso de antes
+  («rearma las patrullas y les cambia el PIN») pasó a ser falso.
+*/
+describe('editar participantes (FE-48)', () => {
+  const PADRON = [
+    { id: 'a1', firstName: 'Juan', lastName: 'Pérez', category: 'raso' },
+    { id: 'a2', firstName: 'Ana', lastName: 'Gómez', category: 'raso' },
+    { id: 'a3', firstName: 'Luis', lastName: 'Díaz', category: 'raso' },
+  ];
+
+  function sinIniciar() {
+    servidor({
+      'GET /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+      'GET /api/admin/tournaments/t1/results': () => ({
+        json: {
+          maxPossibleScore: 120,
+          participants: [
+            participante({ archerId: 'a1' }),
+            participante({ id: 'x2', archerId: 'a2', firstName: 'Ana', lastName: 'Gómez' }),
+          ],
+        },
+      }),
+      'GET /api/admin/archers': () => ({ json: { archers: PADRON } }),
+      'PATCH /api/admin/tournaments/t1': () => ({
+        json: { tournament: { ...TORNEO, status: 'sin_iniciar' } },
+      }),
+    });
+  }
+
+  it('el aviso dice que las patrullas se conservan, no que se rearman', async () => {
+    sinIniciar();
+    renderPantalla(TournamentPage);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar participantes' }));
+
+    const panel = screen.getByTestId('editar-participantes');
+    expect(panel.textContent).toMatch(/las patrullas se conservan/i);
+    expect(panel.textContent).not.toMatch(/rearma las patrullas/);
+  });
+
+  it('al guardar dice cuántos entraron y salieron, y lleva a revisar las patrullas', async () => {
+    sinIniciar();
+    renderPantalla(TournamentPage);
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar participantes' }));
+
+    // Sale Pérez, entra Díaz.
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Pérez, Juan/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Díaz, Luis/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar participantes' }));
+
+    const aviso = await screen.findByTestId('aviso-participantes');
+    expect(aviso.textContent).toMatch(/Entró 1 y salió 1/);
+    expect(within(aviso).getByRole('link', { name: /Revisar las patrullas/ })).toHaveAttribute(
+      'href',
+      '/wafa/torneos/t1/patrullas',
+    );
+    const patch = llamadas.find((l) => l.method === 'PATCH');
+    if (!patch) throw new Error('no se mandó el PATCH');
+    expect((patch.body as { archerIds: string[] }).archerIds.sort()).toEqual(['a2', 'a3']);
   });
 });
