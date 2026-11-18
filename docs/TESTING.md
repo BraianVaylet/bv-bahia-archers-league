@@ -372,6 +372,38 @@ Dos cosas que este E2E encontró y quedaron corregidas, con su test de unidad:
 
 Y una que **no es un bug**: el navegador que ya pidió `/api/public/tournaments/upcoming` sigue mostrando un torneo recién eliminado hasta que vence su `Cache-Control` (`publicCache`). El caso 1 lo verifica con un visitante nuevo.
 
+### Fase 10 — ajustes de la prueba 1 (`TEST-5`)
+
+```
+e2e/fase-10.spec.ts
+
+Caso 1 — landing, torneo en curso sin recargar (FE-41):
+ 1. Torneo sin iniciar con fecha de hoy (por API); la portada abierta no lo muestra en el hero
+ 2. Se larga por API
+ 3. Sin recargar: se dispara `visibilitychange` hasta 80 s (la caché de torneos es 15 + 30 s)
+    y el hero pasa a mostrarlo «En curso»
+
+Caso 2 — WAFL, toques rápidos y finalizar en un toque (FE-45, FE-44):
+ 1. Torneo iniciado (por API), el líder entra
+ 2. En cada blanco, todas las flechas de los dos arqueros seguidas, sin esperar entre toques
+ 3. Firman los dos
+ 4. «Finalizar torneo» **una vez**, sin esperar al outbox → «Torneo finalizado»
+ 5. La patrulla queda `cerrada` en el servidor
+
+Caso 3 — WAFA, patrullas a mano y arquero nuevo (FE-46, FE-47, BE-31):
+ 1. Torneo sin iniciar con cuatro arqueros (una patrulla de cuatro)
+ 2. WAFA: «Mover» → «A una nueva», otro «A la 2», «Guardar patrullas»
+ 3. Entra un arquero más (PATCH por API)
+ 4. Las dos patrullas conservan su PIN y sus miembros; el nuevo quedó en alguna
+
+Caso 4 — landing, página de una próxima fecha (BE-29, FE-43):
+ 1. Torneo sin iniciar con fecha futura
+ 2. /torneos/:id: «Inscripción abierta», el aviso de patrullas, los inscriptos y «Arranca en el blanco»
+ 3. La respuesta de la API no trae usuario, PIN, DNI ni archerId
+```
+
+El caso 2 **no** usa `esperarOutboxVacio` a propósito: esperar a que se vacíe el outbox antes de tocar «Finalizar» es exactamente el doble toque que encontró la prueba 1.
+
 ---
 
 ## 7. Cómo correr

@@ -887,8 +887,8 @@ _(Hecho, en un solo archivo, `e2e/fase-9.spec.ts`, con dos casos. Encontró dos 
 
 ### Hilo A — Landing
 
-### `[~] FE-41` · El torneo en curso aparece sin recargar · P0
-_(Hecho en código y tests; **falta el E2E** (largar desde WAFA con la landing abierta), que queda en `TEST-5` caso 1. El diagnóstico contra los logs de producción no se hizo: el arreglo cubre las dos causas. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
+### `[x] FE-41` · El torneo en curso aparece sin recargar · P0
+_(Hecho. El E2E quedó en `TEST-5` caso 1: con la portada abierta, el torneo largado aparece en el hero en ~20 s sin recargar. El diagnóstico contra los logs de producción no se hizo: el arreglo cubre las dos causas. Ver `docs/BITACORA.md`, entrada del 2026-11-17.)_
 **Archivos:** `packages/cliente/src/useCarga.ts` (o `useRecurso` de la landing), `packages/landing/src/pages/Home.tsx`, `packages/api/src/routes/publico.ts`
 **Referencia:** [`FUNCTIONAL.md`](FUNCTIONAL.md) §5.3
 1. **Diagnóstico primero:** logs de Railway de `GET /api/public/tournaments` durante la prueba y audit `tournament.start`: ¿la API ya lo devolvía y el cliente no volvió a pedir, o hubo otra causa?
@@ -986,7 +986,8 @@ _(Hecho. WAFA queda en 139,8 de 140 KB. Ver `docs/BITACORA.md`, entrada del 2026
 - Botón «Rearmar patrullas» con confirmación de dos toques: avisa que cambian los PIN.
 **DoD:** test de UI de ambos flujos.
 
-### `[ ] TEST-5` · E2E de la fase
+### `[x] TEST-5` · E2E de la fase
+_(Hecho: `e2e/fase-10.spec.ts`, 4 casos, verdes contra el stack real. Ver `docs/TESTING.md` y `docs/BITACORA.md`, entrada del 2026-11-18.)_
 **Archivos:** `e2e/fase-10.spec.ts`
 1. Landing abierta → WAFA larga el torneo → aparece en el hero sin recargar.
 2. WAFL: anotar un blanco a toques rápidos → todas las flechas → firmar → «Finalizar» una vez → cerrado.
