@@ -24,6 +24,8 @@ Formato: entradas nuevas **arriba**.
 3. **WAFA (`FE-46`, `FE-47`, `BE-31`):** «A una nueva» y «A la 2», guardar; entra un arquero más por API y las dos patrullas conservan PIN y miembros.
 4. **Landing (`BE-29`, `FE-43`):** la página de una próxima fecha muestra «Inscripción abierta», el aviso, los inscriptos y las patrullas; la API no trae usuario, PIN, DNI ni `archerId`.
 
+**Lo que encontró en el CI, y era un bug real:** con este spec dejando próximas fechas en la base, `objetivos-tactiles.spec.ts` (que corre después) falló en la portada: el **enlace del nombre de cada próxima fecha medía 22 px de alto**, contra los 44 de la regla 9. Lo había agregado `FE-43`, y no se veía porque hasta ahora la portada casi nunca tenía próximas fechas cuando corría ese control. El enlace pasa a `inline-flex min-h-[44px]`; los dos specs juntos, verdes en local.
+
 **Un tropiezo del propio test, no de la app:** el caso 1 fallaba en la precondición. Con la base vacía no hay ningún torneo en curso y el hero no tiene tarjeta, así que «la tarjeta no muestra el torneo» no se podía evaluar. Ahora mira el hero entero.
 
 **Lo que este E2E no cubre:** el teclado con guantes en un celular real (`FE-45` sigue `[~]`) y FE-48 (#133), que entró a `main` sin E2E propio: lo cubren sus tests de pantalla.

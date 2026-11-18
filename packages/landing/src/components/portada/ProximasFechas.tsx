@@ -59,11 +59,13 @@ function TarjetaDeProxima({ torneo }: { readonly torneo: ProximaFecha }) {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {/* `FE-43`: el nombre lleva a la página de la próxima fecha, con inscriptos y patrullas. */}
+        {/* `FE-43`: el nombre lleva a la página de la próxima fecha, con inscriptos y patrullas.
+            Regla 9: el enlace llega a 44 px de alto aunque el texto mida 22 (lo encontró el E2E de
+            objetivos táctiles en cuanto hubo próximas fechas en la portada). */}
         <h3 className="text-h3 leading-tight">
           <EnlaceInterno
             href={`/torneos/${torneo.id}`}
-            className="underline-offset-4 hover:underline"
+            className="inline-flex min-h-[44px] items-center underline-offset-4 hover:underline"
           >
             {torneo.name}
           </EnlaceInterno>
