@@ -43,8 +43,6 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
----
-
 ## 2026-11-17 · `BE-31` — Editar participantes conserva las patrullas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/participantes-sin-rearmar`. La pantalla es `FE-48`.
