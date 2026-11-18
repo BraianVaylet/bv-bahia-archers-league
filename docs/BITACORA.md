@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-18 · `TEST-5` — E2E de la Fase 10
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `test/e2e-fase-10`.
+
+`e2e/fase-10.spec.ts`, un caso por frente de la devolución de la prueba 1, contra el stack real (build + MongoDB en memoria). Los cuatro verdes en ~1 minuto:
+1. **Landing (`FE-41`):** con la portada abierta, se larga un torneo por API y aparece en el hero **sin recargar** (~20 s). Se insiste hasta 80 s disparando `visibilitychange`, porque la caché de torneos es 15 + 30 s. Cierra el `[~]` de `FE-41`.
+2. **WAFL (`FE-45`, `FE-44`):** todas las flechas de los dos arqueros seguidas, sin esperar entre toques; firman; «Finalizar torneo» **una vez, sin esperar al outbox**, y la patrulla queda `cerrada` en el servidor. No usa `esperarOutboxVacio` a propósito: esperar antes de tocar es el doble toque que encontró la prueba.
+3. **WAFA (`FE-46`, `FE-47`, `BE-31`):** «A una nueva» y «A la 2», guardar; entra un arquero más por API y las dos patrullas conservan PIN y miembros.
+4. **Landing (`BE-29`, `FE-43`):** la página de una próxima fecha muestra «Inscripción abierta», el aviso, los inscriptos y las patrullas; la API no trae usuario, PIN, DNI ni `archerId`.
+
+**Un tropiezo del propio test, no de la app:** el caso 1 fallaba en la precondición. Con la base vacía no hay ningún torneo en curso y el hero no tiene tarjeta, así que «la tarjeta no muestra el torneo» no se podía evaluar. Ahora mira el hero entero.
+
+**Lo que este E2E no cubre:** el teclado con guantes en un celular real (`FE-45` sigue `[~]`) y FE-48, que todavía está en su PR (#133).
+
+---
+
 ## 2026-11-17 · `BE-31` — Editar participantes conserva las patrullas
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/participantes-sin-rearmar`. La pantalla es `FE-48`.
