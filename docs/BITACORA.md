@@ -26,7 +26,22 @@ Formato: entradas nuevas **arriba**.
 
 **Un tropiezo del propio test, no de la app:** el caso 1 fallaba en la precondición. Con la base vacía no hay ningún torneo en curso y el hero no tiene tarjeta, así que «la tarjeta no muestra el torneo» no se podía evaluar. Ahora mira el hero entero.
 
-**Lo que este E2E no cubre:** el teclado con guantes en un celular real (`FE-45` sigue `[~]`) y FE-48, que todavía está en su PR (#133).
+**Lo que este E2E no cubre:** el teclado con guantes en un celular real (`FE-45` sigue `[~]`) y FE-48 (#133), que entró a `main` sin E2E propio: lo cubren sus tests de pantalla.
+
+---
+
+## 2026-11-18 · `FE-48` — WAFA: aviso de participantes y «Rearmar patrullas»
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `wafa/rearmar-patrullas`. Usa `BE-31`.
+
+- **Editar participantes:** el aviso decía «rearma las patrullas y les cambia el PIN», que desde `BE-31` es falso. Ahora dice que las patrullas se conservan con sus PIN, y al guardar muestra cuántos entraron y salieron («Entró 1 y salió 1; las patrullas se conservaron.») con un link a «Revisar las patrullas», donde el editor muestra lo que no cumpla el reglamento.
+- **«Rearmar patrullas»** en la pantalla de patrullas, con dos toques como borrar un torneo (sin `confirm()` ni modal): el primero avisa que cambian los PIN y que se pierden los cambios sin guardar; el segundo llama a `POST /patrols/rebuild` y muestra lo que devolvió el servidor. «Cancelar» lo deja como estaba.
+
+**Verificado:** 4 tests de pantalla vistos fallar primero; `@bal/app` 769 verdes; presupuestos en verde. **WAFA 139,8 de 140 KB**: queda 0,2 KB de margen, y el próximo cambio en WAFA casi seguro necesite recortar o subir el tope. No se probó en el navegador (WAFA necesita sesión y API).
+
+**Hallazgo, sin tocar:** `SelectorDeArqueros` muestra un aviso que «corre el mismo algoritmo que el servidor» (`buildPatrols`). Al editar participantes eso ya no es lo que hace el servidor —incorpora sin rearmar—, así que ese aviso describe un armado que no va a pasar. En el wizard de creación sigue siendo exacto.
+
+---
 
 ---
 

@@ -979,7 +979,8 @@ _(Hecho, con el endpoint de «Rearmar patrullas» para `FE-48`. Ver `docs/BITACO
 - Editar participantes usa `incorporarArqueros` (decisión 5); `buildPatrols` sólo en el armado inicial y en «Rearmar patrullas» explícito.
 **DoD:** test de servicio: con patrullas ajustadas a mano, agregar un arquero deja a los demás donde estaban, con el mismo PIN; audit.
 
-### `[ ] FE-48` · WAFA: aviso y «Rearmar patrullas» · P1
+### `[x] FE-48` · WAFA: aviso y «Rearmar patrullas» · P1
+_(Hecho. WAFA queda en 139,8 de 140 KB. Ver `docs/BITACORA.md`, entrada del 2026-11-18.)_
 **Archivos:** `packages/app/src/wafa/detalle/EdicionDeParticipantes.tsx`, `pages/Patrols.tsx`
 - Al guardar participantes: «Se agregaron N arqueros a patrullas existentes» y, si quedan violaciones, link directo al editor.
 - Botón «Rearmar patrullas» con confirmación de dos toques: avisa que cambian los PIN.

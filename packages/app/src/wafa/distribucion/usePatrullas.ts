@@ -104,12 +104,38 @@ export function usePatrullas(id: string) {
     }
   };
 
+  /**
+   * «Rearmar patrullas» (`FE-48`, endpoint de `BE-31`): todo desde cero, con PIN nuevos. Descarta
+   * el borrador local —la pantalla lo avisa antes— y muestra lo que devolvió el servidor.
+   */
+  const rearmar = async () => {
+    setGuardando(true);
+    setErrorDeGuardado(undefined);
+
+    try {
+      const r: Respuesta = await cuerpo(
+        rpc.admin.tournaments[':id'].patrols.rebuild.$post({ param: { id } }),
+      );
+      setPatrullas(r.patrols);
+      setBorrador(borradorDe(r.patrols));
+      setSinGuardar(false);
+      setGuardado(true);
+    } catch (err) {
+      setErrorDeGuardado(
+        err instanceof ApiError ? err.message : 'No se pudo rearmar. Revisá la conexión.',
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return {
     torneo: carga.datos?.torneo,
     patrullas,
     borrador,
     editar,
     guardar,
+    rearmar,
     guardando,
     guardado,
     sinGuardar,
