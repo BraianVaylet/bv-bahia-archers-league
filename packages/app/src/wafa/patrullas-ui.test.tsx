@@ -772,3 +772,41 @@ describe('crear una patrulla', () => {
     expect(unica.textContent).not.toMatch(/481902/);
   });
 });
+
+// ── FE-48 · Rearmar patrullas ────────────────────────────────────────────────
+
+/*
+  Desde `BE-31`, editar participantes ya no rearma: rearmar todo desde cero es una acción explícita,
+  con **PIN nuevos**. Pide dos toques, como borrar un torneo: sin `confirm()` ni modal.
+*/
+describe('rearmar las patrullas (FE-48)', () => {
+  it('el primer toque avisa que cambian los PIN; el segundo rearma y muestra lo nuevo', async () => {
+    const rearmadas = [{ ...(PATRULLAS[0] as (typeof PATRULLAS)[number]), pin: '999999' }];
+    rutas['POST /api/admin/tournaments/t1/patrols/rebuild'] = () => ({
+      json: { patrols: rearmadas, violations: [] },
+    });
+    renderPatrullas();
+    await screen.findByTestId('patrulla-2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rearmar patrullas' }));
+    expect(screen.getByText(/cambian los PIN/)).toBeDefined();
+    expect(llamadas.some((l) => l.method === 'POST')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar: rearmar' }));
+
+    await waitFor(() => expect(screen.queryByTestId('patrulla-2')).toBeNull());
+    expect(llamadas.some((l) => l.url.endsWith('/patrols/rebuild'))).toBe(true);
+    expect(screen.getByTestId('pin-1')).toHaveTextContent('999999');
+  });
+
+  it('se puede arrepentir: «Cancelar» no rearma', async () => {
+    renderPatrullas();
+    await screen.findByTestId('patrulla-2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rearmar patrullas' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByText(/cambian los PIN/)).toBeNull();
+    expect(llamadas.some((l) => l.method === 'POST')).toBe(false);
+  });
+});
