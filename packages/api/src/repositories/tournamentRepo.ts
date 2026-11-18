@@ -217,6 +217,22 @@ export async function insertParticipants(
   await participants().insertMany([...docs], session ? { session } : {});
 }
 
+/**
+ * Saca participantes de un torneo, con sus puntajes (`BE-31`: quien se baja al editar). Sólo se
+ * usa con el torneo `sin_iniciar`, así que no debería haber puntajes; se borran igual, para que
+ * ninguno quede sin dueño.
+ */
+export async function removeParticipants(
+  tournamentId: ObjectId,
+  ids: readonly ObjectId[],
+  session?: ClientSession,
+): Promise<void> {
+  if (ids.length === 0) return;
+  const opts = session ? { session } : {};
+  await participants().deleteMany({ tournamentId, _id: { $in: [...ids] } }, opts);
+  await scores().deleteMany({ tournamentId, participantId: { $in: [...ids] } }, opts);
+}
+
 export function listParticipants(tournamentId: ObjectId): Promise<ParticipantDoc[]> {
   return participants().find({ tournamentId }).toArray();
 }

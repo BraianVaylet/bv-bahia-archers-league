@@ -14,6 +14,22 @@ Formato: entradas nuevas **arriba**.
 
 ---
 
+## 2026-11-17 · `BE-31` — Editar participantes conserva las patrullas
+
+**Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `api/participantes-sin-rearmar`. La pantalla es `FE-48`.
+
+Decisión 5 de la Fase 10, sobre `SH-12`. `PATCH /admin/tournaments/:id` con `archerIds` ya no vuelve a correr `buildPatrols`: calcula quiénes entran y quiénes salen y usa `incorporarArqueros`. Se borran sólo los que se bajan, se insertan los nuevos, se reubica a quien cambie de unidad o posición (el compañero del que se fue) y se crean patrullas sólo si hacen falta, con usuario y PIN propios (`patrullaNueva`). Todo en una transacción. Las patrullas conservan id y PIN; los pagos no se tocan, porque los participantes que siguen son los mismos documentos.
+
+- **Cuándo sí rearma:** si en el mismo pedido cambia el mapa de estacas y alguien cambia de estaca, o cambia la cantidad de blancos (`quienesRearmar`). Ahí cambia la estructura y el incremental no aplica.
+- **«Rearmar patrullas» explícito:** `POST /admin/tournaments/:id/patrols/rebuild`, sin body. Corre el armado sobre los inscriptos, con PIN nuevos, conserva los pagos y deja `patrol.rebuild` en la auditoría. Sólo sin iniciar (409 si no), con la guarda de estado en la transacción.
+- **Un solo lugar** arma un participante nuevo: `participanteNuevo`, extraído de `materializar`. Las validaciones de los arqueros (existen, no archivados, con estaca) salieron a `validarArqueros`, que usan los dos caminos.
+- `tournamentRepo.removeParticipants` borra participantes y sus puntajes (no debería haberlos sin iniciar; se borran igual, para que ninguno quede sin dueño).
+- La auditoría de `tournament.participants_edit` suma `added`, `removed`, `newPatrols` y `violations`.
+
+**Tests:** `participantes-sin-rearmar.test.ts` (9: agregar y quitar sin mover a nadie ni cambiar PIN, respetar el ajuste manual, patrulla nueva con credenciales, auditoría, y el rearmado con PIN nuevos y pagos, 409, 401, 404), vistos fallar primero. `@bal/api` 652 verdes, incluidos los de `edicion.test.ts`. `FUNCTIONAL.md` §8.2 actualizado: decía que los PIN cambiaban al editar participantes.
+
+---
+
 ## 2026-11-17 · `SH-12` — Dominio: incorporar y quitar arqueros sin rearmar
 
 **Autor:** Claude Opus 5.5 · **Estado:** completado, en la rama `dominio/incorporar-arqueros`. Lo usa `BE-31`.

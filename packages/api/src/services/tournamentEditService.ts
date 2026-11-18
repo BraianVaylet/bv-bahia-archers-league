@@ -15,21 +15,40 @@ import {
   type CampoDeTorneo,
   CampoNoEditableError,
   exigirEditables,
+  incorporarArqueros,
   maxPossibleScore,
+  type PlannedPatrol,
+  POSITIONS,
+  type Position,
   puedeEliminar,
   STAKES,
   type Stake,
   type StakeMap,
+  UNITS,
+  type Unit,
   type UpdateTournamentInput,
 } from '@bal/shared';
 import { ObjectId } from 'mongodb';
-import type { ParticipantDoc, StakeMapDoc, TargetDoc, TournamentDoc } from '../db/types.js';
+import type {
+  ParticipantDoc,
+  PatrolDoc,
+  StakeMapDoc,
+  TargetDoc,
+  TournamentDoc,
+} from '../db/types.js';
 import { AppError, notFound, validationError } from '../lib/errors.js';
 import * as archerRepo from '../repositories/archerRepo.js';
 import * as auditRepo from '../repositories/auditRepo.js';
+import * as patrolRepo from '../repositories/patrolRepo.js';
 import * as scoreRepo from '../repositories/scoreRepo.js';
 import * as tournamentRepo from '../repositories/tournamentRepo.js';
-import { aParticipantInput, conTransaccion, materializar } from './tournamentService.js';
+import {
+  aParticipantInput,
+  conTransaccion,
+  materializar,
+  participanteNuevo,
+  patrullaNueva,
+} from './tournamentService.js';
 
 /** Blancos del torneo que ya tienen al menos un puntaje cargado. */
 export async function blancosBloqueados(torneo: TournamentDoc): Promise<number[]> {
@@ -110,9 +129,11 @@ function estacaEn(mapa: StakeMap, category: string): Stake | null {
 }
 
 /**
- * A quiénes hay que rearmar, o `null` si las patrullas quedan como están.
+ * A quiénes hay que rearmar **desde cero**, o `null` si no hace falta.
  *
- * - Si el pedido trae participantes, a ellos (como siempre).
+ * - **Cambiar los participantes ya no rearma** (`BE-31`, decisión 5 de la Fase 10): se incorporan
+ *   y se quitan sin tocar a los demás (`prepararIncorporacion`). Sólo rearma si además cambia la
+ *   estructura, por alguna de las dos razones de abajo.
  * - Si cambia el mapa de estacas, a los inscriptos **sólo si alguno cambia de estaca**: si nadie
  *   se mueve, las patrullas y sus PIN se quedan y no hay que reimprimir nada.
  * - Si cambia **la cantidad** de blancos con el torneo sin iniciar, a los inscriptos (`FE-32`): el
@@ -124,8 +145,6 @@ async function quienesRearmar(
   torneo: TournamentDoc,
   input: UpdateTournamentInput,
 ): Promise<readonly string[] | null> {
-  if (input.archerIds !== undefined) return input.archerIds;
-
   const cambiaLaCantidad =
     torneo.status === 'sin_iniciar' &&
     input.targets !== undefined &&
@@ -137,9 +156,8 @@ async function quienesRearmar(
   const alguienCambiaDeEstaca =
     mapa !== undefined && inscriptos.some((p) => estacaEn(mapa, p.category) !== p.stake);
 
-  return alguienCambiaDeEstaca || cambiaLaCantidad
-    ? inscriptos.map((p) => p.archerId.toHexString())
-    : null;
+  if (!alguienCambiaDeEstaca && !cambiaLaCantidad) return null;
+  return input.archerIds ?? inscriptos.map((p) => p.archerId.toHexString());
 }
 
 /**
@@ -260,6 +278,23 @@ export async function updateTournament(
     cambios.participantCount = nuevosParticipantes.participantDocs.length;
   }
 
+  // Cambiar quiénes participan, sin cambiar la estructura: se incorporan y se quitan sin
+  // rearmar (`BE-31`). Las patrullas, sus PIN y lo que el admin ajustó a mano se conservan.
+  const incorporacion =
+    aRearmar === null && input.archerIds !== undefined
+      ? await prepararIncorporacion(
+          torneo,
+          input.archerIds,
+          input.stakeMap ?? torneo.stakeMap,
+          (input.targets ?? torneo.targets).length,
+        )
+      : null;
+
+  if (incorporacion) {
+    cambios.patrolCount = incorporacion.patrolCount;
+    cambios.participantCount = incorporacion.participantCount;
+  }
+
   const actualizado = await tournamentRepo.updateIfStatus(tournamentId, torneo.status, cambios);
 
   if (!actualizado) {
@@ -295,6 +330,8 @@ export async function updateTournament(
       );
     });
   }
+
+  if (incorporacion) await aplicarIncorporacion(tournamentId, incorporacion, actorId);
 
   if (cambios.targets) {
     await auditRepo.record({
@@ -368,6 +405,251 @@ async function prepararParticipantes(
   stakeMap: StakeMap,
   blancos: number,
 ) {
+  const arqueros = await validarArqueros(archerIds, stakeMap);
+  const plan = buildPatrols(aParticipantInput(arqueros), stakeMap, blancos);
+  return materializar(plan, torneo._id, new Date());
+}
+
+/**
+ * Las patrullas de la base como las entiende el dominio, en orden de número: unidades por
+ * etiqueta y miembros por posición. Es lo que `incorporarArqueros` conserva.
+ */
+function patrullasActuales(
+  patrullas: readonly PatrolDoc[],
+  inscriptos: readonly ParticipantDoc[],
+): PlannedPatrol[] {
+  return [...patrullas]
+    .sort((a, b) => a.number - b.number)
+    .map((p) => {
+      const propios = inscriptos.filter((m) => m.patrolId.equals(p._id));
+      return {
+        number: p.number,
+        startTargetIndex: p.startTargetIndex,
+        units: UNITS.flatMap((label) => {
+          const deLaUnidad = propios
+            .filter((m) => m.unit === label)
+            .sort((a, b) => POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position));
+          const [primero] = deLaUnidad;
+          if (!primero) return [];
+          return [
+            {
+              label,
+              category: primero.category,
+              stake: primero.stake,
+              members: deLaUnidad.map((m) => ({
+                archerId: m.archerId.toHexString(),
+                firstName: m.firstName,
+                lastName: m.lastName,
+                category: m.category,
+                stake: m.stake,
+                position: m.position,
+                ...(m.sex ? { sex: m.sex } : {}),
+              })),
+            },
+          ];
+        }),
+      };
+    });
+}
+
+/** Lo que hay que escribir para incorporar y quitar arqueros sin rearmar (`BE-31`). */
+interface Incorporacion {
+  readonly patrullasNuevas: readonly PatrolDoc[];
+  readonly insertar: readonly ParticipantDoc[];
+  readonly reubicar: readonly {
+    readonly id: ObjectId;
+    readonly patrolId: ObjectId;
+    readonly unit: Unit;
+    readonly position: Position;
+  }[];
+  readonly quitar: readonly ObjectId[];
+  readonly patrolCount: number;
+  readonly participantCount: number;
+  readonly violaciones: number;
+}
+
+/**
+ * Calcula cómo quedan las patrullas con los arqueros que entran y salen, **sin rearmar**
+ * (`incorporarArqueros`, `SH-12`), y qué hay que escribir. Las credenciales de las patrullas que
+ * hagan falta se generan acá, fuera de la transacción: argon2id tarda.
+ *
+ * Las mismas validaciones que el armado: que los arqueros existan, que ninguno esté archivado y
+ * que el mapa de estacas los ubique.
+ */
+async function prepararIncorporacion(
+  torneo: TournamentDoc,
+  archerIds: readonly string[],
+  stakeMap: StakeMap,
+  blancos: number,
+): Promise<Incorporacion> {
+  const arqueros = await validarArqueros(archerIds, stakeMap);
+  const [patrullas, inscriptos] = await Promise.all([
+    patrolRepo.listByTournament(torneo._id),
+    tournamentRepo.listParticipants(torneo._id),
+  ]);
+
+  const pedidos = new Set(archerIds);
+  const porArquero = new Map(inscriptos.map((p) => [p.archerId.toHexString(), p]));
+  const nuevos = aParticipantInput(arqueros.filter((a) => !porArquero.has(a._id.toHexString())));
+  const quitados = inscriptos.filter((p) => !pedidos.has(p.archerId.toHexString()));
+
+  const resultado = incorporarArqueros(
+    patrullasActuales(patrullas, inscriptos),
+    { nuevos, quitados: quitados.map((p) => p.archerId.toHexString()) },
+    stakeMap,
+    blancos,
+  );
+
+  const ahora = new Date();
+  const existentes = new Map(patrullas.map((p) => [p.number, p._id]));
+  const patrullasNuevas = await Promise.all(
+    resultado.patrols
+      .filter((p) => !existentes.has(p.number))
+      .map((p) => patrullaNueva(torneo._id, p.number, p.startTargetIndex, ahora)),
+  );
+  const idDe = new Map([...existentes, ...patrullasNuevas.map((p) => [p.number, p._id] as const)]);
+
+  const insertar: ParticipantDoc[] = [];
+  const reubicar: Incorporacion['reubicar'][number][] = [];
+  for (const p of resultado.patrols) {
+    // biome-ignore lint/style/noNonNullAssertion: cada número tiene su patrulla, vieja o nueva
+    const patrolId = idDe.get(p.number)!;
+    for (const u of p.units) {
+      for (const m of u.members) {
+        const previo = porArquero.get(m.archerId);
+        if (!previo) {
+          insertar.push(participanteNuevo(m, u.label, torneo._id, patrolId, ahora));
+        } else if (
+          !previo.patrolId.equals(patrolId) ||
+          previo.unit !== u.label ||
+          previo.position !== m.position
+        ) {
+          reubicar.push({ id: previo._id, patrolId, unit: u.label, position: m.position });
+        }
+      }
+    }
+  }
+
+  return {
+    patrullasNuevas,
+    insertar,
+    reubicar,
+    quitar: quitados.map((p) => p._id),
+    patrolCount: resultado.patrols.length,
+    participantCount: archerIds.length,
+    violaciones: resultado.violations.length,
+  };
+}
+
+/** Escribe la incorporación, todo junto: un participante a medio mover no puede quedar. */
+async function aplicarIncorporacion(
+  tournamentId: ObjectId,
+  inc: Incorporacion,
+  actorId: ObjectId,
+): Promise<void> {
+  await conTransaccion(async (session) => {
+    await tournamentRepo.removeParticipants(tournamentId, inc.quitar, session);
+    await tournamentRepo.insertPatrols(inc.patrullasNuevas, session);
+    await tournamentRepo.insertParticipants(inc.insertar, session);
+    for (const r of inc.reubicar) {
+      await tournamentRepo.reassignParticipant(
+        r.id,
+        { patrolId: r.patrolId, unit: r.unit, position: r.position },
+        session,
+      );
+    }
+
+    await auditRepo.record(
+      {
+        actorType: 'admin',
+        actorId,
+        action: 'tournament.participants_edit',
+        entity: 'tournament',
+        entityId: tournamentId,
+        meta: {
+          participants: inc.participantCount,
+          patrols: inc.patrolCount,
+          added: inc.insertar.length,
+          removed: inc.quitar.length,
+          newPatrols: inc.patrullasNuevas.length,
+          violations: inc.violaciones,
+        },
+      },
+      session,
+    );
+  });
+}
+
+/**
+ * «Rearmar patrullas», como acción explícita del admin (`BE-31`, decisión 5 de la Fase 10).
+ *
+ * Desde que editar participantes dejó de rearmar, ésta es la única forma de volver a correr
+ * `buildPatrols` sobre un torneo armado: patrullas nuevas, **con PIN nuevos** —la pantalla lo
+ * avisa antes (`FE-48`)—. Se conservan los pagos. Sólo sin iniciar.
+ *
+ * @throws {AppError} `NOT_FOUND` · `INVALID_STATE_TRANSITION` si el torneo ya arrancó.
+ */
+export async function rearmarPatrullas(
+  tournamentId: ObjectId,
+  actorId: ObjectId,
+  ip: string | null,
+): Promise<void> {
+  const torneo = await tournamentRepo.findById(tournamentId);
+  if (!torneo) throw notFound();
+  if (torneo.status !== 'sin_iniciar') {
+    throw new AppError('INVALID_STATE_TRANSITION', {
+      message: 'Las patrullas sólo se pueden rearmar mientras el torneo no arrancó.',
+    });
+  }
+
+  const inscriptos = await tournamentRepo.listParticipants(tournamentId);
+  const { patrolDocs, participantDocs: sinPagos } = await prepararParticipantes(
+    torneo,
+    inscriptos.map((p) => p.archerId.toHexString()),
+    torneo.stakeMap,
+    torneo.targets.length,
+  );
+  const participantDocs = await conLosPagos(torneo, sinPagos);
+
+  await conTransaccion(async (session) => {
+    const actualizado = await tournamentRepo.updateIfStatus(
+      tournamentId,
+      'sin_iniciar',
+      { patrolCount: patrolDocs.length, participantCount: participantDocs.length },
+      session,
+    );
+    if (!actualizado) {
+      throw new AppError('INVALID_STATE_TRANSITION', {
+        message: 'El torneo cambió de estado mientras se procesaba la solicitud.',
+      });
+    }
+
+    await tournamentRepo.clearDistribution(tournamentId, session);
+    await tournamentRepo.insertPatrols(patrolDocs, session);
+    await tournamentRepo.insertParticipants(participantDocs, session);
+
+    await auditRepo.record(
+      {
+        actorType: 'admin',
+        actorId,
+        action: 'patrol.rebuild',
+        entity: 'tournament',
+        entityId: tournamentId,
+        meta: { patrols: patrolDocs.length, participants: participantDocs.length },
+        ip,
+      },
+      session,
+    );
+  });
+}
+
+/**
+ * Que los arqueros existan, que ninguno esté archivado y que el mapa de estacas los ubique.
+ *
+ * Las mismas comprobaciones que al crear el torneo: si estuvieran sólo en la creación, se podría
+ * meter un archivado por la puerta de la edición.
+ */
+async function validarArqueros(archerIds: readonly string[], stakeMap: StakeMap) {
   const ids = archerIds.map((id) => new ObjectId(id));
   const arqueros = await archerRepo.findManyByIds(ids);
 
@@ -394,7 +676,5 @@ async function prepararParticipantes(
     throw validationError({ stakeMap: `Sin estaca para: ${sinEstaca.join(', ')}.` });
   }
 
-  const plan = buildPatrols(aParticipantInput(arqueros), stakeMap, blancos);
-
-  return materializar(plan, torneo._id, new Date());
+  return arqueros;
 }

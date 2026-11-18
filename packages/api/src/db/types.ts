@@ -336,6 +336,8 @@ export type AuditAction =
   | 'patrol.pin.regenerate'
   | 'patrol.pin.reveal'
   | 'patrol.manual_edit'
+  /** «Rearmar patrullas» explícito (`BE-31`): patrullas y PIN nuevos. */
+  | 'patrol.rebuild'
   /** La patrulla cerró el circuito: todas las firmas puestas. */
   | 'patrol.close'
   | 'sync.conflict'

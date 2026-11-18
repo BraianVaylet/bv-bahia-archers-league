@@ -303,6 +303,22 @@ export const admin = new Hono()
     return c.json({ patrols, violations });
   })
 
+  /**
+   * «Rearmar patrullas», explícito (`BE-31`). Editar participantes ya no rearma: ésta es la única
+   * forma de volver a armar todo desde cero, con PIN nuevos. Sin body.
+   */
+  .post('/tournaments/:id/patrols/rebuild', async (c) => {
+    const id = toObjectId(c.req.param('id'));
+
+    await tournamentEditService.rearmarPatrullas(id, currentAdminId(c), ipDelCliente(c));
+
+    const [patrols, violations] = await Promise.all([
+      patrolAdminService.listPatrols(id, currentAdminId(c), ipDelCliente(c), true),
+      patrolAdminService.validateCurrentDistribution(id),
+    ]);
+    return c.json({ patrols, violations });
+  })
+
   /** Resultados con los rollups de cada participante. Ver `tournamentQueryService`. */
   .get('/tournaments/:id/results', async (c) =>
     c.json(await tournamentQueryService.resultadosAdmin(toObjectId(c.req.param('id')))),

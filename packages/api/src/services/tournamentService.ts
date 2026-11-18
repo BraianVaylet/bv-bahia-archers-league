@@ -14,7 +14,9 @@ import {
   type ParticipantInput,
   type PatrolPlan,
   type PatrolWarning,
+  type PlannedMember,
   type StakeMap,
+  type Unit,
 } from '@bal/shared';
 import { type ClientSession, ObjectId } from 'mongodb';
 import { iniciarSesion } from '../db/sesion.js';
@@ -232,39 +234,56 @@ export async function materializar(
 
     for (const unidad of patrulla.units) {
       for (const miembro of unidad.members) {
-        participantDocs.push({
-          _id: new ObjectId(),
-          tournamentId,
-          patrolId,
-          archerId: new ObjectId(miembro.archerId),
-          // Snapshot congelado: el histórico no cambia si el arquero se edita
-          // o se archiva después. Ver docs/ARCHITECTURE.md §5, decisión 2.
-          firstName: miembro.firstName,
-          lastName: miembro.lastName,
-          category: miembro.category,
-          sex: miembro.sex ?? null,
-          stake: miembro.stake,
-          unit: unidad.label,
-          position: miembro.position,
-          total: 0,
-          innerCount: 0,
-          xCount: 0,
-          tenCount: 0,
-          mCount: 0,
-          targetsCompleted: 0,
-          normalizedPct: 0,
-          byModality: { ...MODALIDADES_EN_CERO },
-          status: 'activo',
-          paid: false,
-          signature: null,
-          createdAt: ahora,
-          updatedAt: ahora,
-        });
+        participantDocs.push(
+          participanteNuevo(miembro, unidad.label, tournamentId, patrolId, ahora),
+        );
       }
     }
   }
 
   return { patrolDocs, participantDocs };
+}
+
+/**
+ * El documento de un participante recién inscripto, en su patrulla, unidad y posición. Lo usan el
+ * armado (`materializar`) y la incorporación sin rearmar (`BE-31`): un solo lugar decide cómo
+ * arranca un participante (totales en cero, sin pagar, sin firma).
+ */
+export function participanteNuevo(
+  miembro: PlannedMember,
+  unit: Unit,
+  tournamentId: ObjectId,
+  patrolId: ObjectId,
+  ahora: Date,
+): ParticipantDoc {
+  return {
+    _id: new ObjectId(),
+    tournamentId,
+    patrolId,
+    archerId: new ObjectId(miembro.archerId),
+    // Snapshot congelado: el histórico no cambia si el arquero se edita
+    // o se archiva después. Ver docs/ARCHITECTURE.md §5, decisión 2.
+    firstName: miembro.firstName,
+    lastName: miembro.lastName,
+    category: miembro.category,
+    sex: miembro.sex ?? null,
+    stake: miembro.stake,
+    unit,
+    position: miembro.position,
+    total: 0,
+    innerCount: 0,
+    xCount: 0,
+    tenCount: 0,
+    mCount: 0,
+    targetsCompleted: 0,
+    normalizedPct: 0,
+    byModality: { ...MODALIDADES_EN_CERO },
+    status: 'activo',
+    paid: false,
+    signature: null,
+    createdAt: ahora,
+    updatedAt: ahora,
+  };
 }
 
 /** Ejecuta el callback dentro de una transacción. */
